@@ -7,28 +7,136 @@ const sortedArticles = allArticles.sort((a, b) => b.data.date.valueOf() - a.data
 ---
 
 <BaseLayout title="Home">
-  <section class="container" style="text-align: center; padding-top: 4rem; padding-bottom: 4rem;">
-    <h1 style="font-size: 3rem; margin-bottom: 1rem;">HadithCritic</h1>
-    <p style="font-size: 1.25rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">
-      A scholarly digital research platform for hadith criticism, isnād analysis, early Islamic history, and source criticism.
-    </p>
-  </section>
-
-  <section class="container" style="margin-top: 2rem;">
-    <h2>Latest Research</h2>
-    <div style="display: grid; gap: 2rem; margin-top: 2rem;">
-      {sortedArticles.slice(0, 5).map(article => (
-        <article class="source-card" style="margin: 0; transition: transform 0.2s; border-left: 4px solid var(--accent-color);">
-          <a href={`/articles/${article.id}`} style="text-decoration: none;">
-            <h3 style="margin: 0; color: var(--text-primary); font-size: 1.5rem;">{article.data.title}</h3>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">{article.data.description}</p>
-            <div style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem;">
-              <span>{article.data.date.toLocaleDateString()}</span>
-              <span>{article.data.category}</span>
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="particles" id="particleSystem"></div>
+        <div class="container hero-layout">
+            <div class="hero-text">
+                <div class="hero-crest">
+                    <div class="hero-crest-dot"></div>
+                    <span>Academic Deconstruction</span>
+                </div>
+                <h1>Unveiling The<br><em>History of Hadith</em></h1>
+                <div class="hero-divider"></div>
+                <p>
+                    A rigorous examination of traditional Islamic narratives through historical criticism, philosophical
+                    analysis, and the Quranic mandate. Questioning isnād-based methodology and mainstream assumptions of
+                    authenticity.
+                </p>
+                <div class="hero-btns">
+                    <a href="#latest" class="btn btn-primary">
+                        Start Reading <i class="fas fa-arrow-right"></i>
+                    </a>
+                    <a href="https://youtube.com/@HadithCritic" target="_blank" class="btn btn-outline">
+                        <i class="fab fa-youtube"></i> YouTube
+                    </a>
+                </div>
             </div>
-          </a>
-        </article>
-      ))}
+
+            <!-- Isnad Network Visualization -->
+            <div class="hero-visual">
+                <div class="orbital-rings">
+                    <div class="analysis-ring analysis-ring-1"></div>
+                    <div class="analysis-ring analysis-ring-2"></div>
+                    <div class="analysis-ring analysis-ring-3"></div>
+                </div>
+                <div class="particle-burst" id="particleBurst"></div>
+                <svg class="isnad-canvas" id="isnadCanvas"></svg>
+                <div class="isnad-network" id="isnadNetwork">
+                    <div class="isnad-bundle left-1">
+                        <div class="narrator-node" data-name="Rawī A">R1</div>
+                        <div class="narrator-node common-link" data-name="Muḥaddith X" data-common="true">M</div>
+                        <div class="narrator-node" data-name="Rawī B">R2</div>
+                    </div>
+                    <div class="isnad-bundle left-2">
+                        <div class="narrator-node" data-name="Rawī C">R3</div>
+                        <div class="narrator-node common-link" data-name="Weak Link Y" data-common="true">W</div>
+                        <div class="narrator-node" data-name="Rawī D">R4</div>
+                    </div>
+                    <div class="isnad-bundle right-1">
+                        <div class="narrator-node" data-name="Rawī H">R8</div>
+                        <div class="narrator-node common-link" data-name="Disputed P" data-common="true">D</div>
+                    </div>
+                    <div class="isnad-bundle right-2">
+                        <div class="narrator-node common-link" data-name="Liar Q" data-common="true">L</div>
+                        <div class="narrator-node" data-name="Rawī J">R10</div>
+                    </div>
+                </div>
+                <div class="critic-container">
+                    <img src="https://hadithcriticblog.com/wp-content/uploads/2026/02/cropped-HCpfp.jpg"
+                        class="hero-image" alt="HadithCritic">
+                    <div class="analysis-status">EXTRACTING HISTORICAL REALITY</div>
+                </div>
+                <div class="extraction-beam" id="beam1"></div>
+                <div class="extraction-beam" id="beam2"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number" id="articleCount">{allArticles.length}</div>
+                    <div class="stat-label">Articles</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">400+</div>
+                    <div class="stat-label">Transmitters Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">8</div>
+                    <div class="stat-label">Centuries of Sources</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">9</div>
+                    <div class="stat-label">Debunked Prophecies</div>
+                </div>
+            </div>
+        </div>
     </div>
-  </section>
+
+    <!-- Content Sections -->
+    <section id="latest" class="content-section">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-title">
+                    <h2>Latest Analysis</h2>
+                    <p>Recent historical investigations and critical research</p>
+                </div>
+                <div class="search-container">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search narrations...">
+                </div>
+            </div>
+
+            <div class="filters" id="categoryFilters">
+                <div class="filter-btn active" data-filter="all">All Fields</div>
+                <div class="filter-btn" data-filter="history">History</div>
+                <div class="filter-btn" data-filter="prophecies">Prophecies</div>
+                <div class="filter-btn" data-filter="theology">Theology</div>
+                <div class="filter-btn" data-filter="philosophy">Philosophy</div>
+            </div>
+            
+            <div class="blog-grid" style="margin-top: 32px;" id="blogGrid">
+              {sortedArticles.slice(0, 6).map((article: any) => (
+                  <a href={`/articles/${article.id}`} class={`blog-card ${article.data.category?.toLowerCase() || 'history'}`}>
+                      <div class="card-img-wrapper">
+                          <img src={article.data.image || "https://hadithcriticblog.com/wp-content/uploads/2025/11/new-black-thumbnails-10.png"} class="card-img" alt={article.data.title} />
+                      </div>
+                      <div class="card-body">
+                          <div class="post-meta">{article.data.category || 'HISTORY'}</div>
+                          <h3 class="post-title">{article.data.title}</h3>
+                          <p class="post-excerpt">{article.data.description}</p>
+                          <div class="card-footer">
+                              <span class="read-more">Read <i class="fas fa-arrow-right"></i></span>
+                              <span class="post-date">{article.data.date.toLocaleDateString()}</span>
+                          </div>
+                      </div>
+                  </a>
+              ))}
+            </div>
+        </div>
+    </section>
 </BaseLayout>
