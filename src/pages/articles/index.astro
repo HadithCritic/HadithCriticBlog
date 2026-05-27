@@ -1,0 +1,31 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+
+const articles = await getCollection('articles');
+const sortedArticles = articles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+---
+
+<BaseLayout title="All Articles">
+  <div class="container">
+    <header style="margin: 4rem 0 2rem 0;">
+      <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">All Articles</h1>
+      <p style="color: var(--text-secondary);">A complete archive of research articles and essays.</p>
+    </header>
+
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+      {sortedArticles.map(article => (
+        <article style="border-bottom: 1px solid var(--border-color); padding-bottom: 2rem;">
+          <a href={`/articles/${article.id}`}>
+            <h2 style="margin: 0; color: var(--text-primary); font-size: 1.5rem;">{article.data.title}</h2>
+          </a>
+          <p style="color: var(--text-secondary); margin: 0.5rem 0;">{article.data.description}</p>
+          <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1rem;">
+            <span>{article.data.date.toLocaleDateString()}</span>
+            <span>{article.data.category}</span>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</BaseLayout>
