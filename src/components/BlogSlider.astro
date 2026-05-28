@@ -1,0 +1,532 @@
+---
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  articles?: CollectionEntry<'articles'>[];
+  compact?: boolean;
+}
+
+const { articles = [], compact = false } = Astro.props;
+
+const categoryMap: Record<string, { icon: string, color: string }> = {
+    "Hadith Transmission": { icon: "fa-project-diagram", color: "#4f46e5" },
+    "Prophecies & Miracles": { icon: "fa-hourglass-half", color: "#0d9488" },
+    "Quranic Theology": { icon: "fa-book-open", color: "#9333ea" },
+    "Legal Theory": { icon: "fa-gavel", color: "#2563eb" },
+    "Comparative Religion": { icon: "fa-scroll", color: "#d97706" },
+    "Philosophy": { icon: "fa-brain", color: "#e11d48" }
+};
+
+const categories = [
+    { name: "All", icon: "fa-layer-group" },
+    { name: "Hadith Transmission", icon: "fa-project-diagram" },
+    { name: "Prophecies & Miracles", icon: "fa-hourglass-half" },
+    { name: "Quranic Theology", icon: "fa-book-open" },
+    { name: "Legal Theory", icon: "fa-gavel" },
+    { name: "Comparative Religion", icon: "fa-scroll" },
+    { name: "Philosophy", icon: "fa-brain" }
+];
+
+const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+};
+---
+
+<section class="blog-slider-section">
+    <div class="slider-header">
+        <div class="slider-title">
+            <h2>Blogs, Research, & Analysis.</h2>
+            <p>Explore scholarly critique without leaving your browser.</p>
+        </div>
+        
+        <div class="slider-categories-container">
+            <div class="slider-categories" id="categoryTabs">
+                <div class="category-highlight" id="catHighlight"></div>
+                {categories.map((cat, index) => (
+                    <button class={`cat-tab ${index === 0 ? 'active' : ''}`} data-index={index} data-filter={cat.name}>
+                        <i class={`fas ${cat.icon}`}></i> {cat.name}
+                    </button>
+                ))}
+            </div>
+        </div>
+    </div>
+
+    <div class="slider-main">
+        <div class="cards-wrapper" id="cardsWrapper">
+            {articles.map((article) => {
+                const catInfo = categoryMap[article.data.category] || { icon: "fa-file-alt", color: "#555" };
+                return (
+                    <a href={`/articles/${article.slug}`} class="blog-card-ray" style={`--card-color: ${catInfo.color};`} data-category={article.data.category}>
+                        <div class="card-thumbnail-rect">
+                            <div class="thumb-bg-grid"></div>
+                            <div class="thumb-glow-top"></div>
+                            <div class="thumb-glow-bottom"></div>
+                            
+                            <div class="thumb-content-rect">
+                                <div class="thumb-brand">
+                                    <img src="https://hadithcriticblog.com/wp-content/uploads/2026/02/cropped-HCpfp.jpg" alt="HC Logo">
+                                    <span>HADITHCRITIC</span>
+                                </div>
+                                <p class="thumb-category">RESEARCH ARTICLE</p>
+                                <h4 class="thumb-title">{article.data.title}</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="card-content-bottom">
+                            <div class="card-meta">
+                                <span class="card-cat-label"><i class={`fas ${catInfo.icon}`}></i> {article.data.category}</span>
+                                <time class="card-date">{formatDate(article.data.date)}</time>
+                            </div>
+                            <p class="card-desc">{article.data.description}</p>
+                        </div>
+                    </a>
+                );
+            })}
+        </div>
+        
+        <div class="slider-controls">
+            <a href="/blogs" class="btn btn-outline">Browse all blogs &rarr;</a>
+            <div class="control-btns">
+                <button class="slider-btn prev" id="sliderPrev" aria-label="Previous cards"><i class="fas fa-chevron-left"></i></button>
+                <button class="slider-btn next" id="sliderNext" aria-label="Next cards"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .blog-slider-section {
+        padding: 60px 20px;
+        max-width: 1300px;
+        margin: 0 auto;
+        width: 100%;
+        color: #fff;
+        font-family: var(--font-sans);
+    }
+
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 40px;
+        flex-wrap: wrap;
+        gap: 24px;
+    }
+
+    .slider-title h2 {
+        font-family: var(--font-sans);
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+        letter-spacing: -0.02em;
+        color: var(--text-heading);
+    }
+
+    .slider-title p {
+        font-size: 16px;
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    .slider-categories-container {
+        position: relative;
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .slider-categories-container::-webkit-scrollbar {
+        display: none;
+    }
+
+    .slider-categories {
+        display: inline-flex;
+        width: max-content;
+        position: relative;
+        background: rgba(25, 25, 25, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 9999px;
+        padding: 4px;
+        box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+        gap: 2px;
+        backdrop-filter: blur(10px);
+        flex-wrap: nowrap;
+    }
+
+    .category-highlight {
+        position: absolute;
+        top: 4px;
+        left: 0;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 9999px;
+        transition: transform 0.3s cubic-bezier(0.25, 1, 0.25, 1), width 0.3s cubic-bezier(0.25, 1, 0.25, 1);
+        pointer-events: none;
+        border: 1px solid rgba(255,255,255,0.1);
+        height: calc(100% - 8px);
+        z-index: 0;
+    }
+
+    .cat-tab {
+        position: relative;
+        z-index: 1;
+        background: transparent;
+        border: none;
+        color: #888;
+        font-family: var(--font-sans);
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.2px;
+        padding: 8px 16px;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: color 0.3s ease;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .cat-tab i {
+        font-size: 12px;
+        opacity: 0.6;
+        transition: opacity 0.3s ease, color 0.3s ease;
+    }
+
+    .cat-tab:hover, .cat-tab.active {
+        color: #fff;
+    }
+
+    .cat-tab.active i {
+        color: #fff;
+        opacity: 1;
+    }
+
+    .slider-main {
+        position: relative;
+    }
+
+    .cards-wrapper {
+        display: flex;
+        gap: 24px;
+        overflow-x: auto;
+        padding-bottom: 30px;
+        scrollbar-width: none;
+        scroll-behavior: smooth;
+        -ms-overflow-style: none;
+        scroll-snap-type: x mandatory;
+    }
+
+    .cards-wrapper::-webkit-scrollbar {
+        display: none;
+    }
+
+    .blog-card-ray {
+        flex: 0 0 clamp(300px, 30vw, 400px);
+        min-height: 400px;
+        background: var(--bg-panel);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        scroll-snap-align: start;
+        text-decoration: none;
+        color: inherit;
+        padding: 0;
+    }
+    
+    .blog-card-ray.hidden {
+        display: none;
+    }
+
+    .blog-card-ray:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Thumbnail Region */
+    .card-thumbnail-rect {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background-color: #0a0a0c;
+        overflow: hidden;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        padding: 24px;
+        box-sizing: border-box;
+    }
+
+    .thumb-bg-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
+        z-index: 0;
+    }
+
+    .thumb-glow-top {
+        position: absolute;
+        top: -30%;
+        left: -10%;
+        width: 70%;
+        height: 70%;
+        background: var(--card-color, #829bf9);
+        border-radius: 50%;
+        filter: blur(50px);
+        opacity: 0.2;
+        z-index: 0;
+    }
+
+    .thumb-glow-bottom {
+        position: absolute;
+        bottom: -30%;
+        right: -10%;
+        width: 60%;
+        height: 70%;
+        background: #e2e4e8;
+        border-radius: 50%;
+        filter: blur(50px);
+        opacity: 0.05;
+        z-index: 0;
+    }
+
+    .thumb-content-rect {
+        position: relative;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    .thumb-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: auto;
+    }
+    
+    .thumb-brand img {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .thumb-brand span {
+        font-family: 'Cinzel', serif;
+        font-size: 11px;
+        letter-spacing: 2px;
+        font-weight: 700;
+        background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 40%, #64748b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .thumb-category {
+        font-size: 10px;
+        color: rgba(255,255,255,0.5);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin: 0 0 6px 0;
+        font-weight: 600;
+    }
+
+    .thumb-title {
+        font-family: 'Cinzel', serif;
+        font-size: clamp(18px, 1.8vw, 24px);
+        font-weight: 700;
+        line-height: 1.2;
+        margin: 0;
+        background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 40%, #64748b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* Content Region */
+    .card-content-bottom {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+
+    .card-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .card-cat-label {
+        font-size: 11px;
+        color: var(--accent);
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+    
+    .card-cat-label i {
+        margin-right: 4px;
+    }
+
+    .card-date {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .card-desc {
+        color: var(--text-body);
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .thumb-content {
+        opacity: 0.15;
+        font-size: 100px;
+        filter: blur(4px);
+        color: var(--card-color);
+    }
+
+    /* Controls */
+    .slider-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    .control-btns {
+        display: flex;
+        gap: 8px;
+    }
+
+    .slider-btn {
+        background: #181818;
+        border: 1px solid rgba(255,255,255,0.05);
+        color: #666;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 12px;
+    }
+
+    .slider-btn:hover {
+        background: #2a2a2a;
+        color: #fff;
+        border-color: rgba(255,255,255,0.1);
+    }
+    
+    @media (max-width: 900px) {
+        .slider-header {
+            flex-direction: column;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tab Highlights and Filtering
+        const tabsContainer = document.getElementById('categoryTabs');
+        const wrapper = document.getElementById('cardsWrapper');
+        
+        if (tabsContainer && wrapper) {
+            const tabs = tabsContainer.querySelectorAll('.cat-tab');
+            const highlight = document.getElementById('catHighlight');
+            const cards = wrapper.querySelectorAll('.blog-card-ray');
+            let activeTab = tabsContainer.querySelector('.cat-tab.active');
+
+            // @ts-ignore
+            function updateHighlight(targetTab) {
+                if (!targetTab || !highlight || !tabsContainer) return;
+                const containerRect = tabsContainer.getBoundingClientRect();
+                const tabRect = targetTab.getBoundingClientRect();
+                const offsetLeft = tabRect.left - containerRect.left;
+                
+                highlight.style.width = `${tabRect.width}px`;
+                highlight.style.transform = `translateX(${offsetLeft}px)`;
+            }
+
+            if (activeTab) {
+                setTimeout(() => updateHighlight(activeTab), 50);
+            }
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Update active state
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    activeTab = tab;
+                    updateHighlight(activeTab);
+                    
+                    // Filter cards
+                    const filter = tab.getAttribute('data-filter');
+                    
+                    cards.forEach(card => {
+                        const category = card.getAttribute('data-category');
+                        if (filter === 'All' || category === filter) {
+                            card.classList.remove('hidden');
+                        } else {
+                            card.classList.add('hidden');
+                        }
+                    });
+                    
+                    // Reset scroll position
+                    wrapper.scrollLeft = 0;
+                });
+            });
+
+            window.addEventListener('resize', () => {
+                if (activeTab) updateHighlight(activeTab);
+            });
+        }
+
+        // Slider Controls
+        const prevBtn = document.getElementById('sliderPrev');
+        const nextBtn = document.getElementById('sliderNext');
+
+        if (wrapper && prevBtn && nextBtn) {
+            prevBtn.addEventListener('click', () => {
+                // Approximate card width + gap. Realistically we can just get the first visible card's width.
+                const visibleCard = Array.from(wrapper.querySelectorAll('.blog-card-ray:not(.hidden)')).find(c => true);
+                if (visibleCard) {
+                    const scrollAmount = visibleCard.getBoundingClientRect().width + 24;
+                    wrapper.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                }
+            });
+
+            nextBtn.addEventListener('click', () => {
+                const visibleCard = Array.from(wrapper.querySelectorAll('.blog-card-ray:not(.hidden)')).find(c => true);
+                if (visibleCard) {
+                    const scrollAmount = visibleCard.getBoundingClientRect().width + 24;
+                    wrapper.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                }
+            });
+        }
+    });
+</script>

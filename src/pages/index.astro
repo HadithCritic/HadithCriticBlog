@@ -1,9 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import BlogSlider from '../components/BlogSlider.astro';
 import { getCollection } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
 
 const allArticles = await getCollection('articles');
-const sortedArticles = allArticles.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const sortedArticles = allArticles.sort((a: CollectionEntry<'articles'>, b: CollectionEntry<'articles'>) => b.data.date.valueOf() - a.data.date.valueOf());
 ---
 
 <BaseLayout title="Home">
@@ -12,10 +14,6 @@ const sortedArticles = allArticles.sort((a, b) => b.data.date.valueOf() - a.data
         <div class="particles" id="particleSystem"></div>
         <div class="container hero-layout">
             <div class="hero-text">
-                <div class="hero-crest">
-                    <div class="hero-crest-dot"></div>
-                    <span>Academic Deconstruction</span>
-                </div>
                 <h1>Unveiling The<br><em>History of Hadith</em></h1>
                 <div class="hero-divider"></div>
                 <p>
@@ -24,8 +22,8 @@ const sortedArticles = allArticles.sort((a, b) => b.data.date.valueOf() - a.data
                     authenticity.
                 </p>
                 <div class="hero-btns">
-                    <a href="#latest" class="btn btn-primary">
-                        Start Reading <i class="fas fa-arrow-right"></i>
+                    <a href="/blogs" class="btn btn-primary">
+                        Read Blogs <i class="fas fa-arrow-right"></i>
                     </a>
                     <a href="https://youtube.com/@HadithCritic" target="_blank" class="btn btn-outline">
                         <i class="fab fa-youtube"></i> YouTube
@@ -72,71 +70,109 @@ const sortedArticles = allArticles.sort((a, b) => b.data.date.valueOf() - a.data
             </div>
         </div>
     </header>
+    <!-- Blog Slider Component -->
+    <BlogSlider articles={sortedArticles.slice(0, 12)} compact={true} />
 
-    <!-- Stats Bar -->
-    <div class="stats-bar">
+    <!-- Academia Section -->
+    <section class="academia-preview">
         <div class="container">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-number" id="articleCount">{allArticles.length}</div>
-                    <div class="stat-label">Articles</div>
+            <div class="academia-preview-content">
+                <div class="academia-preview-text">
+                    <h2>Academia</h2>
+                    <p>Academic publications, papers, and critical research methodologies in the field of Islamic studies.</p>
+                    <a href="/academia" class="btn btn-outline" style="margin-top: 20px;">
+                        Explore Academic Works <i class="fas fa-university"></i>
+                    </a>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number">400+</div>
-                    <div class="stat-label">Transmitters Analyzed</div>
+                <div class="academia-preview-visual">
+                    <div class="book-mini">
+                        <img src="/images/RefutationKJI_FC.png" alt="Book Cover" class="book-mini-img">
+                        <div class="badge-mini">Latest Publication</div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number">8</div>
-                    <div class="stat-label">Centuries of Sources</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number">9</div>
-                    <div class="stat-label">Debunked Prophecies</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Content Sections -->
-    <section id="latest" class="content-section">
-        <div class="container">
-            <div class="section-header">
-                <div class="section-title">
-                    <h2>Latest Analysis</h2>
-                    <p>Recent historical investigations and critical research</p>
-                </div>
-                <div class="search-container">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search narrations...">
-                </div>
-            </div>
-
-            <div class="filters" id="categoryFilters">
-                <div class="filter-btn active" data-filter="all">All Fields</div>
-                <div class="filter-btn" data-filter="history">History</div>
-                <div class="filter-btn" data-filter="prophecies">Prophecies</div>
-                <div class="filter-btn" data-filter="theology">Theology</div>
-                <div class="filter-btn" data-filter="philosophy">Philosophy</div>
-            </div>
-            
-            <div class="blog-grid" style="margin-top: 32px;" id="blogGrid">
-              {sortedArticles.slice(0, 6).map((article: any) => (
-                  <a href={`/articles/${article.id}`} class={`blog-card ${article.data.category?.toLowerCase() || 'history'}`}>
-                      <div class="card-img-wrapper">
-                          <img src={article.data.image || "https://hadithcriticblog.com/wp-content/uploads/2025/11/new-black-thumbnails-10.png"} class="card-img" alt={article.data.title} />
-                      </div>
-                      <div class="card-body">
-                          <div class="post-meta">{article.data.category || 'HISTORY'}</div>
-                          <h3 class="post-title">{article.data.title}</h3>
-                          <p class="post-excerpt">{article.data.description}</p>
-                          <div class="card-footer">
-                              <span class="read-more">Read <i class="fas fa-arrow-right"></i></span>
-                              <span class="post-date">{article.data.date.toLocaleDateString()}</span>
-                          </div>
-                      </div>
-                  </a>
-              ))}
             </div>
         </div>
     </section>
 </BaseLayout>
+
+<style>
+    .academia-preview {
+        padding: 80px 20px;
+        background: rgba(15, 15, 15, 0.6);
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .academia-preview-content {
+        max-width: 1000px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 60px;
+        background: linear-gradient(135deg, rgba(202, 138, 4, 0.05) 0%, transparent 100%);
+        border: 1px solid rgba(202, 138, 4, 0.1);
+        border-radius: 24px;
+        padding: 40px;
+    }
+
+    .academia-preview-text h2 {
+        font-family: var(--font-display);
+        font-size: 32px;
+        color: var(--text-heading);
+        margin: 0 0 16px 0;
+    }
+
+    .academia-preview-text p {
+        color: var(--text-body);
+        font-size: 16px;
+        line-height: 1.6;
+        margin: 0;
+        max-width: 400px;
+    }
+
+    .book-mini {
+        position: relative;
+        perspective: 1000px;
+    }
+
+    .book-mini-img {
+        width: 160px;
+        border-radius: 4px 8px 8px 4px;
+        box-shadow: -5px 10px 25px rgba(0,0,0,0.6), inset 2px 0 5px rgba(255,255,255,0.2);
+        transform: rotateY(-15deg);
+        transition: transform 0.5s ease;
+    }
+    
+    .book-mini:hover .book-mini-img {
+        transform: rotateY(-5deg) scale(1.05);
+    }
+
+    .badge-mini {
+        position: absolute;
+        top: -30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ca8a04;
+        color: #fff;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 12px rgba(202, 138, 4, 0.4);
+        white-space: nowrap;
+        z-index: 10;
+    }
+
+    @media (max-width: 768px) {
+        .academia-preview-content {
+            flex-direction: column-reverse;
+            text-align: center;
+            gap: 40px;
+        }
+        .academia-preview-text p {
+            margin: 0 auto;
+        }
+    }
+</style>
