@@ -5,153 +5,219 @@ import type { CollectionEntry } from 'astro:content';
 interface Props {
   articles?: CollectionEntry<'articles'>[];
   compact?: boolean;
+  limit?: number;
+  heading?: string;
+  description?: string;
 }
 
-const { compact = false } = Astro.props;
+const {
+  compact = false,
+  limit = 12,
+  heading = 'Blogs, Research, & Analysis.',
+  description = 'Browse source criticism, Qur’anic theology, legal theory, and comparative study.',
+} = Astro.props;
 
 const CATEGORY_SHORT: Record<string, string> = {
-  "Hadith Transmission & Rijāl Criticism": "Hadith Transmission",
-  "Prophecies, Eschatology & Miracle Claims": "Prophecies & Miracles",
-  "Quranic Theology & Tafsir": "Quranic Theology",
-  "Legal Theory, Madhhabs & Juristic Authority": "Legal Theory",
-  "Ritual Practice & Legal Reform": "Ritual Practice",
-  "Comparative Religion & Biblical Studies": "Comparative Religion",
-  "Philosophy & Epistemology": "Philosophy",
+  'Hadith Transmission & Rijāl Criticism': 'Hadith Transmission',
+  'Prophecies, Eschatology & Miracle Claims': 'Prophecies & Miracles',
+  'Quranic Theology & Tafsir': 'Quranic Theology',
+  'Legal Theory, Madhhabs & Juristic Authority': 'Legal Theory',
+  'Ritual Practice & Legal Reform': 'Ritual Practice',
+  'Comparative Religion & Biblical Studies': 'Comparative Religion',
+  'Philosophy & Epistemology': 'Philosophy',
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
-  "Hadith Transmission & Rijāl Criticism": "fa-project-diagram",
-  "Prophecies, Eschatology & Miracle Claims": "fa-hourglass-half",
-  "Quranic Theology & Tafsir": "fa-book-open",
-  "Legal Theory, Madhhabs & Juristic Authority": "fa-gavel",
-  "Ritual Practice & Legal Reform": "fa-mosque",
-  "Comparative Religion & Biblical Studies": "fa-scroll",
-  "Philosophy & Epistemology": "fa-brain",
+  'Hadith Transmission & Rijāl Criticism': 'fa-project-diagram',
+  'Prophecies, Eschatology & Miracle Claims': 'fa-hourglass-half',
+  'Quranic Theology & Tafsir': 'fa-book-open',
+  'Legal Theory, Madhhabs & Juristic Authority': 'fa-gavel',
+  'Ritual Practice & Legal Reform': 'fa-mosque',
+  'Comparative Religion & Biblical Studies': 'fa-scroll',
+  'Philosophy & Epistemology': 'fa-brain',
 };
 
 const TEMPLATE_COLORS: Record<string, string> = {
-  "isnad-forensics": "#b97955",
-  "prophecy-dossier": "#b49338",
-  "quranic-criterion": "#9b7aa6",
-  "logic-lab": "#829bf9",
-  "legal-edifice": "#c1973f",
-  "comparative-manuscripts": "#8fb7a1",
-  "ritual-diagram": "#d0a066",
+  'isnad-forensics': '#b97955',
+  'prophecy-dossier': '#b49338',
+  'quranic-criterion': '#9b7aa6',
+  'logic-lab': '#829bf9',
+  'legal-edifice': '#c1973f',
+  'comparative-manuscripts': '#8fb7a1',
+  'ritual-diagram': '#d0a066',
+};
+
+const TEMPLATE_LABELS: Record<string, string> = {
+  'isnad-forensics': 'Transmission Study',
+  'prophecy-dossier': 'Prophecy Dossier',
+  'quranic-criterion': 'Qur’anic Criterion',
+  'logic-lab': 'Logic Lab',
+  'legal-edifice': 'Legal Theory',
+  'comparative-manuscripts': 'Comparative Texts',
+  'ritual-diagram': 'Ritual Diagram',
 };
 
 const filterCategories = [
-  { label: "All",                    value: "All",                                         icon: "fa-layer-group" },
-  { label: "Hadith Transmission",    value: "Hadith Transmission & Rijāl Criticism",       icon: "fa-project-diagram" },
-  { label: "Prophecies & Miracles",  value: "Prophecies, Eschatology & Miracle Claims",    icon: "fa-hourglass-half" },
-  { label: "Quranic Theology",       value: "Quranic Theology & Tafsir",                   icon: "fa-book-open" },
-  { label: "Legal Theory",           value: "Legal Theory, Madhhabs & Juristic Authority", icon: "fa-gavel" },
-  { label: "Ritual Practice",        value: "Ritual Practice & Legal Reform",              icon: "fa-mosque" },
-  { label: "Comparative Religion",   value: "Comparative Religion & Biblical Studies",     icon: "fa-scroll" },
-  { label: "Philosophy",             value: "Philosophy & Epistemology",                   icon: "fa-brain" },
+  { label: 'All', value: 'All', icon: 'fa-layer-group' },
+  { label: 'Hadith Transmission', value: 'Hadith Transmission & Rijāl Criticism', icon: 'fa-project-diagram' },
+  { label: 'Prophecies & Miracles', value: 'Prophecies, Eschatology & Miracle Claims', icon: 'fa-hourglass-half' },
+  { label: 'Quranic Theology', value: 'Quranic Theology & Tafsir', icon: 'fa-book-open' },
+  { label: 'Legal Theory', value: 'Legal Theory, Madhhabs & Juristic Authority', icon: 'fa-gavel' },
+  { label: 'Ritual Practice', value: 'Ritual Practice & Legal Reform', icon: 'fa-mosque' },
+  { label: 'Comparative Religion', value: 'Comparative Religion & Biblical Studies', icon: 'fa-scroll' },
+  { label: 'Philosophy', value: 'Philosophy & Epistemology', icon: 'fa-brain' },
 ];
 
-const allPosts = [...blogMetadata];
-const quran49 = allPosts.find((post: any) => String(post.recommended_slug ?? '').includes('quran-49-6'));
-const latest = allPosts.reverse().filter((post: any) => post !== quran49).slice(0, 11);
-const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
+const allPosts = [...blogMetadata] as any[];
+const quran49 = allPosts.find((post) => String(post.recommended_slug ?? '').includes('quran-49-6'));
+const latest = [...allPosts].reverse().filter((post) => post !== quran49).slice(0, Math.max(limit - 1, 0));
+const posts = quran49 ? [quran49, ...latest] : [...allPosts].reverse().slice(0, limit);
+
+const categoryCounts = allPosts.reduce<Record<string, number>>((acc, post: any) => {
+  acc[post.category] = (acc[post.category] ?? 0) + 1;
+  return acc;
+}, {});
+
+const sliderUid = `blog-library-${Math.random().toString(36).slice(2, 9)}`;
+const totalPublished = allPosts.length;
 ---
 
-<section class={`blog-slider-section ${compact ? 'is-compact' : ''}`}>
+<section
+  class={`blog-slider-section ${compact ? 'is-compact' : ''}`}
+  id={sliderUid}
+  aria-labelledby={`${sliderUid}-heading`}
+  data-blog-library
+>
   <div class="slider-shell">
-    <div class="slider-header">
+    <header class="slider-header">
       <div class="slider-title">
-        <p class="slider-kicker">Library</p>
-        <h2>Blogs, Research, &amp; Analysis.</h2>
-        <p>Browse source criticism, Qur’anic theology, legal theory, and comparative study.</p>
+        <p class="slider-kicker">Research Library</p>
+        <h2 id={`${sliderUid}-heading`}>{heading}</h2>
+        <p>{description}</p>
       </div>
 
-      <div class="slider-categories-container" aria-label="Blog category filters">
-        <div class="slider-categories" id="categoryTabs">
-          <div class="category-highlight" id="catHighlight"></div>
-          {filterCategories.map((cat, index) => (
-            <button
-              class={`cat-tab ${index === 0 ? 'active' : ''}`}
-              type="button"
-              data-index={index}
-              data-filter={cat.value}
-            >
-              <i class={`fas ${cat.icon}`}></i> {cat.label}
-            </button>
-          ))}
-        </div>
+      <div class="library-stats" aria-label="Published library statistics">
+        <span><strong>{totalPublished}</strong> published studies</span>
+        <span><strong>{Object.keys(categoryCounts).length}</strong> categories</span>
+      </div>
+    </header>
+
+    <div class="filter-row" aria-label="Blog category filters">
+      <div class="category-select-wrapper">
+        <i class="fas fa-filter filter-icon"></i>
+        <select class="category-select" data-category-select aria-label="Filter studies by category">
+          {filterCategories.map((cat) => {
+            const count = cat.value === 'All' ? totalPublished : categoryCounts[cat.value] ?? 0;
+            return (
+              <option value={cat.value}>
+                {cat.label} ({count})
+              </option>
+            );
+          })}
+        </select>
+        <i class="fas fa-chevron-down chevron-icon"></i>
       </div>
     </div>
 
     <div class="slider-main">
-      <div class="cards-wrapper" id="cardsWrapper">
-        {posts.map((post: any, index: number) => {
-          const shortCat = CATEGORY_SHORT[post.category] ?? post.category;
-          const icon = CATEGORY_ICONS[post.category] ?? 'fa-file-alt';
-          const template = post.thumbnail_template ?? 'quranic-criterion';
-          const color = TEMPLATE_COLORS[template] ?? '#c1973f';
-          const isFeatured = index === 0;
+      <p class="result-live" data-result-live aria-live="polite">Showing featured and latest studies.</p>
 
-          return (
-            <a
-              href={`/blogs/${post.recommended_slug}`}
-              class={`blog-card-ray blog-card--${template} ${isFeatured ? 'is-featured-card' : ''}`}
-              data-category={post.category}
-              style={`--tmpl-color:${color}`}
-            >
-              <div class="card-thumbnail-rect">
-                {post.thumbnail_image ? (
-                  <>
-                    <img class="thumb-image" src={post.thumbnail_image} alt={post.recommended_title} />
-                    <div class="thumb-image-shade"></div>
-                  </>
-                ) : (
-                  <>
-                    <div class="thumb-bg-grid"></div>
-                    <div class="thumb-glow-top"></div>
-                    <div class="thumb-glow-bottom"></div>
-                    <div class="thumb-motif"></div>
-                    <div class="thumb-content-rect">
-                      <div class="thumb-brand">
+      <div class="cards-viewport">
+        <div class="scroll-fade scroll-fade-left" aria-hidden="true"></div>
+        <div class="scroll-fade scroll-fade-right" aria-hidden="true"></div>
+
+        <div class="cards-wrapper" data-cards-wrapper>
+          {posts.map((post: any, index: number) => {
+            const title = post.recommended_title ?? post.title ?? 'Untitled study';
+            const slug = post.recommended_slug ?? post.slug;
+            const shortCat = CATEGORY_SHORT[post.category] ?? post.category ?? 'Research';
+            const icon = CATEGORY_ICONS[post.category] ?? 'fa-file-alt';
+            const template = post.thumbnail_template ?? 'quranic-criterion';
+            const color = TEMPLATE_COLORS[template] ?? '#c1973f';
+            const templateLabel = TEMPLATE_LABELS[template] ?? 'Research Article';
+            const desc = post.seo_description ?? post.thumbnail_concept ?? post.visual_motif ?? post.excerpt ?? `A HadithCritic study in ${shortCat}.`;
+            const isFeatured = index === 0;
+            const href = `/blogs/${slug}`;
+
+            return (
+              <article
+                class={`blog-card-ray blog-card--${template} ${isFeatured ? 'is-featured-card' : ''}`}
+                data-category={post.category}
+                data-title={title.toLowerCase()}
+                style={`--tmpl-color:${color}`}
+                itemscope
+                itemtype="https://schema.org/Article"
+              >
+                <a href={href} class="card-link" itemprop="url" aria-label={`Read ${title}`}>
+                  <div class="card-thumbnail-rect" aria-hidden="true">
+                    {post.thumbnail_image ? (
+                      <>
                         <img
-                          src="https://hadithcriticblog.com/wp-content/uploads/2026/02/cropped-HCpfp.jpg"
-                          alt="HC Logo"
-                          width="22"
-                          height="22"
+                          class="thumb-image"
+                          src={post.thumbnail_image}
+                          alt=""
+                          loading={index < 3 ? 'eager' : 'lazy'}
+                          decoding="async"
+                          fetchpriority={index === 0 ? 'high' : 'auto'}
                         />
-                        <span>HADITHCRITIC</span>
-                      </div>
-                      <p class="thumb-category">{shortCat}</p>
-                      <h4 class="thumb-title thumb-title-in-card">{post.recommended_title}</h4>
+                        <div class="thumb-image-shade"></div>
+                      </>
+                    ) : (
+                      <>
+                        <div class="thumb-bg-grid"></div>
+                        <div class="thumb-glow-top"></div>
+                        <div class="thumb-glow-bottom"></div>
+                        <div class="thumb-motif"></div>
+                        <div class="thumb-content-rect">
+                          <div class="thumb-brand">
+                            <img
+                              src="https://hadithcriticblog.com/wp-content/uploads/2026/02/cropped-HCpfp.jpg"
+                              alt=""
+                              width="22"
+                              height="22"
+                              loading="lazy"
+                            />
+                            <span>HADITHCRITIC</span>
+                          </div>
+                          <p class="thumb-category">{templateLabel}</p>
+                          <h4 class="thumb-title-in-card">{title}</h4>
+                        </div>
+                      </>
+                    )}
+                    {isFeatured && <span class="featured-pill">Featured</span>}
+                  </div>
+
+                  <div class="card-content-bottom">
+                    <div class="card-topline">
+                      <span class="card-cat-label">
+                        <i class={`fas ${icon}`} aria-hidden="true"></i> {shortCat}
+                      </span>
+                      <span class="card-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
                     </div>
-                  </>
-                )}
-              </div>
 
-              <div class="card-content-bottom">
-                <div class="card-topline">
-                  <span class="card-cat-label">
-                    <i class={`fas ${icon}`}></i> {shortCat}
-                  </span>
-                  <span class="card-number">{String(index + 1).padStart(2, '0')}</span>
-                </div>
-
-                <h3 class="card-title">{post.recommended_title}</h3>
-                <span class="read-more" style="margin-top: auto;">Read study <i class="fas fa-arrow-right"></i></span>
-              </div>
-            </a>
-          );
-        })}
+                    <h3 class="card-title" itemprop="headline">{title}</h3>
+                    <p class="card-desc" itemprop="description">{desc}</p>
+                    <span class="read-more">Read study <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+                  </div>
+                </a>
+              </article>
+            );
+          })}
+        </div>
       </div>
 
       <div class="slider-controls">
-        <a href="/blogs" class="btn btn-outline browse-all">Browse all 74 blogs &rarr;</a>
-        <div class="control-btns">
-          <button class="slider-btn prev" id="sliderPrev" aria-label="Previous cards">
-            <i class="fas fa-chevron-left"></i>
-          </button>
-          <button class="slider-btn next" id="sliderNext" aria-label="Next cards">
-            <i class="fas fa-chevron-right"></i>
-          </button>
+        <a href="/blogs" class="btn btn-outline browse-all">Browse all {totalPublished} blogs &rarr;</a>
+        <div class="control-cluster" aria-label="Slider controls">
+          <div class="scroll-progress" aria-hidden="true"><span data-scroll-progress></span></div>
+          <div class="control-btns">
+            <button class="slider-btn prev" type="button" data-slider-prev aria-label="Previous studies">
+              <i class="fas fa-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button class="slider-btn next" type="button" data-slider-next aria-label="Next studies">
+              <i class="fas fa-chevron-right" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -160,26 +226,31 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
 
 <style>
   .blog-slider-section {
-    padding: 78px 20px 86px;
+    --card-radius: 20px;
+    --card-min: 326px;
+    padding: clamp(58px, 7vw, 92px) 20px clamp(72px, 8vw, 104px);
     color: #fff;
     font-family: var(--font-sans);
     position: relative;
     overflow: hidden;
+    border-block: 1px solid rgba(255,255,255,.045);
   }
+
+  .blog-slider-section.is-compact { padding-block: 46px 58px; }
 
   .blog-slider-section::before {
     content: "";
     position: absolute;
     inset: 0;
-    opacity: .38;
     pointer-events: none;
     background:
-      radial-gradient(circle at 22% 12%, rgba(193,151,63,.08), transparent 20rem),
-      radial-gradient(circle at 78% 52%, rgba(126,62,38,.06), transparent 24rem),
-      linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+      radial-gradient(circle at 16% 8%, rgba(193,151,63,.10), transparent 25rem),
+      radial-gradient(circle at 84% 35%, rgba(155,122,166,.07), transparent 24rem),
+      linear-gradient(rgba(255,255,255,.020) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px);
-    background-size: auto, auto, 36px 36px, 36px 36px;
-    mask-image: linear-gradient(to bottom, transparent, black 16%, black 82%, transparent);
+    background-size: auto, auto, 38px 38px, 38px 38px;
+    opacity: .85;
+    mask-image: linear-gradient(to bottom, transparent, black 13%, black 88%, transparent);
   }
 
   .slider-shell {
@@ -191,98 +262,150 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
 
   .slider-header {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    margin-bottom: 34px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 28px;
+    align-items: end;
+    margin-bottom: 26px;
   }
-
-  .slider-title { max-width: 760px; }
 
   .slider-kicker {
     display: inline-flex;
     color: var(--accent, #c1973f);
     font-size: 11px;
     font-weight: 900;
-    letter-spacing: .22em;
+    letter-spacing: .24em;
     text-transform: uppercase;
     margin: 0 0 12px;
   }
 
   .slider-title h2 {
     font-family: var(--font-display);
-    font-size: clamp(32px, 4.6vw, 60px);
+    font-size: clamp(30px, 4.3vw, 54px);
     font-weight: 500;
     margin: 0 0 10px;
-    letter-spacing: .04em;
+    letter-spacing: .015em;
     color: var(--text-heading);
-    text-transform: uppercase;
+    line-height: 1.05;
   }
 
   .slider-title p:last-child {
-    font-size: 16px;
-    line-height: 1.6;
+    font-size: clamp(15px, 1.4vw, 17px);
+    line-height: 1.65;
     color: var(--text-muted);
     margin: 0;
+    max-width: 720px;
   }
 
-  .slider-categories-container {
-    max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding-bottom: 2px;
-  }
-  .slider-categories-container::-webkit-scrollbar { display: none; }
-
-  .slider-categories {
-    display: inline-flex;
-    width: max-content;
-    position: relative;
-    background: rgba(12,12,12,.78);
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 9999px;
-    padding: 5px;
-    gap: 2px;
-    box-shadow: inset 0 2px 14px rgba(0,0,0,.72), 0 18px 45px rgba(0,0,0,.18);
-    backdrop-filter: blur(14px);
-  }
-
-  .category-highlight {
-    position: absolute;
-    top: 5px;
-    left: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.055));
-    border-radius: 9999px;
-    transition: transform .35s cubic-bezier(.25,1,.25,1), width .35s cubic-bezier(.25,1,.25,1);
-    pointer-events: none;
-    border: 1px solid rgba(255,255,255,.12);
-    height: calc(100% - 10px);
-    z-index: 0;
-  }
-
-  .cat-tab {
-    position: relative;
-    z-index: 1;
-    background: transparent;
-    border: 0;
-    color: rgba(255,255,255,.48);
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .02em;
-    padding: 9px 16px;
-    border-radius: 9999px;
-    cursor: pointer;
-    transition: color .25s ease;
-    white-space: nowrap;
+  .library-stats {
     display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .library-stats span {
+    display: inline-flex;
     align-items: center;
     gap: 7px;
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255,255,255,.075);
+    border-radius: 999px;
+    color: rgba(255,255,255,.58);
+    background: rgba(255,255,255,.035);
+    font-size: 12px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
   }
 
-  .cat-tab i { font-size: 11px; opacity: .58; transition: opacity .25s ease, color .25s ease; }
-  .cat-tab:hover, .cat-tab.active { color: #fff; }
-  .cat-tab.active i { color: var(--tmpl-color, var(--accent)); opacity: 1; }
+  .library-stats strong { color: var(--accent, #c1973f); font-family: var(--font-display); font-size: 17px; }
+
+  .filter-row {
+    position: relative;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .category-select-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    background: rgba(12,12,12,.82);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 999px;
+    transition: all .2s ease;
+  }
+  .category-select-wrapper:focus-within {
+    border-color: var(--accent, #c1973f);
+    box-shadow: 0 0 0 2px rgba(193,151,63,.3);
+  }
+  .category-select-wrapper:hover {
+    background: rgba(20,20,20,.9);
+    border-color: rgba(255,255,255,.2);
+  }
+
+  .filter-icon {
+    position: absolute;
+    left: 16px;
+    color: var(--accent, #c1973f);
+    font-size: 13px;
+    pointer-events: none;
+  }
+
+  .category-select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 12px 42px 12px 38px;
+    cursor: pointer;
+    outline: none;
+    width: 100%;
+    min-width: 240px;
+  }
+  .category-select option {
+    background: #111;
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .chevron-icon {
+    position: absolute;
+    right: 18px;
+    color: rgba(255,255,255,.5);
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  .result-live {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .cards-viewport { position: relative; }
+
+  .scroll-fade {
+    position: absolute;
+    top: 0;
+    bottom: 34px;
+    width: 56px;
+    z-index: 5;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s ease;
+  }
+  .scroll-fade-left { left: -1px; background: linear-gradient(90deg, rgba(8,8,8,.96), transparent); }
+  .scroll-fade-right { right: -1px; background: linear-gradient(270deg, rgba(8,8,8,.96), transparent); }
+  .cards-viewport.can-left .scroll-fade-left,
+  .cards-viewport.can-right .scroll-fade-right { opacity: 1; }
 
   .cards-wrapper {
     display: flex;
@@ -293,25 +416,25 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     scroll-behavior: smooth;
     -ms-overflow-style: none;
     scroll-snap-type: x mandatory;
+    scroll-padding-inline: 2px;
   }
   .cards-wrapper::-webkit-scrollbar { display: none; }
 
   .blog-card-ray {
-    flex: 0 0 clamp(314px, 30vw, 404px);
-    min-height: 438px;
-    background: linear-gradient(180deg, rgba(19,20,20,.94), rgba(12,13,13,.96));
+    flex: 0 0 clamp(var(--card-min), 30vw, 406px);
+    min-height: 462px;
+    background: linear-gradient(180deg, rgba(21,22,22,.95), rgba(11,12,12,.98));
     border: 1px solid rgba(255,255,255,.085);
-    border-radius: 18px;
-    display: flex;
-    flex-direction: column;
+    border-radius: var(--card-radius);
     position: relative;
     overflow: hidden;
     box-shadow: 0 16px 46px rgba(0,0,0,.40), inset 0 1px 0 rgba(255,255,255,.03);
-    transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+    transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
     scroll-snap-align: start;
-    text-decoration: none;
     color: inherit;
   }
+
+  .blog-card-ray.hidden { display: none; }
 
   .blog-card-ray::after {
     content: "";
@@ -320,11 +443,9 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     border-radius: inherit;
     pointer-events: none;
     opacity: 0;
-    transition: opacity .3s ease;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tmpl-color) 48%, transparent), 0 0 42px color-mix(in srgb, var(--tmpl-color) 16%, transparent);
+    transition: opacity .28s ease;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tmpl-color) 46%, transparent), 0 0 44px color-mix(in srgb, var(--tmpl-color) 16%, transparent);
   }
-
-  .blog-card-ray.hidden { display: none; }
 
   .blog-card-ray:hover {
     transform: translateY(-8px);
@@ -332,6 +453,16 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     box-shadow: 0 28px 70px rgba(0,0,0,.58);
   }
   .blog-card-ray:hover::after { opacity: 1; }
+
+  .card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: inherit;
+    color: inherit;
+    text-decoration: none;
+  }
+  .card-link:focus-visible { outline: 2px solid var(--tmpl-color); outline-offset: -4px; border-radius: var(--card-radius); }
 
   .card-thumbnail-rect {
     position: relative;
@@ -347,19 +478,34 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     height: 100%;
     object-fit: cover;
     display: block;
-    filter: saturate(.82) contrast(1.05) brightness(.92);
+    filter: saturate(.82) contrast(1.06) brightness(.92);
     transform: scale(1.012);
     transition: transform .45s ease, filter .45s ease;
   }
-  .blog-card-ray:hover .thumb-image { transform: scale(1.055); filter: saturate(.94) contrast(1.08) brightness(1); }
+  .blog-card-ray:hover .thumb-image { transform: scale(1.055); filter: saturate(.96) contrast(1.09) brightness(1); }
 
   .thumb-image-shade {
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(180deg, transparent 44%, rgba(0,0,0,.20)),
-      radial-gradient(circle at 50% 15%, rgba(255,255,255,.07), transparent 40%);
-    pointer-events: none;
+      linear-gradient(180deg, transparent 40%, rgba(0,0,0,.22)),
+      radial-gradient(circle at 50% 15%, rgba(255,255,255,.08), transparent 42%);
+  }
+
+  .featured-pill {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 4;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #0a0a0a;
+    background: var(--tmpl-color);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 30px rgba(0,0,0,.38);
   }
 
   .thumb-bg-grid {
@@ -379,77 +525,17 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     filter: blur(58px);
     z-index: 0;
   }
-  .thumb-glow-top {
-    top: -36%;
-    left: -18%;
-    width: 82%;
-    height: 84%;
-    background: var(--tmpl-color);
-    opacity: .18;
-  }
-  .thumb-glow-bottom {
-    right: -22%;
-    bottom: -42%;
-    width: 80%;
-    height: 82%;
-    background: rgba(255,255,255,.12);
-    opacity: .07;
-  }
+  .thumb-glow-top { top: -36%; left: -18%; width: 82%; height: 84%; background: var(--tmpl-color); opacity: .18; }
+  .thumb-glow-bottom { right: -22%; bottom: -42%; width: 80%; height: 82%; background: rgba(255,255,255,.12); opacity: .07; }
 
-  .thumb-motif {
-    position: absolute;
-    inset: 0;
-    opacity: .55;
-    pointer-events: none;
-  }
-
-  .blog-card--isnad-forensics .thumb-motif {
-    background:
-      radial-gradient(circle at 28% 42%, var(--tmpl-color) 0 5px, transparent 6px),
-      radial-gradient(circle at 50% 58%, var(--tmpl-color) 0 5px, transparent 6px),
-      radial-gradient(circle at 72% 39%, var(--tmpl-color) 0 5px, transparent 6px),
-      linear-gradient(28deg, transparent 31%, rgba(255,255,255,.16) 31.3% 31.7%, transparent 32%),
-      linear-gradient(-18deg, transparent 47%, rgba(255,255,255,.12) 47.3% 47.8%, transparent 48%);
-  }
-
-  .blog-card--prophecy-dossier .thumb-motif {
-    background:
-      linear-gradient(135deg, transparent 0 48%, rgba(193,151,63,.18) 48.3% 49%, transparent 49.4%),
-      repeating-linear-gradient(0deg, transparent 0 18px, rgba(255,255,255,.08) 18px 19px, transparent 19px 32px);
-  }
-
-  .blog-card--quranic-criterion .thumb-motif {
-    background:
-      radial-gradient(circle at 50% 48%, rgba(245,236,215,.15), transparent 26%),
-      linear-gradient(90deg, rgba(74,52,79,.8) 0 26%, transparent 26.4%),
-      repeating-linear-gradient(106deg, transparent 0 10px, rgba(255,255,255,.11) 10px 11px, transparent 11px 20px);
-  }
-
-  .blog-card--logic-lab .thumb-motif {
-    background:
-      radial-gradient(circle at 25% 50%, var(--tmpl-color) 0 4px, transparent 5px),
-      radial-gradient(circle at 50% 34%, var(--tmpl-color) 0 4px, transparent 5px),
-      radial-gradient(circle at 72% 58%, var(--tmpl-color) 0 4px, transparent 5px),
-      linear-gradient(20deg, transparent 41%, rgba(255,255,255,.15) 41.4% 41.8%, transparent 42%);
-  }
-
-  .blog-card--legal-edifice .thumb-motif {
-    background:
-      linear-gradient(90deg, transparent 17%, rgba(193,151,63,.16) 17% 22%, transparent 22% 39%, rgba(193,151,63,.16) 39% 44%, transparent 44% 61%, rgba(193,151,63,.16) 61% 66%, transparent 66%),
-      linear-gradient(0deg, transparent 73%, rgba(255,255,255,.11) 73% 77%, transparent 77%);
-  }
-
-  .blog-card--comparative-manuscripts .thumb-motif {
-    background:
-      linear-gradient(90deg, transparent 18%, rgba(255,255,255,.12) 18% 36%, transparent 36% 42%, rgba(255,255,255,.10) 42% 60%, transparent 60% 66%, rgba(255,255,255,.12) 66% 84%, transparent 84%),
-      repeating-linear-gradient(0deg, transparent 0 20px, rgba(255,255,255,.07) 20px 21px, transparent 21px 31px);
-  }
-
-  .blog-card--ritual-diagram .thumb-motif {
-    background:
-      radial-gradient(circle at 50% 52%, transparent 0 44px, rgba(193,151,63,.24) 45px 47px, transparent 48px),
-      conic-gradient(from 45deg at 50% 52%, transparent 0 22%, rgba(255,255,255,.10) 22% 24%, transparent 24% 50%, rgba(255,255,255,.10) 50% 52%, transparent 52%);
-  }
+  .thumb-motif { position: absolute; inset: 0; opacity: .58; pointer-events: none; }
+  .blog-card--isnad-forensics .thumb-motif { background: radial-gradient(circle at 28% 42%, var(--tmpl-color) 0 5px, transparent 6px), radial-gradient(circle at 50% 58%, var(--tmpl-color) 0 5px, transparent 6px), radial-gradient(circle at 72% 39%, var(--tmpl-color) 0 5px, transparent 6px), linear-gradient(28deg, transparent 31%, rgba(255,255,255,.16) 31.3% 31.7%, transparent 32%), linear-gradient(-18deg, transparent 47%, rgba(255,255,255,.12) 47.3% 47.8%, transparent 48%); }
+  .blog-card--prophecy-dossier .thumb-motif { background: linear-gradient(135deg, transparent 0 48%, rgba(193,151,63,.18) 48.3% 49%, transparent 49.4%), repeating-linear-gradient(0deg, transparent 0 18px, rgba(255,255,255,.08) 18px 19px, transparent 19px 32px); }
+  .blog-card--quranic-criterion .thumb-motif { background: radial-gradient(circle at 50% 48%, rgba(245,236,215,.15), transparent 26%), linear-gradient(90deg, rgba(74,52,79,.8) 0 26%, transparent 26.4%), repeating-linear-gradient(106deg, transparent 0 10px, rgba(255,255,255,.11) 10px 11px, transparent 11px 20px); }
+  .blog-card--logic-lab .thumb-motif { background: radial-gradient(circle at 25% 50%, var(--tmpl-color) 0 4px, transparent 5px), radial-gradient(circle at 50% 34%, var(--tmpl-color) 0 4px, transparent 5px), radial-gradient(circle at 72% 58%, var(--tmpl-color) 0 4px, transparent 5px), linear-gradient(20deg, transparent 41%, rgba(255,255,255,.15) 41.4% 41.8%, transparent 42%); }
+  .blog-card--legal-edifice .thumb-motif { background: linear-gradient(90deg, transparent 17%, rgba(193,151,63,.16) 17% 22%, transparent 22% 39%, rgba(193,151,63,.16) 39% 44%, transparent 44% 61%, rgba(193,151,63,.16) 61% 66%, transparent 66%), linear-gradient(0deg, transparent 73%, rgba(255,255,255,.11) 73% 77%, transparent 77%); }
+  .blog-card--comparative-manuscripts .thumb-motif { background: linear-gradient(90deg, transparent 18%, rgba(255,255,255,.12) 18% 36%, transparent 36% 42%, rgba(255,255,255,.10) 42% 60%, transparent 60% 66%, rgba(255,255,255,.12) 66% 84%, transparent 84%), repeating-linear-gradient(0deg, transparent 0 20px, rgba(255,255,255,.07) 20px 21px, transparent 21px 31px); }
+  .blog-card--ritual-diagram .thumb-motif { background: radial-gradient(circle at 50% 52%, transparent 0 44px, rgba(193,151,63,.24) 45px 47px, transparent 48px), conic-gradient(from 45deg at 50% 52%, transparent 0 22%, rgba(255,255,255,.10) 22% 24%, transparent 24% 50%, rgba(255,255,255,.10) 50% 52%, transparent 52%); }
 
   .thumb-content-rect {
     position: relative;
@@ -463,83 +549,25 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     padding: 22px;
   }
 
-  .thumb-brand {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: auto;
-    align-self: flex-start;
-    opacity: .86;
-  }
-  .thumb-brand img {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,.18);
-    object-fit: cover;
-  }
-  .thumb-brand span {
-    font-family: 'Cinzel', var(--font-display), serif;
-    font-size: 10px;
-    letter-spacing: 2px;
-    font-weight: 700;
-    color: rgba(255,255,255,.75);
-  }
+  .thumb-brand { display: flex; align-items: center; gap: 8px; margin-bottom: auto; align-self: flex-start; opacity: .86; }
+  .thumb-brand img { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); object-fit: cover; }
+  .thumb-brand span { font-family: 'Cinzel', var(--font-display), serif; font-size: 10px; letter-spacing: 2px; font-weight: 700; color: rgba(255,255,255,.76); }
 
-  .thumb-category {
-    font-size: 9px;
-    color: var(--tmpl-color);
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    margin: 0;
-    font-weight: 900;
-    opacity: .9;
-  }
-
-  .thumb-title-in-card {
-    font-family: var(--font-display);
-    font-size: clamp(20px, 2vw, 28px);
-    font-weight: 500;
-    line-height: 1.1;
-    margin: 0;
-    color: #f8fafc;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
+  .thumb-category { font-size: 9px; color: var(--tmpl-color); letter-spacing: .18em; text-transform: uppercase; margin: 0; font-weight: 900; opacity: .9; }
+  .thumb-title-in-card { font-family: var(--font-display); font-size: clamp(20px, 2vw, 28px); font-weight: 500; line-height: 1.1; margin: 0; color: #f8fafc; letter-spacing: .12em; text-transform: uppercase; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
   .card-content-bottom {
-    padding: 20px 22px 22px;
+    padding: 21px 22px 22px;
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-    gap: 10px;
+    gap: 11px;
   }
 
-  .card-topline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .card-cat-label {
-    font-size: 10px;
-    color: var(--tmpl-color, var(--accent));
-    font-weight: 800;
-    letter-spacing: .13em;
-    text-transform: uppercase;
-  }
+  .card-topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .card-cat-label { font-size: 10px; color: var(--tmpl-color, var(--accent)); font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
   .card-cat-label i { margin-right: 5px; }
-
-  .card-number {
-    color: rgba(255,255,255,.24);
-    font-family: var(--font-display);
-    font-size: 18px;
-  }
+  .card-number { color: rgba(255,255,255,.24); font-family: var(--font-display); font-size: 18px; }
 
   .card-title {
     margin: 0;
@@ -547,7 +575,7 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
     font-family: var(--font-display);
     font-size: 22px;
     line-height: 1.18;
-    letter-spacing: .06em;
+    letter-spacing: .055em;
     text-transform: uppercase;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -558,115 +586,131 @@ const posts = quran49 ? [quran49, ...latest] : latest.slice(0, 12);
   .card-desc {
     color: var(--text-body);
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.6;
     margin: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    opacity: .75;
+    opacity: .76;
   }
 
-  .read-more {
-    margin-top: auto;
-    color: rgba(255,255,255,.62);
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    transition: color .25s ease;
-  }
+  .read-more { margin-top: auto; color: rgba(255,255,255,.62); font-size: 12px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; transition: color .22s ease; }
   .blog-card-ray:hover .read-more { color: var(--tmpl-color); }
 
-  .slider-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 18px;
-    margin-top: 14px;
-  }
-
+  .slider-controls { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin-top: 14px; }
+  .control-cluster { display: flex; align-items: center; gap: 12px; }
   .control-btns { display: flex; gap: 10px; }
 
-  .slider-btn {
-    background: rgba(255,255,255,.055);
-    border: 1px solid rgba(255,255,255,.08);
-    color: rgba(255,255,255,.58);
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-    transition: all .22s ease;
-    font-size: 12px;
-  }
-  .slider-btn:hover { background: rgba(255,255,255,.10); color: #fff; transform: translateY(-2px); }
+  .scroll-progress { width: 124px; height: 4px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.075); }
+  .scroll-progress span { display: block; height: 100%; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--accent, #c1973f), rgba(255,255,255,.5)); transition: width .12s ease; }
 
-  @media (max-width: 900px) {
-    .blog-slider-section { padding-top: 58px; }
+  .slider-btn { background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.08); color: rgba(255,255,255,.62); width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; transition: all .2s ease; font-size: 12px; }
+  .slider-btn:hover:not(:disabled) { background: rgba(255,255,255,.10); color: #fff; transform: translateY(-2px); }
+  .slider-btn:disabled { opacity: .34; cursor: not-allowed; }
+
+  @media (min-width: 1024px) { .is-featured-card { flex-basis: clamp(380px, 34vw, 470px); } }
+
+  @media (max-width: 920px) {
+    .slider-header { grid-template-columns: 1fr; align-items: start; }
+    .library-stats { justify-content: flex-start; }
     .blog-card-ray { flex-basis: min(360px, 86vw); }
     .slider-controls { flex-direction: column; align-items: flex-start; }
+  }
+
+  @media (max-width: 560px) {
+    .blog-slider-section { padding-inline: 14px; }
+    .category-select-wrapper { width: 100%; }
+    .scroll-progress { display: none; }
+    .card-title { font-size: 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cards-wrapper { scroll-behavior: auto; }
+    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+    .blog-card-ray:hover { transform: none; }
+    .blog-card-ray:hover .thumb-image { transform: none; }
   }
 </style>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    const tabsContainer = document.getElementById('categoryTabs');
-    const wrapper = document.getElementById('cardsWrapper');
+    document.querySelectorAll<HTMLElement>('[data-blog-library]').forEach((root) => {
+      const select = root.querySelector<HTMLSelectElement>('[data-category-select]');
+      const wrapper = root.querySelector<HTMLElement>('[data-cards-wrapper]');
+      const viewport = root.querySelector<HTMLElement>('.cards-viewport');
+      const live = root.querySelector<HTMLElement>('[data-result-live]');
+      const prevBtn = root.querySelector<HTMLButtonElement>('[data-slider-prev]');
+      const nextBtn = root.querySelector<HTMLButtonElement>('[data-slider-next]');
+      const progress = root.querySelector<HTMLElement>('[data-scroll-progress]');
 
-    if (tabsContainer && wrapper) {
-      const tabs = tabsContainer.querySelectorAll<HTMLButtonElement>('.cat-tab');
-      const highlight = document.getElementById('catHighlight');
-      const cards = wrapper.querySelectorAll<HTMLElement>('.blog-card-ray');
-      let activeTab = tabsContainer.querySelector<HTMLButtonElement>('.cat-tab.active');
+      if (!select || !wrapper) return;
 
-      function updateHighlight(tab: HTMLButtonElement) {
-        if (!highlight || !tabsContainer) return;
-        const cr = tabsContainer.getBoundingClientRect();
-        const tr = tab.getBoundingClientRect();
-        highlight.style.width = `${tr.width}px`;
-        highlight.style.transform = `translateX(${tr.left - cr.left + tabsContainer.scrollLeft}px)`;
-      }
+      const cards = [...wrapper.querySelectorAll<HTMLElement>('.blog-card-ray')];
 
-      if (activeTab) setTimeout(() => updateHighlight(activeTab!), 60);
+      const visibleCards = () => cards.filter((card) => !card.classList.contains('hidden'));
 
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          tabs.forEach(t => t.classList.remove('active'));
-          tab.classList.add('active');
-          activeTab = tab;
-          updateHighlight(tab);
+      // Highlight element removed in favor of CSS chip states
 
-          const filter = tab.dataset.filter;
-          cards.forEach(card => {
-            const match = filter === 'All' || card.dataset.category === filter;
-            card.classList.toggle('hidden', !match);
-          });
-
-          wrapper.scrollLeft = 0;
-        });
-      });
-
-      tabsContainer.addEventListener('scroll', () => {
-        if (activeTab) updateHighlight(activeTab);
-      });
-      window.addEventListener('resize', () => {
-        if (activeTab) updateHighlight(activeTab);
-      });
-    }
-
-    const prevBtn = document.getElementById('sliderPrev');
-    const nextBtn = document.getElementById('sliderNext');
-    const wrapper2 = document.getElementById('cardsWrapper');
-
-    if (wrapper2 && prevBtn && nextBtn) {
-      const getWidth = () => {
-        const c = wrapper2.querySelector<HTMLElement>('.blog-card-ray:not(.hidden)');
-        return c ? c.getBoundingClientRect().width + 24 : 400;
+      const updateScrollState = () => {
+        const max = Math.max(wrapper.scrollWidth - wrapper.clientWidth, 0);
+        const left = wrapper.scrollLeft;
+        const canLeft = left > 8;
+        const canRight = left < max - 8;
+        prevBtn && (prevBtn.disabled = !canLeft);
+        nextBtn && (nextBtn.disabled = !canRight);
+        viewport?.classList.toggle('can-left', canLeft);
+        viewport?.classList.toggle('can-right', canRight);
+        if (progress) progress.style.width = max > 0 ? `${Math.min(100, Math.max(0, (left / max) * 100))}%` : '100%';
       };
-      prevBtn.addEventListener('click', () => wrapper2.scrollBy({ left: -getWidth(), behavior: 'smooth' }));
-      nextBtn.addEventListener('click', () => wrapper2.scrollBy({ left: getWidth(), behavior: 'smooth' }));
-    }
+
+      const announce = () => {
+        const total = visibleCards().length;
+        if (live) live.textContent = `Showing ${total} ${total === 1 ? 'study' : 'studies'}.`;
+      };
+
+      const applyFilter = (filter: string) => {
+        cards.forEach((card) => {
+          const match = filter === 'All' || card.dataset.category === filter;
+          card.classList.toggle('hidden', !match);
+        });
+        wrapper.scrollTo({ left: 0, behavior: 'smooth' });
+        announce();
+        requestAnimationFrame(updateScrollState);
+      };
+
+      select.addEventListener('change', () => {
+        applyFilter(select.value);
+      });
+
+      const getStep = () => {
+        const first = visibleCards()[0];
+        return first ? first.getBoundingClientRect().width + 24 : Math.min(wrapper.clientWidth, 420);
+      };
+
+      prevBtn?.addEventListener('click', () => wrapper.scrollBy({ left: -getStep(), behavior: 'smooth' }));
+      nextBtn?.addEventListener('click', () => wrapper.scrollBy({ left: getStep(), behavior: 'smooth' }));
+
+      wrapper.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          wrapper.scrollBy({ left: getStep(), behavior: 'smooth' });
+        }
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          wrapper.scrollBy({ left: -getStep(), behavior: 'smooth' });
+        }
+      });
+
+      wrapper.addEventListener('scroll', updateScrollState, { passive: true });
+      window.addEventListener('resize', () => {
+        updateScrollState();
+      });
+
+      requestAnimationFrame(() => {
+        updateScrollState();
+        announce();
+      });
+    });
   });
 </script>
