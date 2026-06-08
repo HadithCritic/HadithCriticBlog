@@ -1,0 +1,89 @@
+---
+export interface Props {
+  variant?: 'primary' | 'monochrome' | 'inverse' | 'ghost' | 'simplified';
+  size?: 'sm' | 'md' | 'lg' | 'hero' | string;
+  className?: string;
+}
+
+const { 
+  variant = 'primary', 
+  size = 'md',
+  className = ''
+} = Astro.props;
+
+// Determine width based on size prop
+let width;
+if (size === 'sm') width = '32px';
+else if (size === 'md') width = '48px';
+else if (size === 'lg') width = '80px';
+else if (size === 'hero') width = '160px';
+else width = size;
+
+// Setup stroke styles depending on variant
+let strokeColor = 'url(#emblemGold)';
+let fillPath = 'none';
+let opacity = '1';
+
+if (variant === 'monochrome') {
+  strokeColor = 'currentColor';
+} else if (variant === 'inverse') {
+  strokeColor = 'var(--bg-primary)';
+} else if (variant === 'ghost') {
+  strokeColor = 'currentColor';
+  opacity = '0.3';
+} else if (variant === 'simplified') {
+  strokeColor = 'currentColor';
+}
+
+---
+
+<svg viewBox="0 0 100 140" class={`hc-emblem hc-emblem-${variant} hc-emblem-${size} ${className}`} aria-label="HadithCritic: fractured chain of narration" style={`width: ${width}; opacity: ${opacity};`}>
+  <defs>
+    <linearGradient id="emblemGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="var(--accent-primary, #D8B761)"/>
+      <stop offset="50%" stop-color="var(--hc-gold, #9A7B28)"/>
+      <stop offset="100%" stop-color="var(--accent-primary, #D8B761)"/>
+    </linearGradient>
+  </defs>
+  
+  {variant !== 'simplified' && (
+    <!-- Top hexagon: intact -->
+    <path d="M50 4 L88 26 L88 58 L50 80 L12 58 L12 26 Z" 
+          fill={fillPath} stroke={strokeColor} stroke-width="2.5" stroke-linejoin="round"/>
+  )}
+
+  <!-- Middle hexagon: BROKEN -->
+  <g class="middle-link">
+    <!-- Top half -->
+    <path d="M50 54 L88 76 L88 92 L50 92" 
+          fill={fillPath} stroke={strokeColor} stroke-width="2.5" stroke-linejoin="round"/>
+    <!-- Bottom half -->
+    <path d="M50 92 L12 92 L12 76 L50 54" 
+          fill={fillPath} stroke={strokeColor} stroke-width="2.5" stroke-linejoin="round"/>
+  </g>
+  
+  {variant !== 'simplified' && (
+    <!-- Bottom hexagon: intact -->
+    <path d="M50 98 L88 120 L88 152 L50 174 L12 152 L12 120 Z" 
+          fill={fillPath} stroke={strokeColor} stroke-width="2.5" stroke-linejoin="round"/>
+  )}
+</svg>
+
+<style>
+  .hc-emblem {
+    height: auto;
+    display: inline-block;
+    vertical-align: middle;
+    transition: transform 0.3s ease, filter 0.3s ease;
+  }
+
+  .hc-emblem:hover {
+    transform: scale(1.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .hc-emblem-primary {
+      filter: drop-shadow(0 0 8px rgba(216, 183, 97, 0.15));
+    }
+  }
+</style>
