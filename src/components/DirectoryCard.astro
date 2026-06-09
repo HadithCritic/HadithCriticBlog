@@ -4,9 +4,8 @@ interface Props {
   title: string;
   description: string;
   label: string;
-  ctaText: string;
-  theme?: 'charcoal' | 'parchment';
-  icon?: string;
+  theme?: 'charcoal' | 'parchment' | 'umber';
+  imgSrc?: string;
 }
 
 const { 
@@ -14,122 +13,72 @@ const {
   title, 
   description, 
   label, 
-  ctaText,
   theme = 'charcoal',
-  icon
+  imgSrc
 } = Astro.props;
 
-const cardClass = theme === 'parchment' ? 'hc-card--parchment' : 'hc-card';
+const themeClass = theme === 'parchment' 
+  ? 'hc-directory-card--parchment' 
+  : theme === 'umber' 
+    ? 'hc-directory-card--umber' 
+    : '';
+
+const cardClass = `hc-directory-card ${themeClass}`;
 ---
-<a href={href} class={`directory-card ${cardClass}`}>
+<a href={href} class={cardClass}>
   <div class="card-inner">
-    <div class="card-header">
-      <span class="hc-label">{label}</span>
-      {icon && <i class={`fa-solid ${icon} card-icon`}></i>}
-    </div>
-    
-    <h3 class="card-title">{title}</h3>
-    <p class="card-desc">{description}</p>
-    
-    <div class="card-footer">
-      <span class="cta-text">{ctaText} <i class="fa-solid fa-arrow-right"></i></span>
-    </div>
+    <span class="hc-label">{label}</span>
+    <h3 class="hc-title">{title}</h3>
+    <p class="hc-copy">{description}</p>
   </div>
+  {imgSrc && <img src={imgSrc} alt="" loading="lazy" />}
 </a>
 
 <style>
-  .directory-card {
-    display: block;
-    text-decoration: none;
-    transition: transform 300ms var(--ease), box-shadow 300ms var(--ease), border-color 300ms ease;
-    height: 100%;
+  .hc-directory-card {
     position: relative;
+    min-height: 340px;
     overflow: hidden;
+    padding: 0;
   }
 
-  .directory-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 32px 90px rgba(0, 0, 0, 0.45);
-    border-color: var(--hc-gold-dim);
-  }
-
-  .hc-card--parchment:hover {
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.25);
-  }
-
-  .card-inner {
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+  .hc-directory-card .card-inner {
     position: relative;
     z-index: 2;
-  }
-
-  .card-header {
+    min-height: inherit;
+    padding: clamp(1.35rem, 2vw, 2rem);
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
+    flex-direction: column;
   }
 
-  .card-icon {
-    color: var(--hc-gold-dim);
-    font-size: 1.2rem;
-    opacity: 0.6;
+  .hc-directory-card h3 {
+    margin: 0.6rem 0 0.65rem;
+    font-size: clamp(2.4rem, 4vw, 4.2rem);
+    line-height: 0.92;
   }
 
-  .card-title {
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    font-weight: 500;
-    margin: 0 0 1rem;
-    line-height: 1.1;
-    color: inherit;
-    letter-spacing: -0.02em;
+  .hc-directory-card p {
+    max-width: 28ch;
+    margin: 0;
+    font-size: 0.98rem;
   }
 
-  .hc-card .card-title {
-    color: var(--hc-parchment);
+  .hc-directory-card img {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 42%;
+    object-fit: cover;
+    opacity: 0.42;
+    filter: sepia(0.4) contrast(1.12);
+    mix-blend-mode: luminosity;
+    transition: transform 500ms var(--ease), opacity 300ms var(--ease);
   }
 
-  .card-desc {
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.6;
-    margin: 0 0 2rem;
-    flex-grow: 1;
-    opacity: 0.85;
-  }
-
-  .card-footer {
-    margin-top: auto;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .hc-card--parchment .card-footer {
-    border-top-color: rgba(157, 122, 60, 0.2);
-  }
-
-  .cta-text {
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: gap 200ms ease;
-  }
-
-  .directory-card:hover .cta-text {
-    gap: 0.8rem;
-  }
-
-  .hc-card--parchment .cta-text {
-    color: var(--hc-umber-dark);
+  .hc-directory-card:hover img {
+    transform: scale(1.04) translateY(-4px);
+    opacity: 0.58;
   }
 </style>
