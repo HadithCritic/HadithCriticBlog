@@ -1,49 +1,704 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+type Resource = {
+  title: string;
+  description: string;
+  href: string;
+  tag: string;
+};
+
+type Category = {
+  id: string;
+  name: string;
+  title: string;
+  items: Resource[];
+};
+
+const categories: Category[] = [
+  {
+    id: 'gitbooks',
+    name: 'GitBooks',
+    title: 'Digital manuscripts and studies.',
+    items: [
+      { title: 'Problematic Sahih Hadith', description: 'Critical analysis of widely accepted hadiths and their contradictions with Quranic principles.', href: 'https://qurantalk.gitbook.io/problematic-sahih-hadith/', tag: 'GitBook' },
+      { title: 'Hadith Refutation', description: 'Systematic refutation of hadith authority through textual and theological evidence.', href: 'https://qurantalk.gitbook.io/hadith-refutation/', tag: 'GitBook' },
+      { title: 'Quran Initial Count', description: "Mathematical patterns and numerical structure in the Quran's composition.", href: 'https://qurantalk.gitbook.io/quran-initial-count/', tag: 'GitBook' },
+      { title: 'Problems in Christianity', description: 'Comparative analysis of Christian theological inconsistencies from a Quranic perspective.', href: 'https://qurantalk.gitbook.io/problems-in-christianity/', tag: 'GitBook' },
+      { title: 'False Verses', description: 'Examination of verses incorrectly attributed to divine revelation.', href: 'https://qurantalk.gitbook.io/false-verses/', tag: 'GitBook' },
+      { title: 'Muhammad Was Not Illiterate', description: 'Historical and linguistic evidence challenging traditional narratives of prophetic illiteracy.', href: 'https://qurantalk.gitbook.io/muhammad-was-not-illiterate/', tag: 'GitBook' },
+      { title: 'Shahada', description: 'Analysis of the testimony of faith and its evolution in Islamic tradition.', href: 'https://qurantalk.gitbook.io/shahada/', tag: 'GitBook' },
+      { title: 'Salat', description: 'Quranic approach to prayer practices and ritual worship.', href: 'https://qurantalk.gitbook.io/salat/', tag: 'GitBook' },
+      { title: 'Rashad Khalifa Archive', description: 'Comprehensive collection of lectures and videos by Rashad Khalifa.', href: 'https://rashad-khalifa-audios-and-videos.gitbook.io/rashad-khalifa-audios-and-videos', tag: 'GitBook' },
+      { title: 'Dietary Prohibitions', description: 'Quranic guidance on permissible and forbidden foods.', href: 'https://qurantalk.gitbook.io/dietary-prohibitions/', tag: 'GitBook' },
+      { title: 'Shirk Endorsed by Scholars', description: 'Critical examination of polytheistic practices in mainstream Islamic scholarship.', href: 'https://hadiths-organization.gitbook.io/shirk-endorsed-by-the-scholars-of-islam', tag: 'GitBook' },
+      { title: 'Sunni Idol Worship', description: 'Analysis of veneration practices that contradict Quranic monotheism.', href: 'https://qurantalk.gitbook.io/sunni-idol-worship', tag: 'GitBook' }
+    ]
+  },
+  {
+    id: 'youtube',
+    name: 'YouTube',
+    title: 'Channels and lectures.',
+    items: [
+      { title: 'HadithCritic', description: 'Primary channel for critical analysis of hadith sciences and Islamic methodology.', href: 'https://www.youtube.com/@HadithCritic/videos', tag: 'Channel' },
+      { title: 'QuranTalk', description: 'Discussions and lectures focused on Quranic interpretation and practice.', href: 'https://www.youtube.com/@QuranTalk/videos', tag: 'Channel' },
+      { title: 'Submission Archives', description: 'Historical lectures and archived content on Quranic submission.', href: 'https://www.youtube.com/@SubmissionArchives/videos', tag: 'Channel' },
+      { title: 'Submitters Collective', description: 'Community-driven content exploring Quran-alone perspectives.', href: 'https://www.youtube.com/@SubmittersCollective', tag: 'Channel' },
+      { title: 'God Alone', description: 'Educational videos emphasizing strict Quranic monotheism.', href: 'https://www.youtube.com/@godalone7427', tag: 'Channel' },
+      { title: 'Quran Study Archive', description: 'Systematic Quranic study sessions and verse-by-verse analysis.', href: 'https://www.youtube.com/@QuranStudyArchive/videos', tag: 'Channel' },
+      { title: 'QuranicLabs', description: 'Research-focused content on Quranic numerical patterns and structure.', href: 'https://www.youtube.com/@QuranicLabs19', tag: 'Channel' }
+    ]
+  },
+  {
+    id: 'blogs',
+    name: 'Blogs',
+    title: 'Essays and reflections.',
+    items: [
+      { title: 'HadithCritic Blog', description: 'Primary blog for detailed analysis and research articles on hadith methodology.', href: 'https://hadithcriticblog.com/', tag: 'Blog' },
+      { title: 'Submission to God', description: 'Theological essays and practical guidance for Quran-centered living.', href: 'https://submissiontogod.wordpress.com/', tag: 'Blog' },
+      { title: 'QuranTalk Blog', description: 'Regular posts on Quranic interpretation and contemporary issues.', href: 'https://qurantalkblog.com/', tag: 'Blog' },
+      { title: 'EJ The Submitter', description: 'Personal reflections and analysis from a Quran-alone perspective.', href: 'https://medium.com/@dutchkickboxing1on1', tag: 'Blog' },
+      { title: 'Team Asset', description: 'Collaborative research on Quranic numerology and mathematical patterns.', href: 'https://medium.com/@team.19.asset', tag: 'Blog' }
+    ]
+  },
+  {
+    id: 'pdfs',
+    name: 'PDFs',
+    title: 'Publications and editions.',
+    items: [
+      { title: 'Quran: The Final Testament', description: 'Complete Quran translation with appendices on mathematical structure.', href: 'https://library.wikisubmission.org/file/books/quran-the-final-testament', tag: 'PDF' },
+      { title: 'Visual Presentation of the Miracle', description: 'Illustrated guide to the mathematical patterns in the Quran.', href: 'https://library.wikisubmission.org/file/books/visual-presentation-of-the-miracle', tag: 'PDF' },
+      { title: 'The Computer Speaks', description: 'Computer-assisted analysis revealing Quranic mathematical structure.', href: 'https://library.wikisubmission.org/file/books/the-computer-speaks', tag: 'PDF' },
+      { title: 'Quran, Hadith and Islam', description: 'Foundational critique of hadith authority from a Quranic perspective.', href: 'https://library.wikisubmission.org/file/books/quran-hadith-and-islam-original', tag: 'PDF' }
+    ]
+  },
+  {
+    id: 'apps',
+    name: 'Applications',
+    title: 'Tools and software.',
+    items: [
+      { title: 'WikiSubmission Quran', description: 'Web-based Quran reader with multiple translations and study tools.', href: 'https://reader.wikisubmission.org/', tag: 'App' },
+      { title: 'Quran Study App', description: 'Interactive study application with grid view and analysis features.', href: 'https://www.quranstudyapp.com/grid', tag: 'App' },
+      { title: 'Submission: Religion of God', description: 'iOS app for Quranic study and submission-focused practice.', href: 'https://apps.apple.com/us/app/submission-religion-of-god/id6444260632', tag: 'App' }
+    ]
+  },
+  {
+    id: 'featured',
+    name: 'Featured',
+    title: 'Documentary and evidence.',
+    items: [
+      { title: 'Proof of Rashad Khalifa', description: "Documentary evidence supporting Rashad Khalifa's messengership.", href: 'https://www.youtube.com/watch?v=BPDkEZoUyXE', tag: 'Video' },
+      { title: 'Code 19: A First Look', description: 'Introduction to the mathematical miracle of the Quran.', href: 'https://www.youtube.com/watch?v=4TUYIuxkAmQ', tag: 'Video' },
+      { title: 'The Divine Firewall', description: 'Explanation of Code 19 as protection against textual corruption.', href: 'https://www.youtube.com/watch?v=nO5ikXuDRV8', tag: 'Video' },
+      { title: 'The Ha Mim Pattern', description: 'Analysis of numerical patterns in Ha Mim chapters.', href: 'https://www.youtube.com/watch?v=upWxuDwXB3Y&t=1s', tag: 'Video' },
+      { title: 'The Basmala Evidence', description: 'Mathematical structure of Bismillah in Quranic composition.', href: 'https://www.youtube.com/watch?v=c-DepvPR-CI', tag: 'Video' }
+    ]
+  }
+];
+
+const totalItems = categories.reduce((sum, category) => sum + category.items.length, 0);
 ---
-<BaseLayout title="Resources | HadithCritic">
-  <main class="page-container">
-    <section class="index-hero">
-      <div class="hc-container">
-        <h1 class="hc-title hc-title--xl">Resources</h1>
-        <p class="hc-copy" style="max-width: 600px; font-size: 1.2rem; margin-top: 1rem; color: var(--hc-muted);">
-          Curated bibliographies, open-source datasets, and study materials.
+
+<BaseLayout
+  title="Resources | HadithCritic"
+  description="Curated bibliographies, open-source datasets, study materials, and digital tools for Quranic research."
+>
+  <div class="resources-page">
+    <header class="resources-hero" aria-labelledby="resources-hero-title">
+      <div class="hc-container resources-hero__inner">
+        <p class="hc-eyebrow resources-hero__label">The Library</p>
+        <h1 id="resources-hero-title" class="resources-hero__title">
+          A working <em>catalogue.</em>
+        </h1>
+        <div class="resources-hero__meta" aria-label="Catalogue statistics">
+          <span>{totalItems} holdings</span>
+          <span class="resources-hero__diamond" aria-hidden="true"></span>
+          <span>{categories.length} shelves</span>
+        </div>
+        <p class="resources-hero__lead">
+          Curated bibliographies, open-source datasets, study materials, and digital tools
+          for Quranic research and hadith criticism.
         </p>
       </div>
-    </section>
-    <section class="page-content hc-container" style="padding-bottom: 8rem;">
-      <div class="projects-grid projects-grid--brand" style="margin-top: 4rem;">
-        <article class="project-card">
-          <span class="hc-chip">Bibliography</span>
-          <h3 class="hc-title">Early Kufan Sources</h3>
-          <p class="hc-copy">A curated reading list of primary texts and secondary literature concerning Kufan transmission.</p>
-          <a href="#" class="hc-btn hc-btn--ghost" style="margin-top: 1.5rem;">View Collection <span aria-hidden="true">→</span></a>
-        </article>
-        <article class="project-card">
-          <span class="hc-chip">Database</span>
-          <h3 class="hc-title">Rijal Critic Index</h3>
-          <p class="hc-copy">An indexed glossary of early rijal critics and their respective methodological tendencies.</p>
-          <a href="#" class="hc-btn hc-btn--ghost" style="margin-top: 1.5rem;">Access Database <span aria-hidden="true">→</span></a>
-        </article>
-        <article class="project-card">
-          <span class="hc-chip">PDF Archive</span>
-          <h3 class="hc-title">Manuscript Fragments</h3>
-          <p class="hc-copy">High-resolution scans and transcriptions of relevant early hadith manuscripts from the archive.</p>
-          <a href="#" class="hc-btn hc-btn--ghost" style="margin-top: 1.5rem;">Browse Archive <span aria-hidden="true">→</span></a>
-        </article>
+    </header>
+
+    <div class="catalog hc-container">
+      <nav class="catalog-index" aria-label="Catalogue sections">
+        <p class="catalog-index__label">Index</p>
+        <ol class="catalog-index__list">
+          {categories.map((category) => (
+            <li>
+              <a href={`#${category.id}`} class="catalog-index__link" data-spy={category.id}>
+                <span class="catalog-index__marker" aria-hidden="true"></span>
+                <span class="catalog-index__name">{category.name}</span>
+                <span class="catalog-index__count">{category.items.length}</span>
+              </a>
+            </li>
+          ))}
+        </ol>
+        <p class="catalog-index__total">{totalItems} entries on record</p>
+      </nav>
+
+      <div class="catalog-sections">
+        {categories.map((category) => (
+          <section id={category.id} class="catalog-section" aria-labelledby={`heading-${category.id}`} data-reveal>
+            <header class="catalog-section__head">
+              <h2 id={`heading-${category.id}`} class="catalog-section__title">{category.title}</h2>
+              <span class="catalog-section__rule" aria-hidden="true"></span>
+              <span class="catalog-section__name">{category.name}</span>
+            </header>
+
+            <ul class="catalog-list">
+              {category.items.map((item) => (
+                <li class="catalog-entry">
+                  <a href={item.href} target="_blank" rel="noopener noreferrer" class="catalog-entry__link">
+                    <span class="catalog-entry__tag">{item.tag}</span>
+                    <span class="catalog-entry__body">
+                      <span class="catalog-entry__title">{item.title}</span>
+                      <span class="catalog-entry__desc">{item.description}</span>
+                    </span>
+                    <span class="catalog-entry__arrow" aria-hidden="true">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M7 17 17 7" />
+                        <path d="M8 7h9v9" />
+                      </svg>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+
+    <section class="resources-cta hc-container" aria-labelledby="resources-cta-title" data-reveal>
+      <div class="cta-panel">
+        <div class="cta-panel__content">
+          <p class="hc-eyebrow">Acquisitions</p>
+          <h2 id="resources-cta-title" class="cta-panel__title">Suggest a holding.</h2>
+          <p class="cta-panel__copy">
+            If you know of a GitBook, dataset, or tool that belongs in this catalogue,
+            submit it for review.
+          </p>
+          <div class="cta-panel__actions">
+            <a href="/contact" class="hc-btn">Submit a resource</a>
+          </div>
+        </div>
       </div>
     </section>
-  </main>
+  </div>
 </BaseLayout>
 
-<style>
-  .page-container {
-    min-height: 100vh;
-    background: radial-gradient(circle at 100% 0%, rgba(216, 177, 102, 0.05), transparent 40%), var(--hc-black);
+<script>
+  const page = document.querySelector('.resources-page');
+
+  if (page) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* Scroll reveals */
+    const items = [...page.querySelectorAll<HTMLElement>('[data-reveal]')];
+
+    if (!reduced && 'IntersectionObserver' in window) {
+      items.forEach((el) => el.classList.add('will-reveal'));
+
+      const revealObserver = new IntersectionObserver(
+        (observed) => {
+          for (const entry of observed) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-revealed');
+              revealObserver.unobserve(entry.target);
+            }
+          }
+        },
+        { threshold: 0.06, rootMargin: '0px 0px -30px 0px' }
+      );
+
+      items.forEach((el) => revealObserver.observe(el));
+    } else {
+      items.forEach((el) => el.classList.add('is-revealed'));
+    }
+
+    /* Scrollspy for the index rail */
+    const sections = [...page.querySelectorAll<HTMLElement>('.catalog-section')];
+    const links = [...page.querySelectorAll<HTMLAnchorElement>('.catalog-index__link')];
+
+    if ('IntersectionObserver' in window && sections.length) {
+      const setActive = (id: string) => {
+        links.forEach((link) => link.classList.toggle('is-active', link.dataset.spy === id));
+      };
+
+      const spyObserver = new IntersectionObserver(
+        (observed) => {
+          const visible = observed
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+          if (visible[0]) setActive(visible[0].target.id);
+        },
+        { rootMargin: '-25% 0px -55% 0px', threshold: [0, 0.2, 0.5] }
+      );
+
+      sections.forEach((section) => spyObserver.observe(section));
+      setActive(sections[0].id);
+    }
   }
-  .index-hero {
-    padding: 8rem 0 4rem;
+</script>
+
+<style>
+  .resources-page {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 80% 5%, rgba(216, 177, 102, 0.05), transparent 28%),
+      radial-gradient(circle at 10% 35%, rgba(164, 106, 63, 0.06), transparent 26%),
+      linear-gradient(180deg, var(--hc-charcoal) 0%, var(--hc-black) 50%);
+  }
+
+  /* Reveal machinery */
+
+  .will-reveal {
+    opacity: 0;
+    transform: translateY(26px);
+    transition:
+      opacity 0.75s var(--ease),
+      transform 0.75s var(--ease);
+  }
+
+  .will-reveal.is-revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Hero */
+
+  .resources-hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(6rem, 9vw, 8.5rem) 0 clamp(2.75rem, 5vw, 4rem);
     border-bottom: 1px solid var(--hc-rule);
-    background: linear-gradient(180deg, rgba(15, 15, 16, 0.8), var(--hc-black));
+  }
+
+  .resources-hero::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border: 1px solid rgba(216, 177, 102, 0.12);
+    pointer-events: none;
+  }
+
+  .resources-hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+  }
+
+  .resources-hero__label {
+    margin: 0 0 1rem;
+    animation: heroRise 0.7s var(--ease) both;
+  }
+
+  .resources-hero__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(3.2rem, 7.5vw, 7rem);
+    letter-spacing: -0.04em;
+    line-height: 0.92;
+    color: var(--hc-parchment);
+    animation: heroRise 0.8s var(--ease) 70ms both;
+  }
+
+  .resources-hero__title em {
+    font-style: italic;
+    color: var(--hc-gold);
+  }
+
+  .resources-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.5rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: heroRise 0.8s var(--ease) 140ms both;
+  }
+
+  .resources-hero__diamond {
+    width: 5px;
+    height: 5px;
+    border: 1px solid var(--hc-gold-dim);
+    transform: rotate(45deg);
+  }
+
+  .resources-hero__lead {
+    max-width: 620px;
+    margin: 1.2rem 0 0;
+    color: var(--hc-muted);
+    font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
+    line-height: 1.72;
+    animation: heroRise 0.8s var(--ease) 200ms both;
+  }
+
+  @keyframes heroRise {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Catalog layout */
+
+  .catalog {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    padding-block: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  /* Index rail */
+
+  .catalog-index {
+    position: sticky;
+    top: clamp(1.5rem, 4vw, 3rem);
+    align-self: start;
+  }
+
+  .catalog-index__label {
+    margin: 0 0 1rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .catalog-index__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .catalog-index__link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.72rem 0.2rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    color: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 0.84rem;
+    text-decoration: none;
+    transition: color 220ms ease, padding-left 280ms var(--ease);
+  }
+
+  .catalog-index__marker {
+    width: 6px;
+    height: 6px;
+    border: 1px solid var(--hc-gold-dim);
+    transform: rotate(45deg) scale(0);
+    transition: transform 280ms var(--ease), background 220ms ease;
+  }
+
+  .catalog-index__link:hover {
+    color: var(--hc-gold-soft);
+  }
+
+  .catalog-index__link.is-active {
+    color: var(--hc-gold);
+    padding-left: 0.45rem;
+  }
+
+  .catalog-index__link.is-active .catalog-index__marker {
+    background: var(--hc-gold);
+    border-color: var(--hc-gold);
+    transform: rotate(45deg) scale(1);
+  }
+
+  .catalog-index__name {
+    flex: 1;
+  }
+
+  .catalog-index__count {
+    color: var(--hc-ash);
+    font-size: 0.72rem;
+  }
+
+  .catalog-index__total {
+    margin: 1.1rem 0 0;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+  }
+
+  /* Sections */
+
+  .catalog-sections {
+    display: grid;
+    gap: clamp(3rem, 6vw, 4.5rem);
+    min-width: 0;
+  }
+
+  .catalog-section {
+    scroll-margin-top: 5rem;
+  }
+
+  .catalog-section__head {
+    display: flex;
+    align-items: baseline;
+    gap: 1.25rem;
+    margin-bottom: clamp(1.1rem, 2vw, 1.6rem);
+  }
+
+  .catalog-section__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.8rem, 3vw, 2.7rem);
+    letter-spacing: -0.025em;
+    line-height: 1;
+    color: var(--hc-parchment);
+  }
+
+  .catalog-section__rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--hc-rule), transparent);
+  }
+
+  .catalog-section__name {
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Catalog entries */
+
+  .catalog-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--hc-rule);
+    background: var(--hc-rule-soft);
+  }
+
+  .catalog-entry {
+    background: rgba(15, 15, 16, 0.7);
+  }
+
+  .catalog-entry__link {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 1rem;
+    height: 100%;
+    padding: clamp(1rem, 2vw, 1.35rem);
+    text-decoration: none;
+    transition: background 250ms ease;
+  }
+
+  .catalog-entry__link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--hc-gold);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 320ms var(--ease);
+  }
+
+  .catalog-entry__link:hover {
+    background: rgba(216, 177, 102, 0.05);
+  }
+
+  .catalog-entry__link:hover::after {
+    transform: scaleX(1);
+  }
+
+  .catalog-entry__tag {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 0.2rem;
+    padding: 0.16rem 0.55rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.06);
+    font-family: var(--font-ui);
+    font-size: 0.64rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .catalog-entry__body {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .catalog-entry__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.25rem, 1.6vw, 1.55rem);
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+    color: var(--hc-parchment);
+    transition: color 220ms ease;
+  }
+
+  .catalog-entry__link:hover .catalog-entry__title {
+    color: var(--hc-gold-soft);
+  }
+
+  .catalog-entry__desc {
+    color: var(--hc-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .catalog-entry__arrow {
+    display: grid;
+    place-items: center;
+    margin-top: 0.2rem;
+    color: var(--hc-gold-dim);
+    transition: color 220ms ease, transform 250ms var(--ease);
+  }
+
+  .catalog-entry__link:hover .catalog-entry__arrow {
+    color: var(--hc-gold);
+    transform: translate(2px, -2px);
+  }
+
+  /* CTA */
+
+  .resources-cta {
+    padding-bottom: clamp(5rem, 10vw, 8rem);
+  }
+
+  .cta-panel {
+    position: relative;
+    padding: clamp(2rem, 4vw, 3.5rem);
+    border: 1px solid rgba(216, 177, 102, 0.4);
+    border-radius: var(--radius-xs);
+    color: var(--hc-parchment);
+    background: linear-gradient(rgba(164, 106, 63, 0.88), rgba(110, 59, 36, 0.94));
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.26);
+  }
+
+  .cta-panel::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px solid rgba(242, 235, 220, 0.22);
+    pointer-events: none;
+  }
+
+  .cta-panel__content {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+  }
+
+  .cta-panel .hc-eyebrow {
+    color: var(--hc-parchment-deep);
+  }
+
+  .cta-panel__title {
+    margin: 0.45rem 0 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.9rem, 3vw, 2.75rem);
+    letter-spacing: -0.025em;
+    line-height: 1.02;
+    color: var(--hc-parchment);
+  }
+
+  .cta-panel__copy {
+    margin: 0.85rem 0 0;
+    color: rgba(242, 235, 220, 0.86);
+    line-height: 1.7;
+  }
+
+  .cta-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 1.55rem;
+  }
+
+  /* Responsive */
+
+  @media (max-width: 1000px) {
+    .catalog {
+      grid-template-columns: 1fr;
+    }
+
+    .catalog-index {
+      position: static;
+    }
+
+    .catalog-index__list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      border-top: 0;
+    }
+
+    .catalog-index__link {
+      gap: 0.5rem;
+      padding: 0.35rem 0.85rem;
+      border: 1px solid var(--hc-rule);
+      border-radius: var(--radius-pill);
+    }
+
+    .catalog-index__link.is-active {
+      padding-left: 0.85rem;
+      border-color: var(--hc-gold-dim);
+    }
+
+    .catalog-index__marker {
+      display: none;
+    }
+
+    .catalog-index__total {
+      display: none;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .resources-hero::before {
+      inset: 10px;
+    }
+
+    .catalog-list {
+      grid-template-columns: 1fr;
+    }
+
+    .catalog-section__head {
+      flex-wrap: wrap;
+      gap: 0.6rem 1rem;
+    }
   }
 </style>

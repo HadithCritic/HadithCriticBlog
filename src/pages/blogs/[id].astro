@@ -1,0 +1,35 @@
+---
+import ArticleLayout from '../../components/article/ArticleLayout.astro';
+import ArticleHero from '../../components/article/ArticleHero.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('articles');
+  return posts.map(post => ({
+    params: { id: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+---
+
+<ArticleLayout title={`${post.data.title} | HadithCritic`} description={post.data.description}>
+  <ArticleHero
+    slot="hero"
+    title={post.data.title}
+    subtitle={post.data.category}
+    description={post.data.description}
+    category={post.data.category}
+    date={new Date(post.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+    readingTime="10 min read"
+    heroImage={post.data.thumbnail}
+  />
+
+  <div class="hc-container" style="padding-top: 4rem; padding-bottom: 8rem;">
+    <div class="hc-post-wrap">
+      <Content />
+    </div>
+  </div>
+</ArticleLayout>

@@ -1,132 +1,549 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
 
-// We can define the mock blog post data here
-const posts = [
-  {
-    title: "The Abbasid Mahdi",
-    subtitle: "The Black Banners & Abu Abbas al-Saffah",
-    description: "A study of black-banner prophecy reports, Abbasid political memory, and how apocalyptic narration can serve dynastic legitimacy.",
-    category: "Hadith Prophecies",
-    date: "Jan 18, 2025",
-    readingTime: "14 min read",
-    url: "/blogs/the-abbasid-mahdi",
-    thumbnail: "/images/blog_thumbnails/tn.abbasidmahdi.png"
-  }
-];
+const allPosts = await getCollection('articles', ({ data }) => !data.draft);
+const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const categoryCounts = new Map<string, number>();
+for (const post of posts) {
+  categoryCounts.set(post.data.category, (categoryCounts.get(post.data.category) ?? 0) + 1);
+}
+
+const categories = [...categoryCounts.entries()]
+  .sort((a, b) => b[1] - a[1])
+  .map(([name, count]) => ({ name, count }));
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const entries = posts.map((post, index) => ({
+  post,
+  folio: String(posts.length - index).padStart(3, '0'),
+  dateLabel: formatDate(post.data.date),
+  dateISO: post.data.date.toISOString().slice(0, 10)
+}));
 ---
-<BaseLayout title="Blogs & Analysis | HadithCritic">
-  <main class="blog-index">
-    <section class="index-hero">
-      <div class="hc-container">
-        <h1 class="hc-title hc-title--xl">Blogs & Analysis</h1>
-        <p class="hc-copy" style="max-width: 600px; font-size: 1.2rem; margin-top: 1rem; color: var(--hc-muted);">
-          Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts.
+
+<BaseLayout
+  title="Blogs & Analysis | HadithCritic"
+  description="Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts."
+>
+  <div class="archive-page">
+    <header class="archive-hero" aria-labelledby="archive-title">
+      <div class="hc-container archive-hero__inner">
+        <p class="hc-eyebrow archive-hero__label">The HadithCritic Index</p>
+        <h1 id="archive-title" class="archive-hero__title">
+          Blogs <em>&amp;</em> Analysis
+        </h1>
+        <div class="archive-hero__meta" aria-label="Archive statistics">
+          <span>{posts.length} entries</span>
+          <span class="archive-hero__diamond" aria-hidden="true"></span>
+          <span>{categories.length} categories</span>
+          <span class="archive-hero__diamond" aria-hidden="true"></span>
+          <span>Last entry {entries[0]?.dateLabel}</span>
+        </div>
+        <p class="archive-hero__lead">
+          Critical studies, transmission forensics, and historical analyses of prophetic
+          reports and early Islamic source texts. Every entry is catalogued below.
         </p>
       </div>
-    </section>
+    </header>
 
-    <section class="index-grid hc-container">
-      <div class="post-grid">
-        {posts.map((post) => (
-          <a href={post.url} class="post-card">
-            {post.thumbnail && <div class="post-card-image" style={`background-image: url('${post.thumbnail}');`}></div>}
-            <div class="post-card-content">
-              <span class="hc-chip" style="margin-bottom: 1.5rem; display: inline-block;">{post.category}</span>
-              <h2 class="hc-title" style="font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--hc-parchment);">{post.title}</h2>
-              <h3 class="hc-title" style="font-size: 1.1rem; color: var(--hc-gold); margin-bottom: 1rem;">{post.subtitle}</h3>
-              <p class="hc-copy" style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem;">{post.description}</p>
-              
-              <div class="post-meta">
-                <span class="hc-eyebrow">{post.date}</span>
-                <span class="hc-eyebrow" style="color: var(--hc-rule-strong);">•</span>
-                <span class="hc-eyebrow">{post.readingTime}</span>
-              </div>
-            </div>
-          </a>
-        ))}
+    <div class="archive-tools" role="region" aria-label="Filter the index">
+      <div class="hc-container archive-tools__inner">
+        <div class="archive-filters" role="group" aria-label="Filter by category">
+          <button type="button" class="filter-chip is-active" data-filter="all">
+            All <span class="filter-chip__count">{posts.length}</span>
+          </button>
+          {categories.map((category) => (
+            <button type="button" class="filter-chip" data-filter={category.name}>
+              {category.name} <span class="filter-chip__count">{category.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <label class="archive-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span class="sr-only">Search entries by title</span>
+          <input type="search" id="archive-search-input" placeholder="Search the index" autocomplete="off" />
+        </label>
       </div>
+    </div>
+
+    <section class="archive-ledger hc-container" aria-label="All entries">
+      <ol class="ledger" id="ledger">
+        {entries.map(({ post, folio, dateLabel, dateISO }, index) => (
+          <li
+            class="ledger-row"
+            data-category={post.data.category}
+            data-title={post.data.title.toLowerCase()}
+            style={`--row-index: ${Math.min(index, 14)}`}
+          >
+            <a href={`/blogs/${post.id}`} class="ledger-row__link">
+              <span class="ledger-row__folio">
+                <span class="ledger-row__no">No. {folio}</span>
+                <time class="ledger-row__date" datetime={dateISO}>{dateLabel}</time>
+              </span>
+
+              <span class="ledger-row__body">
+                <span class="ledger-row__title">{post.data.title}</span>
+                {post.data.description && (
+                  <span class="ledger-row__desc">{post.data.description}</span>
+                )}
+              </span>
+
+              <span class="ledger-row__aside">
+                <span class="ledger-row__cat">{post.data.category}</span>
+                <span class="ledger-row__arrow" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ol>
+
+      <p class="ledger-empty" id="ledger-empty" hidden>
+        No entries match this filter. Clear the search or choose another category.
+      </p>
     </section>
-  </main>
+  </div>
 </BaseLayout>
 
+<script>
+  const page = document.querySelector('.archive-page');
+
+  if (page) {
+    const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-chip')];
+    const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
+    const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
+    const emptyState = page.querySelector<HTMLParagraphElement>('#ledger-empty');
+
+    let activeCategory = 'all';
+    let query = '';
+
+    const applyFilters = () => {
+      let visible = 0;
+
+      for (const row of rows) {
+        const matchesCategory = activeCategory === 'all' || row.dataset.category === activeCategory;
+        const matchesQuery = !query || (row.dataset.title ?? '').includes(query);
+        const show = matchesCategory && matchesQuery;
+        row.hidden = !show;
+        if (show) visible += 1;
+      }
+
+      if (emptyState) emptyState.hidden = visible > 0;
+    };
+
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        activeCategory = chip.dataset.filter ?? 'all';
+        chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+        applyFilters();
+      });
+    }
+
+    searchInput?.addEventListener('input', () => {
+      query = searchInput.value.trim().toLowerCase();
+      applyFilters();
+    });
+  }
+</script>
+
 <style>
-  .blog-index {
+  .archive-page {
     min-height: 100vh;
-    background: radial-gradient(circle at 100% 0%, rgba(216, 177, 102, 0.05), transparent 40%), var(--hc-black);
-  }
-  
-  .index-hero {
-    padding: 8rem 0 4rem;
-    border-bottom: 1px solid var(--hc-rule);
-    background: linear-gradient(180deg, rgba(15, 15, 16, 0.8), var(--hc-black));
+    background:
+      radial-gradient(circle at 85% 0%, rgba(216, 177, 102, 0.06), transparent 32%),
+      linear-gradient(180deg, var(--hc-charcoal) 0%, var(--hc-black) 42%);
   }
 
-  .index-grid {
-    padding: 4rem 1rem;
-  }
+  /* Hero */
 
-  .post-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 2rem;
-  }
-
-  .post-card {
-    display: flex;
-    flex-direction: column;
-    text-decoration: none;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm);
-    background: linear-gradient(145deg, rgba(30, 29, 27, 0.6), rgba(20, 19, 18, 0.8));
-    transition: transform 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
-    overflow: hidden;
+  .archive-hero {
     position: relative;
-    height: 100%;
+    overflow: hidden;
+    padding: clamp(6rem, 9vw, 8.5rem) 0 clamp(2.75rem, 5vw, 4rem);
+    border-bottom: 1px solid var(--hc-rule);
   }
 
-  .post-card::before {
-    content: '';
+  .archive-hero::before {
+    content: "";
     position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--hc-gold), transparent);
-    opacity: 0;
-    transition: opacity 300ms;
-    z-index: 2;
+    inset: 18px;
+    border: 1px solid rgba(216, 177, 102, 0.12);
+    pointer-events: none;
   }
 
-  .post-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  .archive-hero__inner {
+    position: relative;
+    z-index: 1;
   }
 
-  .post-card:hover::before {
-    opacity: 1;
+  .archive-hero__label {
+    margin: 0 0 1rem;
+    animation: heroRise 0.7s var(--ease) both;
   }
 
-  .post-card-image {
-    height: 220px;
-    width: 100%;
-    background-size: cover;
-    background-position: center;
-    border-bottom: 1px solid var(--hc-rule-soft);
+  .archive-hero__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(3.4rem, 8vw, 7.5rem);
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    color: var(--hc-parchment);
+    animation: heroRise 0.8s var(--ease) 60ms both;
   }
 
-  .post-card-content {
-    padding: 2rem;
+  .archive-hero__title em {
+    font-style: italic;
+    color: var(--hc-gold);
+  }
+
+  .archive-hero__meta {
     display: flex;
-    flex-direction: column;
-    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.6rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: heroRise 0.8s var(--ease) 140ms both;
   }
 
-  .post-meta {
-    margin-top: auto;
+  .archive-hero__diamond {
+    width: 5px;
+    height: 5px;
+    border: 1px solid var(--hc-gold-dim);
+    transform: rotate(45deg);
+  }
+
+  .archive-hero__lead {
+    max-width: 620px;
+    margin: 1.2rem 0 0;
+    color: var(--hc-muted);
+    font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
+    line-height: 1.72;
+    animation: heroRise 0.8s var(--ease) 200ms both;
+  }
+
+  @keyframes heroRise {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Filter toolbar */
+
+  .archive-tools {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-bottom: 1px solid var(--hc-rule);
+    background: rgba(15, 15, 16, 0.92);
+    backdrop-filter: blur(10px);
+    animation: heroRise 0.8s var(--ease) 260ms both;
+  }
+
+  .archive-tools__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem 2rem;
+    padding-block: 0.85rem;
+  }
+
+  .archive-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 34px;
+    padding: 0.3rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-muted);
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+  }
+
+  .filter-chip:hover {
+    color: var(--hc-gold-soft);
+    border-color: var(--hc-gold-dim);
+  }
+
+  .filter-chip.is-active {
+    color: var(--hc-black);
+    border-color: var(--hc-gold);
+    background: var(--hc-gold);
+  }
+
+  .filter-chip__count {
+    font-size: 0.68rem;
+    opacity: 0.72;
+  }
+
+  .archive-search {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 230px;
+    padding: 0.42rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-ash);
+    background: rgba(242, 235, 220, 0.03);
+    transition: border-color 200ms ease, color 200ms ease;
+  }
+
+  .archive-search:focus-within {
+    border-color: var(--hc-gold-dim);
+    color: var(--hc-gold);
+  }
+
+  .archive-search input {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--hc-parchment);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+  }
+
+  .archive-search input::placeholder {
+    color: var(--hc-ash);
+  }
+
+  .archive-search input:focus {
+    outline: none;
+  }
+
+  /* Ledger */
+
+  .archive-ledger {
+    padding-block: clamp(2rem, 4vw, 3.25rem) clamp(5rem, 9vw, 7rem);
+  }
+
+  .ledger {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .ledger-row {
+    border-bottom: 1px solid var(--hc-rule-soft);
+    animation: rowEnter 0.6s var(--ease) both;
+    animation-delay: calc(var(--row-index, 0) * 45ms);
+  }
+
+  @keyframes rowEnter {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .ledger-row__link {
+    position: relative;
+    display: grid;
+    grid-template-columns: 122px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    padding: clamp(1.1rem, 2vw, 1.5rem) clamp(0.5rem, 1.5vw, 1.25rem);
+    text-decoration: none;
+    transition: background 250ms ease;
+  }
+
+  .ledger-row__link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--hc-gold);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 320ms var(--ease);
+  }
+
+  .ledger-row__link:hover {
+    background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 60%);
+  }
+
+  .ledger-row__link:hover::before {
+    transform: scaleY(1);
+  }
+
+  .ledger-row__folio {
+    display: grid;
+    gap: 0.3rem;
+    font-family: var(--font-ui);
+  }
+
+  .ledger-row__no {
+    color: var(--hc-gold-dim);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ledger-row__date {
+    color: var(--hc-ash);
+    font-size: 0.78rem;
+  }
+
+  .ledger-row__body {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .ledger-row__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    color: var(--hc-parchment);
+    transition: color 220ms ease;
+  }
+
+  .ledger-row__link:hover .ledger-row__title {
+    color: var(--hc-gold-soft);
+  }
+
+  .ledger-row__desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--hc-muted);
+    font-size: 0.93rem;
+    line-height: 1.5;
+  }
+
+  .ledger-row__aside {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--hc-rule-soft);
+    gap: 1.1rem;
+  }
+
+  .ledger-row__cat {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0.2rem 0.7rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.06);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .ledger-row__arrow {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--hc-rule);
+    border-radius: 50%;
+    color: var(--hc-gold-dim);
+    transition: color 250ms ease, border-color 250ms ease, transform 250ms var(--ease);
+  }
+
+  .ledger-row__link:hover .ledger-row__arrow {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    transform: translateX(4px);
+  }
+
+  .ledger-empty {
+    margin: 2.5rem 0 0;
+    padding: 2rem;
+    border: 1px solid var(--hc-rule);
+    color: var(--hc-muted);
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+  }
+
+  /* Responsive */
+
+  @media (max-width: 900px) {
+    .ledger-row__link {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+
+    .ledger-row__folio {
+      grid-column: 1 / -1;
+      grid-template-columns: auto auto;
+      align-items: baseline;
+      gap: 0.85rem;
+    }
+
+    .ledger-row__arrow {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .archive-hero::before {
+      inset: 10px;
+    }
+
+    .archive-tools__inner {
+      justify-content: flex-start;
+    }
+
+    .archive-search {
+      width: 100%;
+    }
+
+    .ledger-row__link {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ledger-row__aside {
+      justify-content: flex-start;
+    }
   }
 </style>

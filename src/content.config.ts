@@ -11,6 +11,7 @@ const articleCollection = defineCollection({
     author: z.string().default('HadithCritic'),
     tags: z.array(z.string()).default([]),
     category: z.string(),
+    thumbnail: z.string().optional(),
     draft: z.boolean().default(false),
   }),
 });
