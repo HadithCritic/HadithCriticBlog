@@ -9,44 +9,103 @@ export interface Props {
   heroImage?: string;
 }
 const { title, subtitle, description, category, date, readingTime, heroImage } = Astro.props;
-
-const bgStyle = heroImage 
-  ? `background-image: linear-gradient(90deg, #0f0f10 20%, rgba(15,15,16,0.6) 50%, transparent 100%), url('${heroImage}');`
-  : `background: var(--hc-black);`;
 ---
-<section class="article-hero" style={bgStyle}>
-  <div class="hc-container hero-inner">
-    <span class="hc-chip" style="margin-bottom: 1.5rem; display: inline-block;">{category}</span>
-    <h1 class="hc-title hc-title--xl" style="font-size: clamp(3rem, 5vw, 4.5rem); line-height: 1.05; max-width: 800px; margin-bottom: 0.5rem;">{title}</h1>
-    {subtitle && <h2 class="hc-title" style="font-size: clamp(1.4rem, 2vw, 1.8rem); color: var(--hc-gold); max-width: 700px; margin-bottom: 1.5rem;">{subtitle}</h2>}
-    {description && <p class="hc-copy" style="max-width: 650px; font-size: 1.1rem; line-height: 1.6;">{description}</p>}
-    <div class="article-meta">
-      {date && <span class="hc-eyebrow">{date}</span>}
-      {date && readingTime && <span class="hc-eyebrow" style="color: var(--hc-rule-strong);">•</span>}
-      {readingTime && <span class="hc-eyebrow">{readingTime}</span>}
+<section class="article-hero">
+  <div class="hc-container hero-grid">
+    <div class="hero-content">
+      <span class="hc-chip" style="margin-bottom: 1.5rem; display: inline-block;">{category}</span>
+      <h1 class="hc-title hc-title--xl" style="font-size: clamp(3rem, 5vw, 4.5rem); line-height: 1.05; max-width: 800px; margin-bottom: 0.5rem;">{title}</h1>
+      {subtitle && <h2 class="hc-title" style="font-size: clamp(1.4rem, 2vw, 1.8rem); color: var(--hc-gold); max-width: 700px; margin-bottom: 1.5rem;">{subtitle}</h2>}
+      {description && <p class="hc-copy" style="max-width: 650px; font-size: 1.1rem; line-height: 1.6;">{description}</p>}
+      <div class="article-meta">
+        {date && <span class="hc-eyebrow">{date}</span>}
+        {date && readingTime && <span class="hc-eyebrow" style="color: var(--hc-rule-strong);">•</span>}
+        {readingTime && <span class="hc-eyebrow">{readingTime}</span>}
+      </div>
     </div>
+    
+    {heroImage && (
+      <div class="hero-media">
+        <figure class="hero-plate">
+          <img src={heroImage} alt={`Cover for ${title}`} />
+        </figure>
+      </div>
+    )}
   </div>
 </section>
 
 <style>
   .article-hero {
-    padding: clamp(4rem, 8vw, 8rem) 0;
-    background-size: cover;
-    background-position: center right;
+    padding: clamp(3rem, 5vw, 4.5rem) 0;
     border-bottom: 1px solid var(--hc-rule);
-    min-height: 50vh;
-    display: flex;
-    align-items: center;
+    background:
+      radial-gradient(circle at 78% 34%, rgba(123,45,36,.12), transparent 45%),
+      linear-gradient(135deg, rgba(15,15,16,.98) 0%, rgba(30,29,27,.95) 58%, rgba(15,15,16,.98) 100%);
     position: relative;
+    overflow: hidden;
   }
-  .hero-inner {
+  
+  .article-hero::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border: 1px solid rgba(216,177,102,.16);
+    pointer-events: none;
+  }
+
+  .article-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 38%;
+    background: linear-gradient(transparent, rgba(15,15,16,.82));
+    pointer-events: none;
+  }
+
+  .hero-grid {
     position: relative;
     z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(460px, 1.05fr);
+    align-items: center;
+    gap: clamp(2.5rem, 5vw, 5rem);
   }
+
   .article-meta {
     margin-top: 2.5rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
+  }
+
+  .hero-plate {
+    margin: 0;
+    position: relative;
+    padding: 0.55rem;
+    border: 1px solid var(--hc-rule);
+    background: rgba(15,15,16,.68);
+    box-shadow: var(--shadow);
+  }
+
+  .hero-plate::before {
+    content: "";
+    position: absolute;
+    inset: 1rem;
+    border: 1px solid rgba(216,177,102,.14);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .hero-plate img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    filter: saturate(.95) contrast(1.04);
+  }
+
+  @media (max-width: 1050px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
