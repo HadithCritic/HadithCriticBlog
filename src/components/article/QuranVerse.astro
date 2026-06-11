@@ -1,0 +1,97 @@
+---
+import verses from '../../data/quran-verses.json';
+
+export interface Props {
+  /** A verse reference or list: "49:6", "6:74-76", or "2:255, 24:13". */
+  verse: string;
+  /** Optional override label; defaults to a tidy "Quran <refs>". */
+  label?: string;
+}
+
+const data = verses as Record<string, { ar: string; en: string }>;
+const { verse, label } = Astro.props;
+
+// Expand "6:74-76" -> ["6:74","6:75","6:76"] and split comma lists.
+function expand(ref: string): string[] {
+  const out: string[] = [];
+  for (const part of ref.split(',').map((s) => s.trim()).filter(Boolean)) {
+    const m = part.match(/^(\d+):(\d+)-(\d+)$/);
+    if (m) {
+      const ch = m[1];
+      for (let v = Number(m[2]); v <= Number(m[3]); v++) out.push(`${ch}:${v}`);
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+const refs = expand(verse);
+const found = refs.map((r) => ({ ref: r, ...(data[r] || {}) }));
+const missing = found.filter((f) => !f.ar && !f.en).map((f) => f.ref);
+if (missing.length) {
+  console.warn(`[QuranVerse] No data for: ${missing.join(', ')} (verse="${verse}")`);
+}
+
+const arabic = found.map((f) => f.ar).filter(Boolean).join(' ۝ ');
+const english = found
+  .map((f) => f.en)
+  .filter(Boolean)
+  .join(' ');
+const ref = label || `Quran ${verse}`;
+---
+<div class="hc-article-panel hc-article-panel--parchment quran-verse">
+  <div class="quran-verse__header">
+    <span class="hc-eyebrow">Quran</span>
+  </div>
+  {arabic && (
+    <div class="quran-verse__arabic" dir="rtl" lang="ar">{arabic}</div>
+  )}
+  {english && <div class="quran-verse__english">{english}</div>}
+  <div class="quran-verse__ref">{ref}</div>
+</div>
+<style>
+  .quran-verse {
+    position: relative;
+    padding-top: 3rem;
+  }
+  .quran-verse__header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    padding: 0.5rem 1.25rem;
+    background: var(--hc-parchment-deep);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: var(--radius-sm) 0 var(--radius-sm) 0;
+  }
+  .quran-verse__header .hc-eyebrow {
+    color: var(--hc-umber-dark);
+  }
+  .quran-verse__arabic {
+    font-family: var(--font-arabic);
+    font-size: 1.65rem;
+    line-height: 2.3;
+    margin-bottom: 1.5rem;
+    color: var(--hc-parchment-ink);
+    text-align: right;
+  }
+  .quran-verse__english {
+    font-size: 1.15rem;
+    line-height: 1.75;
+    margin-bottom: 1.25rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--hc-gold-dim);
+    color: #2f281f;
+  }
+  .quran-verse__ref {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-umber-dark);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    padding-top: 1rem;
+    font-weight: 600;
+  }
+</style>

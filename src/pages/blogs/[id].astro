@@ -1,6 +1,7 @@
 ---
 import ArticleLayout from '../../components/article/ArticleLayout.astro';
 import ArticleHero from '../../components/article/ArticleHero.astro';
+import ArticleTOC from '../../components/article/ArticleTOC.astro';
 import { getCollection, render } from 'astro:content';
 
 export async function getStaticPaths() {
@@ -12,7 +13,14 @@ export async function getStaticPaths() {
 }
 
 const { post } = Astro.props;
-const { Content } = await render(post);
+const { Content, headings } = await render(post);
+
+// Build the sidebar table of contents from the real rendered headings so
+// the anchors always resolve. Only top-level sections are shown.
+const tocHeadings = headings
+  .filter((h) => h.depth === 2 || h.depth === 3)
+  .map((h) => ({ depth: h.depth, text: h.text, slug: h.slug }));
+const showToc = tocHeadings.length >= 3;
 ---
 
 <ArticleLayout title={`${post.data.title} | HadithCritic`} description={post.data.description}>
@@ -27,9 +35,9 @@ const { Content } = await render(post);
     heroImage={post.data.thumbnail}
   />
 
-  <div class="hc-container" style="padding-top: 4rem; padding-bottom: 8rem;">
-    <div class="hc-post-wrap">
-      <Content />
-    </div>
-  </div>
+  {showToc && <ArticleTOC slot="toc" headings={tocHeadings} />}
+
+  <article class="hc-article-body">
+    <Content />
+  </article>
 </ArticleLayout>
