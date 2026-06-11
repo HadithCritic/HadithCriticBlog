@@ -12,7 +12,10 @@ const articleCollection = defineCollection({
     tags: z.array(z.string()).default([]),
     category: z.string(),
     thumbnail: z.string().optional(),
+    heroAlt: z.string().optional(),
+    readingTime: z.string().optional(),
     draft: z.boolean().default(false),
+    preview: z.boolean().default(false),
   }),
 });
 

@@ -4,8 +4,13 @@ import ArticleHero from '../../components/article/ArticleHero.astro';
 import ArticleTOC from '../../components/article/ArticleTOC.astro';
 import { getCollection, render } from 'astro:content';
 
+const includeBlogMakerPreview = process.env.BLOG_MAKER_PREVIEW === 'true';
+
 export async function getStaticPaths() {
-  const posts = await getCollection('articles');
+  const posts = await getCollection('articles', ({ data }) => {
+    if (data.preview) return includeBlogMakerPreview;
+    return !data.draft;
+  });
   return posts.map(post => ({
     params: { id: post.id },
     props: { post },
@@ -31,8 +36,9 @@ const showToc = tocHeadings.length >= 3;
     description={post.data.description}
     category={post.data.category}
     date={new Date(post.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-    readingTime="10 min read"
+    readingTime={post.data.readingTime ?? "10 min read"}
     heroImage={post.data.thumbnail}
+    heroAlt={post.data.heroAlt}
   />
 
   {showToc && <ArticleTOC slot="toc" headings={tocHeadings} />}

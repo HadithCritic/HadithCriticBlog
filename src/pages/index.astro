@@ -4,7 +4,7 @@ import { getCollection } from 'astro:content';
 
 const GENERIC_THUMB = '/images/blog_thumbnails/tn.generic.png';
 
-const allPosts = await getCollection('articles', ({ data }) => !data.draft);
+const allPosts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 const categoryDescriptions: Record<string, string> = {
@@ -28,9 +28,9 @@ const categories = [...categoryCounts.entries()]
     description: categoryDescriptions[name] ?? ''
   }));
 
-const featured =
-  posts.find((p) => p.data.thumbnail && p.data.thumbnail !== GENERIC_THUMB) ?? posts[0];
-const recent = posts.filter((p) => p.id !== featured.id).slice(0, 6);
+const featured = posts[0];
+const featuredThumb = featured?.data.thumbnail ?? GENERIC_THUMB;
+const recent = posts.slice(0, 6);
 
 const formatDate = (date: Date) =>
   date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -88,7 +88,7 @@ const videoIds = [
         <a href={`/blogs/${featured.id}`} class="journal-feature-card">
           <div
             class="journal-feature-image"
-            style={`background-image:url('${featured.data.thumbnail}')`}
+            style={`background-image:url('${featuredThumb}')`}
             role="img"
             aria-label={`Cover illustration for ${featured.data.title}`}
           >
