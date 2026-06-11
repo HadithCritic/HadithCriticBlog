@@ -1,153 +1,51 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import DirectoryCard from '../components/DirectoryCard.astro';
-import ReportCard from '../components/ReportCard.astro';
+import { getCollection } from 'astro:content';
 
-const directory = [
-  {
-    title: 'Blog',
-    description: 'Essays, reflections, and critical notes on hadith, history, theology, and textual transmission.',
-    label: 'Articles & Essays',
-    href: '/blogs',
-    theme: 'parchment',
-    imgSrc: '/assets/illustrations/scholar-writing-strip.png'
-  },
-  {
-    title: 'Academia',
-    description: 'Published papers, formal research, long-form studies, and downloadable academic work.',
-    label: 'Formal Research',
-    href: '/academia',
-    theme: 'charcoal',
-    imgSrc: '/assets/illustrations/manuscript-review-strip.png'
-  },
-  {
-    title: 'Projects',
-    description: 'Large-scale research tools, datasets, databases, and digital humanities work in progress.',
-    label: 'Digital Humanities',
-    href: '/projects',
-    theme: 'charcoal',
-    imgSrc: '/assets/illustrations/transmission-map-strip.png'
-  },
-  {
-    title: 'Resources',
-    description: 'Bibliographies, source lists, reading guides, corpora, PDFs, and research aids.',
-    label: 'Archive',
-    href: '/resources',
-    theme: 'charcoal',
-    imgSrc: '/assets/illustrations/archive-shelves-strip.png'
-  },
-  {
-    title: 'YouTube',
-    description: 'Video essays, lectures, breakdowns, and visual explanations.',
-    label: 'Video Lectures',
-    href: '/youtube',
-    theme: 'parchment',
-    imgSrc: '/assets/illustrations/lecture-circle-strip.png'
-  },
-  {
-    title: 'Contact',
-    description: 'Questions, corrections, collaboration, or source submissions.',
-    label: 'Correspondence',
-    href: '/contact',
-    theme: 'charcoal',
-    imgSrc: '/assets/illustrations/letter-seal-strip.png'
-  }
+const GENERIC_THUMB = '/images/blog_thumbnails/tn.generic.png';
+
+const allPosts = await getCollection('articles', ({ data }) => !data.draft);
+const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const categoryDescriptions: Record<string, string> = {
+  History: 'Transmission history, narrator politics, common links, and the growth of the corpus.',
+  Prophecies: 'Mahdi reports, apocalyptic claims, black banners, and dynastic memory.',
+  Theology: 'Quranic authority, law, abrogation, and anti-traditionalist critique.',
+  Philosophy: 'Epistemology, testimony, language, and probability.',
+  Blog: 'Site notes, announcements, and shorter reflections.'
+};
+
+const categoryCounts = new Map<string, number>();
+for (const post of posts) {
+  categoryCounts.set(post.data.category, (categoryCounts.get(post.data.category) ?? 0) + 1);
+}
+
+const categories = [...categoryCounts.entries()]
+  .sort((a, b) => b[1] - a[1])
+  .map(([name, count]) => ({
+    name,
+    count,
+    description: categoryDescriptions[name] ?? ''
+  }));
+
+const featured =
+  posts.find((p) => p.data.thumbnail && p.data.thumbnail !== GENERIC_THUMB) ?? posts[0];
+const recent = posts.filter((p) => p.id !== featured.id).slice(0, 6);
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const folioOf = (post: (typeof posts)[number]) =>
+  String(posts.length - posts.indexOf(post)).padStart(3, '0');
+
+const videoIds = [
+  'HWHjCfaPn_0',
+  '6bpJBji3E0M',
+  '3B0rnPGWgKU',
+  'CG5i14GAZTQ',
+  'boG5JTD5yXU',
+  'MLaRB6uGhAk'
 ];
-
-const blogCategories = [
-  {
-    name: 'Hadith Prophecies',
-    slug: 'prophecy',
-    count: 18,
-    description: 'Mahdī reports, apocalyptic claims, banners, signs, and dynastic memory.'
-  },
-  {
-    name: 'Isnād & Transmission',
-    slug: 'transmission',
-    count: 29,
-    description: 'Narrator politics, common links, rijāl criticism, and transmission growth.'
-  },
-  {
-    name: 'Quranic Theology',
-    slug: 'theology',
-    count: 16,
-    description: 'Quranic authority, law, anti-traditionalist critique, and legal theory.'
-  },
-  {
-    name: 'Philosophy',
-    slug: 'philosophy',
-    count: 4,
-    description: 'Epistemology, testimony, language, probability, and verification.'
-  },
-  {
-    name: 'Comparative Religion',
-    slug: 'comparative',
-    count: 7,
-    description: 'Scriptural history, revelation parallels, and cross-tradition isnād claims.'
-  }
-];
-
-const blogPosts = [
-  {
-    title: 'The Abbasid Mahdī',
-    subtitle: 'Black banners, Khurāsān, and the capture of Hāshimite hope',
-    category: 'Hadith Prophecies',
-    categorySlug: 'prophecy',
-    excerpt: 'A study of black-banner prophecy reports, Abbasid political memory, and how apocalyptic narration can serve dynastic legitimacy.',
-    date: 'Jan 18, 2025',
-    readTime: '24 min read',
-    thumbnail: '/images/blog_thumbnails/tn.abbasidmahdi.png',
-    bgPosition: 'right center',
-    href: '/blogs/the-abbasid-mahdi'
-  },
-  {
-    title: 'The Sunni-Quranic Abrogation Dilemma',
-    subtitle: 'How legal theory absorbs contradiction',
-    category: 'Quranic Theology',
-    categorySlug: 'theology',
-    excerpt: 'Examining classical approaches to textual abrogation and the pressure they place on Quranic clarity and completion.',
-    date: 'Feb 10, 2025',
-    readTime: '10 min read',
-    thumbnail: '/images/blog_thumbnails/tn.abrogationdilemma.png',
-    href: '#'
-  },
-  {
-    title: 'Battle of the Isnads',
-    subtitle: 'Judaism, Christianity, Islam, and the politics of testimony',
-    category: 'Comparative Religion',
-    categorySlug: 'comparative',
-    excerpt: 'A comparative look at transmitted authority, witness claims, and how religious communities construct memory.',
-    date: 'Mar 5, 2025',
-    readTime: '12 min read',
-    thumbnail: '/images/blog_thumbnails/tn.isnadbattle.png',
-    href: '#'
-  },
-  {
-    title: "Isnād Politics: Hishām & al-Aʿmash",
-    subtitle: 'Narrator relationships under political pressure',
-    category: 'Isnād & Transmission',
-    categorySlug: 'transmission',
-    excerpt: 'A forensic look at the political pressures shaping narrator relationships in Kūfa.',
-    date: 'Apr 2, 2025',
-    readTime: '15 min read',
-    thumbnail: '/images/blog_thumbnails/tn.isnadpoliticshishamamash.png',
-    href: '#'
-  },
-  {
-    title: 'Wittgenstein and Hadith Interpretation',
-    subtitle: 'Language games and inherited meaning',
-    category: 'Philosophy',
-    categorySlug: 'philosophy',
-    excerpt: 'Applying language-game theory to inherited interpretive habits and apparent contradictions in tradition.',
-    date: 'May 14, 2025',
-    readTime: '9 min read',
-    thumbnail: '/images/blog_thumbnails/tn.witgenstein.png',
-    href: '#'
-  }
-];
-
-const homepageBlogPosts = blogPosts.slice(0, 19);
-const featuredPost = blogPosts[0];
 ---
 
 <BaseLayout title="HadithCritic | Verification Over Reputation">
@@ -158,140 +56,179 @@ const featuredPost = blogPosts[0];
         <h1 class="hc-title hc-title--xl">Better narrations<br />through better questions.</h1>
         <div class="hc-divider hero-divider"></div>
         <p class="hc-copy hero-subtitle">
-          Textual criticism, transmission analysis, and source verification, so the truth is sought through evidence and transmitted with integrity.
+          Textual criticism, transmission analysis, and source verification, so the truth is
+          sought through evidence and transmitted with integrity.
         </p>
         <div class="hero-actions">
-          <a href="/reports" class="hc-btn">Explore Reports <span aria-hidden="true">→</span></a>
-          <a href="/methodology" class="hc-btn hc-btn--ghost">Learn Our Method</a>
+          <a href="/blogs" class="hc-btn">Browse the archive <span aria-hidden="true">→</span></a>
+          <a href="/academia" class="hc-btn hc-btn--ghost">Read the research</a>
         </div>
       </div>
     </div>
   </section>
-
-
 
   <section class="hc-section archive-journal-section" aria-labelledby="archive-journal-title">
     <div class="hc-container">
       <header class="journal-header">
         <div>
-          <span class="hc-label">From the blog</span>
-          <h2 id="archive-journal-title" class="hc-title hc-title--md">Latest studies from the archive.</h2>
-          <p class="hc-copy">
-            Essays and research notes on transmission, prophecy reports, Quranic authority, epistemology, and scriptural history.
+          <h2 id="archive-journal-title" class="hc-title hc-title--md">
+            From the <em>archive</em>
+          </h2>
+          <p class="hc-copy journal-header-copy">
+            Essays and research notes on transmission, prophecy reports, Quranic authority,
+            epistemology, and scriptural history.
           </p>
         </div>
-        <a href="/blogs" class="hc-btn hc-btn--ghost">View all essays <span aria-hidden="true">→</span></a>
+        <a href="/blogs" class="hc-btn hc-btn--ghost">
+          Browse all {posts.length} entries <span aria-hidden="true">→</span>
+        </a>
       </header>
 
       <div class="journal-feature-grid">
-        <a href={featuredPost.href} class={`journal-feature-card journal-feature-card--${featuredPost.categorySlug}`}>
-          <div class="journal-feature-image" style={`background-image:url('${featuredPost.thumbnail}'); background-position: ${featuredPost.bgPosition || 'center'};`}></div>
+        <a href={`/blogs/${featured.id}`} class="journal-feature-card">
+          <div
+            class="journal-feature-image"
+            style={`background-image:url('${featured.data.thumbnail}')`}
+            role="img"
+            aria-label={`Cover illustration for ${featured.data.title}`}
+          >
+          </div>
           <div class="journal-feature-copy">
-            <span class="journal-category">{featuredPost.category}</span>
-            <h3>{featuredPost.title}</h3>
-            <p class="journal-subtitle">{featuredPost.subtitle}</p>
-            <p>{featuredPost.excerpt}</p>
+            <span class="journal-category">Featured study</span>
+            <h3>{featured.data.title}</h3>
+            <p>{featured.data.description}</p>
             <div class="journal-meta">
-              <span>{featuredPost.date}</span>
-              <span>{featuredPost.readTime}</span>
-              <span>Read study</span>
+              <span>{featured.data.category}</span>
+              <span>{formatDate(featured.data.date)}</span>
+              <span class="journal-meta-cta">Read the study</span>
             </div>
           </div>
         </a>
 
-        <div class="journal-categories" aria-label="Blog categories">
-          {blogCategories.map(category => (
-            <a href={`/blogs?category=${category.slug}`} class={`journal-category-tile journal-category-tile--${category.slug}`}>
+        <nav class="journal-categories" aria-label="Browse entries by category">
+          {categories.map((category) => (
+            <a
+              href={`/blogs?category=${encodeURIComponent(category.name)}`}
+              class="journal-category-tile"
+            >
               <span class="journal-category-count">{category.count}</span>
               <strong>{category.name}</strong>
-              <p>{category.description}</p>
+              {category.description && <p>{category.description}</p>}
             </a>
           ))}
-        </div>
+        </nav>
       </div>
 
-      <div class="journal-rail-wrap">
-        <div class="journal-rail-heading">
-          <span class="hc-label">Recent essays</span>
-        </div>
-
-        <div class="carousel-container">
-          <button class="carousel-btn carousel-prev" aria-label="Previous posts">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          
-          <div class="journal-rail" aria-label="Recent blog posts" id="blog-carousel">
-          {homepageBlogPosts.map((post, index) => (
-            <a href={post.href} class={`journal-card journal-card--${post.categorySlug}`}>
-              <div class="journal-card-image" style={`background-image:url('${post.thumbnail}'); background-position: ${post.bgPosition || 'center'};`}></div>
-              <div class="journal-card-body">
-                <span class="journal-category">{post.category}</span>
-                <h3>{post.title}</h3>
-                <p>{post.excerpt}</p>
-                <div class="journal-meta">
-                  <span>{post.date}</span>
-                  <span>{post.readTime}</span>
-                </div>
-              </div>
-            </a>
+      <div class="home-ledger-wrap">
+        <h3 class="home-ledger-title">Latest entries</h3>
+        <ol class="home-ledger">
+          {recent.map((post) => (
+            <li class="home-ledger-row">
+              <a href={`/blogs/${post.id}`} class="home-ledger-link">
+                <span class="home-ledger-folio">
+                  <span class="home-ledger-no">No. {folioOf(post)}</span>
+                  <time datetime={post.data.date.toISOString().slice(0, 10)}>
+                    {formatDate(post.data.date)}
+                  </time>
+                </span>
+                <span class="home-ledger-body">
+                  <span class="home-ledger-heading">{post.data.title}</span>
+                  <span class="home-ledger-desc">{post.data.description}</span>
+                </span>
+                <span class="home-ledger-cat">{post.data.category}</span>
+                <span class="home-ledger-arrow" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </span>
+              </a>
+            </li>
           ))}
-        </div>
+        </ol>
       </div>
     </div>
   </section>
 
-  <section class="hc-section hc-section--tight youtube-preview-section">
-    <div class="hc-container">
-      <header class="hc-section-head">
-        <span class="hc-label">Video Lectures</span>
-        <h2 class="hc-title hc-title--md">Visual breakdowns from the archive.</h2>
-        <p class="hc-copy">Watch our latest deep dives into transmission history and source criticism.</p>
-      </header>
-
-      <div class="youtube-gallery">
-        <div class="youtube-grid">
-          <iframe src="https://www.youtube.com/embed/HWHjCfaPn_0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          <iframe src="https://www.youtube.com/embed/6bpJBji3E0M" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          <iframe src="https://www.youtube.com/embed/3B0rnPGWgKU" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          <iframe src="https://www.youtube.com/embed/CG5i14GAZTQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          <iframe src="https://www.youtube.com/embed/boG5JTD5yXU" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-          <iframe src="https://www.youtube.com/embed/MLaRB6uGhAk" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-        </div>
-      </div>
-    </div>
-  </section>
-
-
-
-  <section class="hc-section projects-section">
+  <section class="hc-section youtube-preview-section" aria-labelledby="lectures-title">
     <div class="hc-container">
       <header class="journal-header">
         <div>
-          <span class="hc-label">Digital Humanities</span>
-          <h2 class="hc-title hc-title--md">Large-scale projects</h2>
-          <p class="hc-copy">Research infrastructure for reports, chains, variants, transmitters, and source comparison.</p>
+          <h2 id="lectures-title" class="hc-title hc-title--md">Lectures in <em>video</em></h2>
+          <p class="hc-copy journal-header-copy">
+            Deep dives into transmission history and source criticism, in visual form.
+          </p>
         </div>
-        <a href="/projects" class="hc-btn hc-btn--ghost">See all projects <span aria-hidden="true">→</span></a>
+        <a href="/youtube" class="hc-btn hc-btn--ghost">
+          Visit the channel <span aria-hidden="true">→</span>
+        </a>
       </header>
 
-      <div class="projects-grid projects-grid--brand">
+      <div class="youtube-grid">
+        {videoIds.map((id) => (
+          <button
+            type="button"
+            class="yt-lite"
+            data-video-id={id}
+            aria-label="Play video lecture"
+          >
+            <img
+              src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="yt-play" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5.5v13l11-6.5z" />
+              </svg>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="hc-section projects-section" aria-labelledby="projects-title">
+    <div class="hc-container">
+      <header class="journal-header">
+        <div>
+          <h2 id="projects-title" class="hc-title hc-title--md">Large-scale <em>projects</em></h2>
+          <p class="hc-copy journal-header-copy">
+            Research infrastructure for reports, chains, variants, transmitters, and source
+            comparison.
+          </p>
+        </div>
+        <a href="/projects" class="hc-btn hc-btn--ghost">
+          See all projects <span aria-hidden="true">→</span>
+        </a>
+      </header>
+
+      <div class="projects-grid--brand">
         <article class="project-card project-card--large">
-          <span class="hc-chip">Coming Soon</span>
-          <h3 class="hc-title">Hadith Database</h3>
-          <p class="hc-copy">A searchable database for reports, chains, variants, transmitters, and source comparison.</p>
+          <span class="hc-chip">Coming soon</span>
+          <h3>Hadith Database</h3>
+          <p class="hc-copy">
+            A searchable database for reports, chains, variants, transmitters, and source
+            comparison.
+          </p>
           <div class="project-lines" aria-hidden="true">
             <span></span><span></span><span></span>
           </div>
         </article>
         <article class="project-card">
-          <span class="hc-chip">Research Phase</span>
-          <h3 class="hc-title">Corpus Mapping</h3>
-          <p class="hc-copy">Digital tools for tracing reports across early Sunni and Shīʿī collections.</p>
+          <span class="hc-chip">Research phase</span>
+          <h3>Corpus Mapping</h3>
+          <p class="hc-copy">
+            Digital tools for tracing reports across early Sunni and Shīʿī collections.
+          </p>
         </article>
         <article class="project-card">
-          <span class="hc-chip">In Development</span>
-          <h3 class="hc-title">Common-Link Studies</h3>
-          <p class="hc-copy">Visual studies of transmission clusters, narrator pathways, and textual growth.</p>
+          <span class="hc-chip">In development</span>
+          <h3>Common-Link Studies</h3>
+          <p class="hc-copy">
+            Visual studies of transmission clusters, narrator pathways, and textual growth.
+          </p>
         </article>
       </div>
     </div>
@@ -301,9 +238,13 @@ const featuredPost = blogPosts[0];
     <div class="hc-container">
       <div class="closing-banner">
         <div class="closing-copy">
-          <span class="hc-label">A legacy of inquiry</span>
-          <h2 class="hc-title hc-title--md">We preserve the standards of the scholars by showing the evidence.</h2>
-          <a href="/methodology" class="hc-btn hc-btn--ghost">Read the method</a>
+          <h2 class="hc-title hc-title--md">
+            Truth is sought through evidence and transmitted with integrity.
+          </h2>
+          <p class="closing-lead">
+            Questions, corrections, collaboration, and source submissions are welcome.
+          </p>
+          <a href="/contact" class="hc-btn">Write to HadithCritic</a>
         </div>
       </div>
     </div>
@@ -311,18 +252,11 @@ const featuredPost = blogPosts[0];
 </BaseLayout>
 
 <style>
-  .hero-section,
-  .archive-journal-section,
-  .archive-wings-section,
-  .featured-reports,
-  .method-section,
-  .projects-section,
-  .closing-banner-section {
-    position: relative;
-  }
+  /* Hero */
 
   .hero-section {
-    min-height: clamp(400px, 45vw, 800px);
+    position: relative;
+    min-height: clamp(400px, 45vw, 760px);
     display: flex;
     align-items: center;
     border-bottom: 1px solid var(--hc-rule);
@@ -363,45 +297,54 @@ const featuredPost = blogPosts[0];
 
   .hero-content {
     max-width: 680px;
-    position: relative;
     padding-block: 5rem;
   }
 
   .hero-eyebrow {
     display: block;
     margin-bottom: 1rem;
+    animation: rise 0.7s var(--ease) both;
   }
 
   .hero-content .hc-title--xl {
-    font-size: 4.65rem;
-    line-height: 0.92;
-    letter-spacing: 0;
-    max-width: 8.7em;
-    text-wrap: normal;
+    font-size: clamp(3.4rem, 5.5vw, 4.65rem);
+    line-height: 0.96;
+    letter-spacing: -0.02em;
+    animation: rise 0.8s var(--ease) 70ms both;
   }
 
   .hero-divider {
     max-width: 320px;
     margin: 2.25rem 0 1.35rem;
+    animation: rise 0.8s var(--ease) 140ms both;
   }
 
   .hero-subtitle {
-    max-width: 26rem;
+    max-width: 28rem;
     margin: 0 0 2.35rem;
-    color: rgba(242, 235, 220, 0.82);
+    color: rgba(242, 235, 220, 0.86);
+    animation: rise 0.8s var(--ease) 200ms both;
   }
 
   .hero-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 1rem;
+    animation: rise 0.8s var(--ease) 260ms both;
   }
 
-  .archive-journal-section {
-    background:
-      linear-gradient(180deg, rgba(15,15,16,0.94), rgba(20,19,18,0.9)),
-      radial-gradient(circle at 12% 10%, rgba(216,177,102,0.07), transparent 30%);
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
+  /* Shared section header */
 
   .journal-header {
     display: flex;
@@ -412,53 +355,53 @@ const featuredPost = blogPosts[0];
   }
 
   .journal-header > div {
-    max-width: 780px;
+    max-width: 720px;
   }
 
-  .journal-header .hc-title {
-    margin-top: 0.4rem;
+  .journal-header .hc-title em {
+    font-style: italic;
+    color: var(--hc-gold);
   }
+
+  .journal-header-copy {
+    margin: 0.85rem 0 0;
+    max-width: 56ch;
+  }
+
+  /* Featured study */
 
   .journal-feature-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
     gap: 1.4rem;
     align-items: stretch;
   }
 
   .journal-feature-card {
-    min-height: 520px;
-    position: relative;
+    min-height: 440px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
     overflow: hidden;
     text-decoration: none;
     border: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(180deg, rgba(38,35,31,0.8), rgba(15,15,16,0.95)),
-      url('/assets/textures/charcoal-paper.png');
-    box-shadow: var(--shadow);
+    background: linear-gradient(180deg, rgba(38,35,31,0.8), rgba(15,15,16,0.95));
+    transition: border-color 220ms ease;
   }
 
-  .journal-feature-card::before,
-  .journal-categories::before,
-  .journal-rail-wrap::before,
-  .featured-reports-shell::before,
-  .method-strip--brand::before,
-  .projects-grid--brand::before,
-  .closing-banner::before {
-    content: "";
-    position: absolute;
-    inset: 10px;
-    border: 1px solid rgba(216,177,102,0.12);
-    pointer-events: none;
+  .journal-feature-card:hover {
+    border-color: var(--hc-rule-strong);
   }
 
   .journal-feature-image {
     min-height: 100%;
     background-size: cover;
     background-position: center;
-    filter: saturate(0.86) contrast(1.04);
+    filter: saturate(0.9) contrast(1.03);
+    transition: transform 450ms var(--ease);
+  }
+
+  .journal-feature-card:hover .journal-feature-image {
+    transform: scale(1.02);
   }
 
   .journal-feature-copy {
@@ -466,9 +409,6 @@ const featuredPost = blogPosts[0];
     display: flex;
     flex-direction: column;
     justify-content: end;
-    background:
-      linear-gradient(90deg, rgba(15,15,16,0.12), rgba(15,15,16,0.92) 22%),
-      linear-gradient(180deg, transparent, rgba(0,0,0,0.35));
   }
 
   .journal-category {
@@ -487,32 +427,21 @@ const featuredPost = blogPosts[0];
     font-weight: 600;
   }
 
-  .journal-feature-copy h3,
-  .journal-card h3,
-  .journal-category-tile strong,
-  .project-card h3 {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.04em;
-  }
-
   .journal-feature-copy h3 {
     margin: 0;
     color: var(--hc-parchment);
-    font-size: clamp(3rem, 5vw, 5.4rem);
-    line-height: 0.9;
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-size: clamp(2.1rem, 3vw, 3.1rem);
+    line-height: 1.02;
+    text-wrap: balance;
   }
 
-  .journal-subtitle {
-    color: var(--hc-gold);
-    font-style: italic;
-    font-size: 1.2rem;
-    margin: 0.85rem 0 0.9rem;
-  }
-
-  .journal-feature-copy > p:not(.journal-subtitle) {
+  .journal-feature-copy > p {
     color: var(--hc-muted);
-    margin: 0;
+    margin: 1rem 0 0;
+    max-width: 46ch;
   }
 
   .journal-meta {
@@ -539,11 +468,16 @@ const featuredPost = blogPosts[0];
     margin-left: 0.5rem;
   }
 
+  .journal-meta-cta {
+    color: var(--hc-gold);
+  }
+
+  /* Category tiles */
+
   .journal-categories {
-    position: relative;
     border: 1px solid var(--hc-rule);
-    background: rgba(15,15,16,0.46);
     display: grid;
+    grid-auto-rows: 1fr;
     gap: 1px;
     background-color: var(--hc-rule);
   }
@@ -551,18 +485,16 @@ const featuredPost = blogPosts[0];
   .journal-category-tile {
     display: grid;
     grid-template-columns: auto 1fr;
+    align-items: start;
     gap: 0.2rem 0.95rem;
-    padding: 1.2rem;
-    background:
-      linear-gradient(180deg, rgba(38,35,31,0.92), rgba(15,15,16,0.96)),
-      url('/assets/textures/charcoal-paper.png');
+    padding: 1.15rem 1.2rem;
+    background: linear-gradient(180deg, rgba(38,35,31,0.92), rgba(15,15,16,0.96));
     text-decoration: none;
+    transition: background 220ms ease;
   }
 
   .journal-category-tile:hover {
-    background:
-      linear-gradient(180deg, rgba(216,177,102,0.1), rgba(15,15,16,0.96)),
-      url('/assets/textures/charcoal-paper.png');
+    background: linear-gradient(180deg, rgba(216,177,102,0.12), rgba(15,15,16,0.96));
   }
 
   .journal-category-count {
@@ -580,183 +512,144 @@ const featuredPost = blogPosts[0];
 
   .journal-category-tile strong {
     color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
     font-size: 1.45rem;
-    line-height: 1;
+    line-height: 1.05;
   }
 
   .journal-category-tile p {
-    margin: 0.35rem 0 0;
+    margin: 0.3rem 0 0;
     color: var(--hc-muted);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     line-height: 1.45;
   }
 
-  .journal-category-tile--prophecy { --cat-accent: #a46a3f; }
-  .journal-category-tile--transmission { --cat-accent: #9d7a3c; }
-  .journal-category-tile--theology { --cat-accent: #5b496e; }
-  .journal-category-tile--philosophy { --cat-accent: #6d7880; }
-  .journal-category-tile--comparative { --cat-accent: #d8b166; }
+  /* Latest entries ledger */
 
-  .journal-category-tile {
-    box-shadow: inset 3px 0 0 var(--cat-accent, var(--hc-gold-dim));
+  .home-ledger-wrap {
+    margin-top: clamp(2.5rem, 5vw, 4rem);
   }
 
-  .journal-rail-wrap {
-    position: relative;
-    margin-top: 1.4rem;
-    padding: 1.2rem;
-    border: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(180deg, rgba(15,15,16,0.68), rgba(15,15,16,0.9)),
-      url('/assets/textures/charcoal-paper.png');
-  }
-
-  .journal-rail-heading {
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-    margin-bottom: 1rem;
-  }
-
-  .carousel-container {
-    position: relative;
-    width: 100%;
-    margin-top: 2rem;
-  }
-
-  .journal-rail {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: calc((100% - 2px) / 3);
-    gap: 1px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
-    background: var(--hc-rule);
-    border: 1px solid var(--hc-rule);
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE/Edge */
-  }
-
-  .journal-rail::-webkit-scrollbar {
-    display: none; /* Chrome/Safari */
-  }
-
-  .carousel-btn {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 48px;
-    background: rgba(15, 15, 16, 0.96);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-gold);
-    border-radius: 50%;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    transition: all 200ms ease;
-  }
-
-  .carousel-btn:hover {
-    background: rgba(38,35,31,0.95);
+  .home-ledger-title {
+    margin: 0 0 1rem;
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
     color: var(--hc-parchment);
-    transform: translateY(-50%) scale(1.05);
   }
 
-  .carousel-prev {
-    left: -24px;
+  .home-ledger {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule);
   }
 
-  .carousel-next {
-    right: -24px;
-  }
-
-  .journal-rail::-webkit-scrollbar-track {
-    background: rgba(242,235,220,0.08);
-  }
-
-  .journal-rail::-webkit-scrollbar-thumb {
-    background: rgba(216,177,102,0.44);
-  }
-
-  .journal-card {
-    position: relative;
-    scroll-snap-align: start;
-    min-height: 480px;
-    display: flex;
-    flex-direction: column;
-    text-decoration: none;
-    border: 1px solid rgba(216,177,102,0.26);
-    background: rgba(15,15,16,0.72);
-    overflow: hidden;
-    transition: transform 220ms var(--ease), border-color 220ms ease;
-  }
-
-  .journal-card:hover {
-    transform: translateY(-4px);
-    border-color: var(--hc-rule-strong);
-  }
-
-  .journal-card-image {
-    height: 210px;
-    background-size: cover;
-    background-position: center;
+  .home-ledger-row {
     border-bottom: 1px solid var(--hc-rule-soft);
   }
 
-  .journal-card-body {
-    flex: 1;
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .journal-card h3 {
-    margin: 0 0 0.8rem;
-    color: var(--hc-parchment);
-    font-size: 2rem;
-    line-height: 0.98;
-  }
-
-  .journal-card p {
-    margin: 0;
-    color: var(--hc-muted);
-    font-size: 0.95rem;
-    line-height: 1.55;
-    flex: 1;
-  }
-
-  .journal-card--prophecy { box-shadow: inset 0 -4px 0 rgba(164,106,63,0.82); }
-  .journal-card--transmission { box-shadow: inset 0 -4px 0 rgba(157,122,60,0.82); }
-  .journal-card--theology { box-shadow: inset 0 -4px 0 rgba(91,73,110,0.9); }
-  .journal-card--philosophy { box-shadow: inset 0 -4px 0 rgba(109,120,128,0.9); }
-  .journal-card--comparative { box-shadow: inset 0 -4px 0 rgba(216,177,102,0.82); }
-
-  .archive-wings-section {
-    background: linear-gradient(180deg, rgba(20,19,18,0.86), rgba(15,15,16,0.92));
-  }
-
-  .hc-directory-grid {
+  .home-ledger-link {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1px;
-    background: var(--hc-rule);
+    grid-template-columns: 118px minmax(0, 1fr) auto 36px;
+    align-items: center;
+    gap: clamp(1.1rem, 2.5vw, 2.25rem);
+    padding: clamp(1rem, 1.8vw, 1.35rem) clamp(0.4rem, 1.2vw, 1rem);
+    text-decoration: none;
+    transition: background 250ms ease;
+  }
+
+  .home-ledger-link:hover {
+    background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 60%);
+  }
+
+  .home-ledger-folio {
+    display: grid;
+    gap: 0.3rem;
+    font-family: var(--font-ui);
+  }
+
+  .home-ledger-no {
+    color: var(--hc-gold-dim);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .home-ledger-folio time {
+    color: var(--hc-ash);
+    font-size: 0.78rem;
+  }
+
+  .home-ledger-body {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .home-ledger-heading {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.35rem, 1.9vw, 1.8rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--hc-parchment);
+    transition: color 220ms ease;
+  }
+
+  .home-ledger-link:hover .home-ledger-heading {
+    color: var(--hc-gold-soft);
+  }
+
+  .home-ledger-desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--hc-muted);
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .home-ledger-cat {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0.2rem 0.7rem;
     border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.06);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
-  .directory-grid--front {
-    box-shadow: var(--shadow);
+  .home-ledger-arrow {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--hc-rule);
+    border-radius: 50%;
+    color: var(--hc-gold-dim);
+    transition: color 250ms ease, border-color 250ms ease, transform 250ms var(--ease);
   }
 
-  .youtube-gallery {
-    display: flex;
-    flex-direction: column;
-    margin-top: 1.5rem;
+  .home-ledger-link:hover .home-ledger-arrow {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    transform: translateX(4px);
   }
+
+  /* Video lectures */
 
   .youtube-grid {
     display: grid;
@@ -764,108 +657,93 @@ const featuredPost = blogPosts[0];
     gap: 1.5rem;
   }
 
-  .youtube-grid iframe {
+  .yt-lite {
+    position: relative;
+    display: block;
     width: 100%;
     aspect-ratio: 16 / 9;
+    padding: 0;
+    overflow: hidden;
     border: 1px solid var(--hc-rule);
-    border-radius: 4px;
-    box-shadow: var(--shadow);
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    border-radius: var(--radius-sm);
+    background: var(--hc-black-soft);
   }
 
-  .youtube-grid iframe:hover {
-    transform: scale(1.02);
-    border-color: var(--hc-rule-strong);
+  .yt-lite img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.92);
+    transition: transform 450ms var(--ease), filter 250ms ease;
   }
 
-  .method-strip--brand {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1.25fr repeat(4, 1fr);
-    border: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(180deg, rgba(15,15,16,0.62), rgba(15,15,16,0.88)),
-      url('/assets/textures/charcoal-paper.png');
-    box-shadow: var(--shadow);
+  .yt-lite:hover img {
+    transform: scale(1.04);
+    filter: saturate(1);
   }
 
-  .method-intro,
-  .method-pillar {
-    position: relative;
-    z-index: 1;
-    padding: clamp(1.5rem, 3vw, 2.35rem);
-  }
-
-  .method-intro {
-    border-right: 1px solid var(--hc-rule);
-  }
-
-  .method-intro .hc-title {
-    margin-top: 0.5rem;
-    color: var(--hc-gold);
-  }
-
-  .method-pillar {
-    text-align: center;
-    border-right: 1px solid var(--hc-rule-soft);
-  }
-
-  .method-pillar:last-child {
-    border-right: 0;
-  }
-
-  .pillar-icon {
-    width: 62px;
-    height: 62px;
+  .yt-play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: grid;
     place-items: center;
-    margin: 0 auto 1.1rem;
-    border: 1px solid var(--hc-rule);
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
-    color: var(--hc-gold);
-    font-size: 1.45rem;
+    color: var(--hc-black);
+    background: rgba(216, 177, 102, 0.92);
+    transition: background 200ms ease, transform 200ms var(--ease);
   }
 
-  .method-pillar h3 {
-    margin: 0 0 0.65rem;
-    color: var(--hc-parchment);
-    font-family: var(--font-display);
-    font-size: 1.6rem;
-    font-weight: 500;
+  .yt-play svg {
+    margin-left: 3px;
   }
 
-  .method-pillar p {
-    margin: 0;
-    color: var(--hc-muted);
-    font-size: 0.94rem;
-    line-height: 1.55;
+  .yt-lite:hover .yt-play {
+    background: var(--hc-gold-soft);
+    transform: translate(-50%, -50%) scale(1.06);
   }
+
+  .yt-lite iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  /* Projects */
 
   .projects-grid--brand {
-    position: relative;
     display: grid;
     grid-template-columns: 1.4fr 1fr 1fr;
     gap: 1.2rem;
-    padding: 1.2rem;
-    border: 1px solid var(--hc-rule);
-    background: rgba(15,15,16,0.5);
-    box-shadow: var(--shadow);
   }
 
   .project-card {
     position: relative;
-    min-height: 280px;
+    min-height: 260px;
     padding: clamp(1.4rem, 3vw, 2rem);
     border: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(180deg, rgba(38,35,31,0.86), rgba(15,15,16,0.96)),
-      url('/assets/textures/charcoal-paper.png');
+    background: linear-gradient(180deg, rgba(38,35,31,0.86), rgba(15,15,16,0.96));
     overflow: hidden;
   }
 
   .project-card h3 {
-    margin: 1.2rem 0 1rem;
-    font-size: clamp(2.3rem, 4vw, 4rem);
+    margin: 1.1rem 0 0.9rem;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    font-size: clamp(1.9rem, 2.6vw, 2.6rem);
+    line-height: 1.02;
+  }
+
+  .project-card .hc-copy {
+    font-size: 0.98rem;
+    max-width: 38ch;
   }
 
   .project-card--large::after {
@@ -877,6 +755,7 @@ const featuredPost = blogPosts[0];
     aspect-ratio: 1;
     border: 1px solid rgba(216,177,102,0.24);
     transform: rotate(45deg);
+    pointer-events: none;
   }
 
   .project-lines {
@@ -893,70 +772,74 @@ const featuredPost = blogPosts[0];
     background: linear-gradient(90deg, transparent, var(--hc-rule-strong));
   }
 
+  /* Closing band */
+
   .closing-banner {
     position: relative;
     min-height: 320px;
-    border: 1px solid var(--hc-rule);
+    overflow: hidden;
     background:
-      linear-gradient(90deg, rgba(242,235,220,0.98) 0%, rgba(242,235,220,0.95) 33%, rgba(242,235,220,0) 65%),
+      linear-gradient(90deg, rgba(78, 38, 18, 0.96) 0%, rgba(78, 38, 18, 0.88) 38%, rgba(78, 38, 18, 0.25) 68%, rgba(78, 38, 18, 0) 100%),
       url('/images/asset2.png');
-    background-size: contain;
+    background-size: cover;
     background-position: right center;
     background-repeat: no-repeat;
-    box-shadow: var(--shadow);
     display: grid;
     align-items: center;
   }
 
   .closing-copy {
-    width: min(55%, 720px);
+    width: min(58%, 720px);
     margin-right: auto;
     padding: clamp(2rem, 5vw, 4rem);
   }
 
-  .closing-copy .hc-title,
-  .closing-copy .hc-copy {
-    color: var(--hc-parchment-ink);
+  .closing-copy .hc-title {
+    color: var(--hc-parchment);
+    font-size: clamp(1.9rem, 3.2vw, 3rem);
   }
 
-  .closing-copy .hc-label {
-    color: var(--hc-gold-dim);
+  .closing-lead {
+    margin: 1rem 0 1.6rem;
+    color: var(--hc-parchment-deep);
+    font-size: 1.02rem;
+    line-height: 1.65;
+    max-width: 44ch;
   }
 
-  .closing-copy .hc-btn--ghost {
-    margin-top: 1.4rem;
-    color: var(--hc-parchment-ink);
-    border-color: rgba(157,122,60,0.5);
-  }
+  /* Responsive */
 
   @media (max-width: 1180px) {
     .journal-feature-grid,
     .journal-feature-card,
-    .method-strip--brand,
     .projects-grid--brand {
       grid-template-columns: 1fr;
+    }
+
+    .journal-feature-image {
+      min-height: 300px;
     }
 
     .youtube-grid {
       grid-template-columns: repeat(2, 1fr);
     }
+  }
 
-    .hc-directory-grid {
-      grid-template-columns: repeat(2, 1fr);
+  @media (max-width: 900px) {
+    .home-ledger-link {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
     }
 
-    .journal-rail {
-      grid-auto-columns: calc((100% - 1px) / 2);
+    .home-ledger-folio {
+      grid-column: 1 / -1;
+      grid-template-columns: auto auto;
+      align-items: baseline;
+      gap: 0.85rem;
     }
 
-    .method-intro,
-    .method-pillar {
-      border-right: 0;
-      border-bottom: 1px solid var(--hc-rule-soft);
-    }
-
-    .method-pillar:last-child {
-      border-bottom: 0;
+    .home-ledger-arrow {
+      display: none;
     }
   }
 
@@ -977,30 +860,10 @@ const featuredPost = blogPosts[0];
     }
 
     .hero-content {
-      max-width: 21rem;
       padding-block: 5rem 4.5rem;
     }
 
-    .hero-content .hc-title--xl {
-      font-size: 3.35rem;
-      max-width: 9.5em;
-      line-height: 0.96;
-    }
-
-    .hero-subtitle {
-      max-width: 20rem;
-    }
-
-    .hc-directory-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .youtube-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .journal-header,
-    .journal-rail-heading {
+    .journal-header {
       display: block;
     }
 
@@ -1012,67 +875,46 @@ const featuredPost = blogPosts[0];
       min-height: auto;
     }
 
-    .journal-feature-image {
-      min-height: 280px;
+    .youtube-grid {
+      grid-template-columns: 1fr;
     }
 
-    .journal-feature-copy h3 {
-      font-size: clamp(2.9rem, 13vw, 4.2rem);
-    }
-
-    .journal-rail {
-      grid-auto-columns: 100%;
-    }
-
-    .carousel-btn {
-      width: 40px;
-      height: 40px;
-    }
-
-    .carousel-prev {
-      left: -10px;
-    }
-
-    .carousel-next {
-      right: -10px;
+    .home-ledger-link {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .closing-banner {
       background:
-        linear-gradient(180deg, rgba(242,235,220,0) 10%, rgba(242,235,220,0.85) 60%),
+        linear-gradient(0deg, rgba(78, 38, 18, 0.96) 0%, rgba(78, 38, 18, 0.86) 55%, rgba(78, 38, 18, 0.3) 100%),
         url('/images/asset2.png');
-      background-size: contain;
-      background-position: top center;
-      background-repeat: no-repeat;
+      background-size: cover;
+      background-position: center top;
     }
 
     .closing-copy {
       width: 100%;
       margin-right: 0;
-      padding-top: 12rem;
+      padding-top: 9rem;
     }
   }
 </style>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const rail = document.getElementById('blog-carousel') as HTMLElement | null;
-    const prevBtn = document.querySelector('.carousel-prev') as HTMLElement | null;
-    const nextBtn = document.querySelector('.carousel-next') as HTMLElement | null;
-
-    if (rail && prevBtn && nextBtn) {
-      const scrollAmount = () => {
-        const firstCard = rail.firstElementChild as HTMLElement | null;
-        return firstCard ? firstCard.clientWidth + 1 : 0;
-      };
-
-      prevBtn.addEventListener('click', () => {
-        rail.scrollBy({ left: -scrollAmount(), behavior: 'smooth' });
-      });
-
-      nextBtn.addEventListener('click', () => {
-        rail.scrollBy({ left: scrollAmount(), behavior: 'smooth' });
-      });
-    }
-  });
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.yt-lite')) {
+    button.addEventListener(
+      'click',
+      () => {
+        const id = button.dataset.videoId;
+        if (!id) return;
+        const iframe = document.createElement('iframe');
+        iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+        iframe.title = 'YouTube video player';
+        iframe.allow =
+          'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        button.replaceChildren(iframe);
+      },
+      { once: true }
+    );
+  }
 </script>

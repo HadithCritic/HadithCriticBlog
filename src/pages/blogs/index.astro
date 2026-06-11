@@ -129,6 +129,24 @@ const entries = posts.map((post, index) => ({
     let activeCategory = 'all';
     let query = '';
 
+    const setActiveChip = (category: string) => {
+      const chip = chips.find((c) => c.dataset.filter === category);
+      if (!chip) return false;
+      activeCategory = category;
+      chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+      return true;
+    };
+
+    const syncUrl = () => {
+      const url = new URL(location.href);
+      if (activeCategory === 'all') {
+        url.searchParams.delete('category');
+      } else {
+        url.searchParams.set('category', activeCategory);
+      }
+      history.replaceState(null, '', url);
+    };
+
     const applyFilters = () => {
       let visible = 0;
 
@@ -145,8 +163,8 @@ const entries = posts.map((post, index) => ({
 
     for (const chip of chips) {
       chip.addEventListener('click', () => {
-        activeCategory = chip.dataset.filter ?? 'all';
-        chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+        setActiveChip(chip.dataset.filter ?? 'all');
+        syncUrl();
         applyFilters();
       });
     }
@@ -155,6 +173,11 @@ const entries = posts.map((post, index) => ({
       query = searchInput.value.trim().toLowerCase();
       applyFilters();
     });
+
+    const requested = new URLSearchParams(location.search).get('category');
+    if (requested && setActiveChip(requested)) {
+      applyFilters();
+    }
   }
 </script>
 
@@ -197,9 +220,9 @@ const entries = posts.map((post, index) => ({
     margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(3.4rem, 8vw, 7.5rem);
-    line-height: 0.92;
-    letter-spacing: -0.04em;
+    font-size: clamp(3.2rem, 6.5vw, 6rem);
+    line-height: 0.95;
+    letter-spacing: -0.03em;
     color: var(--hc-parchment);
     animation: heroRise 0.8s var(--ease) 60ms both;
   }
@@ -385,25 +408,8 @@ const entries = posts.map((post, index) => ({
     transition: background 250ms ease;
   }
 
-  .ledger-row__link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--hc-gold);
-    transform: scaleY(0);
-    transform-origin: top;
-    transition: transform 320ms var(--ease);
-  }
-
   .ledger-row__link:hover {
     background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 60%);
-  }
-
-  .ledger-row__link:hover::before {
-    transform: scaleY(1);
   }
 
   .ledger-row__folio {
