@@ -1,0 +1,234 @@
+---
+import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
+import { loadIndex, fmtCount } from '../../lib/silsilah';
+
+const { collections } = loadIndex();
+
+// Minimal lookup data shipped to the client: slug, display name, aliases.
+const lookup = collections.map((c) => ({
+  slug: c.slug,
+  name: c.nameEn,
+  short: c.shortEn,
+  count: c.hadithCount
+}));
+---
+
+<SilsilahLayout title="Find by Reference | Silsilah">
+  <section class="hc-section">
+    <div class="hc-container find-wrap">
+      <span class="hc-eyebrow">Reference lookup</span>
+      <h1 class="find-title">Find a hadith</h1>
+      <p class="hc-copy find-copy">
+        Enter a collection and number, like <code>bukhari:2487</code>, <code>muslim 1</code>, or
+        <code>malik:1-3</code>. You will be taken to the exact report in its book and chapter.
+      </p>
+
+      <form id="findForm" class="find-form" action="/silsilah/find/" method="get">
+        <input
+          id="findInput"
+          type="text"
+          name="q"
+          placeholder="e.g. bukhari:2487"
+          aria-label="Reference"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" class="hc-btn">Find</button>
+      </form>
+
+      <p id="findStatus" class="find-status" role="status"></p>
+
+      <div class="find-collections">
+        <h2>Collections and their reference prefixes</h2>
+        <ul>
+          {lookup.map((c) => (
+            <li>
+              <a href={`/silsilah/${c.slug}/`}>{c.name}</a>
+              <code>{c.slug}:</code>
+              <span>{fmtCount(c.count)} reports</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </section>
+</SilsilahLayout>
+
+<script is:inline define:vars={{ lookup }}>
+  (function () {
+    const input = document.getElementById('findInput');
+    const status = document.getElementById('findStatus');
+    const form = document.getElementById('findForm');
+
+    function setStatus(msg, isError) {
+      status.textContent = msg;
+      status.classList.toggle('is-error', !!isError);
+    }
+
+    function parseQuery(raw) {
+      const q = raw.trim().toLowerCase().replace(/\s+/g, ' ');
+      if (!q) return null;
+      const m = q.match(/^([a-z][a-z-]*)[\s:\/]*(.*)$/);
+      if (!m) return null;
+      const name = m[1];
+      const num = m[2].trim().replace(/\s+/g, '');
+      const col = lookup.find(
+        (c) => c.slug === name || c.short.toLowerCase() === name || c.name.toLowerCase().startsWith(name)
+      );
+      if (!col) return null;
+      return { col, num };
+    }
+
+    async function go(raw) {
+      const parsed = parseQuery(raw);
+      if (!parsed) {
+        setStatus('Could not recognise that collection. Use one of the prefixes listed below.', true);
+        return;
+      }
+      const { col, num } = parsed;
+      if (!num) {
+        location.href = '/silsilah/' + col.slug + '/';
+        return;
+      }
+      setStatus('Looking up ' + col.slug + ':' + num + ' ...', false);
+      try {
+        const res = await fetch('/silsilah-data/' + col.slug + '/refindex.json');
+        if (!res.ok) throw new Error('index unavailable');
+        const index = await res.json();
+        const hit = index[col.slug + ':' + num];
+        if (!hit) {
+          setStatus('No report ' + num + ' found in ' + col.name + '. Check the number or browse the collection.', true);
+          return;
+        }
+        const [bookSlug, page, anchor] = hit;
+        const pagePart = page > 1 ? page + '/' : '';
+        location.href = '/silsilah/' + col.slug + '/' + bookSlug + '/' + pagePart + '?v=' + encodeURIComponent(num) + '#' + anchor;
+      } catch (err) {
+        setStatus('Lookup failed. Try browsing the collection instead.', true);
+      }
+    }
+
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      go(input.value);
+    });
+
+    const q = new URL(location.href).searchParams.get('q');
+    if (q) {
+      input.value = q;
+      go(q);
+    }
+  })();
+</script>
+
+<style>
+  .find-wrap {
+    max-width: 760px;
+  }
+
+  .find-title {
+    margin: 0.8rem 0 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+    letter-spacing: -0.02em;
+  }
+
+  .find-copy {
+    margin: 1rem 0 1.8rem;
+  }
+
+  .find-copy code,
+  .find-collections code {
+    padding: 0.08rem 0.4rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: rgba(216, 177, 102, 0.07);
+    color: var(--hc-gold-soft);
+    font-size: 0.85em;
+  }
+
+  .find-form {
+    display: flex;
+    gap: 0.7rem;
+  }
+
+  .find-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: rgba(15, 15, 16, 0.6);
+    color: var(--hc-parchment);
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+  }
+
+  .find-form input:focus {
+    outline: none;
+    border-color: var(--hc-rule-strong);
+  }
+
+  .find-status {
+    min-height: 1.4rem;
+    margin: 0.9rem 0 0;
+    color: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 0.86rem;
+  }
+
+  .find-status.is-error {
+    color: #d98c7e;
+  }
+
+  .find-collections {
+    margin-top: 2.6rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    padding-top: 1.6rem;
+  }
+
+  .find-collections h2 {
+    margin: 0 0 1rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .find-collections ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .find-collections li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 1rem;
+    align-items: baseline;
+    padding: 0.45rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+  }
+
+  .find-collections a {
+    color: var(--hc-parchment);
+    text-decoration: none;
+  }
+
+  .find-collections a:hover {
+    color: var(--hc-gold);
+  }
+
+  .find-collections span {
+    color: var(--hc-ash);
+    font-size: 0.78rem;
+  }
+</style>

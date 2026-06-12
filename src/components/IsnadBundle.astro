@@ -1,0 +1,457 @@
+---
+/*
+  Animated isnad-bundle diagram (common-link analysis).
+  Models the famous bundle behind bukhari:1 ("Deeds are by intentions"):
+  a single strand rises from the Prophet to Yahya b. Said al-Ansari, the
+  common link, then fans out through partial common links to the collectors.
+  A late "diving" strand bypassing the common link draws in last.
+
+  The drawing animates on scroll into view; honours prefers-reduced-motion.
+*/
+interface Props {
+  caption?: string;
+  href?: string;
+  hrefLabel?: string;
+}
+
+const {
+  caption = 'The bundle behind "deeds are by intentions" (bukhari:1), simplified. A single strand rises to the common link, then fans out. The dashed strand "dives" past him: a later back-projection.',
+  href,
+  hrefLabel = 'Open the report behind this bundle'
+} = Astro.props;
+
+type N = { x: number; y: number; en: string; cls?: string };
+
+const trunk: N[] = [
+  { x: 380, y: 568, en: 'The Prophet', cls: 'root' },
+  { x: 380, y: 496, en: 'ʿUmar b. al-Khaṭṭāb' },
+  { x: 380, y: 424, en: 'ʿAlqama b. Waqqāṣ' },
+  { x: 380, y: 352, en: 'M. b. Ibrāhīm al-Taymī' }
+];
+const cl: N = { x: 380, y: 282, en: 'Yaḥyā b. Saʿīd al-Anṣārī', cls: 'cl' };
+
+const pcls: N[] = [
+  { x: 118, y: 196, en: 'Mālik' },
+  { x: 250, y: 196, en: 'Ibn ʿUyayna' },
+  { x: 380, y: 196, en: 'Yazīd b. Hārūn' },
+  { x: 512, y: 196, en: 'Ḥammād b. Zayd' },
+  { x: 644, y: 196, en: 'Zuhayr b. M.' }
+];
+
+const collectors: N[] = [
+  { x: 76, y: 84, en: 'BUKHĀRĪ' },
+  { x: 196, y: 84, en: 'MUSLIM' },
+  { x: 316, y: 84, en: 'ABŪ DĀWŪD' },
+  { x: 436, y: 84, en: 'TIRMIDHĪ' },
+  { x: 556, y: 84, en: 'IBN ḤANBAL' },
+  { x: 676, y: 84, en: 'ṬAYĀLISĪ' }
+];
+
+// PCL index -> collector indexes (simplified from Juynboll's diagram 4)
+const fanOut: [number, number[]][] = [
+  [0, [0, 1]],
+  [1, [1, 3]],
+  [2, [2, 4]],
+  [3, [4, 5]],
+  [4, [3, 5]]
+];
+
+const curve = (a: N, b: N) => {
+  const my = (a.y + b.y) / 2;
+  return `M ${a.x} ${a.y} C ${a.x} ${my}, ${b.x} ${my}, ${b.x} ${b.y}`;
+};
+
+// timeline (ms)
+const SEG = 340;
+const trunkEdges = trunk.map((n, i) => ({
+  d: curve(n, trunk[i + 1] ?? cl),
+  delay: i * SEG
+}));
+const clDelay = trunk.length * SEG + 150; // CL highlight
+const branchStart = clDelay + 420;
+const clEdges = pcls.map((p, i) => ({ d: curve(cl, p), delay: branchStart + i * 130 }));
+const fanStart = branchStart + pcls.length * 130 + 260;
+const fanEdges = fanOut.flatMap(([pi, cols], i) =>
+  cols.map((ci, j) => ({
+    d: curve(pcls[pi], collectors[ci]),
+    delay: fanStart + (i * 2 + j) * 110
+  }))
+);
+const diveDelay = fanStart + fanEdges.length * 110 + 420;
+// the dive: Tayalisi reaching past the CL straight onto 'Alqama
+const divePath = `M ${collectors[5].x + 14} ${collectors[5].y + 10} C 760 300, 600 380, ${trunk[2].x + 12} ${trunk[2].y - 4}`;
+---
+
+<figure class="isnad-figure" data-isnad>
+  <div class="isnad-frame">
+    <svg viewBox="0 0 760 620" role="img" aria-label="Diagram of an isnad bundle: a single strand of transmitters rises from the Prophet to the common link Yahya b. Said al-Ansari, after which strands fan out through partial common links to the hadith collectors. A dashed strand dives past the common link, illustrating a later back-projected chain.">
+      <!-- tier labels -->
+      <text class="tier" x="18" y={collectors[0].y + 4} style={`--d:${fanStart}ms`}>Collectors</text>
+      <text class="tier" x="18" y={pcls[0].y + 4} style={`--d:${branchStart}ms`}>Partial common links</text>
+      <text class="tier" x="18" y={cl.y + 4} style={`--d:${clDelay}ms`}>Common link</text>
+      <text class="tier" x="18" y={trunk[1].y + 4} style={`--d:0ms`}>Single strand</text>
+
+      <!-- edges -->
+      {trunkEdges.map((e) => (
+        <path class="edge edge--trunk" d={e.d} pathLength="1" style={`--d:${e.delay}ms`} />
+      ))}
+      {clEdges.map((e) => (
+        <path class="edge" d={e.d} pathLength="1" style={`--d:${e.delay}ms`} />
+      ))}
+      {fanEdges.map((e) => (
+        <path class="edge" d={e.d} pathLength="1" style={`--d:${e.delay}ms`} />
+      ))}
+      <g class="dive" style={`--d:${diveDelay}ms`}>
+        <path class="edge--dive" d={divePath} />
+        <text class="lbl lbl--dive" x="700" y="368" text-anchor="end">a later “diving” strand</text>
+      </g>
+
+      <!-- trunk nodes + labels -->
+      {trunk.map((n, i) => (
+        <>
+          <circle
+            class={`node ${n.cls === 'root' ? 'node--root' : ''}`}
+            cx={n.x}
+            cy={n.y}
+            r={n.cls === 'root' ? 8 : 5.5}
+            style={`--d:${i * SEG}ms`}
+          />
+          <text class="lbl" x={n.x + 16} y={n.y + 4} style={`--d:${i * SEG + 120}ms`}>{n.en}</text>
+        </>
+      ))}
+
+      <!-- common link -->
+      <g class="cl-group" style={`--d:${clDelay}ms`}>
+        <circle class="cl-ring" cx={cl.x} cy={cl.y} r="14" />
+        <circle class="node node--cl" cx={cl.x} cy={cl.y} r="7" style={`--d:${clDelay}ms`} />
+        <text class="lbl lbl--cl" x={cl.x + 22} y={cl.y + 5} style={`--d:${clDelay + 160}ms`}>{cl.en}</text>
+      </g>
+
+      <!-- pcl nodes -->
+      {pcls.map((n, i) => (
+        <>
+          <circle class="node" cx={n.x} cy={n.y} r="5.5" style={`--d:${branchStart + i * 130 + 320}ms`} />
+          <text class="lbl lbl--c" x={n.x} y={n.y + 22} text-anchor="middle" style={`--d:${branchStart + i * 130 + 380}ms`}>{n.en}</text>
+        </>
+      ))}
+
+      <!-- collector nodes -->
+      {collectors.map((n, i) => (
+        <>
+          <circle class="node node--coll" cx={n.x} cy={n.y} r="6" style={`--d:${fanStart + i * 110 + 320}ms`} />
+          <text class="lbl lbl--coll" x={n.x} y={n.y - 16} text-anchor="middle" style={`--d:${fanStart + i * 110 + 380}ms`}>{n.en}</text>
+        </>
+      ))}
+    </svg>
+    <button type="button" class="isnad-replay" data-isnad-replay title="Replay animation" aria-label="Replay animation">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>
+    </button>
+  </div>
+  <figcaption>
+    <span class="isnad-legend">
+      <i class="key key--strand"></i> transmission strand
+      <i class="key key--cl"></i> common link
+      <i class="key key--dive"></i> diving strand
+    </span>
+    <p>{caption}</p>
+    {href && (
+      <a class="isnad-cta" href={href}>{hrefLabel} <span aria-hidden="true">→</span></a>
+    )}
+  </figcaption>
+</figure>
+
+<style>
+  .isnad-figure {
+    margin: 0;
+  }
+
+  .isnad-frame {
+    position: relative;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background:
+      radial-gradient(circle at 50% 110%, rgba(216, 177, 102, 0.08), transparent 50%),
+      linear-gradient(180deg, rgba(30, 29, 27, 0.6), rgba(15, 15, 16, 0.92));
+    padding: clamp(0.6rem, 1.6vw, 1.2rem);
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .isnad-replay {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--hc-rule);
+    border-radius: 50%;
+    background: rgba(15, 15, 16, 0.7);
+    color: var(--hc-gold-dim);
+    transition: color 200ms ease, border-color 200ms ease, transform 300ms var(--ease);
+  }
+
+  .isnad-replay:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-rule-strong);
+    transform: rotate(-60deg);
+  }
+
+  /* ---- elements (hidden until .play) ---- */
+
+  .edge {
+    fill: none;
+    stroke: rgba(216, 177, 102, 0.5);
+    stroke-width: 1.3;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .edge--trunk {
+    stroke: rgba(216, 177, 102, 0.8);
+    stroke-width: 1.7;
+  }
+
+  .node {
+    fill: #14130f;
+    stroke: var(--hc-gold);
+    stroke-width: 1.5;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0.2);
+  }
+
+  .node--root {
+    fill: var(--hc-gold);
+  }
+
+  .node--cl {
+    fill: var(--hc-gold);
+    stroke: var(--hc-gold-soft);
+  }
+
+  .node--coll {
+    fill: rgba(216, 177, 102, 0.22);
+  }
+
+  .cl-ring {
+    fill: none;
+    stroke: var(--hc-gold);
+    stroke-width: 1;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .lbl,
+  .tier {
+    fill: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    opacity: 0;
+  }
+
+  .tier {
+    fill: var(--hc-ash);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .lbl--cl {
+    fill: var(--hc-gold);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+
+  .lbl--c {
+    font-size: 11.5px;
+  }
+
+  .lbl--coll {
+    fill: var(--hc-parchment-deep);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .dive {
+    opacity: 0;
+  }
+
+  .edge--dive {
+    fill: none;
+    stroke: var(--hc-umber);
+    stroke-width: 1.4;
+    stroke-dasharray: 7 5;
+  }
+
+  .lbl--dive {
+    fill: var(--hc-umber);
+    font-style: italic;
+    font-size: 12px;
+    opacity: 1;
+  }
+
+  /* ---- play states ---- */
+
+  :global([data-isnad].play) .edge {
+    animation: isnad-draw 700ms var(--ease) forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .node {
+    animation: isnad-pop 450ms var(--ease) forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .lbl,
+  :global([data-isnad].play) .tier {
+    animation: isnad-fade 600ms ease forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .cl-ring {
+    animation: isnad-ring 2400ms ease-out infinite;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .dive {
+    animation: isnad-fade 900ms ease forwards;
+    animation-delay: var(--d);
+  }
+
+  @keyframes isnad-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes isnad-pop {
+    from { opacity: 0; transform: scale(0.2); }
+    60% { opacity: 1; transform: scale(1.25); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes isnad-fade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes isnad-ring {
+    0% { opacity: 0.9; transform: scale(0.55); }
+    70% { opacity: 0; transform: scale(1.6); }
+    100% { opacity: 0; transform: scale(1.6); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge { stroke-dashoffset: 0; }
+    .node, .lbl, .tier, .dive { opacity: 1; transform: none; }
+    .cl-ring { opacity: 0.5; }
+    :global([data-isnad].play) .edge,
+    :global([data-isnad].play) .node,
+    :global([data-isnad].play) .lbl,
+    :global([data-isnad].play) .tier,
+    :global([data-isnad].play) .cl-ring,
+    :global([data-isnad].play) .dive {
+      animation: none;
+    }
+  }
+
+  /* ---- caption ---- */
+
+  figcaption {
+    margin-top: 0.9rem;
+  }
+
+  .isnad-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.6rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+
+  .key {
+    display: inline-block;
+    width: 22px;
+    height: 0;
+    border-top: 2px solid rgba(216, 177, 102, 0.7);
+  }
+
+  .key--cl {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--hc-gold);
+    border-radius: 50%;
+    background: var(--hc-gold);
+  }
+
+  .key--dive {
+    border-top-style: dashed;
+    border-top-color: var(--hc-umber);
+  }
+
+  .key:not(:first-child) {
+    margin-left: 0.8rem;
+  }
+
+  figcaption p {
+    margin: 0.55rem 0 0;
+    color: var(--hc-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  .isnad-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+  }
+
+  .isnad-cta:hover {
+    color: var(--hc-gold-soft);
+  }
+</style>
+
+<script>
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-isnad]')) {
+    const start = () => fig.classList.add('play');
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              start();
+              io.disconnect();
+            }
+          }
+        },
+        { threshold: 0.35 }
+      );
+      io.observe(fig);
+    } else {
+      start();
+    }
+    fig.querySelector('[data-isnad-replay]')?.addEventListener('click', () => {
+      fig.classList.remove('play');
+      void fig.offsetWidth; // restart CSS animations
+      fig.classList.add('play');
+    });
+  }
+</script>

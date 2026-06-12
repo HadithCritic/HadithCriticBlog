@@ -1,0 +1,428 @@
+---
+import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
+import IsnadBundle from '../../components/IsnadBundle.astro';
+import { loadIndex, CATEGORY_ORDER, translationLabel, fmtCount } from '../../lib/silsilah';
+
+const { collections } = loadIndex();
+
+const totalHadith = collections.reduce((s, c) => s + c.hadithCount, 0);
+const totalBooks = collections.reduce((s, c) => s + c.bookCount, 0);
+
+const categories = CATEGORY_ORDER.map((name) => ({
+  name,
+  items: collections.filter((c) => c.category === name)
+})).filter((c) => c.items.length);
+
+const categoryNotes: Record<string, string> = {
+  'The Six Books':
+    'Al-Kutub al-Sittah, the collections Sunni tradition elevated to canonical status in the centuries after compilation.',
+  'Early Collections':
+    'The oldest surviving layers of the corpus: Medinan practice, the great musnad of Ibn Ḥanbal, and the Sunan of al-Dārimī.',
+  'Ṣaḥīḥ Compilations':
+    'Works whose compilers claimed soundness for everything included, along with the muttafaq ʿalayh material shared by the two Ṣaḥīḥs.',
+  'Musnads and Muʿjams':
+    'Large companion-ordered and alphabetical collections that preserve chains the canonical books left out.',
+  'Topical Works':
+    'Single-subject compilations on conduct and asceticism.'
+};
+---
+
+<SilsilahLayout title="Silsilah | The HadithCritic Hadith Database">
+  <section class="sil-hero">
+    <div class="hc-container">
+      <div class="sil-hero-inner">
+        <div class="sil-hero-copy">
+          <span class="hc-eyebrow">The HadithCritic database</span>
+          <h1 class="sil-hero-title">Silsilah <span class="sil-hero-ar" dir="rtl">سِلْسِلَة</span></h1>
+          <div class="hc-divider sil-hero-divider"></div>
+          <p class="hc-copy sil-hero-sub">
+            Nineteen classical collections in one place: full Arabic text, English translation,
+            transmission chains, and scholarly gradings, presented for verification rather than
+            reverence.
+          </p>
+          <form class="sil-jump" action="/silsilah/search/" method="get" role="search">
+            <input
+              type="text"
+              name="q"
+              placeholder="Search in English or Arabic, or jump to bukhari:2487"
+              aria-label="Search the hadith corpus"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit" class="hc-btn">Search</button>
+          </form>
+        </div>
+        <dl class="sil-hero-stats">
+          <div><dt>Collections</dt><dd>{collections.length}</dd></div>
+          <div><dt>Books</dt><dd>{fmtCount(totalBooks)}</dd></div>
+          <div><dt>Reports</dt><dd>{fmtCount(totalHadith)}</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  {categories.map((cat) => (
+    <section class="hc-section sil-cat">
+      <div class="hc-container">
+        <header class="sil-cat-head" data-sil-reveal>
+          <h2 class="hc-title hc-title--md">{cat.name}</h2>
+          {categoryNotes[cat.name] && <p class="hc-copy sil-cat-note">{categoryNotes[cat.name]}</p>}
+        </header>
+        <div class="sil-grid">
+          {cat.items.map((c, i) => {
+            const tr = translationLabel(c);
+            return (
+              <a href={`/silsilah/${c.slug}/`} class="sil-card" data-sil-reveal style={`--rd:${(i % 3) * 90}ms`}>
+                <div class="sil-card-top">
+                  <span class="sil-card-ar" dir="rtl" lang="ar">{c.nameAr}</span>
+                  <h3 class="sil-card-en">{c.nameEn}</h3>
+                  <p class="sil-card-author">{c.author} <span class="sil-card-died">({c.died})</span></p>
+                </div>
+                <p class="sil-card-blurb">{c.blurb}</p>
+                <div class="sil-card-meta">
+                  <span>{fmtCount(c.bookCount)} books</span>
+                  <span>{fmtCount(c.hadithCount)} reports</span>
+                  <span class={`sil-badge sil-badge--${tr.tone}`}>{tr.label}</span>
+                </div>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  ))}
+
+  <section class="hc-section sil-method">
+    <div class="hc-container">
+      <div class="sil-method-grid">
+        <div class="sil-method-copy">
+          <span class="hc-eyebrow">Why chains matter</span>
+          <h2 class="hc-title hc-title--md">Read the chains, not just the verdicts.</h2>
+          <p class="hc-copy">
+            Most reports reach the collections through a single strand of transmitters that only
+            starts branching at one man, the common link. Mapping where strands converge, where
+            they fan out, and where later strands "dive" past the common link is how transmission
+            history is actually reconstructed.
+          </p>
+          <p class="hc-copy">
+            Every report in Silsilah carries its isnād, its grading history, and its place in the
+            compiler's own arrangement. Translation provenance is marked: human translations are
+            distinguished from AI-assisted ones, and untranslated collections say so plainly. See
+            <a href="/silsilah/about/">sources and coverage</a> for details.
+          </p>
+        </div>
+        <IsnadBundle href="/silsilah/bukhari/1/?v=1#h1" hrefLabel="Open bukhari:1, the report behind this bundle" />
+      </div>
+    </div>
+  </section>
+</SilsilahLayout>
+
+<style>
+  .sil-hero {
+    border-bottom: 1px solid var(--hc-rule);
+    background:
+      radial-gradient(circle at 80% 20%, rgba(216, 177, 102, 0.07), transparent 38%),
+      linear-gradient(180deg, rgba(30, 29, 27, 0.6), rgba(15, 15, 16, 0.2));
+  }
+
+  .sil-hero-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(220px, 0.5fr);
+    gap: 3rem;
+    align-items: center;
+    padding-block: clamp(3rem, 7vw, 5.5rem);
+  }
+
+  .sil-hero-title {
+    margin: 0.9rem 0 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(3rem, 6vw, 4.6rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: baseline;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+  }
+
+  .sil-hero-ar {
+    font-family: var(--font-arabic);
+    font-size: 0.62em;
+    color: var(--hc-gold);
+  }
+
+  .sil-hero-divider {
+    max-width: 300px;
+    margin: 1.8rem 0 1.2rem;
+  }
+
+  .sil-hero-sub {
+    max-width: 54ch;
+    margin: 0 0 2rem;
+  }
+
+  .sil-jump {
+    display: flex;
+    gap: 0.7rem;
+    max-width: 560px;
+  }
+
+  .sil-jump input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.7rem 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: rgba(15, 15, 16, 0.6);
+    color: var(--hc-parchment);
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+  }
+
+  .sil-jump input::placeholder {
+    color: var(--hc-ash);
+  }
+
+  .sil-jump input:focus {
+    outline: none;
+    border-color: var(--hc-rule-strong);
+  }
+
+  .sil-hero-stats {
+    margin: 0;
+    display: grid;
+    gap: 1px;
+    border: 1px solid var(--hc-rule);
+    background: var(--hc-rule);
+  }
+
+  .sil-hero-stats > div {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.25rem;
+    padding: 1.15rem 1.4rem;
+    background: linear-gradient(180deg, rgba(38, 35, 31, 0.92), rgba(15, 15, 16, 0.96));
+  }
+
+  .sil-hero-stats dt {
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .sil-hero-stats dd {
+    margin: 0;
+    color: var(--hc-gold);
+    font-family: var(--font-display);
+    font-size: 2.1rem;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  /* Categories */
+
+  .sil-cat-head {
+    margin-bottom: clamp(1.5rem, 3vw, 2.4rem);
+    max-width: 760px;
+  }
+
+  .sil-cat-note {
+    margin: 0.7rem 0 0;
+  }
+
+  .sil-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.2rem;
+  }
+
+  .sil-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: clamp(1.3rem, 2.4vw, 1.8rem);
+    border: 1px solid var(--hc-rule);
+    background: linear-gradient(180deg, rgba(38, 35, 31, 0.86), rgba(15, 15, 16, 0.96));
+    text-decoration: none;
+    transition: border-color 220ms ease, transform 220ms var(--ease);
+  }
+
+  .sil-card:hover {
+    border-color: var(--hc-rule-strong);
+    transform: translateY(-2px);
+  }
+
+  .sil-card-ar {
+    display: block;
+    color: var(--hc-gold);
+    font-family: var(--font-arabic);
+    font-size: 1.5rem;
+    line-height: 1.4;
+  }
+
+  .sil-card-en {
+    margin: 0.35rem 0 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: 1.7rem;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+  }
+
+  .sil-card-author {
+    margin: 0.45rem 0 0;
+    color: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+  }
+
+  .sil-card-died {
+    color: var(--hc-ash);
+  }
+
+  .sil-card-blurb {
+    margin: 0;
+    color: var(--hc-muted);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    flex: 1;
+  }
+
+  .sil-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.9rem;
+    align-items: center;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.73rem;
+    letter-spacing: 0.04em;
+  }
+
+  .sil-badge {
+    padding: 0.18rem 0.55rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--hc-rule);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .sil-badge--full {
+    color: #9fc492;
+    border-color: rgba(159, 196, 146, 0.35);
+    background: rgba(127, 165, 114, 0.08);
+  }
+
+  .sil-badge--partial {
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.08);
+  }
+
+  .sil-badge--none {
+    color: var(--hc-ash);
+    background: rgba(140, 138, 134, 0.08);
+  }
+
+  .sil-method-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(1.6rem, 4vw, 3.4rem);
+    align-items: center;
+    padding: clamp(1.8rem, 4vw, 3rem);
+    border: 1px solid var(--hc-rule);
+    background: linear-gradient(135deg, rgba(110, 59, 36, 0.22), rgba(15, 15, 16, 0.9));
+  }
+
+  .sil-method-copy .hc-title {
+    margin-top: 0.8rem;
+  }
+
+  .sil-method-copy .hc-copy {
+    margin-top: 1rem;
+  }
+
+  .sil-method-copy a {
+    color: var(--hc-gold);
+  }
+
+  @media (max-width: 1080px) {
+    .sil-method-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 1080px) {
+    .sil-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .sil-hero-inner {
+      grid-template-columns: 1fr;
+    }
+    .sil-hero-stats {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .sil-grid {
+      grid-template-columns: 1fr;
+    }
+    .sil-hero-stats {
+      grid-template-columns: 1fr;
+    }
+    .sil-jump {
+      flex-direction: column;
+    }
+  }
+
+  /* scroll reveal */
+  [data-sil-reveal] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 600ms ease var(--rd, 0ms), transform 600ms var(--ease) var(--rd, 0ms);
+  }
+
+  [data-sil-reveal].is-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-sil-reveal] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const items = document.querySelectorAll<HTMLElement>('[data-sil-reveal]');
+  if (reduced || !('IntersectionObserver' in window)) {
+    items.forEach((el) => el.classList.add('is-in'));
+  } else {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            (e.target as HTMLElement).classList.add('is-in');
+            io.unobserve(e.target);
+          }
+        }
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    items.forEach((el) => io.observe(el));
+  }
+</script>

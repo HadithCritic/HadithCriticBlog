@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const inputPath = path.join(__dirname, 'Abbasid_Black_Banner_Mahdi_Chapter (1).md');
-const outputPath = path.join(__dirname, 'src/components/article/AbbasidContent.mdx');
+const inputPath = path.join(__dirname, '..', 'docs', 'source-material', 'abbasid-black-banner-mahdi-chapter.md');
+const outputPath = path.join(__dirname, '..', 'src/components/article/AbbasidContent.mdx');
 
 const content = fs.readFileSync(inputPath, 'utf8');
 

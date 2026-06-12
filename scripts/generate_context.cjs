@@ -16,8 +16,10 @@ const filesToInclude = [
 
 let output = `# HadithCritic Blog Component Context\n\nThis document contains the source code for the custom Astro components, styling, and the template usage example used to construct the rich articles on the HadithCritic blog. You can use this as context to format markdown into the proper components.\n\n`;
 
+const ROOT = path.join(__dirname, '..');
+
 for (const relPath of filesToInclude) {
-  const fullPath = path.join(__dirname, relPath);
+  const fullPath = path.join(ROOT, relPath);
   if (fs.existsSync(fullPath)) {
     const content = fs.readFileSync(fullPath, 'utf8');
     const ext = path.extname(fullPath).substring(1);
@@ -27,5 +29,5 @@ for (const relPath of filesToInclude) {
   }
 }
 
-fs.writeFileSync(path.join(__dirname, 'blog_components_context.md'), output, 'utf8');
+fs.writeFileSync(path.join(ROOT, 'docs', 'blog-components-context.md'), output, 'utf8');
 console.log('Successfully generated blog_components_context.md');
