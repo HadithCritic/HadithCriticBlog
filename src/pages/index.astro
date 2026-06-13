@@ -1,23 +1,34 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
 
-const GENERIC_THUMB = '/images/blog_thumbnails/tn.generic.webp';
+const GENERIC_THUMB = "/images/blog_thumbnails/tn.generic.webp";
 
-const allPosts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
-const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const allPosts = await getCollection(
+  "articles",
+  ({ data }) => !data.draft && !data.preview,
+);
+const posts = allPosts.sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
 
 const categoryDescriptions: Record<string, string> = {
-  History: 'Transmission history, narrator politics, common links, and the growth of the corpus.',
-  Prophecies: 'Mahdi reports, apocalyptic claims, black banners, and dynastic memory.',
-  Theology: 'Quranic authority, law, abrogation, and anti-traditionalist critique.',
-  Philosophy: 'Epistemology, testimony, language, and probability.',
-  Blog: 'Site notes, announcements, and shorter reflections.'
+  History:
+    "Transmission history, narrator politics, common links, and the growth of the corpus.",
+  Prophecies:
+    "Mahdi reports, apocalyptic claims, black banners, and dynastic memory.",
+  Theology:
+    "Quranic authority, law, abrogation, and anti-traditionalist critique.",
+  Philosophy: "Epistemology, testimony, language, and probability.",
+  Blog: "Site notes, announcements, and shorter reflections.",
 };
 
 const categoryCounts = new Map<string, number>();
 for (const post of posts) {
-  categoryCounts.set(post.data.category, (categoryCounts.get(post.data.category) ?? 0) + 1);
+  categoryCounts.set(
+    post.data.category,
+    (categoryCounts.get(post.data.category) ?? 0) + 1,
+  );
 }
 
 const categories = [...categoryCounts.entries()]
@@ -25,7 +36,7 @@ const categories = [...categoryCounts.entries()]
   .map(([name, count]) => ({
     name,
     count,
-    description: categoryDescriptions[name] ?? ''
+    description: categoryDescriptions[name] ?? "",
   }));
 
 const featured = posts[0];
@@ -33,18 +44,22 @@ const featuredThumb = featured?.data.thumbnail ?? GENERIC_THUMB;
 const recent = posts.slice(0, 6);
 
 const formatDate = (date: Date) =>
-  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 
 const folioOf = (post: (typeof posts)[number]) =>
-  String(posts.length - posts.indexOf(post)).padStart(3, '0');
+  String(posts.length - posts.indexOf(post)).padStart(3, "0");
 
 const videoIds = [
-  'HWHjCfaPn_0',
-  '6bpJBji3E0M',
-  '3B0rnPGWgKU',
-  'CG5i14GAZTQ',
-  'boG5JTD5yXU',
-  'MLaRB6uGhAk'
+  "HWHjCfaPn_0",
+  "6bpJBji3E0M",
+  "3B0rnPGWgKU",
+  "CG5i14GAZTQ",
+  "boG5JTD5yXU",
+  "MLaRB6uGhAk",
 ];
 ---
 
@@ -54,21 +69,28 @@ const videoIds = [
     <div class="hc-container">
       <div class="hero-content">
         <span class="hc-eyebrow hero-eyebrow">Quran-centered criticism</span>
-        <h1 class="hc-title hc-title--xl">Better narrations<br />through better questions.</h1>
+        <h1 class="hc-title hc-title--xl">
+          Better narrations<br />through better questions.
+        </h1>
         <div class="hc-divider hero-divider"></div>
         <p class="hc-copy hero-subtitle">
-          Textual criticism, transmission analysis, and source verification, so the truth is
-          sought through evidence and transmitted with integrity.
+          Textual criticism, transmission analysis, and source verification, so
+          the truth is sought through evidence and transmitted with integrity.
         </p>
         <div class="hero-actions">
-          <a href="/blogs" class="hc-btn">Browse the archive <span aria-hidden="true">→</span></a>
+          <a href="/blogs" class="hc-btn"
+            >Browse the archive <span aria-hidden="true">→</span></a
+          >
           <a href="/academia" class="hc-btn hc-btn--ghost">Read the research</a>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="hc-section archive-journal-section" aria-labelledby="archive-journal-title">
+  <section
+    class="hc-section archive-journal-section"
+    aria-labelledby="archive-journal-title"
+  >
     <div class="hc-container">
       <header class="journal-header">
         <div>
@@ -76,8 +98,8 @@ const videoIds = [
             From the <em>archive</em>
           </h2>
           <p class="hc-copy journal-header-copy">
-            Essays and research notes on transmission, prophecy reports, Quranic authority,
-            epistemology, and scriptural history.
+            Essays and research notes on transmission, prophecy reports, Quranic
+            authority, epistemology, and scriptural history.
           </p>
         </div>
         <a href="/blogs" class="hc-btn hc-btn--ghost">
@@ -86,7 +108,11 @@ const videoIds = [
       </header>
 
       <div class="journal-feature-grid">
-        <a href={`/blogs/${featured.id}`} class="journal-feature-card">
+        <a
+          href={`/blogs/${featured.id}`}
+          class="journal-feature-card"
+          data-category={featured.data.category}
+        >
           <div
             class="journal-feature-image"
             style={`background-image:url('${featuredThumb}')`}
@@ -107,57 +133,79 @@ const videoIds = [
         </a>
 
         <nav class="journal-categories" aria-label="Browse entries by category">
-          {categories.map((category) => (
-            <a
-              href={`/blogs?category=${encodeURIComponent(category.name)}`}
-              class="journal-category-tile"
-            >
-              <span class="journal-category-count">{category.count}</span>
-              <strong>{category.name}</strong>
-              {category.description && <p>{category.description}</p>}
-            </a>
-          ))}
+          {
+            categories.map((category) => (
+              <a
+                href={`/blogs?category=${encodeURIComponent(category.name)}`}
+                class="journal-category-tile"
+                data-category={category.name}
+              >
+                <span class="journal-category-count">{category.count}</span>
+                <strong>{category.name}</strong>
+                {category.description && <p>{category.description}</p>}
+              </a>
+            ))
+          }
         </nav>
       </div>
 
       <div class="home-ledger-wrap">
         <h3 class="home-ledger-title">Latest entries</h3>
         <ol class="home-ledger">
-          {recent.map((post) => (
-            <li class="home-ledger-row">
-              <a href={`/blogs/${post.id}`} class="home-ledger-link">
-                <span class="home-ledger-folio">
-                  <span class="home-ledger-no">No. {folioOf(post)}</span>
-                  <time datetime={post.data.date.toISOString().slice(0, 10)}>
-                    {formatDate(post.data.date)}
-                  </time>
-                </span>
-                <span class="home-ledger-body">
-                  <span class="home-ledger-heading">{post.data.title}</span>
-                  <span class="home-ledger-desc">{post.data.description}</span>
-                </span>
-                <span class="home-ledger-cat">{post.data.category}</span>
-                <span class="home-ledger-arrow" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </span>
-              </a>
-            </li>
-          ))}
+          {
+            recent.map((post) => (
+              <li class="home-ledger-row" data-category={post.data.category}>
+                <a href={`/blogs/${post.id}`} class="home-ledger-link">
+                  <span class="home-ledger-folio">
+                    <span class="home-ledger-no">No. {folioOf(post)}</span>
+                    <time datetime={post.data.date.toISOString().slice(0, 10)}>
+                      {formatDate(post.data.date)}
+                    </time>
+                  </span>
+                  <span class="home-ledger-body">
+                    <span class="home-ledger-heading">{post.data.title}</span>
+                    <span class="home-ledger-desc">
+                      {post.data.description}
+                    </span>
+                  </span>
+                  <span class="home-ledger-cat">{post.data.category}</span>
+                  <span class="home-ledger-arrow" aria-hidden="true">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                      <polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </span>
+                </a>
+              </li>
+            ))
+          }
         </ol>
       </div>
     </div>
   </section>
 
-  <section class="hc-section youtube-preview-section" aria-labelledby="lectures-title">
+  <section
+    class="hc-section youtube-preview-section"
+    aria-labelledby="lectures-title"
+  >
     <div class="hc-container">
       <header class="journal-header">
         <div>
-          <h2 id="lectures-title" class="hc-title hc-title--md">Lectures in <em>video</em></h2>
+          <h2 id="lectures-title" class="hc-title hc-title--md">
+            Lectures in <em>video</em>
+          </h2>
           <p class="hc-copy journal-header-copy">
-            Deep dives into transmission history and source criticism, in visual form.
+            Deep dives into transmission history and source criticism, in visual
+            form.
           </p>
         </div>
         <a href="/youtube" class="hc-btn hc-btn--ghost">
@@ -166,26 +214,36 @@ const videoIds = [
       </header>
 
       <div class="youtube-grid">
-        {videoIds.map((id) => (
-          <button
-            type="button"
-            class="yt-lite"
-            data-video-id={id}
-            aria-label="Play video lecture"
-          >
-            <img
-              src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
-              alt=""
-              loading="lazy"
-              decoding="async"
-            />
-            <span class="yt-play" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5.5v13l11-6.5z" />
-              </svg>
-            </span>
-          </button>
-        ))}
+        {
+          videoIds.map((id) => (
+            <button
+              type="button"
+              class="yt-lite"
+              data-video-id={id}
+              aria-label="Play video lecture"
+            >
+              <img
+                src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
+                alt=""
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="yt-play" aria-hidden="true">
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M8 5.5v13l11-6.5z" />
+                </svg>
+              </span>
+              <span class="yt-label" aria-hidden="true">
+                Watch
+              </span>
+            </button>
+          ))
+        }
       </div>
     </div>
   </section>
@@ -194,10 +252,12 @@ const videoIds = [
     <div class="hc-container">
       <header class="journal-header">
         <div>
-          <h2 id="projects-title" class="hc-title hc-title--md">Large-scale <em>projects</em></h2>
+          <h2 id="projects-title" class="hc-title hc-title--md">
+            Large-scale <em>projects</em>
+          </h2>
           <p class="hc-copy journal-header-copy">
-            Research infrastructure for reports, chains, variants, transmitters, and source
-            comparison.
+            Research infrastructure for reports, chains, variants, transmitters,
+            and source comparison.
           </p>
         </div>
         <a href="/projects" class="hc-btn hc-btn--ghost">
@@ -206,32 +266,45 @@ const videoIds = [
       </header>
 
       <div class="projects-grid--brand">
-        <a href="/silsilah/" class="project-card project-card--large project-card--link">
+        <a
+          href="/silsilah/"
+          class="project-card project-card--large project-card--link"
+        >
           <span class="hc-chip">Now live</span>
           <h3>Silsilah Hadith Database</h3>
           <p class="hc-copy">
-            Nineteen classical collections and 153,000+ reports with Arabic text, translation,
-            chains, and gradings.
+            Nineteen classical collections and 153,000+ reports with Arabic
+            text, translation, chains, and gradings.
           </p>
-          <span class="project-card-cta">Enter the database <span aria-hidden="true">→</span></span>
+          <span class="project-card-cta"
+            >Enter the database <span aria-hidden="true">→</span></span
+          >
           <div class="project-lines" aria-hidden="true">
             <span></span><span></span><span></span>
           </div>
         </a>
-        <article class="project-card">
+        <a href="/corpus-map/" class="project-card project-card--link">
           <span class="hc-chip">Research phase</span>
           <h3>Corpus Mapping</h3>
           <p class="hc-copy">
-            Digital tools for tracing reports across early Sunni and Shīʿī collections.
+            Digital tools for tracing reports across early Sunni and Shīʿī
+            collections.
           </p>
-        </article>
-        <article class="project-card">
+          <span class="project-card-cta"
+            >Explore the map <span aria-hidden="true">→</span></span
+          >
+        </a>
+        <a href="/studies/" class="project-card project-card--link">
           <span class="hc-chip">In development</span>
           <h3>Common-Link Studies</h3>
           <p class="hc-copy">
-            Visual studies of transmission clusters, narrator pathways, and textual growth.
+            Visual studies of transmission clusters, narrator pathways, and
+            textual growth.
           </p>
-        </article>
+          <span class="project-card-cta"
+            >View the studies <span aria-hidden="true">→</span></span
+          >
+        </a>
       </div>
     </div>
   </section>
@@ -244,7 +317,8 @@ const videoIds = [
             Truth is sought through evidence and transmitted with integrity.
           </h2>
           <p class="closing-lead">
-            Questions, corrections, collaboration, and source submissions are welcome.
+            Questions, corrections, collaboration, and source submissions are
+            welcome.
           </p>
           <a href="/contact" class="hc-btn">Write to HadithCritic</a>
         </div>
@@ -263,11 +337,25 @@ const videoIds = [
     align-items: center;
     border-bottom: 1px solid var(--hc-rule);
     background:
-      linear-gradient(90deg, rgba(15,15,16,0.98) 0%, rgba(15,15,16,0.96) 28%, rgba(15,15,16,0.68) 46%, rgba(15,15,16,0.18) 72%, rgba(15,15,16,0.08) 100%),
-      radial-gradient(circle at 18% 44%, rgba(216,177,102,0.08), transparent 28%),
-      url('/images/asset1.webp');
+      linear-gradient(
+        90deg,
+        rgba(15, 15, 16, 0.98) 0%,
+        rgba(15, 15, 16, 0.96) 28%,
+        rgba(15, 15, 16, 0.68) 46%,
+        rgba(15, 15, 16, 0.18) 72%,
+        rgba(15, 15, 16, 0.08) 100%
+      ),
+      radial-gradient(
+        circle at 18% 44%,
+        rgba(216, 177, 102, 0.08),
+        transparent 28%
+      ),
+      url("/images/asset1.webp");
     background-size: cover, cover, contain;
-    background-position: center, center, right center;
+    background-position:
+      center,
+      center,
+      right center;
     background-repeat: no-repeat;
     overflow: hidden;
   }
@@ -287,8 +375,17 @@ const videoIds = [
     inset: 0;
     z-index: 1;
     background:
-      linear-gradient(180deg, rgba(15,15,16,0.1), rgba(15,15,16,0.02) 45%, rgba(15,15,16,0.5)),
-      radial-gradient(circle at 75% 58%, rgba(216,177,102,0.1), transparent 30%);
+      linear-gradient(
+        180deg,
+        rgba(15, 15, 16, 0.1),
+        rgba(15, 15, 16, 0.02) 45%,
+        rgba(15, 15, 16, 0.5)
+      ),
+      radial-gradient(
+        circle at 75% 58%,
+        rgba(216, 177, 102, 0.1),
+        transparent 30%
+      );
     pointer-events: none;
   }
 
@@ -374,30 +471,43 @@ const videoIds = [
 
   .journal-feature-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
-    gap: 1.4rem;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .journal-feature-card {
-    min-height: 440px;
+    min-height: 415px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
+    grid-template-columns: 1.6fr 1fr;
     overflow: hidden;
+    border-radius: var(--radius-sm);
     text-decoration: none;
-    border: 1px solid var(--hc-rule);
-    background: linear-gradient(180deg, rgba(38,35,31,0.8), rgba(15,15,16,0.95));
-    transition: border-color 220ms ease;
+    border: 1px solid var(--cat-border, var(--hc-rule));
+    outline: 2px solid transparent;
+    outline-offset: 4px;
+    background: linear-gradient(
+      180deg,
+      var(--cat-bg, rgba(38, 35, 31, 0.8)),
+      rgba(15, 15, 16, 0.95)
+    );
+    transition:
+      border-color 300ms ease,
+      outline-color 300ms ease,
+      transform 300ms var(--ease);
   }
 
   .journal-feature-card:hover {
-    border-color: var(--hc-rule-strong);
+    border-color: var(--cat-color, var(--hc-rule-strong));
+    outline-color: var(--cat-border, rgba(216, 177, 102, 0.3));
+    transform: translateY(-2px);
   }
 
   .journal-feature-image {
     min-height: 100%;
-    background-size: cover;
+    background-size: contain;
+    background-repeat: no-repeat;
     background-position: center;
+    background-color: rgba(10, 10, 10, 0.4);
     filter: saturate(0.9) contrast(1.03);
     transition: transform 450ms var(--ease);
   }
@@ -418,10 +528,10 @@ const videoIds = [
     width: fit-content;
     margin-bottom: 0.85rem;
     padding: 0.28rem 0.6rem;
-    border: 1px solid var(--hc-rule);
+    border: 1px solid var(--cat-border, var(--hc-rule));
     border-radius: var(--radius-pill);
-    color: var(--hc-gold-soft);
-    background: rgba(216,177,102,0.08);
+    color: var(--cat-color, var(--hc-gold-soft));
+    background: var(--cat-bg, rgba(216, 177, 102, 0.08));
     font-family: var(--font-ui);
     font-size: 0.67rem;
     text-transform: uppercase;
@@ -436,8 +546,13 @@ const videoIds = [
     font-weight: 500;
     letter-spacing: -0.02em;
     font-size: clamp(2.1rem, 3vw, 3.1rem);
-    line-height: 1.02;
+    line-height: 1.05;
     text-wrap: balance;
+    transition: color 300ms ease;
+  }
+
+  .journal-feature-card:hover h3 {
+    color: var(--cat-color, var(--hc-gold-soft));
   }
 
   .journal-feature-copy > p {
@@ -471,45 +586,74 @@ const videoIds = [
   }
 
   .journal-meta-cta {
-    color: var(--hc-gold);
+    color: var(--cat-color, var(--hc-gold));
+    transition: opacity 250ms ease;
   }
 
   /* Category tiles */
 
   .journal-categories {
     border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
     display: grid;
-    grid-auto-rows: 1fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 1px;
     background-color: var(--hc-rule);
+    overflow: hidden;
   }
 
   .journal-category-tile {
+    position: relative;
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: start;
-    gap: 0.2rem 0.95rem;
-    padding: 1.15rem 1.2rem;
-    background: linear-gradient(180deg, rgba(38,35,31,0.92), rgba(15,15,16,0.96));
+    gap: 0.2rem 1.1rem;
+    padding: 1.35rem 1.4rem;
+    background: linear-gradient(
+      180deg,
+      rgba(28, 26, 24, 0.6),
+      rgba(15, 15, 16, 0.9)
+    );
     text-decoration: none;
-    transition: background 220ms ease;
+    border-top: 2px solid transparent;
+    transition:
+      background 300ms ease,
+      border-color 300ms ease,
+      transform 300ms var(--ease);
   }
 
   .journal-category-tile:hover {
-    background: linear-gradient(180deg, rgba(216,177,102,0.12), rgba(15,15,16,0.96));
+    background: linear-gradient(
+      180deg,
+      var(--cat-bg, rgba(216, 177, 102, 0.12)),
+      rgba(15, 15, 16, 0.96)
+    );
+    border-top-color: var(--cat-color, var(--hc-gold));
   }
 
   .journal-category-count {
     grid-row: span 2;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
-    border: 1px solid var(--hc-rule);
+    border: 1px solid var(--cat-border, var(--hc-rule));
     border-radius: 50%;
-    color: var(--hc-gold);
+    color: var(--cat-color, var(--hc-gold));
+    background: var(--cat-bg, transparent);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition:
+      transform 300ms var(--ease),
+      background 300ms ease,
+      color 300ms ease;
+  }
+
+  .journal-category-tile:hover .journal-category-count {
+    transform: scale(1.08);
+    background: var(--cat-color, var(--hc-gold));
+    color: var(--hc-black);
   }
 
   .journal-category-tile strong {
@@ -519,6 +663,11 @@ const videoIds = [
     letter-spacing: -0.02em;
     font-size: 1.45rem;
     line-height: 1.05;
+    transition: color 300ms ease;
+  }
+
+  .journal-category-tile:hover strong {
+    color: var(--cat-color, var(--hc-gold-soft));
   }
 
   .journal-category-tile p {
@@ -561,11 +710,15 @@ const videoIds = [
     gap: clamp(1.1rem, 2.5vw, 2.25rem);
     padding: clamp(1rem, 1.8vw, 1.35rem) clamp(0.4rem, 1.2vw, 1rem);
     text-decoration: none;
-    transition: background 250ms ease;
+    transition: background 300ms ease;
   }
 
   .home-ledger-link:hover {
-    background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 60%);
+    background: linear-gradient(
+      90deg,
+      var(--cat-bg, rgba(216, 177, 102, 0.06)),
+      transparent 60%
+    );
   }
 
   .home-ledger-folio {
@@ -600,11 +753,11 @@ const videoIds = [
     line-height: 1.05;
     letter-spacing: -0.02em;
     color: var(--hc-parchment);
-    transition: color 220ms ease;
+    transition: color 300ms ease;
   }
 
   .home-ledger-link:hover .home-ledger-heading {
-    color: var(--hc-gold-soft);
+    color: var(--cat-color, var(--hc-gold-soft));
   }
 
   .home-ledger-desc {
@@ -622,10 +775,10 @@ const videoIds = [
     align-items: center;
     min-height: 28px;
     padding: 0.2rem 0.7rem;
-    border: 1px solid var(--hc-rule);
+    border: 1px solid var(--cat-border, var(--hc-rule));
     border-radius: var(--radius-pill);
-    color: var(--hc-gold-soft);
-    background: rgba(216, 177, 102, 0.06);
+    color: var(--cat-color, var(--hc-gold-soft));
+    background: var(--cat-bg, rgba(216, 177, 102, 0.06));
     font-family: var(--font-ui);
     font-size: 0.7rem;
     font-weight: 600;
@@ -639,15 +792,20 @@ const videoIds = [
     place-items: center;
     width: 36px;
     height: 36px;
-    border: 1px solid var(--hc-rule);
+    border: 1px solid var(--cat-border, var(--hc-rule));
     border-radius: 50%;
-    color: var(--hc-gold-dim);
-    transition: color 250ms ease, border-color 250ms ease, transform 250ms var(--ease);
+    color: var(--cat-border, var(--hc-gold-dim));
+    transition:
+      color 300ms ease,
+      border-color 300ms ease,
+      transform 300ms var(--ease),
+      background 300ms ease;
   }
 
   .home-ledger-link:hover .home-ledger-arrow {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold-dim);
+    color: var(--hc-black);
+    border-color: var(--cat-color, var(--hc-gold-dim));
+    background: var(--cat-color, var(--hc-gold));
     transform: translateX(4px);
   }
 
@@ -667,8 +825,37 @@ const videoIds = [
     padding: 0;
     overflow: hidden;
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background: var(--hc-black-soft);
+    transition:
+      border-color 300ms ease,
+      box-shadow 300ms ease,
+      transform 300ms var(--ease);
+  }
+
+  .yt-lite::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(
+      180deg,
+      rgba(15, 15, 16, 0) 50%,
+      rgba(15, 15, 16, 0.7) 100%
+    );
+    pointer-events: none;
+    opacity: 0.6;
+    transition: opacity 300ms ease;
+  }
+
+  .yt-lite:hover {
+    border-color: var(--hc-gold-dim);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    transform: translateY(-4px);
+  }
+
+  .yt-lite:hover::after {
+    opacity: 0.9;
   }
 
   .yt-lite img {
@@ -676,12 +863,14 @@ const videoIds = [
     height: 100%;
     object-fit: cover;
     filter: saturate(0.92);
-    transition: transform 450ms var(--ease), filter 250ms ease;
+    transition:
+      transform 450ms var(--ease),
+      filter 250ms ease;
   }
 
   .yt-lite:hover img {
-    transform: scale(1.04);
-    filter: saturate(1);
+    transform: scale(1.05);
+    filter: saturate(1.1) contrast(1.05);
   }
 
   .yt-play {
@@ -689,14 +878,22 @@ const videoIds = [
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
+    z-index: 2;
     display: grid;
     place-items: center;
-    width: 58px;
-    height: 58px;
+    width: 64px;
+    height: 64px;
     border-radius: 50%;
-    color: var(--hc-black);
-    background: rgba(216, 177, 102, 0.92);
-    transition: background 200ms ease, transform 200ms var(--ease);
+    color: var(--hc-parchment);
+    background: rgba(15, 15, 16, 0.6);
+    border: 1px solid rgba(216, 177, 102, 0.3);
+    backdrop-filter: blur(8px);
+    transition:
+      background 300ms ease,
+      color 300ms ease,
+      transform 300ms var(--ease),
+      border-color 300ms ease,
+      box-shadow 300ms ease;
   }
 
   .yt-play svg {
@@ -704,8 +901,39 @@ const videoIds = [
   }
 
   .yt-lite:hover .yt-play {
-    background: var(--hc-gold-soft);
-    transform: translate(-50%, -50%) scale(1.06);
+    background: var(--hc-gold);
+    color: var(--hc-black);
+    border-color: var(--hc-gold);
+    transform: translate(-50%, -50%) scale(1.12);
+    box-shadow: 0 0 25px rgba(216, 177, 102, 0.35);
+  }
+
+  .yt-label {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    z-index: 2;
+    background: rgba(15, 15, 16, 0.85);
+    color: var(--hc-gold-soft);
+    border: 1px solid rgba(216, 177, 102, 0.2);
+    border-radius: var(--radius-pill);
+    padding: 0.25rem 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 300ms ease,
+      transform 300ms var(--ease);
+  }
+
+  .yt-lite:hover .yt-label {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   .yt-lite iframe {
@@ -726,11 +954,38 @@ const videoIds = [
 
   .project-card {
     position: relative;
-    min-height: 260px;
-    padding: clamp(1.4rem, 3vw, 2rem);
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.6rem, 3vw, 2.25rem);
     border: 1px solid var(--hc-rule);
-    background: linear-gradient(180deg, rgba(38,35,31,0.86), rgba(15,15,16,0.96));
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+      180deg,
+      rgba(38, 35, 31, 0.86),
+      rgba(15, 15, 16, 0.96)
+    );
     overflow: hidden;
+    transition:
+      transform 300ms var(--ease),
+      border-color 300ms ease,
+      box-shadow 300ms ease;
+  }
+
+  .project-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at 100% 0%,
+      rgba(216, 177, 102, 0.05),
+      transparent 50%
+    );
+    pointer-events: none;
+    transition:
+      opacity 300ms ease,
+      background 300ms ease;
+    opacity: 0.5;
   }
 
   .project-card h3 {
@@ -751,11 +1006,21 @@ const videoIds = [
   .project-card--link {
     display: block;
     text-decoration: none;
-    transition: border-color 220ms ease;
   }
 
   .project-card--link:hover {
-    border-color: var(--hc-rule-strong);
+    border-color: var(--hc-gold-dim);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+    transform: translateY(-4px);
+  }
+
+  .project-card--link:hover::before {
+    opacity: 1;
+    background: radial-gradient(
+      circle at 100% 0%,
+      rgba(216, 177, 102, 0.12),
+      transparent 60%
+    );
   }
 
   .project-card-cta {
@@ -782,9 +1047,17 @@ const videoIds = [
     bottom: -10%;
     width: 55%;
     aspect-ratio: 1;
-    border: 1px solid rgba(216,177,102,0.24);
+    border: 1px solid rgba(216, 177, 102, 0.24);
     transform: rotate(45deg);
     pointer-events: none;
+    transition:
+      transform 500ms var(--ease),
+      border-color 300ms ease;
+  }
+
+  .project-card--link:hover.project-card--large::after {
+    transform: rotate(45deg) scale(1.05) translate(2%, 2%);
+    border-color: rgba(216, 177, 102, 0.4);
   }
 
   .project-lines {
@@ -799,6 +1072,31 @@ const videoIds = [
     width: 180px;
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--hc-rule-strong));
+    transition:
+      width 400ms var(--ease),
+      background 300ms ease;
+  }
+
+  .project-lines span:nth-child(2) {
+    width: 140px;
+  }
+  .project-lines span:nth-child(3) {
+    width: 100px;
+  }
+
+  .project-card--link:hover .project-lines span {
+    width: 220px;
+    background: linear-gradient(90deg, transparent, rgba(216, 177, 102, 0.6));
+  }
+
+  .project-card--link:hover .project-lines span:nth-child(2) {
+    width: 180px;
+    transition-delay: 40ms;
+  }
+
+  .project-card--link:hover .project-lines span:nth-child(3) {
+    width: 140px;
+    transition-delay: 80ms;
   }
 
   /* Closing band */
@@ -808,8 +1106,14 @@ const videoIds = [
     min-height: 320px;
     overflow: hidden;
     background:
-      linear-gradient(90deg, rgba(78, 38, 18, 0.96) 0%, rgba(78, 38, 18, 0.88) 38%, rgba(78, 38, 18, 0.25) 68%, rgba(78, 38, 18, 0) 100%),
-      url('/images/asset2.webp');
+      linear-gradient(
+        90deg,
+        rgba(78, 38, 18, 0.96) 0%,
+        rgba(78, 38, 18, 0.88) 38%,
+        rgba(78, 38, 18, 0.25) 68%,
+        rgba(78, 38, 18, 0) 100%
+      ),
+      url("/images/asset2.webp");
     background-size: cover;
     background-position: right center;
     background-repeat: no-repeat;
@@ -876,11 +1180,24 @@ const videoIds = [
     .hero-section {
       min-height: calc(100svh - 60px);
       background:
-        linear-gradient(90deg, rgba(15,15,16,0.98) 0%, rgba(15,15,16,0.94) 54%, rgba(15,15,16,0.58) 100%),
-        linear-gradient(180deg, rgba(15,15,16,0.16), rgba(15,15,16,0.72) 78%, rgba(15,15,16,0.95)),
-        url('/images/asset1.webp');
+        linear-gradient(
+          90deg,
+          rgba(15, 15, 16, 0.98) 0%,
+          rgba(15, 15, 16, 0.94) 54%,
+          rgba(15, 15, 16, 0.58) 100%
+        ),
+        linear-gradient(
+          180deg,
+          rgba(15, 15, 16, 0.16),
+          rgba(15, 15, 16, 0.72) 78%,
+          rgba(15, 15, 16, 0.95)
+        ),
+        url("/images/asset1.webp");
       background-size: cover, cover, contain;
-      background-position: center, center, center top;
+      background-position:
+        center,
+        center,
+        center top;
       background-repeat: no-repeat;
     }
 
@@ -914,8 +1231,13 @@ const videoIds = [
 
     .closing-banner {
       background:
-        linear-gradient(0deg, rgba(78, 38, 18, 0.96) 0%, rgba(78, 38, 18, 0.86) 55%, rgba(78, 38, 18, 0.3) 100%),
-        url('/images/asset2.webp');
+        linear-gradient(
+          0deg,
+          rgba(78, 38, 18, 0.96) 0%,
+          rgba(78, 38, 18, 0.86) 55%,
+          rgba(78, 38, 18, 0.3) 100%
+        ),
+        url("/images/asset2.webp");
       background-size: cover;
       background-position: center top;
     }
@@ -929,21 +1251,23 @@ const videoIds = [
 </style>
 
 <script>
-  for (const button of document.querySelectorAll<HTMLButtonElement>('.yt-lite')) {
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    ".yt-lite",
+  )) {
     button.addEventListener(
-      'click',
+      "click",
       () => {
         const id = button.dataset.videoId;
         if (!id) return;
-        const iframe = document.createElement('iframe');
+        const iframe = document.createElement("iframe");
         iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
-        iframe.title = 'YouTube video player';
+        iframe.title = "YouTube video player";
         iframe.allow =
-          'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
         iframe.allowFullscreen = true;
         button.replaceChildren(iframe);
       },
-      { once: true }
+      { once: true },
     );
   }
 </script>

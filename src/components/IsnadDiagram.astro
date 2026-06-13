@@ -1,250 +1,397 @@
 ---
-/*
-  Generic animated isnad diagram.
 
-  Renders any transmission graph (nodes, edges, tier labels, annotations) as an
-  SVG that draws itself bottom-up when scrolled into view: strands rise first,
-  nodes pop in as strands reach them, common links pulse, and "diving" strands
-  fade in last. Honours prefers-reduced-motion. Used directly in MDX studies
-  and wrapped by IsnadBundle for the preset Yahya b. Said bundle.
-
-  Node kinds: root (filled gold), cl (gold + pulsing ring), collector (soft),
-  ghost (dashed outline, for artificial key figures), normal.
-  Edge kinds: trunk (bright), normal, dive (dashed umber, drawn last).
-*/
-export interface DiagramNode {
-  id: string;
-  x: number;
-  y: number;
-  label?: string;
-  labelPos?: 'right' | 'left' | 'above' | 'below';
-  kind?: 'root' | 'cl' | 'collector' | 'ghost' | 'normal';
+interface DiagramNode {
+id: string;
+x: number;
+y: number;
+label?: string;
+labelPos?: 'right' | 'left' | 'above' | 'below';
+labelDx?: number;
+labelDy?: number;
+kind?: 'root' | 'cl' | 'collector' | 'ghost' | 'normal';
 }
 
-export interface DiagramEdge {
-  from: string;
-  to: string;
-  kind?: 'trunk' | 'normal' | 'dive';
+interface DiagramEdge {
+from: string;
+to: string;
+kind?: 'trunk' | 'normal' | 'dive';
 }
 
-export interface DiagramTier {
-  y: number;
-  label: string;
+interface DiagramTier {
+y: number;
+label: string;
 }
 
-export interface DiagramAnnotation {
-  x: number;
-  y: number;
-  text: string;
-  anchor?: 'start' | 'middle' | 'end';
-  kind?: 'dive' | 'note';
+interface DiagramAnnotation {
+x: number;
+y: number;
+text: string;
+anchor?: 'start' | 'middle' | 'end';
+kind?: 'dive' | 'note';
+dx?: number;
+dy?: number;
 }
 
 interface Props {
-  nodes: DiagramNode[];
-  edges: DiagramEdge[];
-  tiers?: DiagramTier[];
-  annotations?: DiagramAnnotation[];
-  width?: number;
-  height?: number;
-  caption?: string;
-  href?: string;
-  hrefLabel?: string;
-  ariaLabel?: string;
-  legend?: boolean;
+nodes: DiagramNode[];
+edges: DiagramEdge[];
+tiers?: DiagramTier[];
+annotations?: DiagramAnnotation[];
+width?: number;
+height?: number;
+caption?: string;
+href?: string;
+hrefLabel?: string;
+ariaLabel?: string;
+legend?: boolean;
 }
 
 const {
-  nodes,
-  edges,
-  tiers = [],
-  annotations = [],
-  width = 760,
-  height = 620,
-  caption,
-  href,
-  hrefLabel = 'Open in Silsilah',
-  ariaLabel = 'Isnad transmission diagram',
-  legend = true
-} = Astro.props;
+nodes,
+edges,
+tiers = [],
+annotations = [],
+width = 760,
+height = 620,
+caption,
+href,
+hrefLabel = 'Open in Silsilah',
+ariaLabel = 'Isnad transmission diagram',
+legend = true
+} = Astro.props as Props;
 
-const byId = new Map(nodes.map((n) => [n.id, n]));
-const at = (id: string) => {
-  const n = byId.get(id);
-  if (!n) throw new Error('IsnadDiagram: unknown node id ' + id);
-  return n;
+const byId = new Map<string, DiagramNode>(nodes.map((node) => [node.id, node]));
+
+const at = (id: string): DiagramNode => {
+const node = byId.get(id);
+if (!node) {
+throw new Error('IsnadDiagram: unknown node id ' + id);
+}
+return node;
 };
 
-const curve = (a: DiagramNode, b: DiagramNode) => {
-  // always draw from the lower endpoint upward so the dash animation rises
-  const [lo, hi] = a.y >= b.y ? [a, b] : [b, a];
-  const my = (lo.y + hi.y) / 2;
-  return `M ${lo.x} ${lo.y} C ${lo.x} ${my}, ${hi.x} ${my}, ${hi.x} ${hi.y}`;
+const curve = (a: DiagramNode, b: DiagramNode): string => {
+const lower = a.y >= b.y ? a : b;
+const higher = a.y >= b.y ? b : a;
+const midY = (lower.y + higher.y) / 2;
+
+return `M ${lower.x} ${lower.y} C ${lower.x} ${midY}, ${higher.x} ${midY}, ${higher.x} ${higher.y}`;
 };
 
-/* ---- automatic timeline: bottom-up ---- */
+const getLabelOffset = (node: DiagramNode) => {
+let x = node.x + 16;
+let y = node.y + 4;
+let anchor: 'start' | 'middle' | 'end' = 'start';
+
+if (node.labelPos === 'left') {
+x = node.x - 16;
+y = node.y + 4;
+anchor = 'end';
+}
+
+if (node.labelPos === 'above') {
+x = node.x;
+y = node.y - 16;
+anchor = 'middle';
+}
+
+if (node.labelPos === 'below') {
+x = node.x;
+y = node.y + 24;
+anchor = 'middle';
+}
+
+return {
+x: x + (node.labelDx ?? 0),
+y: y + (node.labelDy ?? 0),
+anchor
+};
+};
+
+const getLabelLines = (label?: string): string[] => {
+if (!label) return [];
+return label.split('\n');
+};
+
+const getNodeClass = (node: DiagramNode): string => {
+const classes = ['node'];
+
+if (node.kind === 'root') classes.push('node--root');
+if (node.kind === 'cl') classes.push('node--cl');
+if (node.kind === 'collector') classes.push('node--coll');
+if (node.kind === 'ghost') classes.push('node--ghost');
+
+return classes.join(' ');
+};
+
+const getLabelClass = (node: DiagramNode): string => {
+const classes = ['lbl'];
+
+if (node.kind === 'cl') classes.push('lbl--cl');
+if (node.kind === 'collector') classes.push('lbl--coll');
+if (node.kind === 'ghost') classes.push('lbl--ghost');
+
+return classes.join(' ');
+};
+
+const getEdgeClass = (edge: DiagramEdge): string => {
+const classes = ['edge'];
+
+if (edge.kind === 'trunk') classes.push('edge--trunk');
+
+return classes.join(' ');
+};
+
+const getAnnotationClass = (annotation: DiagramAnnotation): string => {
+const classes = ['lbl', 'lbl--note'];
+
+if (annotation.kind === 'dive') classes.push('lbl--dive');
+
+return classes.join(' ');
+};
+
+const getNodeRadius = (node: DiagramNode): number => {
+if (node.kind === 'root') return 8;
+if (node.kind === 'cl') return 7;
+if (node.kind === 'collector') return 6;
+return 5.5;
+};
+
 const STEP = 190;
-const mainEdges = edges.filter((e) => e.kind !== 'dive');
-const diveEdges = edges.filter((e) => e.kind === 'dive');
 
-const orderedMain = [...mainEdges].sort(
-  (a, b) => Math.max(at(b.from).y, at(b.to).y) - Math.max(at(a.from).y, at(a.to).y)
-);
+const mainEdges = edges.filter((edge) => edge.kind !== 'dive');
+const diveEdges = edges.filter((edge) => edge.kind === 'dive');
+
+const orderedMain = [...mainEdges].sort((a, b) => {
+const bMax = Math.max(at(b.from).y, at(b.to).y);
+const aMax = Math.max(at(a.from).y, at(a.to).y);
+return bMax - aMax;
+});
+
 const edgeDelay = new Map<DiagramEdge, number>();
-orderedMain.forEach((e, i) => edgeDelay.set(e, i * STEP));
+
+orderedMain.forEach((edge, index) => {
+edgeDelay.set(edge, index * STEP);
+});
+
 const lastMain = orderedMain.length ? (orderedMain.length - 1) * STEP + 700 : 0;
 const diveDelay = lastMain + 700;
 
 const nodeDelay = new Map<string, number>();
-for (const n of nodes) {
-  let best = Infinity;
-  for (const e of mainEdges) {
-    if (e.from !== n.id && e.to !== n.id) continue;
-    const d = edgeDelay.get(e) ?? 0;
-    const lower = at(e.from).y >= at(e.to).y ? e.from : e.to;
-    best = Math.min(best, lower === n.id ? d : d + 420);
-  }
-  nodeDelay.set(n.id, Number.isFinite(best) ? best : 0);
+
+for (const node of nodes) {
+let best = Infinity;
+
+for (const edge of mainEdges) {
+if (edge.from !== node.id && edge.to !== node.id) continue;
+
+    const delay = edgeDelay.get(edge) ?? 0;
+    const lowerId = at(edge.from).y >= at(edge.to).y ? edge.from : edge.to;
+
+    best = Math.min(best, lowerId === node.id ? delay : delay + 420);
+
 }
 
-const tierDelay = (t: DiagramTier) => {
-  let best = Infinity;
-  for (const n of nodes) {
-    if (Math.abs(n.y - t.y) < 48) best = Math.min(best, nodeDelay.get(n.id) ?? 0);
-  }
-  return Number.isFinite(best) ? best : 0;
-};
+nodeDelay.set(node.id, Number.isFinite(best) ? best : 0);
+}
 
-const labelOffset = (n: DiagramNode) => {
-  switch (n.labelPos ?? 'right') {
-    case 'left': return { x: n.x - 16, y: n.y + 4, anchor: 'end' };
-    case 'above': return { x: n.x, y: n.y - 16, anchor: 'middle' };
-    case 'below': return { x: n.x, y: n.y + 22, anchor: 'middle' };
-    default: return { x: n.x + 16, y: n.y + 4, anchor: 'start' };
-  }
+const tierDelay = (tier: DiagramTier): number => {
+let best = Infinity;
+
+for (const node of nodes) {
+if (Math.abs(node.y - tier.y) < 48) {
+best = Math.min(best, nodeDelay.get(node.id) ?? 0);
+}
+}
+
+return Number.isFinite(best) ? best : 0;
 };
 
 const hasDive = diveEdges.length > 0;
-const hasCl = nodes.some((n) => n.kind === 'cl');
+const hasCl = nodes.some((node) => node.kind === 'cl');
 ---
 
 <figure class="isnad-figure" data-isnad>
   <div class="isnad-frame">
     <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
-      {tiers.map((t) => (
-        <text class="tier" x="18" y={t.y + 4} style={`--d:${tierDelay(t)}ms`}>{t.label}</text>
+      {tiers.map((tier) => (
+        <text class="tier" x="18" y={tier.y + 4} style={`--d:${tierDelay(tier)}ms`}>
+          {tier.label}
+        </text>
       ))}
 
-      {orderedMain.map((e) => (
-        <path
-          class:list={['edge', { 'edge--trunk': e.kind === 'trunk' }]}
-          d={curve(at(e.from), at(e.to))}
-          pathLength="1"
-          style={`--d:${edgeDelay.get(e)}ms`}
+      {orderedMain.map((edge) => (
+    <path
+      class={getEdgeClass(edge)}
+      d={curve(at(edge.from), at(edge.to))}
+      pathLength="1"
+      style={`--d:${edgeDelay.get(edge)}ms`}
+    />
+  ))}
+
+  {diveEdges.map((edge, index) => (
+    <g class="dive" style={`--d:${diveDelay + index * 250}ms`}>
+      <path class="edge--dive" d={curve(at(edge.from), at(edge.to))} />
+    </g>
+  ))}
+
+  {nodes.map((node) => {
+    const offset = getLabelOffset(node);
+    const delay = nodeDelay.get(node.id) ?? 0;
+    const lines = getLabelLines(node.label);
+
+    return (
+      <g>
+        {node.kind === 'cl' && (
+          <circle class="cl-ring" cx={node.x} cy={node.y} r="14" style={`--d:${delay + 250}ms`} />
+        )}
+
+        <circle
+          class={getNodeClass(node)}
+          cx={node.x}
+          cy={node.y}
+          r={getNodeRadius(node)}
+          style={`--d:${delay}ms`}
         />
-      ))}
 
-      {diveEdges.map((e, i) => (
-        <g class="dive" style={`--d:${diveDelay + i * 250}ms`}>
-          <path class="edge--dive" d={curve(at(e.from), at(e.to))} />
-        </g>
-      ))}
+        {node.label && (
+          <text
+            class={getLabelClass(node)}
+            x={offset.x}
+            y={offset.y}
+            text-anchor={offset.anchor}
+            style={`--d:${delay + 140}ms`}
+          >
+            {lines.map((line, index) => (
+              <tspan x={offset.x} dy={index === 0 ? 0 : 14}>
+                {line}
+              </tspan>
+            ))}
+          </text>
+        )}
+      </g>
+    );
+  })}
 
-      {nodes.map((n) => {
-        const lp = labelOffset(n);
-        const d = nodeDelay.get(n.id) ?? 0;
-        return (
-          <>
-            {n.kind === 'cl' && (
-              <circle class="cl-ring" cx={n.x} cy={n.y} r="14" style={`--d:${d + 250}ms`} />
-            )}
-            <circle
-              class:list={[
-                'node',
-                {
-                  'node--root': n.kind === 'root',
-                  'node--cl': n.kind === 'cl',
-                  'node--coll': n.kind === 'collector',
-                  'node--ghost': n.kind === 'ghost'
-                }
-              ]}
-              cx={n.x}
-              cy={n.y}
-              r={n.kind === 'root' ? 8 : n.kind === 'cl' ? 7 : n.kind === 'collector' ? 6 : 5.5}
-              style={`--d:${d}ms`}
-            />
-            {n.label && (
-              <text
-                class:list={[
-                  'lbl',
-                  {
-                    'lbl--cl': n.kind === 'cl',
-                    'lbl--coll': n.kind === 'collector',
-                    'lbl--ghost': n.kind === 'ghost'
-                  }
-                ]}
-                x={lp.x}
-                y={lp.y}
-                text-anchor={lp.anchor}
-                style={`--d:${d + 140}ms`}
-              >{n.label}</text>
-            )}
-          </>
-        );
-      })}
+  {annotations.map((annotation) => (
+    <text
+      class={getAnnotationClass(annotation)}
+      x={annotation.x + (annotation.dx ?? 0)}
+      y={annotation.y + (annotation.dy ?? 0)}
+      text-anchor={annotation.anchor ?? 'start'}
+      style={`--d:${annotation.kind === 'dive' ? diveDelay + 200 : lastMain}ms`}
+    >
+      {annotation.text}
+    </text>
+  ))}
+</svg>
 
-      {annotations.map((a) => (
-        <text
-          class:list={['lbl', 'lbl--note', { 'lbl--dive': a.kind === 'dive' }]}
-          x={a.x}
-          y={a.y}
-          text-anchor={a.anchor ?? 'start'}
-          style={`--d:${a.kind === 'dive' ? diveDelay + 200 : lastMain}ms`}
-        >{a.text}</text>
-      ))}
-    </svg>
-    <button type="button" class="isnad-replay" data-isnad-replay title="Replay animation" aria-label="Replay animation">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>
+<button
+  type="button"
+  class="isnad-replay"
+  data-isnad-replay
+  title="Replay animation"
+  aria-label="Replay animation"
+>
+  <svg
+    viewBox="0 0 24 24"
+    width="13"
+    height="13"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 12a9 9 0 1 0 3-6.7" />
+    <polyline points="3 4 3 9 8 9" />
+  </svg>
     </button>
   </div>
+
   {(caption || href || legend) && (
-    <figcaption>
+    <figcaption class="isnad-caption-wrap">
       {legend && (
         <span class="isnad-legend">
-          <i class="key key--strand"></i> transmission strand
-          {hasCl && <><i class="key key--cl"></i> common link</>}
-          {hasDive && <><i class="key key--dive"></i> diving strand</>}
-        </span>
+          <i class="key key--strand"></i>
+          <span>transmission strand</span>
+      {hasCl && (
+        <>
+          <i class="key key--cl"></i>
+          <span>common link</span>
+        </>
       )}
-      {caption && <p>{caption}</p>}
-      {href && <a class="isnad-cta" href={href}>{hrefLabel} <span aria-hidden="true">→</span></a>}
-    </figcaption>
+
+      {hasDive && (
+        <>
+          <i class="key key--dive"></i>
+          <span>diving strand</span>
+        </>
+      )}
+    </span>
   )}
+
+  {caption && <p class="isnad-caption">{caption}</p>}
+
+  {href && (
+    <a class="isnad-cta" href={href}>
+      {hrefLabel} <span aria-hidden="true">→</span>
+    </a>
+  )}
+</figcaption>
+  )}
+
 </figure>
 
 <style>
   .isnad-figure {
-    margin: 0;
+    width: 100%;
+    max-width: none;
+    margin: clamp(2rem, 4vw, 3rem) 0;
+    box-sizing: border-box;
   }
 
   .isnad-frame {
     position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-sm);
     background:
-      radial-gradient(circle at 50% 110%, rgba(216, 177, 102, 0.08), transparent 50%),
-      linear-gradient(180deg, rgba(30, 29, 27, 0.6), rgba(15, 15, 16, 0.92));
-    padding: clamp(0.6rem, 1.6vw, 1.2rem);
+      radial-gradient(circle at 50% 112%, rgba(216, 177, 102, 0.09), transparent 54%),
+      radial-gradient(circle at 16% 12%, rgba(216, 177, 102, 0.045), transparent 36%),
+      linear-gradient(180deg, rgba(30, 29, 27, 0.68), rgba(15, 15, 16, 0.94));
+    padding: clamp(0.75rem, 1.6vw, 1.25rem);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 24px 70px rgba(0, 0, 0, 0.22);
+  }
+
+  .isnad-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(216, 177, 102, 0.035), transparent 18%, transparent 82%, rgba(216, 177, 102, 0.025)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 22%);
+    opacity: 0.9;
   }
 
   svg {
+    position: relative;
+    z-index: 1;
     display: block;
     width: 100%;
     height: auto;
+    overflow: visible;
   }
 
   .isnad-replay {
     position: absolute;
+    z-index: 2;
     top: 0.7rem;
     right: 0.7rem;
     display: grid;
@@ -253,14 +400,19 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
     height: 30px;
     border: 1px solid var(--hc-rule);
     border-radius: 50%;
-    background: rgba(15, 15, 16, 0.7);
+    background: rgba(15, 15, 16, 0.72);
     color: var(--hc-gold-dim);
-    transition: color 200ms ease, border-color 200ms ease, transform 300ms var(--ease);
+    transition:
+      color 200ms ease,
+      border-color 200ms ease,
+      background 200ms ease,
+      transform 300ms var(--ease);
   }
 
   .isnad-replay:hover {
     color: var(--hc-gold);
     border-color: var(--hc-rule-strong);
+    background: rgba(216, 177, 102, 0.08);
     transform: rotate(-60deg);
   }
 
@@ -273,8 +425,19 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
   }
 
   .edge--trunk {
-    stroke: rgba(216, 177, 102, 0.8);
-    stroke-width: 1.7;
+    stroke: rgba(216, 177, 102, 0.82);
+    stroke-width: 1.75;
+  }
+
+  .edge--dive {
+    fill: none;
+    stroke: var(--hc-umber);
+    stroke-width: 1.45;
+    stroke-dasharray: 7 5;
+  }
+
+  .dive {
+    opacity: 0;
   }
 
   .node {
@@ -287,10 +450,25 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
     transform: scale(0.2);
   }
 
-  .node--root { fill: var(--hc-gold); }
-  .node--cl { fill: var(--hc-gold); stroke: var(--hc-gold-soft); }
-  .node--coll { fill: rgba(216, 177, 102, 0.22); }
-  .node--ghost { fill: transparent; stroke-dasharray: 3 2.4; stroke: var(--hc-umber); }
+  .node--root {
+    fill: var(--hc-gold);
+    stroke: var(--hc-gold-soft);
+  }
+
+  .node--cl {
+    fill: var(--hc-gold);
+    stroke: var(--hc-gold-soft);
+  }
+
+  .node--coll {
+    fill: rgba(216, 177, 102, 0.22);
+  }
+
+  .node--ghost {
+    fill: transparent;
+    stroke-dasharray: 3 2.4;
+    stroke: var(--hc-umber);
+  }
 
   .cl-ring {
     fill: none;
@@ -307,6 +485,10 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
     font-family: var(--font-ui);
     font-size: 12.5px;
     opacity: 0;
+    paint-order: stroke;
+    stroke: rgba(15, 15, 16, 0.86);
+    stroke-width: 3px;
+    stroke-linejoin: round;
   }
 
   .tier {
@@ -314,21 +496,35 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
     font-size: 10.5px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
+    stroke-width: 2px;
   }
 
-  .lbl--cl { fill: var(--hc-gold); font-size: 13.5px; font-weight: 600; }
-  .lbl--coll { fill: var(--hc-parchment-deep); font-size: 11px; letter-spacing: 0.08em; font-weight: 600; }
-  .lbl--ghost { fill: var(--hc-umber); }
-  .lbl--note { fill: var(--hc-ash); font-style: italic; font-size: 12px; }
-  .lbl--dive { fill: var(--hc-umber); }
+  .lbl--cl {
+    fill: var(--hc-gold);
+    font-size: 13.5px;
+    font-weight: 700;
+  }
 
-  .dive { opacity: 0; }
+  .lbl--coll {
+    fill: var(--hc-parchment-deep);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
 
-  .edge--dive {
-    fill: none;
-    stroke: var(--hc-umber);
-    stroke-width: 1.4;
-    stroke-dasharray: 7 5;
+  .lbl--ghost {
+    fill: var(--hc-umber);
+  }
+
+  .lbl--note {
+    fill: var(--hc-ash);
+    font-style: italic;
+    font-size: 12px;
+    stroke-width: 3px;
+  }
+
+  .lbl--dive {
+    fill: var(--hc-umber);
   }
 
   :global([data-isnad].play) .edge {
@@ -358,57 +554,87 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
   }
 
   @keyframes isnad-draw {
-    to { stroke-dashoffset: 0; }
-  }
-
-  @keyframes isnad-pop {
-    from { opacity: 0; transform: scale(0.2); }
-    60% { opacity: 1; transform: scale(1.25); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes isnad-fade {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes isnad-ring {
-    0% { opacity: 0.9; transform: scale(0.55); }
-    70% { opacity: 0; transform: scale(1.6); }
-    100% { opacity: 0; transform: scale(1.6); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .edge { stroke-dashoffset: 0; }
-    .node, .lbl, .tier, .dive { opacity: 1; transform: none; }
-    .cl-ring { opacity: 0.5; }
-    :global([data-isnad].play) .edge,
-    :global([data-isnad].play) .node,
-    :global([data-isnad].play) .lbl,
-    :global([data-isnad].play) .tier,
-    :global([data-isnad].play) .cl-ring,
-    :global([data-isnad].play) .dive {
-      animation: none;
+    to {
+      stroke-dashoffset: 0;
     }
   }
 
-  figcaption {
-    margin-top: 0.9rem;
+  @keyframes isnad-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+
+    60% {
+      opacity: 1;
+      transform: scale(1.25);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes isnad-fade {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes isnad-ring {
+    0% {
+      opacity: 0.9;
+      transform: scale(0.55);
+    }
+
+    70% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(1.6);
+    }
+  }
+
+  .isnad-caption-wrap {
+    width: 100%;
+    max-width: none !important;
+    margin: 1rem 0 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box;
+    display: block;
+    text-align: left;
   }
 
   .isnad-legend {
+    width: 100%;
+    max-width: none !important;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.45rem 0.6rem;
+    justify-content: flex-start;
+    gap: 0.45rem 0.7rem;
+    margin: 0 !important;
+    padding: 0 !important;
     color: var(--hc-ash);
     font-family: var(--font-ui);
     font-size: 0.72rem;
     letter-spacing: 0.05em;
+    text-align: left;
   }
 
   .key {
     display: inline-block;
+    flex: 0 0 auto;
     width: 22px;
     height: 0;
     border-top: 2px solid rgba(216, 177, 102, 0.7);
@@ -431,12 +657,18 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
     margin-left: 0.8rem;
   }
 
-  figcaption p {
-    margin: 0.55rem 0 0;
+  .isnad-caption-wrap .isnad-caption {
+    display: block;
+    width: 100%;
+    max-width: none !important;
+    margin: 0.75rem 0 0 !important;
+    padding: 0 !important;
     color: var(--hc-muted);
-    font-size: 0.88rem;
-    line-height: 1.6;
-    max-width: 64ch;
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    text-align: left !important;
+    text-wrap: pretty;
   }
 
   .isnad-cta {
@@ -455,33 +687,102 @@ const hasCl = nodes.some((n) => n.kind === 'cl');
   .isnad-cta:hover {
     color: var(--hc-gold-soft);
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge {
+      stroke-dashoffset: 0;
+    }
+
+    .node,
+    .lbl,
+    .tier,
+    .dive {
+      opacity: 1;
+      transform: none;
+    }
+
+    .cl-ring {
+      opacity: 0.5;
+    }
+
+    :global([data-isnad].play) .edge,
+    :global([data-isnad].play) .node,
+    :global([data-isnad].play) .lbl,
+    :global([data-isnad].play) .tier,
+    :global([data-isnad].play) .cl-ring,
+    :global([data-isnad].play) .dive {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .isnad-figure {
+      margin: 1.75rem 0;
+    }
+
+    .isnad-frame {
+      padding: 0.7rem;
+    }
+
+    .lbl,
+    .tier {
+      font-size: 10.5px;
+    }
+
+    .lbl--cl {
+      font-size: 11.5px;
+    }
+
+    .lbl--coll {
+      font-size: 9.5px;
+    }
+
+    .lbl--note {
+      font-size: 10px;
+    }
+
+    .isnad-caption-wrap .isnad-caption {
+      font-size: 0.86rem;
+      line-height: 1.6;
+    }
+
+    .isnad-legend {
+      font-size: 0.68rem;
+    }
+  }
 </style>
 
 <script>
-  for (const fig of document.querySelectorAll<HTMLElement>('[data-isnad]')) {
-    if (fig.dataset.isnadInit) continue;
-    fig.dataset.isnadInit = '1';
-    const start = () => fig.classList.add('play');
+  for (const element of document.querySelectorAll('[data-isnad]')) {
+    if (!(element instanceof HTMLElement)) continue;
+    if (element.dataset.isnadInit) continue;
+
+    element.dataset.isnadInit = '1';
+
+    const start = () => element.classList.add('play');
+
     if ('IntersectionObserver' in window) {
-      const io = new IntersectionObserver(
+      const observer = new IntersectionObserver(
         (entries) => {
-          for (const e of entries) {
-            if (e.isIntersecting) {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
               start();
-              io.disconnect();
+              observer.disconnect();
             }
           }
         },
         { threshold: 0.3 }
       );
-      io.observe(fig);
+
+      observer.observe(element);
     } else {
       start();
     }
-    fig.querySelector('[data-isnad-replay]')?.addEventListener('click', () => {
-      fig.classList.remove('play');
-      void fig.offsetWidth;
-      fig.classList.add('play');
+
+    element.querySelector('[data-isnad-replay]')?.addEventListener('click', () => {
+      element.classList.remove('play');
+      void element.offsetWidth;
+      element.classList.add('play');
     });
   }
 </script>
