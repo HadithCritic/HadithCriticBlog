@@ -1,0 +1,173 @@
+---
+title: "How to Read an Isnad Bundle"
+description: "Single strands, spiders, bundles, common links, and dives: the visual grammar of modern isnad analysis, drawn from Juynboll's introduction to the Encyclopedia of Canonical Hadith."
+date: 2026-06-12
+kind: primer
+paperAuthors: "G. H. A. Juynboll"
+paperTitle: "Encyclopedia of Canonical Hadith, General Introduction"
+paperVenue: "Brill, Leiden"
+paperYear: "2007"
+paperUrl: "https://brill.com/display/title/12956"
+readingTime: "14 min read"
+tags: ["Method", "Isnad analysis", "Juynboll"]
+order: 1
+---
+
+import IsnadDiagram from '../../components/IsnadDiagram.astro';
+import IsnadBundle from '../../components/IsnadBundle.astro';
+
+Every study in this section relies on a small visual vocabulary: strands, spiders, bundles, common links, dives. This primer explains that vocabulary once, so the studies can use it freely. The terms and the analytical claims behind them come from Gautier Juynboll's general introduction to his *Encyclopedia of Canonical Hadith*, the most systematic statement of the method he spent a career developing. Where later scholars disagree with him, and several do, we note it.
+
+## The promise of the isnad
+
+A hadith has two parts: the *matn*, the text of what was said or done, and the *isnād*, the chain of people who supposedly passed it down. After the isnad became universal as an authentication device, occurrence in the canonical collections, above all the two Ṣaḥīḥs of Bukhārī and Muslim, was generally taken as a guarantee. The attribution to the Prophet was accepted at face value.
+
+Juynboll's project starts from a refusal of that face value. Medieval isnad criticism, he argues, judged chains one at a time, narrator by narrator, using the biographical dictionaries. It almost never asked the structural question: when *all* the chains supporting a tradition are drawn together as one picture, what does the picture say about where the tradition actually came from? His encyclopedia is built on a medieval work that makes the picture drawable: Mizzī's *Tuḥfat al-ashrāf*, which inventories every isnad of every canonical tradition, 19,626 numbered items.
+
+## The single strand
+
+Draw the simplest case: one collector, reached by one chain of single individuals, going back to the Prophet.
+
+export const ssNodes = [
+  { id: 'prophet', x: 380, y: 470, label: 'The Prophet', kind: 'root' },
+  { id: 'companion', x: 380, y: 390, label: 'Companion' },
+  { id: 'successor', x: 380, y: 310, label: 'Successor' },
+  { id: 'f1', x: 380, y: 230, label: 'fulān (so-and-so)' },
+  { id: 'f2', x: 380, y: 150, label: 'fulān' },
+  { id: 'coll', x: 380, y: 70, label: 'COLLECTOR', labelPos: 'above', kind: 'collector' }
+];
+
+export const ssEdges = [
+  { from: 'prophet', to: 'companion', kind: 'trunk' },
+  { from: 'companion', to: 'successor', kind: 'trunk' },
+  { from: 'successor', to: 'f1', kind: 'trunk' },
+  { from: 'f1', to: 'f2', kind: 'trunk' },
+  { from: 'f2', to: 'coll', kind: 'trunk' }
+];
+
+<IsnadDiagram
+  nodes={ssNodes}
+  edges={ssEdges}
+  height={520}
+  caption="A single strand (SS): one transmitter per generation, no corroboration anywhere. Juynboll's first observation is brutal: the majority of canonical traditions are supported only by this."
+  ariaLabel="Diagram of a single strand: one chain of individual transmitters rising from the Prophet through a companion, successor, and unnamed transmitters to a collector."
+/>
+
+For a single strand to be history, every link must have happened exactly as claimed, between exactly those two people, with no one else ever hearing the report along the way. Juynboll's verdict is that postulating historicity for transmissions "achieved at the hands of one single individual to another single individual" requires an act of faith that a dispassionate historian cannot supply. A single strand may be true. The point is that nothing about it can be checked.
+
+## The spider
+
+Now a trap. Sometimes many strands appear to support one tradition, and the picture looks impressively corroborated, until you notice *where* the strands touch.
+
+export const spNodes = [
+  { id: 'prophet', x: 380, y: 480, label: 'The Prophet', kind: 'root' },
+  { id: 'companion', x: 380, y: 400, label: 'Companion' },
+  { id: 'key', x: 380, y: 318, label: 'the "key figure"', kind: 'ghost', labelPos: 'right' },
+  { id: 'a2', x: 250, y: 235 },
+  { id: 'a1', x: 165, y: 150 },
+  { id: 'collA', x: 120, y: 70, label: 'COLLECTOR A', labelPos: 'above', kind: 'collector' },
+  { id: 'b2', x: 330, y: 235 },
+  { id: 'b1', x: 300, y: 150 },
+  { id: 'collB', x: 295, y: 70, label: 'COLLECTOR B', labelPos: 'above', kind: 'collector' },
+  { id: 'c2', x: 430, y: 235 },
+  { id: 'c1', x: 460, y: 150 },
+  { id: 'collC', x: 470, y: 70, label: 'COLLECTOR C', labelPos: 'above', kind: 'collector' },
+  { id: 'd2', x: 510, y: 235 },
+  { id: 'd1', x: 595, y: 150 },
+  { id: 'collD', x: 645, y: 70, label: 'COLLECTOR D', labelPos: 'above', kind: 'collector' }
+];
+
+export const spEdges = [
+  { from: 'prophet', to: 'companion', kind: 'trunk' },
+  { from: 'companion', to: 'key', kind: 'trunk' },
+  { from: 'key', to: 'a2' }, { from: 'a2', to: 'a1' }, { from: 'a1', to: 'collA' },
+  { from: 'key', to: 'b2' }, { from: 'b2', to: 'b1' }, { from: 'b1', to: 'collB' },
+  { from: 'key', to: 'c2' }, { from: 'c2', to: 'c1' }, { from: 'c1', to: 'collC' },
+  { from: 'key', to: 'd2' }, { from: 'd2', to: 'd1' }, { from: 'd1', to: 'collD' }
+];
+
+export const spAnnotations = [
+  { x: 80, y: 240, text: 'every strand: unknown fulāns', anchor: 'start', kind: 'note' }
+];
+
+<IsnadDiagram
+  nodes={spNodes}
+  edges={spEdges}
+  annotations={spAnnotations}
+  height={530}
+  caption="A spider: several single strands converging on one figure, with nothing but single strands above and below him. The dashed node is what Juynboll calls an artificial common link."
+  ariaLabel="Diagram of a spider: four collectors each reach the same key figure through separate chains of unknown transmitters, but every chain is a single strand."
+/>
+
+Each strand in a spider is still a single strand. The transmitters peopling them are very often so obscure that the biographical lexicons can only call them *majhūl*, unknown. Juynboll reads spiders as back-projection: later collectors, each wanting their own route to a circulating text, devised chains downward into the past, and those chains happen to cross at a famous name. The crossing point did not transmit the tradition; the crossing point is an artifact. He notes spiders comfortably outnumber genuine bundles in Mizzī's material.
+
+## The bundle and the common link
+
+Here is the real thing, the structure on which this entire section of the site is named. The example is Juynboll's own showcase: the tradition "deeds are to be appraised by their intentions", the very first hadith in Bukhārī's Ṣaḥīḥ.
+
+<IsnadBundle href="/silsilah/bukhari/1/?v=1#h1" hrefLabel="Open bukhari:1 in Silsilah" />
+
+A bundle has a signature: a single strand from the Prophet up to one man, and a genuine fan after him. That man is the **common link** (CL). The transmitters after him who themselves have multiple pupils are **partial common links** (PCLs), and they are what separates a bundle from a spider: the corroboration is real, observable in independent collections, not just claimed.
+
+Juynboll's reading rule follows directly. Transmission becomes historically tenable at the point where strands genuinely converge, what he calls a knot. The more PCLs fan out from a figure, the more credible that figure's role. Below the common link, where the chain is single again, the history dissolves. So in the bundle above, the spectacular fan tells us Yaḥyā b. Saʿīd al-Anṣārī (d. 144/761) really did spread this tradition, and the lone strand beneath him, through al-Taymī, ʿAlqama, and ʿUmar to the Prophet, is precisely the part the structure cannot vouch for. The common link is the earliest *demonstrable* origin of the wording. Juynboll concluded the common link is, in most cases, the originator: of the matn's wording and of the strand below him alike. That is the method's strongest and most contested claim.
+
+## Dives
+
+Bundles rarely stay clean, because collectors competed. A transmitter who received a tradition through the ordinary route could still want a more impressive route, older, shorter, or simply his own. The solution was what Juynboll calls a dive: a new strand launched past the common link, touching the structure lower down.
+
+export const dvNodes = [
+  { id: 'prophet', x: 380, y: 520, label: 'The Prophet', kind: 'root' },
+  { id: 'companion', x: 380, y: 440, label: 'Companion' },
+  { id: 'successor', x: 380, y: 360, label: 'Successor' },
+  { id: 'cl', x: 380, y: 278, label: 'COMMON LINK', kind: 'cl' },
+  { id: 'p1', x: 225, y: 190, label: 'PCL', labelPos: 'below' },
+  { id: 'p2', x: 535, y: 190, label: 'PCL', labelPos: 'below' },
+  { id: 'collA', x: 140, y: 80, label: 'COLLECTOR A', labelPos: 'above', kind: 'collector' },
+  { id: 'collB', x: 380, y: 80, label: 'COLLECTOR B', labelPos: 'above', kind: 'collector' },
+  { id: 'collC', x: 600, y: 80, label: 'COLLECTOR C', labelPos: 'above', kind: 'collector' }
+];
+
+export const dvEdges = [
+  { from: 'prophet', to: 'companion', kind: 'trunk' },
+  { from: 'companion', to: 'successor', kind: 'trunk' },
+  { from: 'successor', to: 'cl', kind: 'trunk' },
+  { from: 'cl', to: 'p1' },
+  { from: 'cl', to: 'p2' },
+  { from: 'p1', to: 'collA' },
+  { from: 'p1', to: 'collB' },
+  { from: 'p2', to: 'collB' },
+  { from: 'p2', to: 'collC' },
+  { from: 'collC', to: 'successor', kind: 'dive' },
+  { from: 'collA', to: 'companion', kind: 'dive' }
+];
+
+export const dvAnnotations = [
+  { x: 660, y: 330, text: 'a shallow dive (mutābiʿ)', anchor: 'end', kind: 'dive' },
+  { x: 100, y: 390, text: 'a deep dive (shāhid)', anchor: 'start', kind: 'dive' }
+];
+
+<IsnadDiagram
+  nodes={dvNodes}
+  edges={dvEdges}
+  annotations={dvAnnotations}
+  height={560}
+  caption="Dives: strands launched around the common link onto older figures. Medieval scholarship had names for both kinds, which Juynboll reads as unwitting confirmation of the phenomenon."
+  ariaLabel="Diagram of diving strands: a normal bundle with a common link, plus two dashed strands that bypass the common link and attach to the successor and the companion below him."
+/>
+
+Juynboll's chronological adage: shallow dives are older than deep ones. A dive onto the common link's informant was an early move; a dive onto the companion, or onto a freshly supplied alternative companion, came later. He delights in pointing out that medieval hadith science had technical terms for exactly these strands, *mutābiʿāt* for the shallow kind and *shawāhid* for the deep kind, and treated them as corroboration. In his reading they are the opposite of corroboration: they are the visible trail of competitive authentication, with Bukhārī and Muslim themselves, he notes, locked in this rivalry throughout their two Ṣaḥīḥs.
+
+## Why "sahih" does not settle it
+
+The medieval grades, *ṣaḥīḥ* (sound), *ḥasan* (fair), *ḍaʿīf* (weak), evaluate a chain link by link: did each pair overlap in life, was each man reliable. Juynboll's objection is structural: a grade attaches to one strand at a time, and one strand at a time is exactly the view in which a single strand, a spider's leg, and a dive all look identical. The grades cannot see bundles. A tradition could be impeccably ṣaḥīḥ in the medieval sense while its full picture shows one man, a century after the Prophet, with nothing but a single strand beneath him. Intriguingly, Juynboll finds medieval authors occasionally using the word *madār*, pivot, for the figure a tradition turns on: a flicker of the common-link concept inside the tradition itself, never developed into a method.
+
+## What to keep, and what is contested
+
+Keep the pictures. Whatever one concludes from them, the structures are real and reproducible: anyone with Mizzī, or with the [Silsilah database](/silsilah/), can redraw them. Juynboll's stronger inferences are genuinely disputed: Harald Motzki argued that common links are better read as the first systematic *collectors* rather than originators, and that Juynboll's criteria for accepting corroboration were so strict they discard real transmission. The studies in this section will flag, case by case, where an author leans skeptical or conservative. But the shared ground of the modern field is exactly this primer's content: claims about a hadith's origin must be argued from the whole transmission picture, not from one polished chain.
+
+## Sources
+
+- G. H. A. Juynboll, *Encyclopedia of Canonical Hadith* (Brill, 2007), General Introduction. The diagrams above are redrawn and animated from his diagrams 1 through 6, and the technical terms (CL, PCL, SS, spider, bundle, dive) are his.
+- Mizzī, *Tuḥfat al-ashrāf bi-maʿrifat al-aṭrāf*, ed. ʿAbd al-Ṣamad Sharaf al-Dīn (Bhiwandi, 1965-81).
+- For the counter-position: Harald Motzki, *Analysing Muslim Traditions* (Brill, 2010).
+- The bundle example: [bukhari:1 in Silsilah](/silsilah/bukhari/1/?v=1#h1), with the parallel versions traceable through the [reference lookup](/silsilah/find/).

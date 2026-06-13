@@ -1,0 +1,592 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const studies = await getCollection('studies', ({ data }) => !data.draft);
+  return studies.map((study) => ({
+    params: { id: study.id },
+    props: { study }
+  }));
+}
+
+const { study } = Astro.props;
+const { Content, headings } = await render(study);
+
+const all = (await getCollection('studies', ({ data }) => !data.draft)).sort(
+  (a, b) => a.data.order - b.data.order || b.data.date.valueOf() - a.data.date.valueOf()
+);
+const idx = all.findIndex((s) => s.id === study.id);
+const prev = idx > 0 ? all[idx - 1] : null;
+const next = idx < all.length - 1 ? all[idx + 1] : null;
+
+const sections = headings
+  .filter((h) => h.depth === 2)
+  .map((h, i) => ({ n: i + 1, text: h.text, slug: h.slug }));
+
+const d = study.data;
+const number = String(idx + 1).padStart(2, '0');
+const kindLabel = d.kind === 'primer' ? 'Primer' : `Study ${number}`;
+const hasPaper = Boolean(d.paperTitle);
+---
+
+<BaseLayout title={`${d.title} | Common-Link Studies | HadithCritic`} description={d.description}>
+  <div class="st-page" data-study>
+
+    {sections.length >= 3 && (
+      <nav class="st-sidenav" aria-label="Sections of this study">
+        <span class="st-sidenav-label">{kindLabel}</span>
+        <ol>
+          {sections.map((s) => (
+            <li><a href={`#${s.slug}`} data-section={s.slug}>{s.text}</a></li>
+          ))}
+        </ol>
+      </nav>
+    )}
+
+    <article class="st-sheet">
+      <header class="st-mast">
+        <p class="st-mast-meta">
+          <span>Common-Link Studies · {kindLabel}</span>
+          {d.paperAuthors && <span>after {d.paperAuthors}</span>}
+        </p>
+        <h1 class="st-title">{d.title}</h1>
+        <p class="st-sub">{d.description}</p>
+        <div class="st-ornament" aria-hidden="true"><span>❧</span></div>
+
+        {hasPaper && (
+          <aside class="st-paper" aria-label="Source paper">
+            <p class="st-paper-cite">
+              {d.paperAuthors && <strong>{d.paperAuthors}</strong>}{d.paperAuthors && ', '}
+              <em>{d.paperTitle}</em>{d.paperVenue && `, ${d.paperVenue}`}{d.paperYear && ` (${d.paperYear})`}.
+            </p>
+            <p class="st-paper-note">
+              This chapter explains the author's argument with our own visualizations. It is not a
+              reproduction of the work.
+              {d.paperUrl && (
+                <>
+                  {' '}The original: <a href={d.paperUrl} rel="noopener">{new URL(d.paperUrl).hostname}</a>.
+                </>
+              )}
+            </p>
+          </aside>
+        )}
+      </header>
+
+      <div class="st-prose">
+        <Content />
+      </div>
+
+      <footer class="st-end">
+        <div class="st-ornament" aria-hidden="true"><span>◆</span></div>
+        <nav class="st-endnav" aria-label="Adjacent studies">
+          {prev ? (
+            <a href={`/studies/${prev.id}/`} class="st-endnav-link">
+              <span class="st-endnav-dir">← Previous</span>
+              <span class="st-endnav-title">{prev.data.title}</span>
+            </a>
+          ) : <span></span>}
+          <a href="/studies/" class="st-endnav-up">All studies</a>
+          {next ? (
+            <a href={`/studies/${next.id}/`} class="st-endnav-link st-endnav-link--next">
+              <span class="st-endnav-dir">Next →</span>
+              <span class="st-endnav-title">{next.data.title}</span>
+            </a>
+          ) : <span></span>}
+        </nav>
+      </footer>
+    </article>
+
+    <div class="st-bar" aria-hidden="true">
+      <span class="st-bar-crumb">Common-Link Studies / {d.title}</span>
+      <span class="st-bar-progress" id="stProgress">0.00</span>
+      <span class="st-bar-track"><span class="st-bar-fill" id="stFill"></span></span>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .st-page {
+    position: relative;
+    padding: clamp(1.2rem, 4vw, 3.5rem) var(--pad) clamp(3rem, 6vw, 5rem);
+  }
+
+  /* ===== the sheet ===== */
+
+  .st-sheet {
+    max-width: 860px;
+    margin: 0 auto;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-md);
+    background:
+      radial-gradient(circle at 18% 0%, rgba(216, 177, 102, 0.05), transparent 34%),
+      radial-gradient(circle at 90% 100%, rgba(164, 106, 63, 0.06), transparent 30%),
+      linear-gradient(180deg, #201e1a 0%, #181613 55%, #15130f 100%);
+    box-shadow: var(--shadow);
+    padding: clamp(1.6rem, 5vw, 4.5rem) clamp(1.2rem, 6vw, 5rem);
+  }
+
+  /* ===== masthead ===== */
+
+  .st-mast {
+    text-align: center;
+    margin-bottom: clamp(2.2rem, 5vw, 3.6rem);
+  }
+
+  .st-mast-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 1.6rem;
+    margin: 0 0 2.2rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .st-title {
+    margin: 0 auto;
+    max-width: 22ch;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2.1rem, 4.6vw, 3.2rem);
+    line-height: 1.06;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .st-sub {
+    margin: 1.2rem auto 0;
+    max-width: 52ch;
+    color: var(--hc-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    font-style: italic;
+  }
+
+  .st-ornament {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    justify-content: center;
+    margin: 1.8rem auto 0;
+    max-width: 300px;
+    color: var(--hc-gold-dim);
+  }
+
+  .st-ornament::before,
+  .st-ornament::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hc-rule-strong));
+  }
+
+  .st-ornament::after {
+    transform: scaleX(-1);
+  }
+
+  .st-ornament span {
+    font-size: 0.85rem;
+  }
+
+  .st-paper {
+    margin: 2rem auto 0;
+    max-width: 560px;
+    padding: 1rem 1.3rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: rgba(15, 15, 16, 0.45);
+    text-align: center;
+  }
+
+  .st-paper-cite {
+    margin: 0;
+    color: var(--hc-parchment-deep);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .st-paper-note {
+    margin: 0.5rem 0 0;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    line-height: 1.55;
+  }
+
+  .st-paper-note a {
+    color: var(--hc-gold);
+  }
+
+  /* ===== prose: treatise typography ===== */
+
+  .st-prose {
+    color: var(--hc-parchment);
+  }
+
+  .st-prose :global(p) {
+    margin: 0 0 1.25rem;
+    font-size: 1.02rem;
+    line-height: 1.78;
+    color: rgba(242, 235, 220, 0.88);
+  }
+
+  .st-prose :global(h2) {
+    margin: 2.8rem 0 1.1rem;
+    color: var(--hc-gold-soft);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    scroll-margin-top: 96px;
+  }
+
+  .st-prose :global(h2::before) {
+    content: "§ ";
+    color: var(--hc-gold-dim);
+  }
+
+  .st-prose :global(h3) {
+    margin: 2rem 0 0.8rem;
+    color: var(--hc-parchment);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    scroll-margin-top: 96px;
+  }
+
+  .st-prose :global(a) {
+    color: var(--hc-gold);
+    text-decoration: underline;
+    text-decoration-color: rgba(216, 177, 102, 0.4);
+    text-underline-offset: 0.2em;
+  }
+
+  .st-prose :global(a:hover) {
+    color: var(--hc-gold-soft);
+  }
+
+  .st-prose :global(blockquote) {
+    margin: 1.6rem 0;
+    padding: 0.4rem 0 0.4rem 1.4rem;
+    border-left: 2px solid var(--hc-gold-dim);
+    color: var(--hc-parchment-deep);
+    font-style: italic;
+  }
+
+  .st-prose :global(blockquote p) {
+    font-size: 1.05rem;
+  }
+
+  .st-prose :global(ul),
+  .st-prose :global(ol) {
+    margin: 0 0 1.25rem;
+    padding-left: 1.4rem;
+    line-height: 1.75;
+    color: rgba(242, 235, 220, 0.88);
+  }
+
+  .st-prose :global(li) {
+    margin-bottom: 0.5rem;
+  }
+
+  .st-prose :global(li::marker) {
+    color: var(--hc-gold-dim);
+  }
+
+  .st-prose :global(strong) {
+    color: var(--hc-parchment);
+  }
+
+  .st-prose :global(em) {
+    color: inherit;
+  }
+
+  .st-prose :global(figure.isnad-figure) {
+    margin: 2.2rem auto;
+  }
+
+  .st-prose :global(hr) {
+    margin: 2.5rem auto;
+    max-width: 200px;
+    border: 0;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  /* first paragraph after the masthead reads as the opening line */
+  .st-prose > :global(p:first-child) {
+    font-size: 1.12rem;
+    line-height: 1.8;
+  }
+
+  /* ===== sheet footer ===== */
+
+  .st-end {
+    margin-top: 3rem;
+  }
+
+  .st-endnav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1.8rem;
+  }
+
+  .st-endnav-link {
+    display: grid;
+    gap: 0.25rem;
+    text-decoration: none;
+    min-width: 0;
+  }
+
+  .st-endnav-link--next {
+    text-align: right;
+  }
+
+  .st-endnav-dir {
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .st-endnav-title {
+    color: var(--hc-muted);
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color 200ms ease;
+  }
+
+  .st-endnav-link:hover .st-endnav-title {
+    color: var(--hc-gold-soft);
+  }
+
+  .st-endnav-up {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .st-endnav-up:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-rule-strong);
+  }
+
+  /* ===== fixed section nav (wide screens) ===== */
+
+  .st-sidenav {
+    display: none;
+  }
+
+  @media (min-width: 1380px) {
+    .st-sidenav {
+      display: block;
+      position: fixed;
+      left: clamp(1rem, 2.5vw, 2.6rem);
+      top: 50%;
+      transform: translateY(-50%);
+      width: 215px;
+      z-index: 20;
+    }
+  }
+
+  .st-sidenav-label {
+    display: block;
+    margin-bottom: 0.8rem;
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .st-sidenav ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: stnav;
+    border-left: 1px solid var(--hc-rule-soft);
+  }
+
+  .st-sidenav li {
+    counter-increment: stnav;
+  }
+
+  .st-sidenav a {
+    display: block;
+    padding: 0.32rem 0 0.32rem 0.9rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    letter-spacing: 0.03em;
+    text-decoration: none;
+    border-left: 1px solid transparent;
+    margin-left: -1px;
+    transition: color 180ms ease, border-color 180ms ease;
+  }
+
+  .st-sidenav a::before {
+    content: counter(stnav, decimal-leading-zero) " ";
+    color: var(--hc-gold-dim);
+    font-size: 0.62rem;
+    margin-right: 0.3rem;
+  }
+
+  .st-sidenav a:hover {
+    color: var(--hc-parchment);
+  }
+
+  .st-sidenav a.is-active {
+    color: var(--hc-gold);
+    border-left-color: var(--hc-gold);
+  }
+
+  /* ===== chapter bar ===== */
+
+  .st-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.45rem clamp(1rem, 3vw, 2rem);
+    border-top: 1px solid var(--hc-rule);
+    background: color-mix(in srgb, var(--hc-black) 88%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    font-family: var(--font-ui);
+  }
+
+  .st-bar-crumb {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--hc-ash);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .st-bar-progress {
+    color: var(--hc-gold);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .st-bar-track {
+    width: 120px;
+    height: 2px;
+    background: var(--hc-rule-soft);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .st-bar-fill {
+    display: block;
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--hc-gold-dim), var(--hc-gold));
+    transition: width 120ms linear;
+  }
+
+  @media (max-width: 640px) {
+    .st-bar-crumb {
+      display: none;
+    }
+    .st-bar {
+      justify-content: flex-end;
+    }
+    .st-endnav {
+      grid-template-columns: 1fr;
+    }
+    .st-endnav-link--next {
+      text-align: left;
+    }
+    .st-endnav-up {
+      width: fit-content;
+    }
+  }
+</style>
+
+<script>
+  (function () {
+    const sheet = document.querySelector('.st-sheet') as HTMLElement | null;
+    const fill = document.getElementById('stFill');
+    const num = document.getElementById('stProgress');
+    if (sheet && fill && num) {
+      let ticking = false;
+      const update = () => {
+        ticking = false;
+        const rect = sheet.getBoundingClientRect();
+        const total = rect.height - window.innerHeight;
+        const read = Math.min(Math.max(-rect.top, 0), Math.max(total, 1));
+        const frac = total > 0 ? read / total : 1;
+        fill.style.width = (frac * 100).toFixed(1) + '%';
+        num.textContent = frac.toFixed(2);
+      };
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (!ticking) {
+            ticking = true;
+            requestAnimationFrame(update);
+          }
+        },
+        { passive: true }
+      );
+      update();
+    }
+
+    // active section highlighting in the side nav
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.st-sidenav a[data-section]'));
+    if (links.length && 'IntersectionObserver' in window) {
+      const map = new Map<Element, HTMLAnchorElement>();
+      for (const a of links) {
+        const target = document.getElementById(a.dataset.section || '');
+        if (target) map.set(target, a);
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              links.forEach((l) => l.classList.remove('is-active'));
+              map.get(e.target)?.classList.add('is-active');
+            }
+          }
+        },
+        { rootMargin: '-15% 0px -70% 0px' }
+      );
+      for (const el of map.keys()) io.observe(el);
+    }
+  })();
+</script>

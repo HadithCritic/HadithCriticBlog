@@ -1,0 +1,307 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { loadRijalMeta, loadRijalEntry, symbolLabel, searchName } from '../../lib/rijal';
+
+export async function getStaticPaths() {
+  const meta = loadRijalMeta();
+  return Array.from({ length: meta.count }, (_, i) => ({ params: { id: String(i + 1) } }));
+}
+
+const { id } = Astro.params;
+const entryId = parseInt(id!, 10);
+const meta = loadRijalMeta();
+const entry = loadRijalEntry(entryId)!;
+const prev = entryId > 1 ? loadRijalEntry(entryId - 1) : null;
+const next = entryId < meta.count ? loadRijalEntry(entryId + 1) : null;
+
+const silsilahQuery = encodeURIComponent(searchName(entry.name));
+const pageTitle = entry.name.length > 60 ? entry.name.slice(0, 57) + '...' : entry.name;
+---
+
+<BaseLayout
+  title={`${pageTitle} | Narrator Biographies | HadithCritic`}
+  description={`Biographical register entry for ${entry.name} from Dhahabi's al-Kashif: teachers, students, death date, and canonical collections.`}
+>
+  <section class="re-wrap">
+    <div class="hc-container re-inner">
+      <nav class="re-crumbs" aria-label="Breadcrumb">
+        <a href="/rijal/">Narrator Biographies</a>
+        <span aria-hidden="true">/</span>
+        <span>Entry {entry.num ?? entry.id}</span>
+      </nav>
+
+      <article class="re-card">
+        <header class="re-head">
+          <h1 class="re-name" dir="rtl" lang="ar">{entry.name}</h1>
+          <div class="re-badges">
+            {entry.death && <span class="re-death">d. {entry.death} AH</span>}
+            {entry.stub === 1 && <span class="re-stub">Cross-reference entry</span>}
+            {entry.symbols.map((s) => (
+              <span class="re-sym" title={symbolLabel(s)}><b dir="rtl">{s}</b> {symbolLabel(s)}</span>
+            ))}
+          </div>
+        </header>
+
+        {(entry.teachers || entry.students) && (
+          <dl class="re-fields">
+            {entry.teachers && (
+              <div>
+                <dt>Transmitted from</dt>
+                <dd dir="rtl" lang="ar">{entry.teachers}</dd>
+              </div>
+            )}
+            {entry.students && (
+              <div>
+                <dt>Transmitted by</dt>
+                <dd dir="rtl" lang="ar">{entry.students}</dd>
+              </div>
+            )}
+          </dl>
+        )}
+
+        <section class="re-text">
+          <h2>The entry in al-Kāshif</h2>
+          <p dir="rtl" lang="ar">{entry.text}</p>
+        </section>
+
+        <footer class="re-actions">
+          <a class="hc-btn" href={`/silsilah/search/?q=${silsilahQuery}`}>
+            Find this name in Silsilah chains
+          </a>
+          <a class="hc-btn hc-btn--ghost" href="/rijal/">Search the register</a>
+        </footer>
+      </article>
+
+      <nav class="re-nav" aria-label="Adjacent entries">
+        {prev ? (
+          <a href={`/rijal/${prev.id}/`} class="re-nav-link">
+            <span class="re-nav-dir">← Previous</span>
+            <span class="re-nav-name" dir="rtl" lang="ar">{prev.name}</span>
+          </a>
+        ) : <span></span>}
+        {next ? (
+          <a href={`/rijal/${next.id}/`} class="re-nav-link re-nav-link--next">
+            <span class="re-nav-dir">Next →</span>
+            <span class="re-nav-name" dir="rtl" lang="ar">{next.name}</span>
+          </a>
+        ) : <span></span>}
+      </nav>
+
+      <p class="re-source">
+        Source: {meta.source}, {meta.author}, after {meta.basedOn}. Structured fields are
+        extracted automatically from the OpenITI edition and may be imperfect; the Arabic entry
+        above is authoritative.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .re-wrap {
+    padding-block: clamp(2rem, 4.5vw, 3.4rem);
+  }
+
+  .re-inner {
+    max-width: 860px;
+  }
+
+  .re-crumbs {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 1.4rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .re-crumbs a {
+    color: var(--hc-gold-dim);
+    text-decoration: none;
+  }
+
+  .re-crumbs a:hover {
+    color: var(--hc-gold);
+  }
+
+  .re-card {
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(38, 35, 31, 0.6), rgba(15, 15, 16, 0.9));
+    padding: clamp(1.4rem, 3vw, 2.2rem);
+  }
+
+  .re-name {
+    margin: 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-arabic);
+    font-weight: 600;
+    font-size: clamp(1.6rem, 3.2vw, 2.3rem);
+    line-height: 1.6;
+  }
+
+  .re-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.9rem;
+  }
+
+  .re-death,
+  .re-stub,
+  .re-sym {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.22rem 0.6rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+  }
+
+  .re-death {
+    color: var(--hc-gold);
+    background: rgba(216, 177, 102, 0.08);
+    font-weight: 600;
+  }
+
+  .re-stub {
+    color: var(--hc-ash);
+  }
+
+  .re-sym {
+    color: var(--hc-muted);
+  }
+
+  .re-sym b {
+    color: var(--hc-gold-soft);
+    font-family: var(--font-arabic);
+    font-size: 0.9rem;
+  }
+
+  .re-fields {
+    margin: 1.4rem 0 0;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .re-fields dt {
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .re-fields dd {
+    margin: 0;
+    color: var(--hc-parchment-deep);
+    font-family: var(--font-arabic);
+    font-size: 1.15rem;
+    line-height: 1.95;
+  }
+
+  .re-text {
+    margin-top: 1.6rem;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .re-text h2 {
+    margin: 0 0 0.7rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .re-text p {
+    margin: 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-arabic);
+    font-size: 1.25rem;
+    line-height: 2.05;
+  }
+
+  .re-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    margin-top: 1.6rem;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .re-nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 1.4rem;
+  }
+
+  .re-nav-link {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.8rem 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    text-decoration: none;
+    transition: border-color 200ms ease;
+    min-width: 0;
+  }
+
+  .re-nav-link:hover {
+    border-color: var(--hc-rule-strong);
+  }
+
+  .re-nav-link--next {
+    text-align: right;
+  }
+
+  .re-nav-dir {
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .re-nav-name {
+    color: var(--hc-muted);
+    font-family: var(--font-arabic);
+    font-size: 0.98rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .re-nav-link:hover .re-nav-name {
+    color: var(--hc-gold-soft);
+  }
+
+  .re-source {
+    margin: 1.6rem 0 0;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    max-width: 76ch;
+  }
+
+  @media (max-width: 640px) {
+    .re-nav {
+      grid-template-columns: 1fr;
+    }
+    .re-nav-link--next {
+      text-align: left;
+    }
+  }
+</style>

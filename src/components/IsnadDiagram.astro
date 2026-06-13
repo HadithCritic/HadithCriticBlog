@@ -1,0 +1,487 @@
+---
+/*
+  Generic animated isnad diagram.
+
+  Renders any transmission graph (nodes, edges, tier labels, annotations) as an
+  SVG that draws itself bottom-up when scrolled into view: strands rise first,
+  nodes pop in as strands reach them, common links pulse, and "diving" strands
+  fade in last. Honours prefers-reduced-motion. Used directly in MDX studies
+  and wrapped by IsnadBundle for the preset Yahya b. Said bundle.
+
+  Node kinds: root (filled gold), cl (gold + pulsing ring), collector (soft),
+  ghost (dashed outline, for artificial key figures), normal.
+  Edge kinds: trunk (bright), normal, dive (dashed umber, drawn last).
+*/
+export interface DiagramNode {
+  id: string;
+  x: number;
+  y: number;
+  label?: string;
+  labelPos?: 'right' | 'left' | 'above' | 'below';
+  kind?: 'root' | 'cl' | 'collector' | 'ghost' | 'normal';
+}
+
+export interface DiagramEdge {
+  from: string;
+  to: string;
+  kind?: 'trunk' | 'normal' | 'dive';
+}
+
+export interface DiagramTier {
+  y: number;
+  label: string;
+}
+
+export interface DiagramAnnotation {
+  x: number;
+  y: number;
+  text: string;
+  anchor?: 'start' | 'middle' | 'end';
+  kind?: 'dive' | 'note';
+}
+
+interface Props {
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+  tiers?: DiagramTier[];
+  annotations?: DiagramAnnotation[];
+  width?: number;
+  height?: number;
+  caption?: string;
+  href?: string;
+  hrefLabel?: string;
+  ariaLabel?: string;
+  legend?: boolean;
+}
+
+const {
+  nodes,
+  edges,
+  tiers = [],
+  annotations = [],
+  width = 760,
+  height = 620,
+  caption,
+  href,
+  hrefLabel = 'Open in Silsilah',
+  ariaLabel = 'Isnad transmission diagram',
+  legend = true
+} = Astro.props;
+
+const byId = new Map(nodes.map((n) => [n.id, n]));
+const at = (id: string) => {
+  const n = byId.get(id);
+  if (!n) throw new Error('IsnadDiagram: unknown node id ' + id);
+  return n;
+};
+
+const curve = (a: DiagramNode, b: DiagramNode) => {
+  // always draw from the lower endpoint upward so the dash animation rises
+  const [lo, hi] = a.y >= b.y ? [a, b] : [b, a];
+  const my = (lo.y + hi.y) / 2;
+  return `M ${lo.x} ${lo.y} C ${lo.x} ${my}, ${hi.x} ${my}, ${hi.x} ${hi.y}`;
+};
+
+/* ---- automatic timeline: bottom-up ---- */
+const STEP = 190;
+const mainEdges = edges.filter((e) => e.kind !== 'dive');
+const diveEdges = edges.filter((e) => e.kind === 'dive');
+
+const orderedMain = [...mainEdges].sort(
+  (a, b) => Math.max(at(b.from).y, at(b.to).y) - Math.max(at(a.from).y, at(a.to).y)
+);
+const edgeDelay = new Map<DiagramEdge, number>();
+orderedMain.forEach((e, i) => edgeDelay.set(e, i * STEP));
+const lastMain = orderedMain.length ? (orderedMain.length - 1) * STEP + 700 : 0;
+const diveDelay = lastMain + 700;
+
+const nodeDelay = new Map<string, number>();
+for (const n of nodes) {
+  let best = Infinity;
+  for (const e of mainEdges) {
+    if (e.from !== n.id && e.to !== n.id) continue;
+    const d = edgeDelay.get(e) ?? 0;
+    const lower = at(e.from).y >= at(e.to).y ? e.from : e.to;
+    best = Math.min(best, lower === n.id ? d : d + 420);
+  }
+  nodeDelay.set(n.id, Number.isFinite(best) ? best : 0);
+}
+
+const tierDelay = (t: DiagramTier) => {
+  let best = Infinity;
+  for (const n of nodes) {
+    if (Math.abs(n.y - t.y) < 48) best = Math.min(best, nodeDelay.get(n.id) ?? 0);
+  }
+  return Number.isFinite(best) ? best : 0;
+};
+
+const labelOffset = (n: DiagramNode) => {
+  switch (n.labelPos ?? 'right') {
+    case 'left': return { x: n.x - 16, y: n.y + 4, anchor: 'end' };
+    case 'above': return { x: n.x, y: n.y - 16, anchor: 'middle' };
+    case 'below': return { x: n.x, y: n.y + 22, anchor: 'middle' };
+    default: return { x: n.x + 16, y: n.y + 4, anchor: 'start' };
+  }
+};
+
+const hasDive = diveEdges.length > 0;
+const hasCl = nodes.some((n) => n.kind === 'cl');
+---
+
+<figure class="isnad-figure" data-isnad>
+  <div class="isnad-frame">
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
+      {tiers.map((t) => (
+        <text class="tier" x="18" y={t.y + 4} style={`--d:${tierDelay(t)}ms`}>{t.label}</text>
+      ))}
+
+      {orderedMain.map((e) => (
+        <path
+          class:list={['edge', { 'edge--trunk': e.kind === 'trunk' }]}
+          d={curve(at(e.from), at(e.to))}
+          pathLength="1"
+          style={`--d:${edgeDelay.get(e)}ms`}
+        />
+      ))}
+
+      {diveEdges.map((e, i) => (
+        <g class="dive" style={`--d:${diveDelay + i * 250}ms`}>
+          <path class="edge--dive" d={curve(at(e.from), at(e.to))} />
+        </g>
+      ))}
+
+      {nodes.map((n) => {
+        const lp = labelOffset(n);
+        const d = nodeDelay.get(n.id) ?? 0;
+        return (
+          <>
+            {n.kind === 'cl' && (
+              <circle class="cl-ring" cx={n.x} cy={n.y} r="14" style={`--d:${d + 250}ms`} />
+            )}
+            <circle
+              class:list={[
+                'node',
+                {
+                  'node--root': n.kind === 'root',
+                  'node--cl': n.kind === 'cl',
+                  'node--coll': n.kind === 'collector',
+                  'node--ghost': n.kind === 'ghost'
+                }
+              ]}
+              cx={n.x}
+              cy={n.y}
+              r={n.kind === 'root' ? 8 : n.kind === 'cl' ? 7 : n.kind === 'collector' ? 6 : 5.5}
+              style={`--d:${d}ms`}
+            />
+            {n.label && (
+              <text
+                class:list={[
+                  'lbl',
+                  {
+                    'lbl--cl': n.kind === 'cl',
+                    'lbl--coll': n.kind === 'collector',
+                    'lbl--ghost': n.kind === 'ghost'
+                  }
+                ]}
+                x={lp.x}
+                y={lp.y}
+                text-anchor={lp.anchor}
+                style={`--d:${d + 140}ms`}
+              >{n.label}</text>
+            )}
+          </>
+        );
+      })}
+
+      {annotations.map((a) => (
+        <text
+          class:list={['lbl', 'lbl--note', { 'lbl--dive': a.kind === 'dive' }]}
+          x={a.x}
+          y={a.y}
+          text-anchor={a.anchor ?? 'start'}
+          style={`--d:${a.kind === 'dive' ? diveDelay + 200 : lastMain}ms`}
+        >{a.text}</text>
+      ))}
+    </svg>
+    <button type="button" class="isnad-replay" data-isnad-replay title="Replay animation" aria-label="Replay animation">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 9 8 9"/></svg>
+    </button>
+  </div>
+  {(caption || href || legend) && (
+    <figcaption>
+      {legend && (
+        <span class="isnad-legend">
+          <i class="key key--strand"></i> transmission strand
+          {hasCl && <><i class="key key--cl"></i> common link</>}
+          {hasDive && <><i class="key key--dive"></i> diving strand</>}
+        </span>
+      )}
+      {caption && <p>{caption}</p>}
+      {href && <a class="isnad-cta" href={href}>{hrefLabel} <span aria-hidden="true">→</span></a>}
+    </figcaption>
+  )}
+</figure>
+
+<style>
+  .isnad-figure {
+    margin: 0;
+  }
+
+  .isnad-frame {
+    position: relative;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background:
+      radial-gradient(circle at 50% 110%, rgba(216, 177, 102, 0.08), transparent 50%),
+      linear-gradient(180deg, rgba(30, 29, 27, 0.6), rgba(15, 15, 16, 0.92));
+    padding: clamp(0.6rem, 1.6vw, 1.2rem);
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .isnad-replay {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--hc-rule);
+    border-radius: 50%;
+    background: rgba(15, 15, 16, 0.7);
+    color: var(--hc-gold-dim);
+    transition: color 200ms ease, border-color 200ms ease, transform 300ms var(--ease);
+  }
+
+  .isnad-replay:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-rule-strong);
+    transform: rotate(-60deg);
+  }
+
+  .edge {
+    fill: none;
+    stroke: rgba(216, 177, 102, 0.5);
+    stroke-width: 1.3;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+
+  .edge--trunk {
+    stroke: rgba(216, 177, 102, 0.8);
+    stroke-width: 1.7;
+  }
+
+  .node {
+    fill: #14130f;
+    stroke: var(--hc-gold);
+    stroke-width: 1.5;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0.2);
+  }
+
+  .node--root { fill: var(--hc-gold); }
+  .node--cl { fill: var(--hc-gold); stroke: var(--hc-gold-soft); }
+  .node--coll { fill: rgba(216, 177, 102, 0.22); }
+  .node--ghost { fill: transparent; stroke-dasharray: 3 2.4; stroke: var(--hc-umber); }
+
+  .cl-ring {
+    fill: none;
+    stroke: var(--hc-gold);
+    stroke-width: 1;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .lbl,
+  .tier {
+    fill: var(--hc-muted);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    opacity: 0;
+  }
+
+  .tier {
+    fill: var(--hc-ash);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .lbl--cl { fill: var(--hc-gold); font-size: 13.5px; font-weight: 600; }
+  .lbl--coll { fill: var(--hc-parchment-deep); font-size: 11px; letter-spacing: 0.08em; font-weight: 600; }
+  .lbl--ghost { fill: var(--hc-umber); }
+  .lbl--note { fill: var(--hc-ash); font-style: italic; font-size: 12px; }
+  .lbl--dive { fill: var(--hc-umber); }
+
+  .dive { opacity: 0; }
+
+  .edge--dive {
+    fill: none;
+    stroke: var(--hc-umber);
+    stroke-width: 1.4;
+    stroke-dasharray: 7 5;
+  }
+
+  :global([data-isnad].play) .edge {
+    animation: isnad-draw 700ms var(--ease) forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .node {
+    animation: isnad-pop 450ms var(--ease) forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .lbl,
+  :global([data-isnad].play) .tier {
+    animation: isnad-fade 600ms ease forwards;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .cl-ring {
+    animation: isnad-ring 2400ms ease-out infinite;
+    animation-delay: var(--d);
+  }
+
+  :global([data-isnad].play) .dive {
+    animation: isnad-fade 900ms ease forwards;
+    animation-delay: var(--d);
+  }
+
+  @keyframes isnad-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes isnad-pop {
+    from { opacity: 0; transform: scale(0.2); }
+    60% { opacity: 1; transform: scale(1.25); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes isnad-fade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes isnad-ring {
+    0% { opacity: 0.9; transform: scale(0.55); }
+    70% { opacity: 0; transform: scale(1.6); }
+    100% { opacity: 0; transform: scale(1.6); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge { stroke-dashoffset: 0; }
+    .node, .lbl, .tier, .dive { opacity: 1; transform: none; }
+    .cl-ring { opacity: 0.5; }
+    :global([data-isnad].play) .edge,
+    :global([data-isnad].play) .node,
+    :global([data-isnad].play) .lbl,
+    :global([data-isnad].play) .tier,
+    :global([data-isnad].play) .cl-ring,
+    :global([data-isnad].play) .dive {
+      animation: none;
+    }
+  }
+
+  figcaption {
+    margin-top: 0.9rem;
+  }
+
+  .isnad-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.6rem;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+  }
+
+  .key {
+    display: inline-block;
+    width: 22px;
+    height: 0;
+    border-top: 2px solid rgba(216, 177, 102, 0.7);
+  }
+
+  .key--cl {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--hc-gold);
+    border-radius: 50%;
+    background: var(--hc-gold);
+  }
+
+  .key--dive {
+    border-top-style: dashed;
+    border-top-color: var(--hc-umber);
+  }
+
+  .key:not(:first-child) {
+    margin-left: 0.8rem;
+  }
+
+  figcaption p {
+    margin: 0.55rem 0 0;
+    color: var(--hc-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    max-width: 64ch;
+  }
+
+  .isnad-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+  }
+
+  .isnad-cta:hover {
+    color: var(--hc-gold-soft);
+  }
+</style>
+
+<script>
+  for (const fig of document.querySelectorAll<HTMLElement>('[data-isnad]')) {
+    if (fig.dataset.isnadInit) continue;
+    fig.dataset.isnadInit = '1';
+    const start = () => fig.classList.add('play');
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              start();
+              io.disconnect();
+            }
+          }
+        },
+        { threshold: 0.3 }
+      );
+      io.observe(fig);
+    } else {
+      start();
+    }
+    fig.querySelector('[data-isnad-replay]')?.addEventListener('click', () => {
+      fig.classList.remove('play');
+      void fig.offsetWidth;
+      fig.classList.add('play');
+    });
+  }
+</script>

@@ -1,0 +1,255 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import IsnadBundle from '../../components/IsnadBundle.astro';
+import { getCollection } from 'astro:content';
+
+const all = await getCollection('studies', ({ data }) => !data.draft);
+const studies = all.sort((a, b) => a.data.order - b.data.order || b.data.date.valueOf() - a.data.date.valueOf());
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+---
+
+<BaseLayout
+  title="Common-Link Studies | HadithCritic"
+  description="Published isnad scholarship retold visually: each study explains what the author argues, animates the transmission bundles behind the argument, and links to the original work."
+>
+  <section class="cls-hero">
+    <div class="hc-container cls-hero-grid">
+      <div>
+        <span class="hc-eyebrow">A HadithCritic project</span>
+        <h1 class="cls-title">Common-Link <em>Studies</em></h1>
+        <div class="hc-divider cls-divider"></div>
+        <p class="hc-copy cls-sub">
+          Modern isnad scholarship is rigorous, visual at heart, and mostly unread: the bundles,
+          spiders, and dives that carry its arguments sit flattened in academic PDFs. Each study
+          here explains what a scholar argues, section by section, with the transmission diagrams
+          animated so the argument can be watched as well as read. Every study links to the
+          original work, and every report mentioned links into the
+          <a href="/silsilah/">Silsilah database</a>.
+        </p>
+      </div>
+      <IsnadBundle
+        caption='The shape these studies examine: strands converging on a common link, fanning out to the collections, with later "diving" strands around him.'
+      />
+    </div>
+  </section>
+
+  <section class="hc-section">
+    <div class="hc-container">
+      <ol class="cls-list">
+        {studies.map((s) => (
+          <li>
+            <a href={`/studies/${s.id}/`} class="cls-row">
+              <span class="cls-kind">{s.data.kind === 'primer' ? 'Primer' : 'Study'}</span>
+              <span class="cls-body">
+                <span class="cls-heading">{s.data.title}</span>
+                <span class="cls-desc">{s.data.description}</span>
+                {s.data.paperAuthors && (
+                  <span class="cls-paper">After {s.data.paperAuthors}{s.data.paperYear ? ` (${s.data.paperYear})` : ''}</span>
+                )}
+              </span>
+              <span class="cls-meta">
+                <time datetime={s.data.date.toISOString().slice(0, 10)}>{formatDate(s.data.date)}</time>
+                {s.data.readingTime && <span>{s.data.readingTime}</span>}
+              </span>
+              <span class="cls-arrow" aria-hidden="true">→</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+
+      <div class="cls-note">
+        <p>
+          More studies are in preparation. Each follows the same contract: the argument belongs to
+          the cited scholar, the explanation and visualizations are ours, and the original work is
+          always linked. Suggestions for studies worth retelling are welcome through the
+          <a href="/contact">contact page</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .cls-hero {
+    border-bottom: 1px solid var(--hc-rule);
+    background:
+      radial-gradient(circle at 80% 15%, rgba(216, 177, 102, 0.07), transparent 38%),
+      linear-gradient(180deg, rgba(30, 29, 27, 0.6), rgba(15, 15, 16, 0.2));
+  }
+
+  .cls-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 4.5vw, 4rem);
+    align-items: center;
+    padding-block: clamp(2.5rem, 6vw, 4.5rem);
+  }
+
+  .cls-title {
+    margin: 0.9rem 0 0;
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2.6rem, 5vw, 3.9rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .cls-title em {
+    font-style: italic;
+    color: var(--hc-gold);
+  }
+
+  .cls-divider {
+    max-width: 280px;
+    margin: 1.7rem 0 1.2rem;
+  }
+
+  .cls-sub {
+    margin: 0;
+    max-width: 56ch;
+  }
+
+  .cls-sub a {
+    color: var(--hc-gold);
+  }
+
+  .cls-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .cls-list li {
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .cls-row {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) auto 30px;
+    align-items: center;
+    gap: clamp(1rem, 2.4vw, 2.2rem);
+    padding: clamp(1.1rem, 2vw, 1.5rem) clamp(0.4rem, 1.2vw, 1rem);
+    text-decoration: none;
+    transition: background 220ms ease;
+  }
+
+  .cls-row:hover {
+    background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 65%);
+  }
+
+  .cls-kind {
+    display: inline-flex;
+    justify-content: center;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.06);
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .cls-body {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .cls-heading {
+    color: var(--hc-parchment);
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    transition: color 200ms ease;
+  }
+
+  .cls-row:hover .cls-heading {
+    color: var(--hc-gold-soft);
+  }
+
+  .cls-desc {
+    color: var(--hc-muted);
+    font-size: 0.94rem;
+    line-height: 1.55;
+    max-width: 72ch;
+  }
+
+  .cls-paper {
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    letter-spacing: 0.04em;
+  }
+
+  .cls-meta {
+    display: grid;
+    gap: 0.25rem;
+    justify-items: end;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .cls-arrow {
+    color: var(--hc-gold-dim);
+    transition: transform 220ms var(--ease), color 220ms ease;
+  }
+
+  .cls-row:hover .cls-arrow {
+    color: var(--hc-gold);
+    transform: translateX(4px);
+  }
+
+  .cls-note {
+    margin-top: 2.4rem;
+    padding: 1.2rem 1.4rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, rgba(38, 35, 31, 0.55), rgba(15, 15, 16, 0.85));
+  }
+
+  .cls-note p {
+    margin: 0;
+    color: var(--hc-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+    max-width: 80ch;
+  }
+
+  .cls-note a {
+    color: var(--hc-gold);
+  }
+
+  @media (max-width: 1080px) {
+    .cls-hero-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .cls-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .cls-kind {
+      width: fit-content;
+    }
+    .cls-meta {
+      justify-items: start;
+      grid-auto-flow: column;
+      gap: 1rem;
+    }
+    .cls-arrow {
+      display: none;
+    }
+  }
+</style>
