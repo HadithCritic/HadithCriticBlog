@@ -1,0 +1,54 @@
+<h2>Design 4 of 5 — Data model, flows, error handling</h2>
+<p class="subtitle">Because the files are yours, external edits (git pull, another editor) must never silently clobber unsaved work. The save + reconciliation policy is the heart of this section. Confirm in the terminal.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Flow: external change on the active note</div>
+    <div class="mockup-body" style="text-align:left;line-height:1.7">
+      <div class="placeholder">Watcher: active file changed on disk</div>
+      <div style="text-align:center;opacity:.6">↓ buffer has unsaved edits?</div>
+      <div style="display:flex;gap:8px">
+        <div class="placeholder" style="flex:1;background:rgba(40,200,64,.10)"><strong>No</strong><br>reload from disk, refresh editor + indexes</div>
+        <div class="placeholder" style="flex:1;background:rgba(254,188,46,.12)"><strong>Yes</strong><br>non-blocking banner:<br>Reload &amp; discard · Keep mine · Save as copy</div>
+      </div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Flow: save (autosave + manual)</div>
+    <div class="mockup-body" style="text-align:left;line-height:1.7">
+      <div class="placeholder">edit → debounce idle (~600ms), or blur / Ctrl-S</div>
+      <div style="text-align:center;opacity:.6">↓ disk mtime/hash == last known?</div>
+      <div style="display:flex;gap:8px">
+        <div class="placeholder" style="flex:1;background:rgba(40,200,64,.10)"><strong>Yes</strong><br>write file, update mtime+hash, clear dirty</div>
+        <div class="placeholder" style="flex:1;background:rgba(254,188,46,.12)"><strong>No</strong><br>conflict banner (don't overwrite)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top:.4rem">
+  <div class="mockup-header">In-memory data model (TypeScript)</div>
+  <div class="mockup-body" style="text-align:left;font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap">Vault       { path, name }
+TreeNode    { kind:'file'|'folder', path, name, children? }
+NoteBuffer  { path, text, mtime, hash, dirty }
+LinkIndex   outgoing: path -> [target], backlinks: path -> [path], resolve([[name]]) -> path|null
+TagIndex    tag -> [path]
+SearchHit   { path, line, snippet, score }
+Settings    global { theme, editorPrefs, lastVault }  ·  vault .silsilah/ { openTabs, activeNote }</div>
+</div>
+
+<div class="mockup" style="margin-top:.4rem">
+  <div class="mockup-header">Error handling (explicit, never silent)</div>
+  <div class="mockup-body" style="text-align:left">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;line-height:1.5">
+      <tr style="opacity:.7"><td style="padding:3px 8px">Situation</td><td style="padding:3px 8px">Response</td></tr>
+      <tr><td style="padding:3px 8px">Vault path denied / not a folder</td><td style="padding:3px 8px">Message, stay on welcome screen</td></tr>
+      <tr><td style="padding:3px 8px">Read/write fails (locked, perms)</td><td style="padding:3px 8px">Toast + keep buffer, offer retry; no data loss</td></tr>
+      <tr><td style="padding:3px 8px">External edit while dirty</td><td style="padding:3px 8px">Conflict banner (3 choices above)</td></tr>
+      <tr><td style="padding:3px 8px">Wikilink target missing</td><td style="padding:3px 8px">Render as "unresolved"; click offers create</td></tr>
+      <tr><td style="padding:3px 8px">Watcher event storm (git checkout)</td><td style="padding:3px 8px">Debounce + batch reindex</td></tr>
+      <tr><td style="padding:3px 8px">Active note deleted on disk</td><td style="padding:3px 8px">Keep buffer, mark unsaved, offer recreate/close</td></tr>
+      <tr><td style="padding:3px 8px">Rust command error</td><td style="padding:3px 8px">Typed error → toast; logged; surfaced, not swallowed</td></tr>
+    </table>
+  </div>
+</div>

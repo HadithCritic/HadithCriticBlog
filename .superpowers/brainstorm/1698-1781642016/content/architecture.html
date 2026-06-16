@@ -1,0 +1,54 @@
+<h2>Design 3 of 5 — System architecture</h2>
+<p class="subtitle">Tauri 2 app. A React + CodeMirror 6 frontend in the webview, a Rust core for the filesystem, watching, and search, with a typed IPC seam between them. Clean internal registries are where the future plugin host will attach. Confirm in the terminal.</p>
+
+<!-- WEBVIEW -->
+<div class="mockup" style="border-left:5px solid #6aa2ff">
+  <div class="mockup-header">Webview — frontend (TypeScript / React)</div>
+  <div class="mockup-body" style="text-align:left">
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <div class="placeholder" style="flex:1;min-width:150px">UI shell<br><small style="opacity:.7">ribbon, sidebars, tabs, status bar</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">CodeMirror 6 editor<br><small style="opacity:.7">markdown lang, Live Preview decorations, bidi/RTL, wikilink autocomplete, keymaps</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">State store (Zustand)<br><small style="opacity:.7">vault, tabs, active note, tree, settings, search, backlinks</small></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+      <div class="placeholder" style="flex:1;min-width:150px">Frontend services<br><small style="opacity:.7">Vault · Search · Settings · LinkIndex (wrap IPC)</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">Markdown engine<br><small style="opacity:.7">Lezer parse for editor + link/tag extraction + preview render</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px;border:1px dashed #c98aff;background:rgba(201,138,255,.08)">Registries (seams)<br><small style="opacity:.7">editor-extension · UI-slot · command · event-bus</small></div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;font-size:1.3rem;margin:.4rem 0;opacity:.6">⇅ &nbsp; typed IPC: <code>invoke()</code> commands + events &nbsp; (fs capability scoped to the open vault) &nbsp; ⇅</div>
+
+<!-- RUST CORE -->
+<div class="mockup" style="border-left:5px solid #f0a868">
+  <div class="mockup-header">Tauri core — Rust</div>
+  <div class="mockup-body" style="text-align:left">
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <div class="placeholder" style="flex:1;min-width:150px">Vault FS commands<br><small style="opacity:.7">open/list/read/write/rename/delete/move, scoped</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">File watcher<br><small style="opacity:.7">notify external edits to the frontend</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">Search index<br><small style="opacity:.7">in-memory full-text + tags, built on load, updated on save/watch</small></div>
+      <div class="placeholder" style="flex:1;min-width:150px">Config store<br><small style="opacity:.7">app settings in OS config dir</small></div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;font-size:1.3rem;margin:.4rem 0;opacity:.6">⇣ &nbsp; plain files on disk &nbsp; ⇣</div>
+
+<!-- DISK -->
+<div class="mockup" style="border-left:5px solid #28c840">
+  <div class="mockup-header">Disk — you own it</div>
+  <div class="mockup-body" style="text-align:left;line-height:1.8">
+    <strong>Vault folder/</strong> &nbsp; your <code>.md</code> notes + attachments &nbsp;•&nbsp; <code>.silsilah/</code> (vault-local workspace state + settings, like Obsidian's <code>.obsidian/</code>)<br>
+    <strong>OS app-config dir</strong> &nbsp; global prefs, last-opened vault, theme choice
+  </div>
+</div>
+
+<div class="section" style="margin-top:1.3rem">
+  <p class="label">Decisions baked in (say if you disagree)</p>
+  <ul style="line-height:1.8;margin:0;padding-left:1.1rem">
+    <li><strong>Search lives in Rust</strong> (in-memory index), so the webview never holds the whole vault. Interface-abstracted, so it can grow to Tantivy or SQLite FTS later. Alternative: keep it in JS for v0.1 simplicity.</li>
+    <li><strong>Vault-local <code>.silsilah/</code></strong> folder mirrors Obsidian's model, so a vault is portable and git-friendly.</li>
+    <li><strong>The dashed "Registries" block</strong> (editor-extension / UI-slot / command / event-bus) is built now as internal seams and becomes the public plugin API later, no rewrite.</li>
+  </ul>
+</div>
