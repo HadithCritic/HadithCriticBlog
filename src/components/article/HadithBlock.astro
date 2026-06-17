@@ -6,66 +6,148 @@ export interface Props {
   label?: string;
 }
 const { arabic, translation, source, label = 'Report Text' } = Astro.props;
+const hasSlot = Astro.slots.has('default');
 ---
-<div class="hc-article-panel hc-article-panel--parchment hadith-block">
-  <div class="hadith-header">
-    <span class="hc-eyebrow" style="color: var(--hc-umber-dark);">{label}</span>
+<div class="hadith-block">
+  <div class="hadith-block__badge">
+    <span>{label}</span>
   </div>
-  {arabic
-    ? <div class="hadith-arabic" dir="rtl">{arabic}</div>
-    : <div class="hadith-arabic" dir="rtl"><slot /></div>}
-  {translation && (
-    <div class="hadith-translation">
-      {translation}
-    </div>
-  )}
+
+  <div class="hadith-block__content">
+    {arabic ? (
+      <div class="hadith-block__arabic" dir="rtl" lang="ar">{arabic}</div>
+    ) : hasSlot ? (
+      <div class="hadith-block__slot-wrap"><slot /></div>
+    ) : null}
+
+    {translation && (
+      <div class="hadith-block__english">{translation}</div>
+    )}
+  </div>
+
   {source && (
-    <div class="hadith-source">
-      <span class="hc-eyebrow" style="color: var(--hc-umber-dark); margin-right: 0.5rem;">Source</span> {source}
+    <div class="hadith-block__source">
+      <span class="hadith-block__source-label">Source</span>
+      <span>{source}</span>
     </div>
   )}
 </div>
+
 <style>
   .hadith-block {
     position: relative;
-    padding-top: 3rem;
+    margin: 2.5rem 0;
+    padding: 0;
+    border: 1px solid rgba(216, 177, 102, 0.25);
+    border-left: 3px solid var(--hc-gold-dim);
+    border-radius: var(--radius-sm);
+    background:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--hc-charcoal-2) 70%, transparent),
+        color-mix(in srgb, var(--hc-black-soft) 85%, transparent)
+      );
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.06) inset,
+      0 22px 70px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
   }
-  .hadith-header {
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding: 0.5rem 1.25rem;
-    background: var(--hc-parchment-deep);
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    border-right: 1px solid rgba(0,0,0,0.06);
-    border-radius: var(--radius-sm) 0 var(--radius-sm) 0;
-  }
-  .hadith-arabic {
-    font-family: var(--font-arabic);
-    font-size: 1.6rem;
-    line-height: 2.2;
-    margin-bottom: 1.5rem;
-    color: var(--hc-parchment-ink);
-  }
-  .hadith-arabic:last-child {
-    margin-bottom: 0;
-  }
-  .hadith-arabic :global(p) {
-    margin: 0;
-    color: var(--hc-parchment-ink);
-  }
-  .hadith-translation {
-    font-size: 1.15rem;
-    line-height: 1.7;
-    margin-bottom: 1.5rem;
-    padding-left: 1rem;
-    border-left: 2px solid var(--hc-gold-dim);
-  }
-  .hadith-source {
+
+  .hadith-block__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 1.1rem;
+    background: rgba(216, 177, 102, 0.08);
+    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
+    border-right: 1px solid rgba(216, 177, 102, 0.12);
+    border-radius: 0 0 var(--radius-sm) 0;
+    color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
-    color: rgba(26, 23, 21, 0.7);
-    border-top: 1px solid rgba(0,0,0,0.06);
-    padding-top: 1rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .hadith-block__content {
+    padding: clamp(1.2rem, 3vw, 2rem) clamp(1.4rem, 3vw, 2.2rem);
+  }
+
+  /* Arabic text */
+  .hadith-block__arabic {
+    font-family: var(--font-arabic);
+    font-size: clamp(1.45rem, 1vw + 1.2rem, 1.75rem);
+    line-height: 2.3;
+    color: var(--hc-parchment);
+    text-align: right;
+    margin-bottom: 1.35rem;
+    padding-bottom: 1.35rem;
+    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
+  }
+
+  .hadith-block__arabic:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  /* Slot content: for when users use child divs like hadith-block__arabic etc. */
+  .hadith-block__slot-wrap {
+    color: var(--hc-parchment);
+  }
+
+  .hadith-block__slot-wrap :global(.hadith-block__arabic) {
+    font-family: var(--font-arabic);
+    font-size: clamp(1.45rem, 1vw + 1.2rem, 1.75rem);
+    line-height: 2.3;
+    color: var(--hc-parchment);
+    text-align: right;
+    direction: rtl;
+    margin-bottom: 1.35rem;
+    padding-bottom: 1.35rem;
+    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
+  }
+
+  .hadith-block__slot-wrap :global(.hadith-block__translation) {
+    font-family: var(--font-body);
+    font-size: clamp(1.05rem, 0.3vw + 1rem, 1.18rem);
+    line-height: 1.75;
+    color: var(--hc-muted);
+    padding-left: 1.1rem;
+    border-left: 2px solid var(--hc-gold-dim);
+    font-style: italic;
+  }
+
+  /* English translation via prop */
+  .hadith-block__english {
+    font-family: var(--font-body);
+    font-size: clamp(1.05rem, 0.3vw + 1rem, 1.18rem);
+    line-height: 1.75;
+    color: var(--hc-muted);
+    padding-left: 1.1rem;
+    border-left: 2px solid var(--hc-gold-dim);
+    font-style: italic;
+  }
+
+  /* Source footer */
+  .hadith-block__source {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.85rem clamp(1.4rem, 3vw, 2.2rem);
+    border-top: 1px solid rgba(216, 177, 102, 0.12);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    color: var(--hc-ash);
+    background: rgba(216, 177, 102, 0.03);
+  }
+
+  .hadith-block__source-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
   }
 </style>
