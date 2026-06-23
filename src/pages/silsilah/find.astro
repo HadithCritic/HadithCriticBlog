@@ -1,15 +1,18 @@
 ---
+export const prerender = false;
 import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
-import { loadIndex, fmtCount } from '../../lib/silsilah';
+import { COLLECTION_ALIASES, getCollections, fmtCount } from '../../lib/silsilah-db';
 
-const { collections } = loadIndex();
+const collections = await getCollections();
 
-// Minimal lookup data shipped to the client: slug, display name, aliases.
-const lookup = collections.map((c) => ({
+// Minimal lookup data shipped to the client: slug, display name.
+const lookup = collections.filter(c => c.is_primary).map((c) => ({
   slug: c.slug,
-  name: c.nameEn,
-  short: c.shortEn,
-  count: c.hadithCount
+  name: c.name_en,
+  aliases: Object.entries(COLLECTION_ALIASES)
+    .filter(([, slug]) => slug === c.slug)
+    .map(([alias]) => alias),
+  count: c.hadith_count
 }));
 ---
 
@@ -68,12 +71,17 @@ const lookup = collections.map((c) => ({
     function parseQuery(raw) {
       const q = raw.trim().toLowerCase().replace(/\s+/g, ' ');
       if (!q) return null;
-      const m = q.match(/^([a-z][a-z-]*)[\s:\/]*(.*)$/);
+      const m = q.match(/^([a-z][a-z0-9-]*)\s*[:\s/]\s*(.*)$/);
       if (!m) return null;
       const name = m[1];
       const num = m[2].trim().replace(/\s+/g, '');
+      const key = name.replace(/[^a-z0-9]/g, '');
       const col = lookup.find(
-        (c) => c.slug === name || c.short.toLowerCase() === name || c.name.toLowerCase().startsWith(name)
+        (c) =>
+          c.slug === name ||
+          c.name.toLowerCase().startsWith(name) ||
+          c.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(key) ||
+          c.aliases.some((alias) => alias.replace(/[^a-z0-9]/g, '') === key)
       );
       if (!col) return null;
       return { col, num };
@@ -92,17 +100,15 @@ const lookup = collections.map((c) => ({
       }
       setStatus('Looking up ' + col.slug + ':' + num + ' ...', false);
       try {
-        const res = await fetch('/silsilah-data/' + col.slug + '/refindex.json');
-        if (!res.ok) throw new Error('index unavailable');
-        const index = await res.json();
-        const hit = index[col.slug + ':' + num];
-        if (!hit) {
+        const res = await fetch('/api/search?q=' + encodeURIComponent(col.slug + ':' + num));
+        if (!res.ok) throw new Error('search unavailable');
+        const data = await res.json();
+        if (data.ref && data.results.length > 0) {
+          const h = data.results[0];
+          location.href = '/silsilah/' + h.collection_slug + '/' + h.book_slug + '?v=' + encodeURIComponent(num) + '#h-' + (h.number || '');
+        } else {
           setStatus('No report ' + num + ' found in ' + col.name + '. Check the number or browse the collection.', true);
-          return;
         }
-        const [bookSlug, page, anchor] = hit;
-        const pagePart = page > 1 ? page + '/' : '';
-        location.href = '/silsilah/' + col.slug + '/' + bookSlug + '/' + pagePart + '?v=' + encodeURIComponent(num) + '#' + anchor;
       } catch (err) {
         setStatus('Lookup failed. Try browsing the collection instead.', true);
       }

@@ -1,54 +1,38 @@
 ---
+export const prerender = false;
 import SilsilahLayout from '../../../layouts/SilsilahLayout.astro';
-import { loadIndex, translationLabel, fmtCount, type CollectionInfo } from '../../../lib/silsilah';
-
-export async function getStaticPaths() {
-  const { collections } = loadIndex();
-  return collections.map((c) => ({ params: { collection: c.slug } }));
-}
+import { getCollection, getBooks, fmtCount, type CollectionRow, type BookRow } from '../../../lib/silsilah-db';
 
 const { collection } = Astro.params;
-const { collections } = loadIndex();
-const col = collections.find((c) => c.slug === collection) as CollectionInfo;
-const tr = translationLabel(col);
-const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
+const col = await getCollection(collection!);
+if (!col) return Astro.redirect('/silsilah/');
+
+const books = await getBooks(col.slug);
 ---
 
 <SilsilahLayout
-  title={`${col.nameEn} | Silsilah`}
-  description={`${col.nameEn} (${col.nameAr}) by ${col.author}: ${fmtCount(col.hadithCount)} reports in ${col.bookCount} books, with Arabic text, translation, chains, and gradings.`}
+  title={`${col.name_en} | Silsilah`}
+  description={`${col.name_en} by ${col.author_en}: ${fmtCount(col.hadith_count)} reports in ${col.book_count} books, with Arabic text, translation, chains, and gradings.`}
 >
   <section class="col-hero">
     <div class="hc-container">
       <nav class="sil-crumbs" aria-label="Breadcrumb">
         <a href="/silsilah/">Collections</a>
         <span aria-hidden="true">/</span>
-        <span>{col.shortEn}</span>
+        <span>{col.name_en}</span>
       </nav>
       <div class="col-hero-grid">
         <div>
-          <span class="hc-eyebrow">{col.category}</span>
-          <h1 class="col-title">{col.nameEn}</h1>
-          <p class="col-author">{col.author} <span>({col.died})</span></p>
-          <p class="hc-copy col-blurb">{col.blurb}</p>
-          <div class="col-meta">
-            <span class={`sil-badge sil-badge--${tr.tone}`}>{tr.label}</span>
-            {col.aiCount > 0 && (
-              <span class="col-meta-note">{fmtCount(col.aiCount)} reports carry AI-assisted translations, marked individually.</span>
-            )}
-          </div>
+          <h1 class="col-title">{col.name_en}</h1>
+          <p class="col-author">
+            {col.author_en}
+            {col.author_death && <span> (d. {col.author_death} AH)</span>}
+          </p>
         </div>
         <div class="col-hero-side">
-          <span class="col-title-ar" dir="rtl" lang="ar">{col.nameAr}</span>
           <dl class="col-stats">
-            <div><dt>Books</dt><dd>{fmtCount(col.bookCount)}</dd></div>
-            <div><dt>Reports</dt><dd>{fmtCount(col.hadithCount)}</dd></div>
-            {graders.length > 0 && (
-              <div class="col-stats-graders">
-                <dt>Gradings cited</dt>
-                <dd>{graders.join(', ')}</dd>
-              </div>
-            )}
+            <div><dt>Books</dt><dd>{fmtCount(col.book_count)}</dd></div>
+            <div><dt>Reports</dt><dd>{fmtCount(col.hadith_count)}</dd></div>
           </dl>
         </div>
       </div>
@@ -58,19 +42,16 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
   <section class="hc-section">
     <div class="hc-container">
       <ol class="book-list">
-        {col.books.map((b) => (
+        {books.map((b) => (
           <li>
             <a href={`/silsilah/${col.slug}/${b.slug}/`} class="book-row">
-              <span class="book-no">{b.h1 ?? '·'}</span>
+              <span class="book-no">{b.ordinal || '·'}</span>
               <span class="book-names">
-                <span class="book-en">{b.titleEn ?? b.titleAr ?? 'Untitled section'}</span>
-                {b.titleAr && b.titleEn && <span class="book-ar" dir="rtl" lang="ar">{b.titleAr}</span>}
+                <span class="book-en">{b.title_en ?? b.title_ar ?? 'Untitled section'}</span>
+                {b.title_ar && b.title_en && <span class="book-ar" dir="rtl" lang="ar">{b.title_ar}</span>}
               </span>
               <span class="book-count">
                 {fmtCount(b.count)} {b.count === 1 ? 'report' : 'reports'}
-                {b.firstNum && b.lastNum && b.firstNum !== b.lastNum && (
-                  <span class="book-range">{b.firstNum}–{b.lastNum}</span>
-                )}
               </span>
               <span class="book-arrow" aria-hidden="true">→</span>
             </a>
@@ -138,53 +119,11 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
     color: var(--hc-ash);
   }
 
-  .col-blurb {
-    margin: 1.1rem 0 0;
-    max-width: 60ch;
-  }
-
-  .col-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.8rem;
-    margin-top: 1.4rem;
-  }
-
-  .col-meta-note {
-    color: var(--hc-ash);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-  }
-
-  .sil-badge {
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  .sil-badge--full { color: #9fc492; border-color: rgba(159, 196, 146, 0.35); background: rgba(127, 165, 114, 0.08); }
-  .sil-badge--partial { color: var(--hc-gold-soft); background: rgba(216, 177, 102, 0.08); }
-  .sil-badge--none { color: var(--hc-ash); background: rgba(140, 138, 134, 0.08); }
-
   .col-hero-side {
     display: flex;
     flex-direction: column;
     gap: 1.2rem;
     align-items: stretch;
-  }
-
-  .col-title-ar {
-    color: var(--hc-gold);
-    font-family: var(--font-arabic);
-    font-size: clamp(1.7rem, 3vw, 2.3rem);
-    line-height: 1.5;
-    text-align: right;
   }
 
   .col-stats {
@@ -204,10 +143,6 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
     background: linear-gradient(180deg, rgba(38, 35, 31, 0.92), rgba(15, 15, 16, 0.96));
   }
 
-  .col-stats-graders {
-    grid-column: 1 / -1;
-  }
-
   .col-stats dt {
     color: var(--hc-ash);
     font-family: var(--font-ui);
@@ -224,13 +159,6 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
     font-size: 1.7rem;
     font-weight: 500;
     line-height: 1.15;
-  }
-
-  .col-stats-graders dd {
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    color: var(--hc-parchment-deep);
-    line-height: 1.5;
   }
 
   /* Book list */
@@ -314,11 +242,6 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
     white-space: nowrap;
   }
 
-  .book-range {
-    color: var(--hc-ash);
-    font-size: 0.72rem;
-  }
-
   .book-arrow {
     color: var(--hc-gold-dim);
     transition: transform 220ms var(--ease), color 220ms ease;
@@ -332,9 +255,6 @@ const graders = col.graders.filter((g) => g !== 'N/A').slice(0, 6);
   @media (max-width: 980px) {
     .col-hero-grid {
       grid-template-columns: 1fr;
-    }
-    .col-title-ar {
-      text-align: left;
     }
   }
 

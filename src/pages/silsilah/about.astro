@@ -1,14 +1,10 @@
 ---
+export const prerender = false;
 import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
-import { loadIndex, translationLabel, fmtCount } from '../../lib/silsilah';
+import { getCollections, fmtCount } from '../../lib/silsilah-db';
 
-const { collections } = loadIndex();
-
-const rows = collections.map((c) => {
-  const tr = translationLabel(c);
-  const aiPct = c.englishCount ? Math.round((c.aiCount / c.englishCount) * 100) : 0;
-  return { ...c, tr, aiPct };
-});
+const collections = await getCollections();
+const totalHadith = collections.reduce((s, c) => s + (c.hadith_count || 0), 0);
 ---
 
 <SilsilahLayout title="Sources and Coverage | Silsilah">
@@ -18,17 +14,15 @@ const rows = collections.map((c) => {
       <h1 class="about-title">What Silsilah contains, and how honestly it is labelled</h1>
       <div class="about-prose">
         <p>
-          Silsilah carries {fmtCount(rows.reduce((s, c) => s + c.hadithCount, 0))} reports across
-          {rows.length} classical collections. Every report keeps its Arabic text, its chain of
+          Silsilah carries {fmtCount(totalHadith)} reports across
+          {collections.length} classical collections. Every report keeps its Arabic text, its chain of
           transmission, the compiler's arrangement of books and chapters, and the gradings recorded
           against it. Where an English translation exists it is shown alongside the Arabic.
         </p>
         <p>
           Translation provenance matters. Reports whose English text is AI-assisted are marked
           individually with an <strong>AI translation</strong> tag, and machine-translated chapter
-          introductions carry an <strong>MT</strong> tag. Two collections, Ṣaḥīḥ Ibn Khuzaymah and
-          Musnad al-Bazzār, currently have no English translation; they are browsable in Arabic and
-          are labelled Arabic only.
+          introductions carry an <strong>MT</strong> tag.
         </p>
         <p>
           Gradings are reported, not endorsed. A grade chip reflects the judgement of the named
@@ -43,24 +37,20 @@ const rows = collections.map((c) => {
           <thead>
             <tr>
               <th>Collection</th>
+              <th>Author</th>
+              <th>Death</th>
               <th>Reports</th>
               <th>Books</th>
-              <th>English coverage</th>
-              <th>AI-assisted share</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((c) => (
+            {collections.filter(c => c.is_primary).map((c) => (
               <tr>
-                <td><a href={`/silsilah/${c.slug}/`}>{c.nameEn}</a></td>
-                <td>{fmtCount(c.hadithCount)}</td>
-                <td>{c.bookCount}</td>
-                <td>
-                  <span class={`sil-badge sil-badge--${c.tr.tone}`}>
-                    {c.englishPct < 5 ? 'None' : c.englishPct + '%'}
-                  </span>
-                </td>
-                <td>{c.englishPct < 5 ? '·' : c.aiPct + '% of translated reports'}</td>
+                <td><a href={`/silsilah/${c.slug}/`}>{c.name_en}</a></td>
+                <td>{c.author_en || '–'}</td>
+                <td>{c.author_death ? `${c.author_death} AH` : '–'}</td>
+                <td>{fmtCount(c.hadith_count)}</td>
+                <td>{c.book_count}</td>
               </tr>
             ))}
           </tbody>
@@ -164,17 +154,4 @@ const rows = collections.map((c) => {
   .about-table td a:hover {
     color: var(--hc-gold);
   }
-
-  .sil-badge {
-    padding: 0.16rem 0.5rem;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule);
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-  }
-
-  .sil-badge--full { color: #9fc492; border-color: rgba(159, 196, 146, 0.35); background: rgba(127, 165, 114, 0.08); }
-  .sil-badge--partial { color: var(--hc-gold-soft); background: rgba(216, 177, 102, 0.08); }
-  .sil-badge--none { color: var(--hc-ash); background: rgba(140, 138, 134, 0.08); }
 </style>

@@ -1,30 +1,25 @@
 ---
+export const prerender = false;
 import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
 import IsnadBundle from '../../components/IsnadBundle.astro';
-import { loadIndex, CATEGORY_ORDER, translationLabel, fmtCount } from '../../lib/silsilah';
+import { getCollections, fmtCount, type CollectionRow } from '../../lib/silsilah-db';
 
-const { collections } = loadIndex();
+const collections = await getCollections();
 
-const totalHadith = collections.reduce((s, c) => s + c.hadithCount, 0);
-const totalBooks = collections.reduce((s, c) => s + c.bookCount, 0);
+const totalHadith = collections.reduce((s, c) => s + (c.hadith_count || 0), 0);
+const totalBooks = collections.reduce((s, c) => s + (c.book_count || 0), 0);
 
-const categories = CATEGORY_ORDER.map((name) => ({
-  name,
-  items: collections.filter((c) => c.category === name)
-})).filter((c) => c.items.length);
+/* Group by work_group to create a rough categorical view. */
+const grouped = new Map<string, CollectionRow[]>();
+for (const c of collections) {
+  const key = c.work_group || c.name_en || 'Other';
+  if (!grouped.has(key)) grouped.set(key, []);
+  grouped.get(key)!.push(c);
+}
 
-const categoryNotes: Record<string, string> = {
-  'The Six Books':
-    'Al-Kutub al-Sittah, the collections Sunni tradition elevated to canonical status in the centuries after compilation.',
-  'Early Collections':
-    'The oldest surviving layers of the corpus: Medinan practice, the great musnad of Ibn Ḥanbal, and the Sunan of al-Dārimī.',
-  'Ṣaḥīḥ Compilations':
-    'Works whose compilers claimed soundness for everything included, along with the muttafaq ʿalayh material shared by the two Ṣaḥīḥs.',
-  'Musnads and Muʿjams':
-    'Large companion-ordered and alphabetical collections that preserve chains the canonical books left out.',
-  'Topical Works':
-    'Single-subject compilations on conduct and asceticism.'
-};
+/* Only show groups that have a "primary" entry (is_primary = 1),
+   or groups that have more than one collection. */
+const primaryCollections = collections.filter((c) => c.is_primary);
 ---
 
 <SilsilahLayout title="Silsilah | The HadithCritic Hadith Database">
@@ -36,7 +31,7 @@ const categoryNotes: Record<string, string> = {
           <h1 class="sil-hero-title">Silsilah <span class="sil-hero-ar" dir="rtl">سِلْسِلَة</span></h1>
           <div class="hc-divider sil-hero-divider"></div>
           <p class="hc-copy sil-hero-sub">
-            Nineteen classical collections in one place: full Arabic text, English translation,
+            Classical hadith collections in one place: full Arabic text, English translation,
             transmission chains, and scholarly gradings, presented for verification rather than
             reverence.
           </p>
@@ -53,7 +48,7 @@ const categoryNotes: Record<string, string> = {
           </form>
         </div>
         <dl class="sil-hero-stats">
-          <div><dt>Collections</dt><dd>{collections.length}</dd></div>
+          <div><dt>Collections</dt><dd>{primaryCollections.length}</dd></div>
           <div><dt>Books</dt><dd>{fmtCount(totalBooks)}</dd></div>
           <div><dt>Reports</dt><dd>{fmtCount(totalHadith)}</dd></div>
         </dl>
@@ -61,36 +56,31 @@ const categoryNotes: Record<string, string> = {
     </div>
   </section>
 
-  {categories.map((cat) => (
-    <section class="hc-section sil-cat">
-      <div class="hc-container">
-        <header class="sil-cat-head" data-sil-reveal>
-          <h2 class="hc-title hc-title--md">{cat.name}</h2>
-          {categoryNotes[cat.name] && <p class="hc-copy sil-cat-note">{categoryNotes[cat.name]}</p>}
-        </header>
-        <div class="sil-grid">
-          {cat.items.map((c, i) => {
-            const tr = translationLabel(c);
-            return (
-              <a href={`/silsilah/${c.slug}/`} class="sil-card" data-sil-reveal style={`--rd:${(i % 3) * 90}ms`}>
-                <div class="sil-card-top">
-                  <span class="sil-card-ar" dir="rtl" lang="ar">{c.nameAr}</span>
-                  <h3 class="sil-card-en">{c.nameEn}</h3>
-                  <p class="sil-card-author">{c.author} <span class="sil-card-died">({c.died})</span></p>
-                </div>
-                <p class="sil-card-blurb">{c.blurb}</p>
-                <div class="sil-card-meta">
-                  <span>{fmtCount(c.bookCount)} books</span>
-                  <span>{fmtCount(c.hadithCount)} reports</span>
-                  <span class={`sil-badge sil-badge--${tr.tone}`}>{tr.label}</span>
-                </div>
-              </a>
-            );
-          })}
-        </div>
+  <section class="hc-section sil-cat">
+    <div class="hc-container">
+      <header class="sil-cat-head" data-sil-reveal>
+        <h2 class="hc-title hc-title--md">Browse Collections</h2>
+        <p class="hc-copy sil-cat-note">All available hadith collections, sorted by author death date.</p>
+      </header>
+      <div class="sil-grid">
+        {primaryCollections.map((c, i) => (
+          <a href={`/silsilah/${c.slug}/`} class="sil-card" data-sil-reveal style={`--rd:${(i % 3) * 90}ms`}>
+            <div class="sil-card-top">
+              <h3 class="sil-card-en">{c.name_en}</h3>
+              <p class="sil-card-author">
+                {c.author_en}
+                {c.author_death && <span class="sil-card-died"> (d. {c.author_death} AH)</span>}
+              </p>
+            </div>
+            <div class="sil-card-meta">
+              <span>{fmtCount(c.book_count)} books</span>
+              <span>{fmtCount(c.hadith_count)} reports</span>
+            </div>
+          </a>
+        ))}
       </div>
-    </section>
-  ))}
+    </div>
+  </section>
 
   <section class="hc-section sil-method">
     <div class="hc-container">
@@ -106,12 +96,11 @@ const categoryNotes: Record<string, string> = {
           </p>
           <p class="hc-copy">
             Every report in Silsilah carries its isnād, its grading history, and its place in the
-            compiler's own arrangement. Translation provenance is marked: human translations are
-            distinguished from AI-assisted ones, and untranslated collections say so plainly. See
+            compiler's own arrangement. See
             <a href="/silsilah/about/">sources and coverage</a> for details.
           </p>
         </div>
-        <IsnadBundle href="/silsilah/bukhari/1/?v=1#h1" hrefLabel="Open bukhari:1, the report behind this bundle" />
+        <IsnadBundle href="/silsilah/sahih-al-bukhari/the-beginning-of-revelation/?v=1#h-1" hrefLabel="Open bukhari:1, the report behind this bundle" />
       </div>
     </div>
   </section>
@@ -257,16 +246,8 @@ const categoryNotes: Record<string, string> = {
     transform: translateY(-2px);
   }
 
-  .sil-card-ar {
-    display: block;
-    color: var(--hc-gold);
-    font-family: var(--font-arabic);
-    font-size: 1.5rem;
-    line-height: 1.4;
-  }
-
   .sil-card-en {
-    margin: 0.35rem 0 0;
+    margin: 0;
     color: var(--hc-parchment);
     font-family: var(--font-display);
     font-weight: 500;
@@ -286,14 +267,6 @@ const categoryNotes: Record<string, string> = {
     color: var(--hc-ash);
   }
 
-  .sil-card-blurb {
-    margin: 0;
-    color: var(--hc-muted);
-    font-size: 0.92rem;
-    line-height: 1.55;
-    flex: 1;
-  }
-
   .sil-card-meta {
     display: flex;
     flex-wrap: wrap;
@@ -305,32 +278,7 @@ const categoryNotes: Record<string, string> = {
     font-family: var(--font-ui);
     font-size: 0.73rem;
     letter-spacing: 0.04em;
-  }
-
-  .sil-badge {
-    padding: 0.18rem 0.55rem;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-  }
-
-  .sil-badge--full {
-    color: #9fc492;
-    border-color: rgba(159, 196, 146, 0.35);
-    background: rgba(127, 165, 114, 0.08);
-  }
-
-  .sil-badge--partial {
-    color: var(--hc-gold-soft);
-    background: rgba(216, 177, 102, 0.08);
-  }
-
-  .sil-badge--none {
-    color: var(--hc-ash);
-    background: rgba(140, 138, 134, 0.08);
+    margin-top: auto;
   }
 
   .sil-method-grid {

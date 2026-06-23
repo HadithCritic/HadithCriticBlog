@@ -1,101 +1,137 @@
 ---
+export const prerender = false;
 import SilsilahLayout from '../../../../layouts/SilsilahLayout.astro';
 import {
-  loadIndex,
-  loadBook,
-  renderRich,
-  gradeTone,
+  getCollection,
+  getBooks,
+  getBookPage,
   fmtCount,
-  type CollectionInfo,
-  type HadithEntry,
-  type ChapterEntry
-} from '../../../../lib/silsilah';
+  type HadithRow
+} from '../../../../lib/silsilah-db';
 import { normalizeArabic } from '../../../../lib/silsilah-text';
-
-export async function getStaticPaths() {
-  const { collections } = loadIndex();
-  const paths: { params: { collection: string; book: string; page: string | undefined } }[] = [];
-  for (const c of collections) {
-    for (const b of c.books) {
-      for (let p = 1; p <= b.pages; p++) {
-        paths.push({
-          params: { collection: c.slug, book: b.slug, page: p === 1 ? undefined : String(p) }
-        });
-      }
-    }
-  }
-  return paths;
-}
 
 const { collection, book, page } = Astro.params;
 const pageNum = page ? parseInt(page, 10) : 1;
 
-const { collections } = loadIndex();
-const col = collections.find((c) => c.slug === collection) as CollectionInfo;
-const bookSummary = col.books.find((b) => b.slug === book)!;
-const bookData = loadBook(collection!, book!);
-const entries = bookData.pages[pageNum - 1];
-const totalPages = bookData.pages.length;
+const col = await getCollection(collection!);
+if (!col) return Astro.redirect('/silsilah/');
 
-const bookTitle = bookData.titleEn ?? bookData.titleAr ?? 'Untitled section';
-const bookLabel = bookData.h1 ? `Book ${bookData.h1}` : 'Section';
+const allBooks = await getBooks(col.slug);
+const bookMeta = allBooks.find((b) => b.slug === book);
+if (!bookMeta) return Astro.redirect(`/silsilah/${col.slug}/`);
 
-const baseUrl = `/silsilah/${col.slug}/${bookData.slug}/`;
+const PAGE_SIZE = 50;
+const { rows, total, totalPages } = await getBookPage(col.slug, book!, pageNum, PAGE_SIZE);
+if (!rows.length && pageNum > 1) return Astro.redirect(`/silsilah/${col.slug}/${book}/`);
+
+const bookTitle = bookMeta.title_en ?? bookMeta.title_ar ?? 'Untitled section';
+const bookLabel = bookMeta.ordinal ? `Book ${bookMeta.ordinal}` : 'Section';
+
+const baseUrl = `/silsilah/${col.slug}/${bookMeta.slug}/`;
 const pageUrl = (p: number) => (p === 1 ? baseUrl : `${baseUrl}${p}/`);
 
 // numbered pagination window
 const window: number[] = [];
 for (let p = Math.max(1, pageNum - 2); p <= Math.min(totalPages, pageNum + 2); p++) window.push(p);
 
-const hadithOnPage = entries.filter((e) => e.t === 'h') as HadithEntry[];
-const firstRef = hadithOnPage[0]?.num;
-const lastRef = hadithOnPage[hadithOnPage.length - 1]?.num;
+const firstRef = rows[0]?.number;
+const lastRef = rows[rows.length - 1]?.number;
 
-const chapterAnchor = (ch: ChapterEntry) =>
-  `ch${ch.level}-${String(ch.n).replace(/[^0-9a-zA-Z-]+/g, '-')}`;
+const collectionLabel = col.name_en;
+const collectionArabicLabel = col.name_ar ?? '';
+const collectionRefLabel = col.name_en.replace(/^The\s+/i, '');
+
+const slugify = (s: string) =>
+  s
+    .replace(/[^0-9a-zA-Z-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+const hadithAnchor = (h: HadithRow) => `h-${h.number ?? h.id}`;
+
+/* --- Build chapter-interleaved entries from the flat D1 rows --- */
+interface ChapterEntry { t: 'ch'; level: 2 | 3; anchor: string; en: string | null; ar: string | null; }
+type Entry = ChapterEntry | (HadithRow & { t: 'h' });
+
+const entries: Entry[] = [];
+let lastKitab = '';
+let lastBab = '';
+let chapterSeq = 0;
+
+for (const h of rows) {
+  // Insert kitab (book-level chapter) banner
+  const kitabKey = h.kitab || '';
+  if (kitabKey && kitabKey !== lastKitab) {
+    chapterSeq++;
+    const label = h.kitab_en || h.kitab || `chapter-${chapterSeq}`;
+    entries.push({ t: 'ch', level: 2, anchor: `ch2-${chapterSeq}-${slugify(label)}`, en: h.kitab_en || null, ar: h.kitab || null });
+    lastKitab = kitabKey;
+    lastBab = '';
+  }
+  // Insert bab (sub-chapter) banner
+  const babKey = h.bab || '';
+  if (babKey && babKey !== lastBab) {
+    chapterSeq++;
+    const label = h.bab_en || h.bab || `section-${chapterSeq}`;
+    entries.push({ t: 'ch', level: 3, anchor: `ch3-${chapterSeq}-${slugify(label)}`, en: h.bab_en || null, ar: h.bab || null });
+    lastBab = babKey;
+  }
+  entries.push({ ...h, t: 'h' as const });
+}
+
+const chapterAnchor = (ch: ChapterEntry) => ch.anchor;
 
 const chaptersOnPage = (entries.filter((e) => e.t === 'ch' && (e as ChapterEntry).level === 2) as ChapterEntry[])
-  .filter((ch, i, arr) => arr.findIndex((c) => c.n === ch.n) === i)
+  .filter((ch, i, arr) => arr.findIndex((c) => (c.en || c.ar) === (ch.en || ch.ar)) === i)
   .map((ch) => ({
     anchor: chapterAnchor(ch),
-    label: `${ch.n ? ch.n + '. ' : ''}${ch.en ?? ch.ar ?? 'Untitled chapter'}`
+    label: ch.en ?? ch.ar ?? 'Untitled chapter'
   }));
 
-const bookIdx = col.books.findIndex((b) => b.slug === book);
-const prevBook = bookIdx > 0 ? col.books[bookIdx - 1] : null;
-const nextBook = bookIdx < col.books.length - 1 ? col.books[bookIdx + 1] : null;
+const bookIdx = allBooks.findIndex((b) => b.slug === book);
+const prevBook = bookIdx > 0 ? allBooks[bookIdx - 1] : null;
+const nextBook = bookIdx < allBooks.length - 1 ? allBooks[bookIdx + 1] : null;
 
 // Track the active chapter while rendering so each hadith card knows its chapter
-// (used by the expanded single-hadith view).
 let curChEn = '';
 let curChAr = '';
+
+/* Helpers that the old silsilah.ts provided — inlined here */
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function renderRich(text: string | null): string {
+  if (!text) return '';
+  let out = escapeHtml(text);
+  out = out.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  return out;
+}
 
 const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
 ---
 
 <SilsilahLayout
-  title={`${bookTitle} | ${col.nameEn}${titleSuffix} | Silsilah`}
-  description={`${col.nameEn}, ${bookLabel}: ${bookTitle}. Hadith ${firstRef ?? ''}${lastRef && lastRef !== firstRef ? ' to ' + lastRef : ''} with Arabic text, translation, chains, and gradings.`}
+  title={`${bookTitle} | ${collectionLabel}${titleSuffix} | Silsilah`}
+  description={`${collectionLabel}, ${bookLabel}: ${bookTitle}. Hadith ${firstRef ?? ''}${lastRef && lastRef !== firstRef ? ' to ' + lastRef : ''} with Arabic text, translation, and chains.`}
 >
   <section class="bk-head">
     <div class="hc-container">
       <nav class="sil-crumbs" aria-label="Breadcrumb">
         <a href="/silsilah/">Collections</a>
         <span aria-hidden="true">/</span>
-        <a href={`/silsilah/${col.slug}/`}>{col.shortEn}</a>
+        <a href={`/silsilah/${col.slug}/`}>{collectionLabel}</a>
         <span aria-hidden="true">/</span>
         <span>{bookLabel}</span>
       </nav>
       <div class="bk-head-grid">
         <div>
-          <span class="hc-eyebrow">{col.nameEn} · {bookLabel}</span>
+          <span class="hc-eyebrow">{collectionLabel} &middot; {bookLabel}</span>
           <h1 class="bk-title">{bookTitle}</h1>
-          {bookData.introEn && <p class="bk-intro">{bookData.introEn}</p>}
         </div>
         <div class="bk-head-side">
-          {bookData.titleAr && <span class="bk-title-ar" dir="rtl" lang="ar">{bookData.titleAr}</span>}
+          {bookMeta.title_ar && <span class="bk-title-ar" dir="rtl" lang="ar">{bookMeta.title_ar}</span>}
           <span class="bk-side-meta">
-            {fmtCount(bookData.count)} reports{totalPages > 1 ? ` · page ${pageNum} of ${totalPages}` : ''}
+            {fmtCount(total)} reports{totalPages > 1 ? ` · page ${pageNum} of ${totalPages}` : ''}
           </span>
         </div>
       </div>
@@ -138,8 +174,8 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
       <div
         class="bk-entries"
         data-pagefind-body
-        data-pagefind-filter={`collection:${col.nameEn}`}
-        data-pagefind-meta={`collection:${col.nameEn}`}
+        data-pagefind-filter={`collection:${collectionLabel}`}
+        data-pagefind-meta={`collection:${collectionLabel}`}
       >
       <div data-pagefind-meta={`book:${bookLabel}: ${bookTitle}`}>
       <div data-pagefind-meta={`title:${bookTitle}`}>
@@ -148,52 +184,40 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
           const ch = e as ChapterEntry;
           curChEn = ch.en ?? '';
           curChAr = ch.ar ?? '';
-          const chAnchor = `ch${ch.level}-${String(ch.n).replace(/[^0-9a-zA-Z-]+/g, '-')}`;
+          const chAnchor = chapterAnchor(ch);
           return (
             <div class:list={['ch-banner', { 'ch-banner--sub': ch.level === 3 }]}>
               <div class="ch-banner-row">
                 <h2 class="ch-en" id={chAnchor}>
-                  <span class="ch-label">{ch.level === 3 ? 'Section' : 'Chapter'}{ch.n ? ` ${ch.n}` : ''}:</span>
+                  <span class="ch-label">{ch.level === 3 ? 'Section' : 'Chapter'}:</span>
                   {ch.en ?? (ch.ar ? '' : 'Untitled chapter')}
-                  {ch.cont && <span class="ch-cont">(continued)</span>}
                 </h2>
                 {ch.ar && <p class="ch-ar" dir="rtl" lang="ar" data-pagefind-ignore>{ch.ar}</p>}
               </div>
               {ch.ar && <span class="sil-vh">{normalizeArabic(ch.ar)}</span>}
-              {(ch.introEn || ch.introAr) && (
-                <div class="ch-intro">
-                  {ch.introEn && (
-                    <p class="ch-intro-en">
-                      {ch.introEn}
-                      {ch.machine && <span class="mt-tag" title="Machine translated chapter introduction" data-pagefind-ignore>MT</span>}
-                    </p>
-                  )}
-                  {ch.introAr && <p class="ch-intro-ar" dir="rtl" lang="ar" data-pagefind-ignore>{ch.introAr}</p>}
-                </div>
-              )}
             </div>
           );
         }
-        const h = e as HadithEntry;
-        const tone = gradeTone(h.gradeEn);
+        const h = e as any;
+        const anchor = hadithAnchor(h);
+        const displayNumber = h.number ?? h.ref ?? String(h.id);
+        const chainEn = h.chain_en ?? null;
+        const bodyEn = h.matn_en ?? h.text_en ?? null;
+        const chainAr = h.chain ?? null;
+        const bodyAr = h.matn ?? h.text ?? null;
+        const tone = 'none';
         return (
           <article
             class="hd-card"
-            data-anchor={h.anchor}
+            data-anchor={anchor}
             data-ref={h.ref}
-            data-num={h.num}
-            data-nic={h.nic}
-            data-grade={h.gradeEn}
-            data-grade-ar={h.gradeAr}
-            data-grader={h.graderEn}
-            data-grades-raw={h.gradesRaw}
-            data-mt={h.mt}
+            data-num={displayNumber}
             data-ch-en={curChEn}
             data-ch-ar={curChAr}
           >
             <header class="hd-top">
-              <h3 class="hd-ref-h" id={h.anchor}>
-                <a class="hd-ref" href={`#${h.anchor}`}>{col.shortEn} {h.num ?? ''}</a>
+              <h3 class="hd-ref-h" id={anchor}>
+                <a class="hd-ref" href={`#${anchor}`}>{collectionRefLabel} {displayNumber}</a>
               </h3>
               {h.gradeEn && h.gradeEn !== 'No Grade' && (
                 <span class={`hd-grade hd-grade--${tone}`} title={h.gradesRaw ?? undefined} data-pagefind-ignore>
@@ -218,9 +242,9 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
 
             <div class="hd-grid">
               <div class="hd-en">
-                {h.chainEn && <p class="hd-chain" set:html={renderRich(h.chainEn)} />}
-                {h.bodyEn
-                  ? <div class="hd-body" set:html={renderRich(h.bodyEn)} />
+                {chainEn && <p class="hd-chain" set:html={renderRich(chainEn)} />}
+                {bodyEn
+                  ? <div class="hd-body" set:html={renderRich(bodyEn)} />
                   : <p class="hd-missing">No English translation is available for this report.</p>}
                 {h.footEn && (
                   <details class="hd-foot">
@@ -230,8 +254,8 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
                 )}
               </div>
               <div class="hd-ar" dir="rtl" lang="ar" data-pagefind-ignore>
-                {h.chainAr && <p class="hd-chain-ar">{h.chainAr}</p>}
-                {h.bodyAr && <p class="hd-body-ar">{h.bodyAr}</p>}
+                {chainAr && <p class="hd-chain-ar">{chainAr}</p>}
+                {bodyAr && <p class="hd-body-ar">{bodyAr}</p>}
                 {h.footAr && (
                   <details class="hd-foot" dir="rtl">
                     <summary>حاشية</summary>
@@ -241,13 +265,13 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
               </div>
             </div>
 
-            {(h.chainAr || h.bodyAr) && (
-              <span class="sil-vh">{normalizeArabic([h.chainAr, h.bodyAr].filter(Boolean).join(' '))}</span>
+            {(chainAr || bodyAr) && (
+              <span class="sil-vh">{normalizeArabic([chainAr, bodyAr].filter(Boolean).join(' '))}</span>
             )}
 
             <footer class="hd-refs" data-pagefind-ignore>
-              <span><b>Reference</b> {col.nameEn} {h.num ?? h.ref}</span>
-              {h.nic && <span><b>In-book</b> {bookLabel}, Hadith {h.nic}</span>}
+              <span><b>Reference</b> {collectionLabel} {displayNumber}</span>
+              <span><b>Database ref</b> {h.ref}</span>
             </footer>
           </article>
         );
@@ -268,14 +292,14 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
         {prevBook ? (
           <a href={`/silsilah/${col.slug}/${prevBook.slug}/`} class="bk-booknav-link">
             <span class="bk-booknav-dir">← Previous book</span>
-            <span class="bk-booknav-title">{prevBook.h1 ? prevBook.h1 + '. ' : ''}{prevBook.titleEn ?? prevBook.titleAr}</span>
+            <span class="bk-booknav-title">{prevBook.title_en ?? prevBook.title_ar ?? 'Untitled section'}</span>
           </a>
         ) : <span></span>}
         <a href={`/silsilah/${col.slug}/`} class="bk-booknav-up">All books</a>
         {nextBook ? (
           <a href={`/silsilah/${col.slug}/${nextBook.slug}/`} class="bk-booknav-link bk-booknav-link--next">
             <span class="bk-booknav-dir">Next book →</span>
-            <span class="bk-booknav-title">{nextBook.h1 ? nextBook.h1 + '. ' : ''}{nextBook.titleEn ?? nextBook.titleAr}</span>
+            <span class="bk-booknav-title">{nextBook.title_en ?? nextBook.title_ar ?? 'Untitled section'}</span>
           </a>
         ) : <span></span>}
       </nav>
@@ -287,11 +311,11 @@ const titleSuffix = totalPages > 1 ? `, Page ${pageNum} of ${totalPages}` : '';
     <div class="hv-frame">
       <header class="hv-banner">
         <div class="hv-banner-left">
-          <p class="hv-col-en">{col.nameEn}</p>
+          <p class="hv-col-en">{collectionLabel}</p>
           <p class="hv-crumb" id="hvCrumb"></p>
         </div>
         <div class="hv-banner-right">
-          <p class="hv-col-ar" dir="rtl" lang="ar">{col.nameAr}</p>
+          <p class="hv-col-ar" dir="rtl" lang="ar">{collectionArabicLabel}</p>
         </div>
         <div class="hv-banner-actions">
           <button type="button" class="hv-btn" id="hvCopy" title="Copy link">

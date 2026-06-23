@@ -19,7 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SRC = 'C:/Users/Jonathan/Desktop/rijal/0748Dhahabi.Kashif.Shia003276Vols-ara1.mARkdown';
+const SRC = 'C:/Users/Jonathan/Downloads/0748Dhahabi.Kashif.Shia003276Vols-ara1.mARkdown';
 const OUT_DIR = path.join(__dirname, '..', 'src', 'data', 'rijal');
 const PUB_DIR = path.join(__dirname, '..', 'public', 'rijal-data');
 const CHUNK = 400;
