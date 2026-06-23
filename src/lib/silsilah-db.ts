@@ -1,14 +1,11 @@
 /*
-  Turso (libSQL) data access for the Silsilah corpus (SSR / on-demand routes only).
+  Cloudflare D1 data access for the Silsilah corpus (SSR / on-demand routes only).
   Importing this module pulls in `cloudflare:workers`, so it must NOT be imported by
   prerendered (static) pages — only by routes with `export const prerender = false`.
 
-  Connection comes from two Worker env values:
-    TURSO_DATABASE_URL   e.g. libsql://silsilah-<org>.turso.io   (var)
-    TURSO_AUTH_TOKEN     database auth token                      (secret)
+  Connection uses the D1 binding "DB" from wrangler.jsonc.
 */
 import { env } from 'cloudflare:workers';
-import { createClient, type Client, type ResultSet, type InArgs } from '@libsql/client/web';
 
 export interface CollectionRow {
   slug: string;
@@ -54,35 +51,23 @@ export interface HadithRow {
   printed_page: string | null;
 }
 
-let _client: Client | null = null;
-function db(): Client {
-  if (!_client) {
-    const e = env as unknown as { TURSO_DATABASE_URL?: string; TURSO_AUTH_TOKEN?: string };
-    if (!e.TURSO_DATABASE_URL) throw new Error('TURSO_DATABASE_URL is not configured');
-    _client = createClient({ url: e.TURSO_DATABASE_URL, authToken: e.TURSO_AUTH_TOKEN });
-  }
-  return _client;
-}
-
-/* libSQL rows are array-like with named access; convert to plain objects so they
-   serialise cleanly (e.g. for the JSON search endpoint) and behave like D1 results. */
-function toObjects<T>(rs: ResultSet): T[] {
-  return rs.rows.map((r) => {
-    const o: Record<string, unknown> = {};
-    for (const c of rs.columns) o[c] = (r as Record<string, unknown>)[c];
-    return o as T;
-  });
+function getDB() {
+  const db = (env as any).DB;
+  if (!db) throw new Error('Cloudflare D1 binding "DB" is not configured. Make sure wrangler is running with remote bindings.');
+  return db;
 }
 
 /** Run a read query and return mapped rows. Exposed for the search endpoint. */
-export async function query<T = Record<string, unknown>>(sql: string, args: InArgs = []): Promise<T[]> {
-  const rs = await db().execute({ sql, args });
-  return toObjects<T>(rs);
+export async function query<T = Record<string, unknown>>(sql: string, args: any[] = []): Promise<T[]> {
+  const stmt = getDB().prepare(sql).bind(...args);
+  const { results } = await stmt.all();
+  return results as T[];
 }
 
-async function first<T>(sql: string, args: InArgs = []): Promise<T | null> {
-  const rows = await query<T>(sql, args);
-  return rows[0] ?? null;
+async function first<T>(sql: string, args: any[] = []): Promise<T | null> {
+  const stmt = getDB().prepare(sql).bind(...args);
+  const result = await stmt.first();
+  return result as T | null;
 }
 
 export const COLLECTION_ALIASES: Record<string, string> = {
@@ -151,21 +136,15 @@ export async function getBookPage(
   pageSize = 50
 ): Promise<HadithPage> {
   const offset = (Math.max(page, 1) - 1) * pageSize;
-  const [count, data] = await db().batch(
-    [
-      {
-        sql: `SELECT COUNT(*) AS total FROM hadith WHERE collection_slug = ? AND book_slug = ?`,
-        args: [collectionSlug, bookSlug]
-      },
-      {
-        sql: `SELECT * FROM hadith WHERE collection_slug = ? AND book_slug = ? ORDER BY seq LIMIT ? OFFSET ?`,
-        args: [collectionSlug, bookSlug, pageSize, offset]
-      }
-    ],
-    'read'
-  );
-  const total = Number((count.rows[0] as Record<string, unknown>).total ?? 0);
-  const rows = toObjects<HadithRow>(data);
+  const db = getDB();
+  
+  const countStmt = db.prepare(`SELECT COUNT(*) AS total FROM hadith WHERE collection_slug = ? AND book_slug = ?`).bind(collectionSlug, bookSlug);
+  const dataStmt = db.prepare(`SELECT * FROM hadith WHERE collection_slug = ? AND book_slug = ? ORDER BY seq LIMIT ? OFFSET ?`).bind(collectionSlug, bookSlug, pageSize, offset);
+  
+  const [countRes, dataRes] = await db.batch([countStmt, dataStmt]);
+  
+  const total = Number((countRes.results[0] as Record<string, unknown>).total ?? 0);
+  const rows = dataRes.results as HadithRow[];
   return { rows, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
