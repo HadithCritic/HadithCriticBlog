@@ -81,11 +81,13 @@
   <div id="phase-victory" class="hifz-phase">
     <div class="hifz-card">
       <h4 class="hifz-card-title hc-text-gold">Final Evaluation</h4>
-      <div id="report-card" class="report-card"></div>
+      <div id="report-card" class="report-card" style="position:relative;"></div>
     </div>
     <button id="btn-restart" class="hc-btn mt-4">Start New Session</button>
   </div>
 </div>
+
+<div id="global-stamp" class="stamp-overlay" style="display:none;"></div>
 
 <script>
   const fullDatabase = [
@@ -324,6 +326,7 @@
       if (reconstructStep === reconstructExpected.length) {
         statusText.textContent = "Ṣaḥīḥ! Chain verified.";
         statusText.style.color = "var(--hc-gold)";
+        showStamp('ṢAḤĪḤ', 'stamp-sahih', getEl('phase-reconstruct').querySelector('.hifz-card'));
         setTimeout(() => {
           statusText.style.color = "";
           currentHadithIndex++;
@@ -339,6 +342,7 @@
       mistakes++;
       updateStats();
       btn.classList.add('wrong');
+      showStamp('ḌAʿĪF', 'stamp-daif', getEl('phase-reconstruct').querySelector('.hifz-card'));
       
       // Determine Jarh reasoning
       const isDecoy = sessionHadiths[currentHadithIndex].decoys.includes(name);
@@ -466,6 +470,8 @@
       selectedIsnadBtn.classList.add('wrong');
       selectedMatnBtn.classList.add('wrong');
       
+      showStamp('MAQLŪB', 'stamp-maqlub', getEl('phase-baghdad-test'));
+
       const errLog = getEl('baghdad-error-log');
       errLog.innerHTML = `<strong>Maqlūb Error:</strong> You attached a chain to a foreign text.`;
       errLog.style.display = 'block';
@@ -514,6 +520,26 @@
     `;
 
     showPhase('phase-victory');
+    
+    if (rank === 'Ḥāfiẓ' || rank === 'Thiqah') {
+      setTimeout(() => {
+        showStamp(rank.toUpperCase(), 'stamp-hafiz', getEl('report-card'), 3000);
+      }, 500);
+    }
+  }
+
+  function showStamp(text, className, container, duration = 1500) {
+    const stamp = document.createElement('div');
+    stamp.className = `stamp-overlay ${className}`;
+    stamp.textContent = text;
+    container.style.position = 'relative';
+    container.appendChild(stamp);
+    
+    setTimeout(() => {
+      if (stamp.parentNode) {
+        stamp.parentNode.removeChild(stamp);
+      }
+    }, duration);
   }
 
   getEl('btn-restart').addEventListener('click', startSession);
@@ -908,6 +934,75 @@
 
   .report-stats li span {
     color: var(--hc-ash);
+  }
+
+  /* Stamps */
+  .stamp-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg) scale(2);
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.5rem 1.5rem;
+    border: 6px solid;
+    border-radius: 8px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 100;
+    animation: stampDrop 0.5s forwards;
+  }
+
+  @keyframes stampDrop {
+    0% { transform: translate(-50%, -50%) rotate(-15deg) scale(3); opacity: 0; }
+    50% { transform: translate(-50%, -50%) rotate(-15deg) scale(0.9); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(-15deg) scale(1); opacity: 0.8; }
+  }
+
+  .stamp-sahih {
+    color: rgba(106, 140, 116, 0.8);
+    border-color: rgba(106, 140, 116, 0.8);
+    box-shadow: 0 0 20px rgba(106, 140, 116, 0.2), inset 0 0 20px rgba(106, 140, 116, 0.2);
+    text-shadow: 0 0 10px rgba(106, 140, 116, 0.3);
+  }
+
+  .stamp-daif {
+    color: rgba(255, 77, 77, 0.8);
+    border-color: rgba(255, 77, 77, 0.8);
+    box-shadow: 0 0 20px rgba(255, 77, 77, 0.2), inset 0 0 20px rgba(255, 77, 77, 0.2);
+    text-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
+  }
+
+  .stamp-maqlub {
+    color: rgba(200, 100, 50, 0.8);
+    border-color: rgba(200, 100, 50, 0.8);
+    transform: translate(-50%, -50%) rotate(-25deg) scale(2);
+    animation: stampDropMaqlub 0.5s forwards;
+  }
+
+  @keyframes stampDropMaqlub {
+    0% { transform: translate(-50%, -50%) rotate(-25deg) scale(3); opacity: 0; }
+    50% { transform: translate(-50%, -50%) rotate(-25deg) scale(0.9); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(-25deg) scale(1); opacity: 0.8; }
+  }
+
+  .stamp-hafiz {
+    color: rgba(216, 177, 102, 0.9);
+    border-color: rgba(216, 177, 102, 0.9);
+    box-shadow: 0 0 20px rgba(216, 177, 102, 0.3), inset 0 0 20px rgba(216, 177, 102, 0.3);
+    text-shadow: 0 0 15px rgba(216, 177, 102, 0.4);
+    animation: stampDropHafiz 1.5s forwards;
+  }
+
+  @keyframes stampDropHafiz {
+    0% { transform: translate(-50%, -50%) rotate(-5deg) scale(3); opacity: 0; }
+    20% { transform: translate(-50%, -50%) rotate(-5deg) scale(0.9); opacity: 1; }
+    30% { transform: translate(-50%, -50%) rotate(-5deg) scale(1); opacity: 0.9; }
+    80% { transform: translate(-50%, -50%) rotate(-5deg) scale(1); opacity: 0.9; }
+    100% { transform: translate(-50%, -50%) rotate(-5deg) scale(1); opacity: 0; }
   }
 
   /* Utilities */
