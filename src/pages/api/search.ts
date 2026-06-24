@@ -25,8 +25,8 @@ function ftsTokens(s: string): string[] {
 function buildMatch(col: string, raw: string): string | null {
   const toks = ftsTokens(raw);
   if (!toks.length) return null;
-  // AND the tokens within the chosen column; last token is a prefix match (search-as-you-type)
-  return toks.map((t, i) => `${col} : ${t}${i === toks.length - 1 ? '*' : ''}`).join(' AND ');
+  // Treat the entire query as an exact phrase match, with prefix search on the last word
+  return `${col} : "${toks.join(' ')}"*`;
 }
 function json(o: unknown, maxAge = 60): Response {
   return new Response(JSON.stringify(o), {
@@ -45,8 +45,8 @@ export const GET: APIRoute = async ({ url }) => {
   const refm = q.toLowerCase().match(/^([a-z][a-z0-9-]*)[\s:\/]+([0-9][\w-]*)$/);
   if (refm) {
     const rows = await query(
-      `SELECT ref, collection_slug, collection_en, book_slug, number, kitab_en, bab_en,
-              substr(text_en, 1, 240) AS excerpt
+      `SELECT ref, collection_slug, collection_en, book_slug, number, kitab_en, bab_en, kitab, bab,
+              text, text_en, substr(text_en, 1, 240) AS excerpt
        FROM hadith WHERE collection_slug = ? AND number = ? LIMIT 1`,
       [resolveCollectionSlug(refm[1]), refm[2]]
     );
@@ -60,7 +60,8 @@ export const GET: APIRoute = async ({ url }) => {
 
   const where = collection ? 'hadith_fts MATCH ? AND h.collection_slug = ?' : 'hadith_fts MATCH ?';
   const sql =
-    `SELECT h.ref, h.collection_slug, h.collection_en, h.book_slug, h.number, h.kitab_en, h.bab_en,
+    `SELECT h.ref, h.collection_slug, h.collection_en, h.book_slug, h.number, h.kitab_en, h.bab_en, h.kitab, h.bab,
+            h.text, h.text_en,
             snippet(hadith_fts, ${snipCol}, '<mark>', '</mark>', ' … ', 12) AS excerpt
      FROM hadith_fts JOIN hadith h ON h.id = hadith_fts.rowid
      WHERE ${where} ORDER BY rank LIMIT ? OFFSET ?`;

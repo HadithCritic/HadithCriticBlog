@@ -5,6 +5,7 @@ id: string;
 x: number;
 y: number;
 label?: string;
+sublabel?: string;
 labelPos?: 'right' | 'left' | 'above' | 'below';
 labelDx?: number;
 labelDy?: number;
@@ -192,6 +193,13 @@ if (edge.from !== node.id && edge.to !== node.id) continue;
 
 }
 
+diveEdges.forEach((edge, index) => {
+  if (edge.from !== node.id && edge.to !== node.id) return;
+  const delay = diveDelay + index * 250;
+  const lowerId = at(edge.from).y >= at(edge.to).y ? edge.from : edge.to;
+  best = Math.min(best, lowerId === node.id ? delay : delay + 420);
+});
+
 nodeDelay.set(node.id, Number.isFinite(best) ? best : 0);
 }
 
@@ -267,6 +275,11 @@ const hasCl = nodes.some((node) => node.kind === 'cl');
                 {line}
               </tspan>
             ))}
+            {node.sublabel && (
+              <tspan class="lbl--sub" x={offset.x} dy="14">
+                {node.sublabel}
+              </tspan>
+            )}
           </text>
         )}
       </g>
@@ -514,6 +527,12 @@ const hasCl = nodes.some((node) => node.kind === 'cl');
 
   .lbl--ghost {
     fill: var(--hc-umber);
+  }
+
+  .lbl--sub {
+    fill: var(--hc-ash);
+    font-size: 11px;
+    font-weight: 400;
   }
 
   .lbl--note {

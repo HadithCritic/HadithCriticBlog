@@ -2,24 +2,19 @@
 export const prerender = false;
 import SilsilahLayout from '../../layouts/SilsilahLayout.astro';
 import IsnadBundle from '../../components/IsnadBundle.astro';
-import { getCollections, fmtCount, type CollectionRow } from '../../lib/silsilah-db';
+import { getCollections, fmtCount } from '../../lib/silsilah-db';
 
 const collections = await getCollections();
 
 const totalHadith = collections.reduce((s, c) => s + (c.hadith_count || 0), 0);
 const totalBooks = collections.reduce((s, c) => s + (c.book_count || 0), 0);
-
-/* Group by work_group to create a rough categorical view. */
-const grouped = new Map<string, CollectionRow[]>();
-for (const c of collections) {
-  const key = c.work_group || c.name_en || 'Other';
-  if (!grouped.has(key)) grouped.set(key, []);
-  grouped.get(key)!.push(c);
-}
-
-/* Only show groups that have a "primary" entry (is_primary = 1),
-   or groups that have more than one collection. */
 const primaryCollections = collections.filter((c) => c.is_primary);
+const totalCollections = primaryCollections.length;
+const sortedCollections = [...primaryCollections].sort((a, b) => {
+  const deathA = a.author_death ?? Number.POSITIVE_INFINITY;
+  const deathB = b.author_death ?? Number.POSITIVE_INFINITY;
+  return deathA - deathB || a.name_en.localeCompare(b.name_en);
+});
 ---
 
 <SilsilahLayout title="Silsilah | The HadithCritic Hadith Database">
@@ -39,18 +34,22 @@ const primaryCollections = collections.filter((c) => c.is_primary);
             <input
               type="text"
               name="q"
-              placeholder="Search in English or Arabic, or jump to bukhari:2487"
+              placeholder="Search hadith..."
               aria-label="Search the hadith corpus"
+              aria-describedby="sil-search-hint"
               autocomplete="off"
               spellcheck="false"
             />
             <button type="submit" class="hc-btn">Search</button>
           </form>
+          <p id="sil-search-hint" class="sil-search-hint">
+            Tip: type <code>bukhari:2487</code> to jump directly to a reference.
+          </p>
         </div>
-        <dl class="sil-hero-stats">
-          <div><dt>Collections</dt><dd>{primaryCollections.length}</dd></div>
-          <div><dt>Books</dt><dd>{fmtCount(totalBooks)}</dd></div>
-          <div><dt>Reports</dt><dd>{fmtCount(totalHadith)}</dd></div>
+        <dl class="sil-hero-stats" aria-label="Database statistics">
+          <div class="stat-item"><dt>Collections</dt><dd>{fmtCount(totalCollections)}</dd></div>
+          <div class="stat-item"><dt>Books</dt><dd>{fmtCount(totalBooks)}</dd></div>
+          <div class="stat-item"><dt>Reports</dt><dd>{fmtCount(totalHadith)}</dd></div>
         </dl>
       </div>
     </div>
@@ -63,8 +62,8 @@ const primaryCollections = collections.filter((c) => c.is_primary);
         <p class="hc-copy sil-cat-note">All available hadith collections, sorted by author death date.</p>
       </header>
       <div class="sil-grid">
-        {primaryCollections.map((c, i) => (
-          <a href={`/silsilah/${c.slug}/`} class="sil-card" data-sil-reveal style={`--rd:${(i % 3) * 90}ms`}>
+        {sortedCollections.map((c, i) => (
+          <a href={`/silsilah/${c.slug}/`} class="sil-card" data-sil-reveal style={`--stagger-delay:${Math.min(i * 60, 300)}ms`}>
             <div class="sil-card-top">
               <h3 class="sil-card-en">{c.name_en}</h3>
               <p class="sil-card-author">
@@ -179,6 +178,23 @@ const primaryCollections = collections.filter((c) => c.is_primary);
     border-color: var(--hc-rule-strong);
   }
 
+  .sil-search-hint {
+    margin: 0.7rem 0 0;
+    color: var(--hc-ash);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .sil-search-hint code {
+    padding: 0.08rem 0.4rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: rgba(216, 177, 102, 0.07);
+    color: var(--hc-gold-bright, var(--hc-gold-soft));
+    font-size: 0.9em;
+  }
+
   .sil-hero-stats {
     margin: 0;
     display: grid;
@@ -187,10 +203,11 @@ const primaryCollections = collections.filter((c) => c.is_primary);
     background: var(--hc-rule);
   }
 
-  .sil-hero-stats > div {
+  .sil-hero-stats > .stat-item {
     display: flex;
-    flex-direction: column-reverse;
-    gap: 0.25rem;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: flex-start;
     padding: 1.15rem 1.4rem;
     background: linear-gradient(180deg, rgba(38, 35, 31, 0.92), rgba(15, 15, 16, 0.96));
   }
@@ -206,7 +223,7 @@ const primaryCollections = collections.filter((c) => c.is_primary);
 
   .sil-hero-stats dd {
     margin: 0;
-    color: var(--hc-gold);
+    color: var(--hc-gold-bright, var(--hc-gold-soft));
     font-family: var(--font-display);
     font-size: 2.1rem;
     font-weight: 500;
@@ -226,8 +243,8 @@ const primaryCollections = collections.filter((c) => c.is_primary);
 
   .sil-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.2rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
   }
 
   .sil-card {
@@ -241,6 +258,11 @@ const primaryCollections = collections.filter((c) => c.is_primary);
     transition: border-color 220ms ease, transform 220ms var(--ease);
   }
 
+  .sil-card:focus-visible {
+    outline: 2px solid var(--hc-gold-bright, var(--hc-gold-soft));
+    outline-offset: 3px;
+  }
+
   .sil-card:hover {
     border-color: var(--hc-rule-strong);
     transform: translateY(-2px);
@@ -251,9 +273,13 @@ const primaryCollections = collections.filter((c) => c.is_primary);
     color: var(--hc-parchment);
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: 1.7rem;
-    line-height: 1.05;
-    letter-spacing: -0.01em;
+    font-size: 1.3rem;
+    line-height: 1.25;
+    letter-spacing: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .sil-card-author {
@@ -310,9 +336,6 @@ const primaryCollections = collections.filter((c) => c.is_primary);
   }
 
   @media (max-width: 1080px) {
-    .sil-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
     .sil-hero-inner {
       grid-template-columns: 1fr;
     }
@@ -328,6 +351,11 @@ const primaryCollections = collections.filter((c) => c.is_primary);
     .sil-hero-stats {
       grid-template-columns: 1fr;
     }
+    .sil-hero-stats > .stat-item {
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+    }
     .sil-jump {
       flex-direction: column;
     }
@@ -336,8 +364,10 @@ const primaryCollections = collections.filter((c) => c.is_primary);
   /* scroll reveal */
   [data-sil-reveal] {
     opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 600ms ease var(--rd, 0ms), transform 600ms var(--ease) var(--rd, 0ms);
+    transform: translateY(12px);
+    transition:
+      opacity 500ms cubic-bezier(0.4, 0, 0.2, 1) var(--stagger-delay, 0ms),
+      transform 500ms cubic-bezier(0.4, 0, 0.2, 1) var(--stagger-delay, 0ms);
   }
 
   [data-sil-reveal].is-in {

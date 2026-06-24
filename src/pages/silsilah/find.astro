@@ -13,7 +13,7 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
     .filter(([, slug]) => slug === c.slug)
     .map(([alias]) => alias),
   count: c.hadith_count
-}));
+})).sort((a, b) => (b.count || 0) - (a.count || 0) || a.name.localeCompare(b.name));
 ---
 
 <SilsilahLayout title="Find by Reference | Silsilah">
@@ -36,22 +36,27 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
           autocomplete="off"
           spellcheck="false"
         />
-        <button type="submit" class="hc-btn">Find</button>
+        <button id="findSubmit" type="submit" class="hc-btn">
+          <span id="findButtonText">Find</span>
+          <span id="findButtonSpinner" class="btn-spinner" hidden aria-hidden="true"></span>
+        </button>
       </form>
 
       <p id="findStatus" class="find-status" role="status"></p>
 
       <div class="find-collections">
         <h2>Collections and their reference prefixes</h2>
-        <ul>
+        <div class="collections-grid" role="list">
           {lookup.map((c) => (
-            <li>
-              <a href={`/silsilah/${c.slug}/`}>{c.name}</a>
-              <code>{c.slug}:</code>
-              <span>{fmtCount(c.count)} reports</span>
-            </li>
+            <a href={`/silsilah/${c.slug}/`} class="collection-item" role="listitem">
+              <span class="collection-main">
+                <span class="collection-name">{c.name}</span>
+                <code class="collection-prefix">{c.slug}:</code>
+              </span>
+              <span class="collection-count">{fmtCount(c.count)} reports</span>
+            </a>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   </section>
@@ -62,16 +67,29 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
     const input = document.getElementById('findInput');
     const status = document.getElementById('findStatus');
     const form = document.getElementById('findForm');
+    const submitBtn = document.getElementById('findSubmit');
+    const btnText = document.getElementById('findButtonText');
+    const btnSpinner = document.getElementById('findButtonSpinner');
 
     function setStatus(msg, isError) {
       status.textContent = msg;
       status.classList.toggle('is-error', !!isError);
     }
 
+    function setLoading(loading) {
+      submitBtn.disabled = loading;
+      input.disabled = loading;
+      btnText.hidden = loading;
+      btnSpinner.hidden = !loading;
+    }
+
     function parseQuery(raw) {
       const q = raw.trim().toLowerCase().replace(/\s+/g, ' ');
       if (!q) return null;
-      const m = q.match(/^([a-z][a-z0-9-]*)\s*[:\s/]\s*(.*)$/);
+      const m =
+        q.match(/^([a-z][a-z0-9-]*)\s*[:;\/]\s*(.+)$/) ||
+        q.match(/^([a-z][a-z0-9-]*)\s+(.+)$/) ||
+        q.match(/^([a-z][a-z0-9-]*)-([0-9][\w-]*)$/);
       if (!m) return null;
       const name = m[1];
       const num = m[2].trim().replace(/\s+/g, '');
@@ -99,6 +117,7 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
         return;
       }
       setStatus('Looking up ' + col.slug + ':' + num + ' ...', false);
+      setLoading(true);
       try {
         const res = await fetch('/api/search?q=' + encodeURIComponent(col.slug + ':' + num));
         if (!res.ok) throw new Error('search unavailable');
@@ -108,9 +127,11 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
           location.href = '/silsilah/' + h.collection_slug + '/' + h.book_slug + '?v=' + encodeURIComponent(num) + '#h-' + (h.number || '');
         } else {
           setStatus('No report ' + num + ' found in ' + col.name + '. Check the number or browse the collection.', true);
+          setLoading(false);
         }
       } catch (err) {
         setStatus('Lookup failed. Try browsing the collection instead.', true);
+        setLoading(false);
       }
     }
 
@@ -151,7 +172,7 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-xs);
     background: rgba(216, 177, 102, 0.07);
-    color: var(--hc-gold-soft);
+    color: var(--hc-gold-bright, var(--hc-gold-soft));
     font-size: 0.85em;
   }
 
@@ -177,6 +198,35 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
     border-color: var(--hc-rule-strong);
   }
 
+  .find-form input:focus-visible,
+  .collection-item:focus-visible {
+    outline: 2px solid var(--hc-gold-bright, var(--hc-gold-soft));
+    outline-offset: 3px;
+  }
+
+  .find-form input:disabled {
+    opacity: 0.72;
+  }
+
+  .find-form .hc-btn:disabled {
+    cursor: wait;
+    opacity: 0.82;
+    transform: none;
+  }
+
+  .btn-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(15, 15, 16, 0.32);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
   .find-status {
     min-height: 1.4rem;
     margin: 0.9rem 0 0;
@@ -197,7 +247,7 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
 
   .find-collections h2 {
     margin: 0 0 1rem;
-    color: var(--hc-gold);
+    color: var(--hc-gold-bright, var(--hc-gold-soft));
     font-family: var(--font-ui);
     font-size: 0.76rem;
     font-weight: 600;
@@ -205,36 +255,67 @@ const lookup = collections.filter(c => c.is_primary).map((c) => ({
     text-transform: uppercase;
   }
 
-  .find-collections ul {
+  .collections-grid {
     margin: 0;
     padding: 0;
-    list-style: none;
     display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 0.5rem;
   }
 
-  .find-collections li {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    gap: 1rem;
-    align-items: baseline;
-    padding: 0.45rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
+  .collection-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.9rem;
+    align-items: center;
+    min-height: 58px;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: rgba(15, 15, 16, 0.24);
     font-family: var(--font-ui);
     font-size: 0.88rem;
-  }
-
-  .find-collections a {
     color: var(--hc-parchment);
     text-decoration: none;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
   }
 
-  .find-collections a:hover {
-    color: var(--hc-gold);
+  .collection-item:hover {
+    border-color: var(--hc-rule);
+    background: rgba(216, 177, 102, 0.05);
+    color: var(--hc-gold-bright, var(--hc-gold-soft));
   }
 
-  .find-collections span {
+  .collection-main {
+    display: grid;
+    gap: 0.32rem;
+    min-width: 0;
+  }
+
+  .collection-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .collection-prefix {
+    width: fit-content;
+  }
+
+  .collection-count {
+    flex: 0 0 auto;
     color: var(--hc-ash);
     font-size: 0.78rem;
+  }
+
+  @media (max-width: 560px) {
+    .find-form {
+      flex-direction: column;
+    }
+
+    .collection-item {
+      align-items: flex-start;
+      flex-direction: column;
+    }
   }
 </style>

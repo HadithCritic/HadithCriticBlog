@@ -6,6 +6,7 @@
   Connection uses the D1 binding "DB" from wrangler.jsonc.
 */
 import { env } from 'cloudflare:workers';
+import { getTransliteratedTitle } from './collection-titles';
 
 export interface CollectionRow {
   slug: string;
@@ -99,18 +100,30 @@ export function resolveCollectionSlug(input: string | null | undefined): string 
 }
 
 export async function getCollections(): Promise<CollectionRow[]> {
-  return query<CollectionRow>(
+  const rows = await query<CollectionRow>(
     `SELECT slug, name_en, name_ar, author_en, author_death, work_group, is_primary, hadith_count, book_count, ordinal
      FROM collections ORDER BY author_death, name_en`
   );
+  
+  for (const row of rows) {
+    row.name_en = getTransliteratedTitle(row.name_en, row.author_en);
+  }
+  
+  return rows;
 }
 
 export async function getCollection(slug: string): Promise<CollectionRow | null> {
-  return first<CollectionRow>(
+  const row = await first<CollectionRow>(
     `SELECT slug, name_en, name_ar, author_en, author_death, work_group, is_primary, hadith_count, book_count, ordinal
      FROM collections WHERE slug = ?`,
     [resolveCollectionSlug(slug)]
   );
+  
+  if (row) {
+    row.name_en = getTransliteratedTitle(row.name_en, row.author_en);
+  }
+  
+  return row;
 }
 
 export async function getBooks(collectionSlug: string): Promise<BookRow[]> {
