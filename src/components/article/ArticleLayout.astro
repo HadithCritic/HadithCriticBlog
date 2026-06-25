@@ -4,6 +4,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 const { title, description } = Astro.props;
 ---
 <BaseLayout title={title} description={description}>
+  <div class="reading-progress" aria-hidden="true">
+    <div class="reading-progress__bar" id="reading-bar"></div>
+  </div>
   <main class="hc-article">
     <slot name="hero" />
     <slot name="metabar" />
@@ -21,7 +24,40 @@ const { title, description } = Astro.props;
   </main>
 </BaseLayout>
 
+<script>
+  const article = document.querySelector('.hc-article-body');
+  const bar = document.getElementById('reading-bar');
+  if (article && bar) {
+    window.addEventListener('scroll', () => {
+      const rect = article.getBoundingClientRect();
+      const total = article.offsetHeight - window.innerHeight + 400; // rough offset
+      let scrolled = -rect.top + 100; // Start a bit early
+      if (scrolled < 0) scrolled = 0;
+      let progress = (scrolled / total) * 100;
+      if (progress > 100) progress = 100;
+      bar.style.width = `${progress}%`;
+    }, { passive: true });
+  }
+</script>
+
 <style>
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: transparent;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  .reading-progress__bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--hc-gold), var(--hc-gold-soft));
+    box-shadow: 0 0 8px rgba(216, 177, 102, 0.3);
+    transition: width 50ms linear;
+  }
   .article-margin-left {
     display: none;
   }

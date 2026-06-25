@@ -51,25 +51,28 @@ const entries = posts.map((post, index) => ({
     </header>
 
     <div class="archive-tools" role="region" aria-label="Filter the index">
+      <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress__bar" id="scroll-bar"></div></div>
       <div class="hc-container archive-tools__inner">
-        <div class="archive-filters" role="group" aria-label="Filter by category">
-          <button type="button" class="filter-chip is-active" data-filter="all">
-            All <span class="filter-chip__count">{posts.length}</span>
+        <div class="archive-filters" style="position:relative;" role="group" aria-label="Filter by category">
+          <button type="button" class="filter-tab is-active" data-filter="all">
+            All <span class="filter-tab__count">{posts.length}</span>
           </button>
           {categories.map((category) => (
-            <button type="button" class="filter-chip" data-filter={category.name} data-category={category.name}>
-              {category.name} <span class="filter-chip__count">{category.count}</span>
+            <button type="button" class="filter-tab" data-filter={category.name} data-category={category.name}>
+              {category.name} <span class="filter-tab__count">{category.count}</span>
             </button>
           ))}
+          <div class="filter-indicator" aria-hidden="true"></div>
         </div>
 
         <label class="archive-search">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <kbd class="search-kbd" aria-hidden="true">⌘K</kbd>
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <span class="sr-only">Search entries by title</span>
-          <input type="search" id="archive-search-input" placeholder="Search the index" autocomplete="off" />
+          <input type="search" id="archive-search-input" data-shortcut="k" placeholder="Search the index" autocomplete="off" />
         </label>
       </div>
     </div>
@@ -121,10 +124,57 @@ const entries = posts.map((post, index) => ({
   const page = document.querySelector('.archive-page');
 
   if (page) {
-    const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-chip')];
+    const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-tab')];
     const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
     const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
     const emptyState = page.querySelector<HTMLParagraphElement>('#ledger-empty');
+
+    
+    const track = page.querySelector('.archive-filters');
+    const indicator = page.querySelector<HTMLElement>('.filter-indicator');
+    
+    const updateIndicator = (activeTab: HTMLElement) => {
+      if (!indicator || !track || !activeTab) return;
+      // Use relative offset
+      indicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
+      indicator.style.width = `${activeTab.offsetWidth}px`;
+    };
+
+    // Initialize on load and resize
+    const initIndicator = () => {
+      const current = track?.querySelector<HTMLElement>('.is-active');
+      if (current) updateIndicator(current);
+    };
+    // Call once initially (after fonts load or timeout to ensure layout)
+    setTimeout(initIndicator, 50);
+    window.addEventListener('resize', initIndicator);
+
+    // Keyboard shortcut handler
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInput?.focus();
+      }
+    });
+
+    // Scroll progress handler
+    const ledgerList = document.getElementById('ledger');
+    const scrollBar = document.getElementById('scroll-bar');
+    if (ledgerList && scrollBar) {
+      window.addEventListener('scroll', () => {
+        const rect = ledgerList.getBoundingClientRect();
+        // Calculate progress based on ledger position relative to viewport
+        const total = ledgerList.scrollHeight - window.innerHeight + 200; // rough offset
+        let current = -rect.top;
+        if (current < 0) current = 0;
+        let progress = (current / total) * 100;
+        if (progress > 100) progress = 100;
+        if (progress < 0) progress = 0;
+        
+        // Only show if we actually reached the ledger
+        scrollBar.style.width = `${progress}%`;
+      }, { passive: true });
+    }
 
     let activeCategory = 'all';
     let query = '';
@@ -134,6 +184,7 @@ const entries = posts.map((post, index) => ({
       if (!chip) return false;
       activeCategory = category;
       chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+      updateIndicator(chip);
       return true;
     };
 
@@ -186,7 +237,7 @@ const entries = posts.map((post, index) => ({
     min-height: 100vh;
     background:
       radial-gradient(circle at 85% 0%, rgba(216, 177, 102, 0.06), transparent 32%),
-      linear-gradient(180deg, var(--hc-charcoal) 0%, var(--hc-black) 42%);
+      linear-gradient(180deg, var(--hc-surface-2) 0%, var(--hc-surface-0) 42%);
   }
 
   /* Hero */
@@ -223,7 +274,7 @@ const entries = posts.map((post, index) => ({
     font-size: clamp(3.2rem, 6.5vw, 6rem);
     line-height: 0.95;
     letter-spacing: -0.03em;
-    color: var(--hc-parchment);
+    color: var(--hc-text-primary);
     animation: heroRise 0.8s var(--ease) 60ms both;
   }
 
@@ -238,7 +289,7 @@ const entries = posts.map((post, index) => ({
     align-items: center;
     gap: 0.85rem;
     margin-top: 1.6rem;
-    color: var(--hc-ash);
+    color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
     font-size: 0.78rem;
     letter-spacing: 0.1em;
@@ -256,7 +307,7 @@ const entries = posts.map((post, index) => ({
   .archive-hero__lead {
     max-width: 620px;
     margin: 1.2rem 0 0;
-    color: var(--hc-muted);
+    color: var(--hc-text-secondary);
     font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
     line-height: 1.72;
     animation: heroRise 0.8s var(--ease) 200ms both;
@@ -287,62 +338,78 @@ const entries = posts.map((post, index) => ({
 
   .archive-tools__inner {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.85rem 2rem;
-    padding-block: 0.85rem;
+    flex-direction: column;
+    align-items: stretch;
+    width: max-content;
+    max-width: 100%;
+    margin: 0 auto;
+    gap: 0.85rem;
+    padding-block: 1.25rem;
   }
 
   .archive-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    position: relative;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    gap: 0;
+    padding: 4px;
+    background: rgba(242, 235, 220, 0.04);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .archive-filters::-webkit-scrollbar {
+    display: none;
   }
 
-  .filter-chip {
+  .filter-tab {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    min-height: 34px;
-    padding: 0.3rem 0.85rem;
-    border: 1px solid var(--cat-border, var(--hc-rule));
-    border-radius: var(--radius-pill);
-    color: var(--cat-color, var(--hc-muted));
+    gap: 0.5rem;
+    padding: 0.55rem 1.1rem;
+    border: none;
     background: transparent;
+    color: var(--hc-text-secondary);
     font-family: var(--font-ui);
     font-size: 0.78rem;
+    font-weight: 500;
     letter-spacing: 0.04em;
-    transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 250ms ease;
+    border-radius: var(--radius-pill);
+  }
+  
+
+  .filter-tab:hover {
+    color: var(--hc-text-primary);
   }
 
-  .filter-chip:hover {
-    color: var(--hc-gold-soft);
-    border-color: var(--hc-gold-dim);
+  .filter-tab.is-active {
+    color: var(--hc-surface-0);
   }
 
-  .filter-chip.is-active {
-    color: var(--hc-fixed-black);
-    border-color: var(--cat-color, var(--hc-gold));
-    background: var(--cat-color, var(--hc-gold));
-  }
-
-  .filter-chip__count {
+  .filter-tab__count {
     font-size: 0.68rem;
     opacity: 0.72;
   }
 
   .archive-search {
-    display: inline-flex;
+    position: relative;
+    display: flex;
     align-items: center;
-    gap: 0.55rem;
-    min-width: 230px;
-    padding: 0.42rem 0.85rem;
-    border: 1px solid var(--hc-rule);
+    gap: 0.6rem;
+    min-width: 260px;
+    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
     border-radius: var(--radius-pill);
-    color: var(--hc-ash);
     background: rgba(242, 235, 220, 0.03);
-    transition: border-color 200ms ease, color 200ms ease;
+    transition: all 250ms ease;
   }
 
   .archive-search:focus-within {
@@ -354,13 +421,13 @@ const entries = posts.map((post, index) => ({
     width: 100%;
     border: 0;
     background: transparent;
-    color: var(--hc-parchment);
+    color: var(--hc-text-primary);
     font-family: var(--font-ui);
     font-size: 0.85rem;
   }
 
   .archive-search input::placeholder {
-    color: var(--hc-ash);
+    color: var(--hc-text-tertiary);
   }
 
   .archive-search input:focus {
@@ -427,7 +494,7 @@ const entries = posts.map((post, index) => ({
   }
 
   .ledger-row__date {
-    color: var(--hc-ash);
+    color: var(--hc-text-tertiary);
     font-size: 0.78rem;
   }
 
@@ -443,7 +510,7 @@ const entries = posts.map((post, index) => ({
     font-size: clamp(1.5rem, 2.2vw, 2.1rem);
     line-height: 1.02;
     letter-spacing: -0.02em;
-    color: var(--hc-parchment);
+    color: var(--hc-text-primary);
     transition: color 220ms ease;
   }
 
@@ -456,7 +523,7 @@ const entries = posts.map((post, index) => ({
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    color: var(--hc-muted);
+    color: var(--hc-text-secondary);
     font-size: 0.93rem;
     line-height: 1.5;
   }
@@ -505,7 +572,7 @@ const entries = posts.map((post, index) => ({
     margin: 2.5rem 0 0;
     padding: 2rem;
     border: 1px solid var(--hc-rule);
-    color: var(--hc-muted);
+    color: var(--hc-text-secondary);
     text-align: center;
     font-family: var(--font-ui);
     font-size: 0.92rem;
@@ -551,5 +618,83 @@ const entries = posts.map((post, index) => ({
     .ledger-row__aside {
       justify-content: flex-start;
     }
+  }
+
+  .filter-indicator {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    height: calc(100% - 8px);
+    background: var(--hc-gold);
+    border-radius: var(--radius-pill);
+    transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1), width 350ms cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .archive-search:focus-within {
+    border-color: var(--hc-gold-dim);
+    background: rgba(242, 235, 220, 0.06);
+    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.08);
+  }
+  .search-kbd {
+    padding: 0.15rem 0.4rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 4px;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    transition: opacity 250ms ease, transform 250ms ease;
+  }
+  .archive-search:focus-within .search-kbd {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  .ledger-row__link {
+    overflow: hidden;
+  }
+  .ledger-row__link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--hc-gold);
+    transform: scaleY(0);
+    transition: transform 300ms var(--ease);
+  }
+  .ledger-row__link:hover::before {
+    transform: scaleY(1);
+  }
+  .ledger-row__link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(216, 177, 102, 0.04), transparent 40%);
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+  .ledger-row__link:hover::after {
+    opacity: 1;
+  }
+  
+  .scroll-progress {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--hc-rule);
+    z-index: 30;
+  }
+  .scroll-progress__bar {
+    height: 100%;
+    width: 0%;
+    background: var(--hc-gold);
+    transition: width 50ms linear;
   }
 </style>
