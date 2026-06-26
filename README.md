@@ -4,63 +4,115 @@
 
 # HadithCritic Blog
 
-The [HadithCritic platform](https://hadithcriticblog.com) is a blog of source-critical hadith studies plus three live projects:
+The **[HadithCritic platform](https://hadithcriticblog.com)** is a specialized blog dedicated to source-critical hadith studies. This repository serves as the core engine for the platform, housing all published articles, custom interactive UI components, media assets, and a bespoke authoring environment. 
 
-- **Silsilah** (`/silsilah/`): a hadith database covering 19 classical collections (153,000+ reports) with Arabic text, English translation, transmission chains, gradings, and full-text search.
-- **Common-Link Studies** (`/studies/`): published isnad scholarship retold with animated transmission diagrams, linking to the original works.
-- **Narrator Biographies** (`/rijal/`): a searchable register of 8,000+ transmitters of the six books, parsed from Dhahabi's al-Kashif (OpenITI edition).
-- **Corpus Mapping** (`/corpus-map/`): an animated map that traces any report's chain city by city, from the Prophet in Medina to its compiler, using geographic nisbas and a gazetteer of well-known transmitters.
+Designed for high performance, readability, and rich interactivity, the blog blends scholarship with modern web technologies to present complex transmissions, isnad diagrams, and textual analysis in an accessible format.
 
-Built with Astro 6, fully static.
+---
 
-## Commands
+## Features
 
-| Command | Action |
-| :-- | :-- |
-| `npm install` | Install dependencies (use `--legacy-peer-deps` if peer conflicts appear) |
-| `npm run dev` | Dev server at `localhost:4321` (search is unavailable in dev, see below) |
-| `npm run build` | Build to `./dist/` and generate the Pagefind search index |
-| `npm run preview` | Preview the built site, including search |
-| `npm run author` | Local blog authoring workspace |
+- **Blazing Fast Performance**: Statically generated (SSG) with Astro for instant page loads.
+- **Rich Interactive Components**: Custom components like `IsnadDiagram`, `IsnadDilemmaVisual`, and `HifzGame` embedded directly into articles.
+- **MDX Powered Content**: Write content seamlessly using Markdown with embedded JSX components.
+- **Integrated Full-Text Search**: Client-side, lightning-fast search powered by [Pagefind](https://pagefind.app/).
+- **Custom Authoring Environment**: A tailor-made WYSIWYG editor built with Tiptap and React (`tools/blog-maker`) for crafting rich scholarly posts.
 
-## Project structure
+---
+
+## Tech Stack & Architecture
+
+- **Framework**: [Astro 6](https://astro.build) (Static Site Generation)
+- **Content Formatting**: MDX (`@astrojs/mdx`)
+- **Search**: [Pagefind](https://pagefind.app/)
+- **UI Components & Icons**: React, Lucide React
+- **Custom Editor (Blog Maker)**: Vite, React, Tiptap (Headless Editor)
+- **Deployment**: Hosted on **Cloudflare Pages** using the `@astrojs/cloudflare` adapter.
+
+---
+
+## Repository Structure
 
 ```text
 /
-├── docs/                  Project notes, taxonomy, source material
-├── hadith/                Raw TSV exports of the 19 collections (gitignored, ~550 MB)
-├── public/                Static assets; silsilah-data/ holds generated reference indexes (gitignored)
-├── scripts/               Data pipelines and utilities (see below)
+├── docs/                  # Project notes, taxonomy, and source material
+├── public/                # Static assets (favicons, fonts, raw files)
+│   └── images/            # Optimized blog images and media assets
+├── scripts/               # Utility scripts for data processing and optimization
 ├── src/
-│   ├── components/        Site and article components; silsilah/ has database components
-│   ├── content/articles/  Blog posts (MDX)
-│   ├── data/              Generated JSON: quran verses, silsilah/ book chunks (gitignored)
-│   ├── layouts/           BaseLayout (main site), SilsilahLayout (database)
-│   ├── lib/               silsilah.ts (build-time data access), silsilah-text.ts (shared text utils)
-│   ├── pages/             Routes; silsilah/ holds the database pages
-│   └── styles/            Global visual system and article styles
-└── tools/                 Blog-maker authoring tool
+│   ├── components/        # Custom interactive UI components
+│   │   ├── IsnadDiagram.astro
+│   │   ├── HifzGame.astro
+│   │   ├── ReportCard.astro
+│   │   └── ...
+│   ├── content/articles/  # The core blog posts authored in MDX format
+│   ├── data/              # Generated JSON data used across the site
+│   ├── layouts/           # Site-wide structural layouts
+│   ├── lib/               # Shared utilities
+│   ├── pages/             # Astro application routes
+│   └── styles/            # Global visual system and article-specific styles
+└── tools/
+    └── blog-maker/        # Custom Vite+React authoring workspace for writing posts
 ```
 
-## Silsilah data pipeline
+---
 
-The database pages are generated from TSV exports in `hadith/`:
+## Getting Started
 
-1. Place or update the `*.tsv` files in `hadith/`.
-2. Run `node scripts/build-silsilah-data.cjs`. This writes book chunks to `src/data/silsilah/` and reference indexes to `public/silsilah-data/`.
-3. `npm run build` renders ~1,900 database pages and builds the search index (`dist/pagefind/`).
+### Prerequisites
+- **Node.js**: Version `>=22.12.0`
+- **npm**: Package manager
 
-Useful scripts:
+### Installation
+Clone the repository and install the dependencies:
+```bash
+git clone https://github.com/HadithCritic/hadithcriticblog.git
+cd hadithcriticblog
+npm install
+```
+*(Note: If you encounter peer dependency conflicts, use `npm install --legacy-peer-deps`)*
+
+### Local Development
+
+| Command | Action |
+| :--- | :--- |
+| `npm run dev` | Start the Astro development server at `http://localhost:4321` |
+| `npm run build` | Build the site to `./dist/` and generate the Pagefind search index |
+| `npm run preview` | Preview the production build locally (required to test search functionality) |
+
+*Search Note*: The Pagefind index is only generated during the build process. To test the search feature locally, you must run `npm run build` followed by `npm run preview`.
+
+---
+
+## Blog Authoring Environment
+
+Unlike traditional static blogs, this repository includes a custom authoring tool (`tools/blog-maker`) tailored for academic and scholarly writing, built with **Tiptap** and **React**.
+
+To launch the local authoring workspace:
+```bash
+npm run author
+```
+This runs a concurrent Vite dev server and an Express backend API specifically designed for seamlessly creating and managing the MDX files in `src/content/articles/`.
+
+---
+
+## Scripts & Utilities
+
+The `scripts/` directory contains various Node.js pipelines to maintain the site's data and media:
 
 | Script | Purpose |
-| :-- | :-- |
-| `scripts/build-silsilah-data.cjs` | TSV to JSON pipeline for the database |
-| `scripts/survey-hadith.cjs` | Statistics over the raw TSVs (coverage, grading, structure) |
-| `scripts/inspect-row.cjs` | Print a single TSV row as key:value pairs |
-| `scripts/test-search.mjs` | End-to-end queries against the built search index |
-| `scripts/optimize-images.cjs` | Convert heavy PNGs in public/ to WebP |
-| `scripts/build-quran-data.cjs` | Quran verse JSON for blog citations |
-| `scripts/build-rijal-data.cjs` | Parse al-Kashif (OpenITI) into the narrator register (expects the mARkdown file at the path set inside the script) |
-| `scripts/build-corpus-map-data.cjs` | Derive city journeys for every chain (nisba lexicon + transmitter gazetteer) into public/corpus-data/ |
+| :--- | :--- |
+| `test-search.mjs` | Runs end-to-end queries against the compiled Pagefind search index to verify search integrity. |
+| `optimize-images.cjs` | Automatically converts heavy PNG/JPG files in the `public/` directory to optimized WebP format. |
+| `build-quran-data.cjs` | Generates Quranic verse JSON data for quick citations within blog articles. |
+| `convert_to_mdx.cjs` | Utility to convert legacy content formats into standardized MDX. |
 
-Search note: the Pagefind index only exists after `npm run build`, so the search page reports itself unavailable under `npm run dev`. Use `npm run preview` to test search locally.
+---
+
+## Deployment
+
+The platform is configured for seamless deployment to **Cloudflare Pages**.
+
+1. Push changes to the main branch.
+2. Cloudflare Pages automatically detects the Astro build configuration via the `@astrojs/cloudflare` adapter.
+3. The site is built (`npm run build`) and served globally across Cloudflare's Edge network.
