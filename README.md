@@ -1,6 +1,10 @@
-# HadithCritic
+<p align="center">
+  <img src="docs/hadithcritic-blog-banner-ink.svg" alt="HadithCritic Blog Repository" width="100%" />
+</p>
 
-The HadithCritic platform: a blog of source-critical hadith studies plus three live projects:
+# HadithCritic Blog
+
+The [HadithCritic platform](https://hadithcriticblog.com) is a blog of source-critical hadith studies plus three live projects:
 
 - **Silsilah** (`/silsilah/`): a hadith database covering 19 classical collections (153,000+ reports) with Arabic text, English translation, transmission chains, gradings, and full-text search.
 - **Common-Link Studies** (`/studies/`): published isnad scholarship retold with animated transmission diagrams, linking to the original works.

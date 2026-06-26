@@ -882,6 +882,356 @@ main {
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE SAFE AREAS & OVERFLOW PROTECTION
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Root safe area variables for consistent usage */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
+/* Ensure html never scrolls horizontally */
+html {
+  overflow-x: hidden;
+  /* Remove the padding from html since we handle it on body */
+  padding: 0;
+}
+
+/* Body handles safe areas and overflow containment */
+body {
+  /* Safe area padding with fallback to 0 */
+  padding-top: max(var(--sat), 0px);
+  padding-right: max(var(--sar), 0px);
+  padding-bottom: max(var(--sab), 0px);
+  padding-left: max(var(--sal), 0px);
+  overflow-x: hidden;
+  /* Ensure body respects safe areas even with viewport-fit=cover */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Site shell must never overflow */
+.site-shell {
+  overflow-x: clip;
+  /* Ensure shell doesn't expand beyond viewport */
+  max-width: 100vw;
+  max-width: 100dvw;
+}
+
+/* Main content area overflow protection */
+main {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure all direct children of main respect bounds */
+main > * {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE HEADER SAFE AREA COMPENSATION
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Sticky header safe area padding */
+.site-header,
+[data-sticky-header] {
+  padding-top: max(var(--sat), 0px);
+}
+
+/* Mobile menu overlay safe areas */
+.mobile-menu-overlay {
+  padding-top: max(var(--sat), 0px);
+  padding-bottom: max(var(--sab), 0px);
+  padding-left: max(var(--sal), 0px);
+  padding-right: max(var(--sar), 0px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTAINER SAFE AREA RESPECT
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Ensure containers don't butt against screen edges on notched devices */
+.wrap,
+.hc-container,
+.hc-reading {
+  /* Add safe area insets to existing padding logic */
+  padding-left: max(var(--pad), var(--sal));
+  padding-right: max(var(--pad), var(--sar));
+}
+
+@media (max-width: 640px) {
+  .wrap,
+  .hc-container,
+  .hc-reading {
+    /* Tighter padding on mobile but still respect safe areas */
+    padding-left: max(0.9rem, var(--sal));
+    padding-right: max(0.9rem, var(--sar));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STICKY ELEMENT SAFE AREA HANDLING
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Archive tools sticky bar */
+.archive-tools {
+  top: calc(var(--site-header-height, 72px) + var(--sat, 0px));
+}
+
+/* Article metabar */
+.article-metabar {
+  top: calc(var(--site-header-height, 72px) + var(--sat, 0px));
+}
+
+/* TOC sidebar sticky positioning */
+.article-margin-right {
+  top: calc(6rem + var(--sat, 0px));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE MENU SCROLL LOCK & OVERLAY
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Mobile menu base styles (apply to your SiteHeader nav) */
+.mobile-nav {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--hc-surface-0);
+  /* Safe area aware padding */
+  padding: calc(var(--sat, 0px) + 1rem) max(var(--sar, 0px), 1rem) calc(var(--sab, 0px) + 1rem) max(var(--sal, 0px), 1rem);
+  display: flex;
+  flex-direction: column;
+  /* Start hidden */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(100%);
+  transition: opacity 300ms ease, transform 300ms var(--ease), visibility 300ms;
+  /* Prevent underlying scroll */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+}
+
+.mobile-nav.is-open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* Mobile menu backdrop */
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 300ms ease, visibility 300ms;
+}
+
+.mobile-nav-backdrop.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Hamburger button minimum tap target */
+.mobile-nav-toggle {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--hc-rule);
+  border-radius: var(--radius-xs);
+  color: var(--hc-header-link);
+  cursor: pointer;
+  /* Ensure it's above other content */
+  position: relative;
+  z-index: 101;
+}
+
+.mobile-nav-toggle:focus-visible {
+  outline: 2px solid var(--hc-gold);
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HORIZONTAL OVERFLOW FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Fix max-width: 100% + padding overflow */
+.hc-article-body,
+.hc-article-grid,
+.hc-container,
+.wrap,
+.hc-reading {
+  /* Ensure box-sizing is respected */
+  box-sizing: border-box;
+}
+
+/* Ensure tables don't cause overflow */
+.hc-article-body table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Fix grid layouts that might overflow */
+.projects-grid,
+.publication-grid,
+.hc-directory-grid,
+.component-grid,
+.token-grid,
+.palette-grid {
+  /* Ensure grids don't force wider viewport */
+  min-width: 0;
+}
+
+/* Image containment */
+img,
+svg,
+video,
+figure,
+.hero-plate,
+.book-stage,
+.book-display {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Fix pre/code blocks */
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FOOTER SAFE AREA
+   ═══════════════════════════════════════════════════════════════ */
+
+.site-footer,
+footer {
+  padding-bottom: max(2rem, var(--sab, 0px));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   YOUTUBE PAGE MOBILE FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Ensure hero doesn't overflow */
+.yt-hero {
+  /* Account for safe area in min-height */
+  min-height: calc(100vh - var(--sat, 0px) - var(--sab, 0px));
+  min-height: calc(100dvh - var(--sat, 0px) - var(--sab, 0px));
+}
+
+/* Filter track safe area */
+.yt-filter__track {
+  /* Add horizontal safe area padding */
+  padding-left: max(var(--sal, 0px), var(--pad, 1rem));
+  padding-right: max(var(--sar, 0px), var(--pad, 1rem));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESOURCES PAGE CATALOG FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+.catalog {
+  /* Ensure catalog doesn't overflow on mobile */
+  min-width: 0;
+}
+
+.catalog-index__list {
+  /* Prevent index from causing overflow */
+  max-width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BRAND PAGE MOBILE FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+.brand-hero {
+  /* Safe area aware padding */
+  padding-top: max(6rem, calc(4rem + var(--sat, 0px)));
+}
+
+.brand-frame {
+  /* Adjust frame for safe areas */
+  inset: calc(18px + var(--sat, 0px)) calc(18px + var(--sar, 0px)) calc(18px + var(--sab, 0px)) calc(18px + var(--sal, 0px));
+}
+
+@media (max-width: 760px) {
+  .brand-frame {
+    inset: calc(10px + var(--sat, 0px)) calc(10px + var(--sar, 0px)) calc(10px + var(--sab, 0px)) calc(10px + var(--sal, 0px));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CONTACT FORM MOBILE FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+.contact-grid {
+  /* Prevent grid overflow */
+  min-width: 0;
+}
+
+.contact-form {
+  /* Ensure form doesn't overflow */
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ACADEMIA PAGE MOBILE FIXES
+   ═══════════════════════════════════════════════════════════════ */
+
+.academia-hero {
+  padding-top: max(6.5rem, calc(4rem + var(--sat, 0px)));
+}
+
+.featured-book,
+.publication-grid {
+  min-width: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL OVERFLOW GUARDRAIL
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Catch-all for any element that might overflow */
+* {
+  /* This is a soft guardrail - specific fixes above take precedence */
+  max-width: 100vw;
+  max-width: 100dvw;
+}
+
+/* But allow intentional full-width elements */
+.site-shell,
+.hero-section,
+.yt-hero,
+.brand-hero,
+.closing-banner,
+.projects-hero,
+.resources-hero,
+.archive-hero,
+.contact-hero,
+.academia-hero {
+  max-width: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
