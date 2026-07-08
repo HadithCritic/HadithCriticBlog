@@ -1,0 +1,373 @@
+---
+title: "The Fire from Hijaz Hadith: al-Zuhrī, Kaʿb, and the Eruption Problem"
+description: "An isnād-cum-matn analysis of the fire-from-Hijaz report, showing how a narrow al-Zuhrī transmission, older Kaʿb-style apocalyptic fire lore, and the 1256 Medina eruption produced a later miracle claim."
+date: 2025-01-26T18:56:36.000Z
+category: "Prophecies & Eschatology"
+tags: ["Fire from Hijaz", "Harrat Rahat", "al-Zuhri", "Kab al-Ahbar", "Abu Hurayra", "Busra", "Medina eruption", "hadith criticism", "isnad-cum-matn", "apocalyptic hadith"]
+thumbnail: "/images/blog_thumbnails/tn.24.png"
+---
+
+import HadithBlock from '../../../components/article/HadithBlock.astro';
+import ClaimBox from '../../../components/article/ClaimBox.astro';
+import ContextNote from '../../../components/article/ContextNote.astro';
+import VerdictBox from '../../../components/article/VerdictBox.astro';
+import QuranVerse from '../../../components/article/QuranVerse.astro';
+import IsnadDiagram from '../../../components/IsnadDiagram.astro';
+
+export const hijazFireNodes = [
+  { id: 'prophet', x: 610, y: 830, label: 'The Prophet\nclaimed source', kind: 'root', labelPos: 'right' },
+  { id: 'abuHurayra', x: 610, y: 720, label: 'Abū Hurayra\nclaimed Companion source', labelPos: 'right' },
+  { id: 'said', x: 610, y: 610, label: 'Saʿīd b. al-Musayyib\nMedinan authority', labelPos: 'right' },
+  { id: 'zuhri', x: 610, y: 485, label: 'al-Zuhrī / Ibn Shihāb\nrecoverable bottleneck', kind: 'cl', labelPos: 'right' },
+
+  { id: 'mamar', x: 185, y: 315, label: 'Maʿmar\nmursal / al-Zuhrī statement', kind: 'cl', labelPos: 'below' },
+  { id: 'shuyab', x: 430, y: 315, label: 'Shuʿayb b. Abī Ḥamza\nSyrian route', labelPos: 'below' },
+  { id: 'yunus', x: 675, y: 315, label: 'Yūnus b. Yazīd\nEgyptian route', labelPos: 'below' },
+  { id: 'aqil', x: 920, y: 315, label: 'ʿUqayl b. Khālid\nEgyptian route', labelPos: 'below' },
+  { id: 'late', x: 1110, y: 315, label: 'later repeats\nsame al-Zuhrī stem', labelPos: 'below' },
+
+  { id: 'abdrazzaq', x: 185, y: 150, label: 'ʿAbd al-Razzāq 20788\nNuʿaym 1764\nno Abū Hurayra in form', kind: 'collector', labelPos: 'above' },
+  { id: 'bukhari', x: 430, y: 150, label: 'al-Bukhārī 7118', kind: 'collector', labelPos: 'above' },
+  { id: 'muslimY', x: 675, y: 150, label: 'Muslim 2902\nIbn Ḥibbān 6839', kind: 'collector', labelPos: 'above' },
+  { id: 'muslimA', x: 920, y: 150, label: 'Muslim 2902\nal-Bazzār 7770\nal-Ḥākim 8369', kind: 'collector', labelPos: 'above' },
+  { id: 'reception', x: 1110, y: 150, label: 'Ibn Kathīr\nIbn Ḥajar\nlater signs literature', kind: 'collector', labelPos: 'above' }
+];
+
+export const hijazFireEdges = [
+  { from: 'prophet', to: 'abuHurayra', kind: 'trunk' },
+  { from: 'abuHurayra', to: 'said', kind: 'trunk' },
+  { from: 'said', to: 'zuhri', kind: 'trunk' },
+
+  { from: 'zuhri', to: 'mamar', kind: 'dive' },
+  { from: 'zuhri', to: 'shuyab', kind: 'trunk' },
+  { from: 'zuhri', to: 'yunus', kind: 'trunk' },
+  { from: 'zuhri', to: 'aqil', kind: 'trunk' },
+  { from: 'zuhri', to: 'late' },
+
+  { from: 'mamar', to: 'abdrazzaq', kind: 'dive' },
+  { from: 'shuyab', to: 'bukhari', kind: 'trunk' },
+  { from: 'yunus', to: 'muslimY', kind: 'trunk' },
+  { from: 'aqil', to: 'muslimA', kind: 'trunk' },
+  { from: 'late', to: 'reception' }
+];
+
+export const hijazFireTiers = [
+  { y: 150, label: 'Collection / reception layer' },
+  { y: 315, label: 'al-Zuhrī transmitter layer' },
+  { y: 485, label: 'Recoverable bottleneck' },
+  { y: 610, label: 'Medinan authority claim' },
+  { y: 720, label: 'Companion attribution' },
+  { y: 830, label: 'Prophetic attribution' }
+];
+
+export const hijazFireAnnotations = [
+  { x: 695, y: 485, text: 'the exact Hijaz → Busra wording becomes visible here', anchor: 'start', kind: 'note' },
+  { x: 185, y: 260, text: 'the earliest-looking parallel is a bare al-Zuhrī saying', anchor: 'middle', kind: 'dive' },
+  { x: 805, y: 260, text: 'canonical breadth is mostly lower branching below al-Zuhrī', anchor: 'middle', kind: 'note' }
+];
+
+export const fireMotifNodes = [
+  { id: 'motif', x: 610, y: 760, label: 'Apocalyptic fire lore\nArabia → Syria / gathering', kind: 'root', labelPos: 'right' },
+
+  { id: 'kab', x: 260, y: 585, label: 'Kaʿb al-Aḥbār\nYemen fire drives people to al-Shām\nBusra camel-neck phrase', kind: 'cl', labelPos: 'left' },
+  { id: 'tawus', x: 535, y: 585, label: 'Ṭāwūs / Muʿādh\nleave Yemen before the fire', labelPos: 'below' },
+  { id: 'zuhriBare', x: 810, y: 585, label: 'al-Zuhrī\nHijaz fire illuminates Busra\nbare statement', kind: 'cl', labelPos: 'right' },
+  { id: 'finalFire', x: 1060, y: 585, label: 'Aden / Yemen final fire\ntravels and rests with people', labelPos: 'right' },
+
+  { id: 'yemen', x: 260, y: 380, label: 'Yemen origin\nmigration to Syria', kind: 'ghost', labelPos: 'below' },
+  { id: 'hijaz', x: 810, y: 380, label: 'Hijaz origin\nvolcanic landscape near Medina', kind: 'ghost', labelPos: 'below' },
+
+  { id: 'propheticHijaz', x: 810, y: 210, label: 'Propheticized form\nal-Zuhrī → Saʿīd → Abū Hurayra', kind: 'collector', labelPos: 'above' },
+  { id: 'eruption1256', x: 1060, y: 210, label: '1256 Medina eruption\nlater fulfillment reading', kind: 'collector', labelPos: 'above' }
+];
+
+export const fireMotifEdges = [
+  { from: 'motif', to: 'kab', kind: 'dive' },
+  { from: 'motif', to: 'tawus' },
+  { from: 'motif', to: 'zuhriBare', kind: 'trunk' },
+  { from: 'motif', to: 'finalFire' },
+
+  { from: 'kab', to: 'yemen', kind: 'dive' },
+  { from: 'zuhriBare', to: 'hijaz', kind: 'trunk' },
+  { from: 'hijaz', to: 'propheticHijaz', kind: 'trunk' },
+  { from: 'propheticHijaz', to: 'eruption1256' }
+];
+
+export const fireMotifTiers = [
+  { y: 210, label: 'Later Prophetic / fulfillment frame' },
+  { y: 380, label: 'Geographic specialization' },
+  { y: 585, label: 'Early apocalyptic variants' },
+  { y: 760, label: 'Shared motif' }
+];
+
+export const fireMotifAnnotations = [
+  { x: 312, y: 337, text: 'same Busra illumination phrase appears without Prophetic attribution', anchor: 'middle', kind: 'dive' },
+  { x: 835, y: 337, text: 'Hijaz is the localizing move', anchor: 'middle', kind: 'note' },
+  { x: 1008, y: 162, text: 'the eruption did occur; the miracle claim is the later identification', anchor: 'middle', kind: 'note' }
+];
+
+## The Report Everyone Quotes
+
+<HadithBlock>
+<div class="hadith-block__arabic">لَا تَقُومُ السَّاعَةُ حَتَّى تَخْرُجَ نَارٌ مِنْ أَرْضِ الْحِجَازِ تُضِيءُ أَعْنَاقَ الْإِبِلِ بِبُصْرَى.</div>
+<div class="hadith-block__translation">“The Hour will not come until a fire emerges from the land of the Hijaz, illuminating the necks of the camels at Buṣrā.”</div>
+</HadithBlock>
+
+The apologetic version of this report is familiar. A hadith attributed to the Prophet says that a fire will emerge from the Hijaz and illuminate the necks of camels at Buṣrā in Syria. In 654 AH / 1256 CE, a major eruption occurred near Medina, and medieval historians later identified that event with the report. The modern miracle claim then says: the Prophet predicted a volcanic eruption more than six centuries in advance.
+
+That argument sounds strong only if the report is treated as a free-floating sentence, isolated from its transmission, its matn relatives, and the way the 1256 eruption was interpreted by people who already knew the hadith. Once the report is placed back into its tradition-history, the case changes. The exact Prophetic version is not transmitted through many independent early witnesses. It converges on one Medinan-Syrian channel:
+
+> **al-Zuhrī → Saʿīd b. al-Musayyib → Abū Hurayra**
+
+The most revealing early-looking witness is even more direct. ʿAbd al-Razzāq preserves the same sentence from Maʿmar from al-Zuhrī, but without Abū Hurayra and without the Prophet:
+
+<HadithBlock>
+<div class="hadith-block__arabic">قَالَ عَبْدُ الرَّزَّاقِ، قَالَ مَعْمَرٌ، قَالَ الزُّهْرِيُّ: تَخْرُجُ نَارٌ بِأَرْضِ الْحِجَازِ تُضِيءُ أَعْنَاقَ الْإِبِلِ بِبُصْرَى.</div>
+<div class="hadith-block__translation">ʿAbd al-Razzāq said: Maʿmar said: al-Zuhrī said: “A fire will emerge in the land of the Hijaz, illuminating the necks of the camels at Buṣrā.”</div>
+</HadithBlock>
+
+That mursal or unattributed form is not a minor curiosity. It shows that the phrase circulated as an al-Zuhrī saying before, or at least alongside, the full Saʿīd → Abū Hurayra Prophetic version. The safer reconstruction is not that every later narrator lied. It is that the recoverable wording becomes historically visible at al-Zuhrī, and the Prophetic isnād is part of the report’s later authoritative packaging.
+
+<ClaimBox>
+The “fire from Hijaz” report is best explained as an al-Zuhrī-centered apocalyptic localization of older Arabian fire lore. The 1256 eruption is real, but the miracle claim depends on treating later fulfillment-shaped reception as if it were independent proof of a first/seventh-century prophecy.
+</ClaimBox>
+
+## The Isnād: One Real Bottleneck, Many Lower Routes
+
+The canonical form appears in al-Bukhārī and Muslim. Al-Bukhārī gives it through Abū al-Yamān → Shuʿayb → al-Zuhrī → Saʿīd → Abū Hurayra. Muslim gives it through Yūnus and ʿUqayl from Ibn Shihāb al-Zuhrī through the same upper line. Ibn Ḥibbān repeats the Yūnus route. Al-Bazzār and al-Ḥākim preserve ʿUqayl-side forms. The lower routes differ, but the upper structure does not.
+
+<IsnadDiagram
+  width={1220}
+  height={900}
+  nodes={hijazFireNodes}
+  edges={hijazFireEdges}
+  tiers={hijazFireTiers}
+  annotations={hijazFireAnnotations}
+  caption="The main fire-from-Hijaz report. The apparent breadth is mostly below al-Zuhrī. The Maʿmar route is especially important because it preserves the same sentence as an al-Zuhrī statement without the Abū Hurayra attribution."
+  ariaLabel="Isnad diagram for the fire from Hijaz hadith showing Prophet, Abu Hurayra, Said ibn al-Musayyib, al-Zuhri as bottleneck, and branches through Mamar, Shuyab, Yunus, Aqil, and later reception."
+/>
+
+The diagram does not “disprove” the report by itself. It tells us where the historical question belongs. If a report appears in many books but every usable line passes through al-Zuhrī, then al-Zuhrī’s milieu is the place to ask why this sentence took its final form. The answer is not difficult to see. Al-Zuhrī stands at the meeting-point of Medinan authority, Syrian-Umayyad circulation, and apocalyptic interest in the geography of Syria.
+
+The Bukhārī/Muslim wording also has a very polished form. It is not an open-ended volcano notice. It is a sign-of-the-Hour formula: “The Hour will not come until…” That formula belongs to a much wider end-time repertoire in which places, rulers, invasions, fires, earthquakes, and migrations are turned into chronological signs.
+
+## The Older Fire Lore: Kaʿb, Yemen, and Syria
+
+The strongest collateral evidence is the Kaʿb report preserved in Nuʿaym b. Ḥammād’s *Kitāb al-Fitan*:
+
+<HadithBlock>
+<div class="hadith-block__arabic">عَنْ كَعْبٍ قَالَ: يُوشِكُ نَارٌ تَخْرُجُ بِالْيَمَنِ تَسُوقُ النَّاسَ إِلَى الشَّامِ، تَغْدُو إِذَا غَدَوْا، وَتَقِيلُ إِذَا قَالُوا، وَتَرُوحُ إِذَا رَاحُوا، تُضِيءُ مِنْهَا أَعْنَاقُ الْإِبِلِ بِبُصْرَى، فَإِذَا سَمِعْتَ ذَلِكَ فَاخْرُجُوا إِلَى الشَّامِ.</div>
+<div class="hadith-block__translation">Kaʿb said: “A fire will soon emerge in Yemen, driving people to al-Shām. It will go with them when they go in the morning, rest when they rest at midday, and go with them when they go in the evening. From it the necks of the camels at Buṣrā will be illuminated. When you hear of that, go out to al-Shām.”</div>
+</HadithBlock>
+
+This is not the same report as the al-Zuhrī hadith. It says Yemen, not Hijaz. It drives people to Syria, rather than merely shining toward Buṣrā. It is placed on Kaʿb, not on the Prophet. But the shared phrase is too specific to ignore: **“the necks of the camels at Buṣrā will be illuminated.”** That phrase is the distinctive image in the canonical report. Nuʿaym also places this Kaʿb material beside other Yemen/Aden fire traditions, including reports in which the fire drives people and travels with them by day and night.
+
+<ContextNote>
+The Kaʿb report should not be treated as a secure transcript of Kaʿb’s own words. Nuʿaym’s book is a later apocalyptic compilation. The point is narrower: the Buṣrā camel-neck image is attested in non-Prophetic apocalyptic fire lore, and the al-Zuhrī report looks like a Hijaz-localized version of that same symbolic geography.
+</ContextNote>
+
+The shift from **Yemen → al-Shām** to **Hijaz → Buṣrā** is exactly the sort of localization one expects in early Islamic apocalyptic tradition. Syria is the destination and viewing horizon. The Hijaz supplies a more concrete Arabian fire landscape, because Medina sits beside volcanic harrats. The final form then turns that localized sign into a Prophetic prediction through Abū Hurayra.
+
+<IsnadDiagram
+  width={1220}
+  height={820}
+  nodes={fireMotifNodes}
+  edges={fireMotifEdges}
+  tiers={fireMotifTiers}
+  annotations={fireMotifAnnotations}
+  caption="The matn-family problem. The Buṣrā illumination image exists inside a wider family of Arabian fire traditions. The al-Zuhrī form specializes the geography by moving the origin from Yemen/Aden-style migration lore to the Hijaz."
+  ariaLabel="Motif diagram showing apocalyptic fire lore branching to Kab's Yemen fire, Tawus and Muadh Yemen traditions, al-Zuhri Hijaz fire, final fire traditions, and later 1256 fulfillment reading."
+/>
+
+## Why Abū Hurayra Was the Right Companion Frame
+
+Abū Hurayra is not incidental. In the tradition literature, he is one of the Companions most often placed near Kaʿb al-Aḥbār. Muslim even preserves a report in which Abū Hurayra says something to Kaʿb, and Kaʿb asks him whether he heard it from the Prophet. Whatever one thinks of that individual report, it shows that early transmitters could imagine Abū Hurayra and Kaʿb exchanging religious lore.
+
+That matters here because the fire-from-Hijaz report is exactly the kind of material that could migrate across the boundary between Companion hadith and Kaʿb-style apocalyptic interpretation. A non-Prophetic end-time motif about a fire from Arabia toward Syria becomes more authoritative if it is attached to Abū Hurayra, then passed through Saʿīd b. al-Musayyib and al-Zuhrī.
+
+This is also why the report’s geography makes sense in al-Zuhrī’s world. Al-Zuhrī is a Medinan scholar whose transmission travelled strongly through Syrian and Umayyad channels. A sign that begins in the Hijaz but shines toward Buṣrā gives both regions a role. It is Medinan enough to be tied to Abū Hurayra and Saʿīd. It is Syrian enough to interest an audience for whom al-Shām was the center of apocalyptic expectation.
+
+## The 641 Problem Has to Be Handled Carefully
+
+The old version of the argument leaned heavily on a first/seventh-century eruption around 640 or 641 CE. That part should be made more careful.
+
+There are medieval reports, transmitted much later, that during the caliphate of ʿUmar a small fire rose from the lava field of Medina and then died out. Modern geological discussions have sometimes connected those reports with a 640/641 eruption near Medina. NASA’s Earth Observatory article, for example, presents the 1256 flow as Harrat Rahat’s youngest lava flow and says that an earlier eruption in 641 CE created finger-like flows east of the 1256 flow.
+
+But newer USGS mapping complicates this. The USGS geologic map of northern Harrat Rahat says that a cluster of cones and small lava flows in the western outskirts of Medina, previously ascribed to 641 CE, actually dates to **13.3 ± 1.9 ka**, near the Pleistocene-Holocene boundary. The same study identifies the historically described 1256 basalt of al-Lābah as the secure Holocene eruption in the mapped area. This does not mean there was no remembered earthquake or small fire in the early Islamic period. It does mean that the 641 eruption cannot be used as a simple proven geological anchor.
+
+That is why the argument should not depend on saying, “Kaʿb saw the 641 eruption, therefore he invented the report.” The stronger argument is more modest and more durable:
+
+> The fire-from-Hijaz hadith belongs to an early apocalyptic fire complex, and the exact Prophetic form becomes visible through al-Zuhrī. A remembered early fire or earthquake may help explain why the Hijaz became the chosen location, but the transmission evidence does not require a fully verified 641 lava flow.
+
+## The 1256 Eruption Was Real, But the Fulfillment Claim Is a Reception Event
+
+The 1256 eruption near Medina is not imaginary. It is one of the best documented historical eruptions in Arabia. Modern geological sources describe the 1256 event as a basaltic eruption from aligned vents in northern Harrat Rahat. The Smithsonian Global Volcanism Program says that the best-known eruption took place in 1256 CE, when a lava flow of about 0.5 cubic kilometers erupted from six aligned scoria cones and travelled 23 km to within 4 km of Medina. USGS summaries likewise identify Harrat Rahat as the largest Saudi lava field and describe the 1256 eruption as the most recent historical eruption in the mapped region.
+
+Medieval historians also recorded the event in detail. Ibn Kathīr, summarizing Abū Shāma’s contemporary material, says that letters reached Damascus from Medina describing a mighty event in 654 AH. Those letters described earthquakes, a fire in the lava field near Qurayẓa, lava-like streams, smoke, sparks, and a terrifying glow. Later in the same entry, Ibn Kathīr reports that a Damascene judge heard from a Bedouin at Buṣrā that they saw the necks of their camels in the light of the fire.
+
+That last detail is the apologetic centerpiece. It should be read with care. The Buṣrā camel-neck phrase is already the hadith’s own phrase. The 1256 reports do not give us a neutral instrument reading from southern Syria. They give us a medieval religious interpretation of an eruption by people who already knew the report and were actively reading the event as its fulfillment. Ibn Kathīr’s chapter says this directly: the event was understood as a confirmation of the hadith in the two Ṣaḥīḥs.
+
+The result is not independent confirmation. It is a feedback loop:
+
+<div class="fireTimeline" aria-label="Timeline of the fire from Hijaz report and eruption reception">
+  <div class="fireTimeline__card">
+    <span>Before the canon</span>
+    <h3>Apocalyptic fire lore</h3>
+    <p>Yemen, Aden, Hijaz, and Syria appear in fire-and-gathering traditions. Kaʿb-style material already uses the Buṣrā illumination image.</p>
+  </div>
+  <div class="fireTimeline__card fireTimeline__card--hot">
+    <span>al-Zuhrī layer</span>
+    <h3>Hijaz localized</h3>
+    <p>The exact sentence appears from al-Zuhrī. In one early witness it is simply his statement; in the canonical form it is raised through Saʿīd and Abū Hurayra.</p>
+  </div>
+  <div class="fireTimeline__card">
+    <span>654 AH / 1256 CE</span>
+    <h3>Medina eruption</h3>
+    <p>A real eruption occurs near Medina. Contemporary letters and later histories describe earthquakes, fire, smoke, lava, and distant light.</p>
+  </div>
+  <div class="fireTimeline__card">
+    <span>Later reception</span>
+    <h3>Fulfillment reading</h3>
+    <p>Historians identify the eruption with the hadith. The Buṣrā camel-neck phrase re-enters the historical narrative as proof that the report came true.</p>
+  </div>
+</div>
+
+This is the core problem. A religious community experiences a volcanic disaster. Its scholars already possess a hadith about a fire in the Hijaz. They then describe the disaster in the hadith’s own language. Modern apologists take that reception language and use it as proof that the hadith predicted the disaster. The source-critical question is not whether the eruption happened. It did. The question is whether the report’s transmission proves a first/seventh-century prophecy. It does not.
+
+## The Quranic Problem
+
+The Quran repeatedly frames the Prophet as a warner whose mission is tied to revelation, not independent fortune-telling. The most direct verse is 7:188:
+
+<QuranVerse verse="7:188" />
+
+That verse does not deny that God knows the future. It denies that the Prophet possessed future knowledge as a personal power. The same pattern appears when people demand signs and are redirected to the Quran itself as the sufficient sign:
+
+<QuranVerse verse="29:50-51" />
+
+This matters because the fire-from-Hijaz miracle claim is not merely saying, “God knows all things.” It is using a later hadith complex to give the Prophet a catalogue of precise future predictions, then using those predictions to validate the hadith corpus. That is exactly the move the Quranic evidence resists. The Prophet’s authorized miracle is the message, not a portfolio of volcanic forecasts.
+
+## The Matn Tells the Story
+
+The matn development is easier to see when the reports are placed side by side.
+
+| Form | Source profile | Fire origin | Direction / function | Buṣrā phrase | Attribution |
+|---|---|---|---|---|---|
+| Yemen fire drives people to al-Shām | Nuʿaym, Kaʿb report | Yemen | Drives people to Syria; travels and rests with them | Yes | Kaʿb, not the Prophet |
+| Yemen/Aden final gathering fire | Nuʿaym and broader apocalyptic reports | Yemen / Aden | Gathers people at the end | Sometimes absent, sometimes with travel/rest motif | Mixed |
+| Hijaz fire illuminates Buṣrā | ʿAbd al-Razzāq / Nuʿaym through Maʿmar | Hijaz | Illumination only | Yes | al-Zuhrī statement |
+| Hijaz fire as sign of the Hour | Bukhārī, Muslim, Ibn Ḥibbān, al-Bazzār, al-Ḥākim | Hijaz | Sign before the Hour | Yes | Prophet through Abū Hurayra |
+| 1256 fulfillment narrative | Abū Shāma, Ibn Kathīr, later historians | Medina lava field | Historical eruption interpreted as sign | Reused as fulfillment language | Historiographical reception |
+
+The shared Buṣrā phrase is the thread. The geography changes. The function changes. The attribution changes. But the visual image remains.
+
+## Objections
+
+### “But al-Bukhārī and Muslim both transmit it.”
+
+They do, but both collections still depend on the same upper transmission. The issue is not whether later collectors accepted the report. The issue is whether the report has independent early roots. The usable forms converge on al-Zuhrī. That is a narrow historical base for a claim of supernatural prediction.
+
+### “But the 1256 eruption really happened.”
+
+Yes. The eruption is real and well documented. The critique is not geological denial. The critique is that the hadith existed before the eruption and shaped the way the eruption was described afterward. A fulfillment narrative is not automatically independent evidence.
+
+### “But people in Buṣrā reportedly saw the camel necks illuminated.”
+
+The report exists, but it reaches us inside the very fulfillment literature that cites the hadith. Ibn Kathīr’s entry explicitly frames the event as the realization of the hadith, then reports the Buṣrā detail in that context. That makes it weak as independent confirmation. The phrase may be true, exaggerated, or formulaically repeated. It cannot carry the miracle claim by itself.
+
+### “Could the eruption’s light reach far away?”
+
+Volcanic glow, smoke, aerosols, and atmospheric scattering can affect skies far from an eruption. The 1256 historical accounts mention light as far as Taymāʾ, Mecca, and, in later summaries, Buṣrā. The problem is not that distant atmospheric effects are impossible. The problem is that the precise Buṣrā-camel wording is already the hadith’s wording, so its appearance in the eruption narratives is not neutral.
+
+### “Does the 641 eruption prove the hadith was made after the fact?”
+
+Not by itself. The 641 eruption is not secure enough to bear the full argument. Some modern summaries mention it, but USGS mapping challenges earlier identifications of the supposed 641 cones near Medina. The article’s stronger claim is about transmission and matn: the report is al-Zuhrī-centered and belongs to a broader apocalyptic fire motif. The possible early Islamic fire memory is contextual support, not the foundation.
+
+## The Most Likely Reconstruction
+
+The report probably did not begin as a precise volcanic prophecy. It began in a wider apocalyptic imagination in which fires emerge from Arabia and drive or signal people toward Syria. Kaʿb-style material preserves one version of that lore: a Yemen fire, a movement toward al-Shām, and the striking Buṣrā camel-neck image.
+
+Al-Zuhrī’s circle gives the motif its Hijaz form. The wording is shortened, localized, and made more elegant: a fire from the land of the Hijaz illuminates the necks of camels at Buṣrā. In Maʿmar’s route, this appears as al-Zuhrī’s own statement. In the canonical route, it is raised through Saʿīd b. al-Musayyib and Abū Hurayra to the Prophet.
+
+The 1256 eruption then gives the report its afterlife. A dramatic volcanic event occurs near Medina. Letters reach Damascus. Historians describe the event through the lens of the hadith. The phrase “necks of camels at Buṣrā” becomes part of the event’s religious memory. Later readers mistake that memory-loop for proof of prediction.
+
+<VerdictBox>
+The fire-from-Hijaz hadith is not best explained as a clean supernatural forecast of the 1256 eruption. Its recoverable transmission is narrow, centered on al-Zuhrī; its imagery is already present in Kaʿb-style Arabian fire lore; and the 1256 eruption was interpreted through the hadith after the fact. The eruption happened. The miracle claim is the later identification of that eruption with an al-Zuhrī-shaped apocalyptic report.
+</VerdictBox>
+
+## Sources consulted
+
+1. **Main Prophetic fire-from-Hijaz report.** al-Bukhārī, *Ṣaḥīḥ*, no. 7118; Muslim, *Ṣaḥīḥ*, no. 2902; Ibn Ḥibbān, *Ṣaḥīḥ*, no. 6839; al-Bazzār, *Musnad*, no. 7770; al-Ḥākim, *al-Mustadrak*, no. 8369.
+
+2. **Unattributed al-Zuhrī form.** ʿAbd al-Razzāq, *al-Muṣannaf*, no. 20788: Maʿmar from al-Zuhrī, “A fire will emerge in the land of the Hijaz, illuminating the necks of the camels at Buṣrā”; Nuʿaym b. Ḥammād, *Kitāb al-Fitan*, no. 1764, preserving the same Maʿmar → al-Zuhrī form.
+
+3. **Kaʿb and the wider Arabian fire motif.** Nuʿaym b. Ḥammād, *Kitāb al-Fitan*, no. 1754, Kaʿb’s Yemen-fire report; compare nos. 1755, 1763, 1765–1767 and related Aden/Yemen fire traditions.
+
+4. **1256 eruption historical reception.** Abū Shāma, *al-Dhayl ʿalā al-Rawḍatayn*; Ibn Kathīr, *al-Bidāya wa-l-nihāya*, events of 654 AH; al-Qurṭubī, *al-Tadhkira*; al-Nawawī, *Sharḥ Ṣaḥīḥ Muslim*; al-Samhūdī, *Wafāʾ al-wafā bi-akhbār dār al-Muṣṭafā*.
+
+5. **Modern volcanology and historical eruption studies.** Drew T. Downs et al., “Volcanic history of the northernmost part of the Harrat Rahat volcanic field, Saudi Arabia,” *Geosphere* 14.3 (2018): 1253–1282; David T. Downs et al., *Geologic Map of the Northern Harrat Rahat Volcanic Field, Kingdom of Saudi Arabia*, USGS Scientific Investigations Map 3428 (2019); Smithsonian Global Volcanism Program, “Harrat Rahat”; NASA Earth Observatory, “Living on Lava”; Nabil Nasr El-Masry et al., “Historical Accounts of the AD 1256 Eruption near Al-Madinah” (VORISA, 2013).
+
+6. **Apocalyptic method and context.** Nuʿaym b. Ḥammād, *The Book of Tribulations: The Syrian Muslim Apocalyptic Tradition*, ed. and trans. David Cook (Edinburgh University Press, 2017); Harald Motzki, “Dating Muslim Traditions: A Survey,” *Arabica* 52.2 (2005); David Cook, *Studies in Muslim Apocalyptic*.
+
+<style>{`
+  .fireTimeline {
+    margin: 2.25rem 0;
+    padding: clamp(1rem, 2vw, 1.4rem);
+    border: 1px solid rgba(216, 183, 97, 0.28);
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 22% 18%, rgba(255, 117, 52, 0.13), transparent 30%),
+      radial-gradient(circle at 78% 12%, rgba(216, 183, 97, 0.10), transparent 28%),
+      linear-gradient(135deg, rgba(34, 13, 6, 0.84), rgba(10, 10, 10, 0.94));
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+
+  .fireTimeline__card {
+    position: relative;
+    min-height: 225px;
+    padding: 1.15rem 1rem 1rem;
+    border: 1px solid rgba(216, 183, 97, 0.24);
+    border-radius: 18px;
+    background: rgba(12, 12, 12, 0.74);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+  }
+
+  .fireTimeline__card--hot {
+    border-color: rgba(232, 129, 68, 0.58);
+    background: linear-gradient(180deg, rgba(105, 39, 16, 0.48), rgba(12, 12, 12, 0.78));
+  }
+
+  .fireTimeline__card span {
+    display: inline-flex;
+    margin-bottom: 0.75rem;
+    padding: 0.28rem 0.58rem;
+    border: 1px solid rgba(216, 183, 97, 0.3);
+    border-radius: 999px;
+    color: rgba(216, 183, 97, 0.92);
+    font-size: 0.76rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.28);
+  }
+
+  .fireTimeline__card h3 {
+    margin: 0 0 0.65rem;
+    color: var(--hc-gold, #d8b761);
+    font-size: clamp(1.05rem, 1.4vw, 1.28rem);
+    line-height: 1.2;
+  }
+
+  .fireTimeline__card p {
+    margin: 0;
+    color: rgba(245, 238, 220, 0.84);
+    font-size: 0.98rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 1050px) {
+    .fireTimeline {
+      grid-template-columns: 1fr;
+    }
+  }
+`}</style>

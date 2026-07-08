@@ -1,0 +1,462 @@
+---
+title: "The Apostasy Hadith: How a single disputed transmitter created a capital ruling"
+description: "A complete isnād-cum-matn analysis of the report 'Whoever changes his religion, kill him,' its dependence on ʿIkrimah, the Qatādah bypass problem, and the later legal doctrine built on a single disputed transmitter."
+date: 2023-05-22T09:54:41.000Z
+category: "Theology & Epistemology"
+tags: ["apostasy", "Ikrimah", "Ibn Abbas", "hadith criticism", "Kharijites", "Sufriyya", "isnad-cum-matn", "Bukhari", "Quranic sufficiency"]
+thumbnail: "/images/blog_thumbnails/tn.1.png"
+---
+
+import HadithBlock from '../../../components/article/HadithBlock.astro';
+import ClaimBox from '../../../components/article/ClaimBox.astro';
+import ContextNote from '../../../components/article/ContextNote.astro';
+import VerdictBox from '../../../components/article/VerdictBox.astro';
+import QuranVerse from '../../../components/article/QuranVerse.astro';
+import IsnadDiagram from '../../../components/IsnadDiagram.astro';
+
+export const apostasyCleanNodes = [
+  { id: 'prophet', x: 600, y: 840, label: 'The Prophet', kind: 'root', labelPos: 'right' },
+  { id: 'ibnAbbas', x: 600, y: 760, label: 'Ibn ʿAbbās', labelPos: 'right' },
+  { id: 'ikrima', x: 600, y: 660, label: 'ʿIkrimah', kind: 'cl', labelPos: 'right' },
+  { id: 'ayyub', x: 600, y: 555, label: 'Ayyūb\n33 variants', kind: 'cl', labelPos: 'right' },
+
+  { id: 'mamar', x: 125, y: 405, label: 'Maʿmar\n5', labelPos: 'below' },
+  { id: 'hammad', x: 260, y: 405, label: 'Ḥammād\n6', labelPos: 'below' },
+  { id: 'ismail', x: 395, y: 405, label: 'Ismāʿīl\n4', labelPos: 'below' },
+  { id: 'ibnUyaynah', x: 535, y: 405, label: 'Ibn ʿUyaynah\n10', labelPos: 'below' },
+  { id: 'wuhayb', x: 680, y: 405, label: 'Wuhayb\n3', labelPos: 'below' },
+  { id: 'abdWarith', x: 815, y: 405, label: 'ʿAbd al-Wārith\n3', labelPos: 'below' },
+  { id: 'saeed', x: 950, y: 405, label: 'Saʿīd\n1', labelPos: 'below' },
+  { id: 'thaqafi', x: 1085, y: 405, label: 'al-Thaqafī\n1', labelPos: 'below' },
+
+  { id: 'ayyubRefs', x: 600, y: 255, label: 'Ayyūb family\n33 references', kind: 'collector', labelPos: 'above' },
+
+  { id: 'aliFrame', x: 975, y: 760, label: 'ʿAlī burning\nstory frame', kind: 'root', labelPos: 'right' },
+  { id: 'anas', x: 975, y: 660, label: 'Anas', labelPos: 'right' },
+  { id: 'qatadah', x: 975, y: 555, label: 'Qatādah\n14 linked variants', kind: 'ghost', labelPos: 'right' },
+
+  { id: 'hisham', x: 1055, y: 405, label: 'Hishām\n11', labelPos: 'below' },
+  { id: 'qatadahAnasRefs', x: 1055, y: 255, label: 'Qatādah → Anas\n11 references', kind: 'collector', labelPos: 'above' },
+
+  { id: 'qatadahIkrima', x: 825, y: 525, label: 'Qatādah\nthrough ʿIkrimah\n3', kind: 'ghost', labelPos: 'left' },
+  { id: 'qatadahIkrimaRefs', x: 825, y: 255, label: 'Qatādah → ʿIkrimah\n3 references', kind: 'collector', labelPos: 'above' }
+];
+
+export const apostasyCleanEdges = [
+  { from: 'prophet', to: 'ibnAbbas', kind: 'trunk' },
+  { from: 'ibnAbbas', to: 'ikrima', kind: 'trunk' },
+  { from: 'ikrima', to: 'ayyub', kind: 'trunk' },
+
+  { from: 'ayyub', to: 'mamar' },
+  { from: 'ayyub', to: 'hammad' },
+  { from: 'ayyub', to: 'ismail' },
+  { from: 'ayyub', to: 'ibnUyaynah' },
+  { from: 'ayyub', to: 'wuhayb' },
+  { from: 'ayyub', to: 'abdWarith' },
+  { from: 'ayyub', to: 'saeed' },
+  { from: 'ayyub', to: 'thaqafi' },
+
+  { from: 'mamar', to: 'ayyubRefs' },
+  { from: 'hammad', to: 'ayyubRefs' },
+  { from: 'ismail', to: 'ayyubRefs' },
+  { from: 'ibnUyaynah', to: 'ayyubRefs' },
+  { from: 'wuhayb', to: 'ayyubRefs' },
+  { from: 'abdWarith', to: 'ayyubRefs' },
+  { from: 'saeed', to: 'ayyubRefs' },
+  { from: 'thaqafi', to: 'ayyubRefs' },
+
+  { from: 'aliFrame', to: 'anas', kind: 'trunk' },
+  { from: 'anas', to: 'qatadah', kind: 'trunk' },
+  { from: 'qatadah', to: 'hisham' },
+  { from: 'hisham', to: 'qatadahAnasRefs' },
+
+  { from: 'ikrima', to: 'qatadahIkrima', kind: 'dive' },
+  { from: 'qatadah', to: 'qatadahIkrima', kind: 'dive' },
+  { from: 'qatadahIkrima', to: 'qatadahIkrimaRefs' }
+];
+
+export const apostasyCleanTiers = [
+  { y: 255, label: 'Reference groups' },
+  { y: 405, label: 'Later branches' },
+  { y: 555, label: 'Common-link layer' },
+  { y: 660, label: 'Disputed source layer' },
+  { y: 760, label: 'Claimed authority / story frame' }
+];
+
+export const apostasyCleanAnnotations = [
+  {
+    x: 665,
+    y: 650,
+    text: 'main bottleneck',
+    anchor: 'start',
+    kind: 'note'
+  },
+  {
+    x: 705,
+    y: 545,
+    text: 'later spread begins here',
+    anchor: 'start',
+    kind: 'note'
+  },
+  {
+    x: 855,
+    y: 485,
+    text: 'bypass problem',
+    anchor: 'middle',
+    kind: 'dive'
+  }
+];
+
+export const matnCleanNodes = [
+  { id: 'event', x: 500, y: 640, label: 'ʿAlī burns\na group', kind: 'root', labelPos: 'right' },
+  { id: 'ibnAbbas', x: 500, y: 520, label: 'Ibn ʿAbbās\ncorrects him', kind: 'cl', labelPos: 'right' },
+
+  { id: 'fire', x: 250, y: 385, label: 'Fire\nprohibition', labelPos: 'below' },
+  { id: 'apostasy', x: 500, y: 385, label: 'Apostasy\nformula', labelPos: 'below' },
+  { id: 'ali', x: 750, y: 385, label: 'Anti-ʿAlī\nframe', labelPos: 'below' },
+
+  { id: 'prooftext', x: 500, y: 245, label: 'Short legal\nproof-text', kind: 'collector', labelPos: 'above' },
+  { id: 'law', x: 500, y: 120, label: 'Classical\napostasy law', kind: 'ghost', labelPos: 'above' }
+];
+
+export const matnCleanEdges = [
+  { from: 'event', to: 'ibnAbbas', kind: 'trunk' },
+  { from: 'ibnAbbas', to: 'fire' },
+  { from: 'ibnAbbas', to: 'apostasy' },
+  { from: 'ibnAbbas', to: 'ali' },
+  { from: 'apostasy', to: 'prooftext', kind: 'trunk' },
+  { from: 'prooftext', to: 'law', kind: 'trunk' }
+];
+
+export const matnCleanTiers = [
+  { y: 120, label: 'Legal result' },
+  { y: 245, label: 'Extracted formula' },
+  { y: 385, label: 'Narrative pieces' },
+  { y: 520, label: 'Story frame' }
+];
+
+export const matnCleanAnnotations = [
+  {
+    x: 610,
+    y: 245,
+    text: 'extracted into law',
+    anchor: 'start',
+    kind: 'note'
+  },
+  {
+    x: 780,
+    y: 405,
+    text: 'polemical frame',
+    anchor: 'start',
+    kind: 'note'
+  }
+];
+
+## The Hadith and the Problem
+
+<HadithBlock>
+<div class="hadith-block__arabic">مَنْ بَدَّلَ دِينَهُ فَاقْتُلُوهُ</div>
+<div class="hadith-block__translation">“Whoever changes his religion, kill him.”</div>
+</HadithBlock>
+
+This is the apostasy hadith. It appears most famously in al-Bukhārī, and it later becomes one of the central proof-texts for the classical ruling that a Muslim who leaves Islam is to be executed. The sentence is short, but its legal consequences are enormous. It turns a matter of belief into a capital offense, gives jurists and rulers a prophetic formula for killing theological dissenters, and sits in direct tension with the Qur’an’s repeated insistence that belief cannot be coerced.
+
+The problem is not only moral. It is historical. This report does not come down through a broad public memory of the Prophet, nor through multiple early Companions independently preserving a rule that everyone knew. In the recoverable transmission, the report narrows at one disputed transmitter: **ʿIkrimah, the freedman of Ibn ʿAbbās**.
+
+The full dossier contains forty-seven direct Ibn ʿAbbās-route variants. Thirty-three pass through the Ayyūb → ʿIkrimah family. The remaining fourteen are Qatādah-linked: eleven through Qatādah → Anas, and three through Qatādah → ʿIkrimah. This matters because the Qatādah material cannot be treated as clean independence once Qatādah is also attested transmitting the same report through ʿIkrimah. The apparent bypass therefore becomes part of the problem rather than the solution.
+
+<ClaimBox>
+The apostasy hadith is not a mass-transmitted prophetic rule. It is a single-bottleneck report whose main family passes through ʿIkrimah, a transmitter accused of lying on Ibn ʿAbbās and associated in the biographical literature with Sufrī Khārijite views.
+</ClaimBox>
+
+This matters even more because the content of the hadith is exactly the kind of content a Sufrī Khārijite would need. It allows theological deviance to be reclassified as apostasy and then punished with death. That is not a small coincidence. It sits at the heart of the problem.
+
+## The Full Shape of the Transmission
+
+The canonical form of the report runs through this line: **The Prophet → Ibn ʿAbbās → ʿIkrimah → Ayyūb al-Sakhtiyānī → later transmitters → collectors**. Once the report reaches Ayyūb and the later transmitters, it spreads widely. That later spread can look impressive if one only counts collectors. Bukhārī has it, Abū Dāwūd has it, Aḥmad has it, al-Nasāʾī has it, al-Bayhaqī has it, and other later works preserve additional variants.
+
+But the real issue is not how many later books contain the report. The real issue is where the report becomes historically recoverable. When the transmission is reduced to its actual structure, the main family narrows through ʿIkrimah and then Ayyūb. The Qatādah → Anas line may look like an alternate path at first glance, but Qatādah is also found transmitting the same report through ʿIkrimah. That means the supposed bypass cannot function as clean independent corroboration.
+
+<IsnadDiagram
+  width={1220}
+  height={900}
+  nodes={apostasyCleanNodes}
+  edges={apostasyCleanEdges}
+  tiers={apostasyCleanTiers}
+  annotations={apostasyCleanAnnotations}
+  caption="The simplified transmission map. The diagram shows structure rather than every individual citation. The main family runs through Ibn ʿAbbās → ʿIkrimah → Ayyūb and then spreads into thirty-three variants. The Qatādah → Anas route looks like an alternate path, but Qatādah is also attested through ʿIkrimah in three variants. That is the bypass problem."
+  ariaLabel="Simplified isnad diagram for the apostasy hadith showing the main Ikrimah and Ayyub bottleneck, the Qatadah Anas route, and the Qatadah through Ikrimah bypass problem."
+/>
+
+<ContextNote>
+The diagram intentionally shows the structure of the transmission rather than printing every reference inside the graphic. The full references are grouped below by family.
+</ContextNote>
+
+| Family | Count | Branches | References |
+|---|---:|---|---|
+| Ayyūb → ʿIkrimah | 33 | Maʿmar, Ḥammād b. Zayd, Ismāʿīl b. Ibrāhīm, Ibn ʿUyaynah, Wuhayb, ʿAbd al-Wārith, Saʿīd b. Abī ʿArūbah, ʿAbd al-Wahhāb al-Thaqafī | ʿAbd al-Razzāq 9413, 18706; Abū Dāwūd 4351; Ṭayālisī 2689; Abū Yaʿlā 2532; Aḥmad 1871, 2551, 2552; Bayhaqī 16597, 16635, 17841; Bayhaqī Ṣaghīr 3165; Bukhārī 3017, 6922; Dāraquṭnī 90, 108; Ḥākim 6295; Ibn Mājah 2535; Ibn Ḥibbān 5606; Nasāʾī Kubrā 3522, 3523, 3524; Nasāʾī Ṣughrā 4059, 4060, 4061; al-Shāfiʿī unnum. 1496; Ṭabarānī 11850; Tirmidhī 1458; Ibn Abī Shaybah 28992, 29006, 32728, 33143, 36491 |
+| Qatādah → Anas | 11 | Hishām al-Dastawāʾī → ʿAbd al-Ṣamad and related routes | Abū Yaʿlā 2533; Aḥmad 2966; Bayhaqī 16637, 16654; Bazzār 4056; Ibn Ḥibbān 4475; Nasāʾī Kubrā 3527, 3528; Nasāʾī Ṣughrā 4064, 4065; Ṭabarānī 10638 |
+| Qatādah → ʿIkrimah | 3 | Qatādah directly through ʿIkrimah | Nasāʾī Kubrā 3525; Nasāʾī Ṣughrā 4062; Ṭabarānī 11835 |
+
+The point of this structure is straightforward. The report’s later spread is real, but it is later spread after the bottleneck rather than multiple early, independent witnesses before it. In other words, the canonical density of the report tells us that the tradition became successful. It does not by itself tell us that the Prophet said it.
+
+## Who Was ʿIkrimah?
+
+ʿIkrimah was the freedman of Ibn ʿAbbās, and he died around 105 AH. He became one of the most prolific transmitters from Ibn ʿAbbās, particularly in tafsīr and legal material. But the biographical record surrounding him is not clean, and the accusations are not vague. They concern the exact issue that matters here: attributing statements to Ibn ʿAbbās.
+
+The most damaging accusation comes from within Ibn ʿAbbās’s own household. Reports in the rijāl and historical literature preserve the claim that ʿAlī ibn ʿAbd Allāh ibn ʿAbbās shackled ʿIkrimah and explained the reason by saying that he lied about his father. Another report has Ibn ʿUmar warning Nāfiʿ not to lie about him as ʿIkrimah lied about Ibn ʿAbbās.
+
+Mālik ibn Anas refused to narrate from ʿIkrimah, and that is not a minor detail. Mālik was a leading Medinan authority, and his *Muwaṭṭaʾ* represents an early legal world deeply concerned with practice, punishment, repentance, and public order. If a capital ruling for apostasy had been a known prophetic doctrine preserved through reliable channels, its absence from Mālik’s legal corpus is not easy to explain.
+
+Muslim also did not include the report in his *Ṣaḥīḥ*. Bukhārī did, but both Bukhārī versions still go through ʿIkrimah. So the report’s presence in Bukhārī does not solve the bottleneck. It displays it.
+
+<ContextNote>
+The issue is not that every criticism of ʿIkrimah must be accepted uncritically. The issue is that a capital-punishment report depends on a transmitter whose exact point of controversy was placing material on the authority of Ibn ʿAbbās.
+</ContextNote>
+
+## Why the Sufrī Charge Matters
+
+The accusation that ʿIkrimah held Sufrī Khārijite views is not a random biographical insult. It matters because it helps explain the content of the report. The Sufriyya were a Khārijite tendency less extreme than the Azāriqa in some respects, but they still operated within a theology in which grave deviation could become disbelief. A report saying “whoever changes his religion, kill him” gives precisely the kind of legal weapon such a movement would want.
+
+It turns doctrinal boundary-making into a capital rule. It allows an opponent to be described not simply as mistaken, but as someone who has “changed his religion.” In that way it gives religious violence a prophetic formula. That is why motive matters here. We are not dealing with an abstract pious saying. We are dealing with a report that served a real legal and sectarian function.
+
+<ClaimBox title="The Motive">
+A Sufrī-leaning transmitter had an obvious reason to produce or promote a report that made religious deviation punishable by death. The report’s content fits the politics of his alleged theology too well to ignore.
+</ClaimBox>
+
+This does not require imagining ʿIkrimah sitting down and consciously inventing the sentence in a simplistic way. The point is more historical than dramatic. The report enters visibility through a transmitter whose alleged sectarian world gives the report a clear function. It gives that world a rule, gives the rule the authority of Ibn ʿAbbās, and gives Ibn ʿAbbās the authority of the Prophet. That is exactly the sort of process by which legal memory becomes sectarian doctrine.
+
+## The Narrative Form Is the Smoking Gun
+
+The short legal sentence is not the only form of the report. In many versions, it appears inside a story in which ʿAlī burns a group, Ibn ʿAbbās hears about it, and Ibn ʿAbbās says that he would not have burned them because the Prophet forbade punishing with God’s punishment, though he would have killed them because the Prophet said, “Whoever changes his religion, kill him.”
+
+<HadithBlock>
+<div class="hadith-block__arabic">
+أَنَّ عَلِيًّا حَرَّقَ نَاسًا ارْتَدُّوا عَنِ الْإِسْلَامِ فَبَلَغَ ذَلِكَ ابْنَ عَبَّاسٍ فَقَالَ لَمْ أَكُنْ لِأُحَرِّقَهُمْ بِالنَّارِ وَإِنَّ رَسُولَ اللهِ ﷺ قَالَ لَا تُعَذِّبُوا بِعَذَابِ اللهِ وَكُنْتُ قَاتِلَهُمْ لِقَوْلِ رَسُولِ اللهِ ﷺ مَنْ بَدَّلَ دِينَهُ فَاقْتُلُوهُ
+</div>
+<div class="hadith-block__translation">
+“When news of this reached Ibn ʿAbbās, he said: I would not have burned them with fire, for the Messenger of God said, ‘Do not punish with God’s punishment.’ But I would have killed them because the Messenger of God said, ‘Whoever changes his religion, kill him.’”
+</div>
+</HadithBlock>
+
+This is not a neutral narrative frame. It does two things at once. First, it produces the legal rule that apostates are to be killed. Second, it portrays ʿAlī as the man who mishandled the punishment, while Ibn ʿAbbās supplies the correct prophetic rule. That is exactly the type of narrative a Khārijite-leaning transmitter could use. It gives him a prophetic execution formula and places ʿAlī in the position of needing correction.
+
+The narrative therefore does more than preserve law. It also settles a sectarian score.
+
+<IsnadDiagram
+  width={1000}
+  height={700}
+  nodes={matnCleanNodes}
+  edges={matnCleanEdges}
+  tiers={matnCleanTiers}
+  annotations={matnCleanAnnotations}
+  caption="The matn-development map. The legal formula is not floating in isolation. It is embedded in a story where ʿAlī burns a group and Ibn ʿAbbās supplies the corrective rule. The later legal proof-text is easiest to explain as an extraction from that narrative."
+  ariaLabel="Simplified matn development diagram showing the Ali burning story, Ibn Abbas correction, fire prohibition, apostasy formula, anti-Ali frame, legal proof text, and classical apostasy law."
+/>
+
+| Matn element | Function |
+|---|---|
+| ʿAlī burns a group | Creates the narrative problem that needs correction |
+| Fire prohibition | Explains why burning was wrong |
+| Apostasy formula | Supplies the legal execution rule |
+| Anti-ʿAlī frame | Places ʿAlī in the position of needing correction |
+| Short proof-text | The legal sentence extracted from the story |
+| Classical law | The later doctrine built from the extracted formula |
+
+If the Prophet had publicly issued a general capital rule for apostasy, one would expect that rule to circulate independently, broadly, and early. Instead, the rule is embedded in a story about ʿAlī, Ibn ʿAbbās, and burning. That makes the report look like a legal maxim extracted from a polemical narrative rather than a widely known prophetic ruling that later generated the story.
+
+## The Variant Families
+
+The forty-seven variants are not forty-seven independent witnesses. They are copies, adaptations, and extractions from a small set of source traditions. The first thing to notice is that the story is unstable in exactly the way we would expect if a legal formula were moving through narrative adaptation.
+
+Sometimes the group is described as apostates. Sometimes they are zanādiqa. Sometimes they are Zuṭṭ worshipping an idol. Sometimes the fire prohibition is present. Sometimes only the execution formula remains. Sometimes the report is a story about ʿAlī. Sometimes it becomes a freestanding prophetic sentence. That pattern is not random. It shows the tradition being simplified, repackaged, and legally sharpened.
+
+| Family | Route | Count | What it shows |
+|---|---:|---:|---|
+| Main family | Ayyūb → ʿIkrimah → Ibn ʿAbbās | 33 | This is the backbone of the tradition. The later spread is downstream from ʿIkrimah. |
+| Apparent bypass | Qatādah → Anas | 11 | This route looks independent only if Qatādah’s other transmission through ʿIkrimah is ignored. |
+| Contamination evidence | Qatādah → ʿIkrimah → Ibn ʿAbbās | 3 | This is the crucial control. It shows Qatādah knew the ʿIkrimah route, so the Anas route cannot rescue the report as clean corroboration. |
+
+The Ayyūb → ʿIkrimah family dominates the dossier. These variants appear in early and canonical collections, including ʿAbd al-Razzāq, Aḥmad, Bukhārī, Abū Dāwūd, al-Nasāʾī, Ibn Mājah, al-Tirmidhī, al-Bayhaqī, Ibn Ḥibbān, al-Dāraquṭnī, al-Ḥākim, al-Ṭabarānī, and Ibn Abī Shaybah. The persistence of the core narrative across these versions suggests that the narrative was original and that the freestanding legal maxim is what remained after later extraction.
+
+## The Qatādah Route Does Not Rescue the Report
+
+A defender may point to the Qatādah → Anas route and argue that the report is not dependent on ʿIkrimah. This is the strongest objection, but it does not hold. The difficulty is that Qatādah is also attested transmitting the same report through ʿIkrimah. That is not hypothetical. It appears in three variants: Nasāʾī Kubrā 3525, Nasāʾī Ṣughrā 4062, and Ṭabarānī 11835.
+
+Once that is recognized, the Qatādah → Anas route cannot function as clean independence. When a transmitter is found preserving a report through ʿIkrimah and also in a form that seems to bypass him, we have exactly the kind of situation isnād-cum-matn analysis warns us about. A later or parallel route may look independent on paper while still depending on the same earlier source. It may represent rerouting, contamination, or later preservation under a less vulnerable isnād.
+
+<ClaimBox title="The Bypass Problem">
+The Qatādah → Anas route cannot function as clean independence because Qatādah is also found transmitting the same report through ʿIkrimah. Once that is seen, the alleged second witness becomes part of the same transmission problem.
+</ClaimBox>
+
+The matn confirms this conclusion. The Qatādah versions preserve the same structural situation: ʿAlī burns a group, and Ibn ʿAbbās supplies the apostasy formula. Even when the burned group changes into the Zuṭṭ, the legal function remains the same. That is not what one would expect from a truly independent public prophetic ruling. It is what one would expect when a narrative complex is being reused.
+
+## Why ʿAlī’s Role Is So Strange
+
+The report wants us to believe that ʿAlī punished a group for apostasy or heresy but did not know the correct prophetic rule governing the case. That is difficult to accept. ʿAlī was not a marginal Companion. He was one of the closest figures to the Prophet, a major legal authority, and a caliph who dealt directly with rebels, sectarians, and political-religious conflict.
+
+If the Prophet had issued a clear rule saying “whoever changes his religion, kill him,” ʿAlī should not need Ibn ʿAbbās to tell him this after the fact. The story only works if ʿAlī lacks a rule that later jurists treat as obvious. That is precisely what makes the story suspicious. It suggests that the rule was not actually obvious in ʿAlī’s time and that the narrative retrojects the rule backward by making Ibn ʿAbbās the one who reveals it.
+
+<ContextNote>
+The story’s dramatic logic is not neutral history. It creates a scene in which ʿAlī’s action produces the need for Ibn ʿAbbās to introduce a prophetic execution formula. That is exactly how later legal doctrine often enters the past.
+</ContextNote>
+
+## The Qur’an Contradicts the Legal Use of This Hadith
+
+The Qur’an does not prescribe death for apostasy. It repeatedly describes disbelief, rejection, hypocrisy, and even repeated changes of belief without giving the state a command to execute people for leaving religion.
+
+<QuranVerse verse="2:256" />
+
+<QuranVerse verse="4:137" />
+
+<QuranVerse verse="10:99" />
+
+<QuranVerse verse="88:21" />
+
+<QuranVerse verse="88:22" />
+
+The most devastating verse is 4:137. It describes people who believe, then disbelieve, then believe again, then disbelieve again, and then increase in disbelief. That sequence only makes sense if the person survives the first act of disbelief and the second. A legal system that kills someone at the first apostasy cannot make sense of that verse.
+
+So the hadith does not merely supplement the Qur’an. It clashes with its moral and legal direction.
+
+<ClaimBox title="The Qur’anic Problem">
+The Qur’an speaks of apostasy as a spiritual and moral failure, not as a capital crime. The apostasy hadith turns a matter God leaves for divine judgment into a state execution.
+</ClaimBox>
+
+## The Silence of Every Other Companion
+
+For a ruling this severe, the silence is astonishing. Where is the broad Companion transmission? Where is Abū Bakr’s use of this formula during the ridda conflicts? Where is ʿUmar’s use of it in apostasy cases? Where is ʿAlī’s prior knowledge of it before he burns the group? Where is it in Mālik’s *Muwaṭṭaʾ*? Where is it in Muslim?
+
+A capital ruling of this magnitude should not depend on ʿIkrimah alone. The absence from Mālik is especially important because the *Muwaṭṭaʾ* preserves Medinan legal practice and includes material on punishment, repentance, legal procedure, and public order. If the apostasy execution formula were an early Medinan prophetic rule known through reliable channels, its absence is difficult to explain. The absence from Muslim matters for the same reason. The report’s presence in Bukhārī does not cancel the fact that Muslim did not treat this line in the same way.
+
+<VerdictBox title="The Silence">
+For a ruling of this magnitude to be known only through this transmission complex, absent from Mālik and Muslim, and unknown in usable form to the very Companion whose action supposedly triggered the report, is not what secure prophetic transmission looks like.
+</VerdictBox>
+
+## The Legal Extraction
+
+The development of the report is relatively easy to reconstruct. First, there is a story about ʿAlī burning a group, though the identity of the group shifts across versions: apostates, zanādiqa, or Zuṭṭ idol-worshippers. Second, Ibn ʿAbbās enters the story as the corrector. He agrees with killing but rejects burning. Third, two sayings are attached to him: “Do not punish with God’s punishment” and “Whoever changes his religion, kill him.” Fourth, the second saying is extracted from the story and becomes a freestanding legal maxim. Fifth, jurists use the maxim to build a general apostasy law.
+
+That is how a narrative becomes doctrine. It is not that jurists found a clear public prophetic rule and simply applied it. Rather, a disputed narrative supplied a phrase that later law could turn into a universal rule.
+
+## Why the Report Fits ʿIkrimah Better Than Ibn ʿAbbās
+
+The report is attributed to Ibn ʿAbbās, but it fits ʿIkrimah’s alleged world better. It serves a Khārijite-style boundary logic, targets theological deviation, portrays ʿAlī negatively, and depends on the authority of Ibn ʿAbbās, exactly the authority ʿIkrimah was accused of abusing. It also enters the record through a transmitter rejected by Mālik and excluded by Muslim.
+
+None of this proves every accusation against ʿIkrimah with absolute certainty. But it does make him the most plausible origin point for the report. A report should not be accepted simply because it eventually appears in a canonical collection. The real questions are where it becomes visible, who benefits from it, and whether its textual shape matches its alleged origin. In this case, the answers all point in the same direction.
+
+## What Would Change the Analysis?
+
+This case is not built on suspicion alone. It could be falsified. The analysis would change if an early, independent, pre-ʿIkrimah route appeared. It would need to transmit the apostasy formula without passing through ʿIkrimah, without sharing the same suspicious narrative structure, and without depending on later contamination through Qatādah or Ayyūb.
+
+That is exactly what we do not have. What we have instead is a tradition whose apparent spread keeps returning to the same problem. The main family goes through ʿIkrimah. The Qatādah family is compromised because Qatādah is also attested through ʿIkrimah. The short legal maxim is best explained as an extraction from the story, and the story itself serves the sectarian and theological interests associated with ʿIkrimah. That is not a strong prophetic foundation. It is a common-link problem with a motive.
+
+## Final Verdict
+
+The apostasy hadith should not be treated as a secure prophetic basis for killing people who leave Islam. Its transmission narrows through ʿIkrimah. Its strongest narrative form places the formula inside a story that humiliates ʿAlī and authorizes the killing of theological deviants. Its Qatādah route does not rescue it because Qatādah is also attested through ʿIkrimah. Its legal use clashes with the Qur’an’s treatment of belief and disbelief. It is absent from Mālik’s *Muwaṭṭaʾ* and from Muslim’s *Ṣaḥīḥ*. Its content fits the sectarian world of the transmitter through whom it becomes visible.
+
+The simplest explanation is not that the Prophet publicly taught a capital rule for apostasy and only ʿIkrimah preserved it in usable form. The simpler explanation is that the report emerged from a later sectarian-legal environment and was laundered through Ibn ʿAbbās. That is why the hadith matters. It shows how a single disputed transmitter can become the doorway through which a violent legal doctrine enters the tradition, how later law can turn a polemical story into a universal rule, and why hadith criticism cannot stop at the question of whether al-Bukhārī included a report. We also have to ask what the report does. This one kills dissenters.
+
+## Appendix: All Forty-Seven Variants Used in the Diagram
+
+| # | Source | Reference | Diagram family | Route summary | Variant type |
+|---:|---|---|---|---|---|
+| 1 | Muṣannaf ʿAbd al-Razzāq | 9413 | Ayyūb → ʿIkrimah | Maʿmar → Ayyūb → ʿIkrimah | Apostasy formula + fire clause |
+| 2 | Muṣannaf ʿAbd al-Razzāq | 18706 | Ayyūb → ʿIkrimah | Maʿmar → Ayyūb → ʿIkrimah → Ibn ʿAbbās | Formula + fire clause |
+| 3 | Sunan Abū Dāwūd | 4351 | Ayyūb → ʿIkrimah | Ismāʿīl b. Ibrāhīm → Ayyūb → ʿIkrimah | ʿAlī burns apostates + fire clause |
+| 4 | Musnad al-Ṭayālisī | 2689 | Ayyūb → ʿIkrimah | Ḥammād b. Zayd → Ayyūb → ʿIkrimah | Formula only |
+| 5 | Musnad Abū Yaʿlā | 2532 | Ayyūb → ʿIkrimah | Sufyān b. ʿUyaynah / Ḥammād → Ayyūb → ʿIkrimah | Formula only |
+| 6 | Musnad Abū Yaʿlā | 2533 | Qatādah → Anas | Hishām → Qatādah → Anas | Zuṭṭ story + formula |
+| 7 | Musnad Aḥmad | 1871 | Ayyūb → ʿIkrimah | Ismāʿīl → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 8 | Musnad Aḥmad | 2551 | Ayyūb → ʿIkrimah | Ḥammād b. Zayd → Ayyūb → ʿIkrimah | Zanādiqa + books burned |
+| 9 | Musnad Aḥmad | 2552 | Ayyūb → ʿIkrimah | Wuhayb → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 10 | Musnad Aḥmad | 2966 | Qatādah → Anas | Hishām → Qatādah → Anas | Zuṭṭ story + formula |
+| 11 | Bayhaqī, Sunan Kubrā | 16597 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Apostates / zanādiqa + fire clause |
+| 12 | Bayhaqī, Sunan Kubrā | 16635 | Ayyūb → ʿIkrimah | Ḥammād b. Zayd → Ayyūb → ʿIkrimah | Zanādiqa / apostates + fire clause |
+| 13 | Bayhaqī, Sunan Kubrā | 16637 | Qatādah → Anas | Hishām → Qatādah → Anas | Zuṭṭ story + formula |
+| 14 | Bayhaqī, Sunan Kubrā | 16654 | Qatādah → Anas | Hishām → Qatādah → Anas → Ibn ʿAbbās | Formula |
+| 15 | Bayhaqī, Sunan Kubrā | 17841 | Ayyūb → ʿIkrimah | Ayyūb → ʿIkrimah | Burning discussion + formula |
+| 16 | Bayhaqī, Sunan Ṣaghīr | 3165 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Apostates / zanādiqa + fire clause |
+| 17 | Musnad al-Bazzār | 4056 | Qatādah → Anas | Hishām → Qatādah → Anas | Formula / Zuṭṭ-related family |
+| 18 | Ṣaḥīḥ al-Bukhārī | 3017 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula + burning frame |
+| 19 | Ṣaḥīḥ al-Bukhārī | 6922 | Ayyūb → ʿIkrimah | Ḥammād b. Zayd → Ayyūb → ʿIkrimah | Apostasy ruling |
+| 20 | Sunan al-Dāraquṭnī | 90 | Ayyūb → ʿIkrimah | Ismāʿīl → Ayyūb → ʿIkrimah | Burning story + formula |
+| 21 | Sunan al-Dāraquṭnī | 108 | Ayyūb → ʿIkrimah | Saʿīd b. Abī ʿArūbah → Ayyūb → ʿIkrimah | Formula only + female apostate note |
+| 22 | Mustadrak al-Ḥākim | 6295 | Ayyūb → ʿIkrimah | ʿAbd al-Wārith → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 23 | Sunan Ibn Mājah | 2535 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+| 24 | Ṣaḥīḥ Ibn Ḥibbān | 4475 | Qatādah → Anas | Qatādah → Anas | Formula |
+| 25 | Ṣaḥīḥ Ibn Ḥibbān | 5606 | Ayyūb → ʿIkrimah | Ḥammād b. Zayd → Ayyūb → ʿIkrimah | Apostates / zanādiqa + books |
+| 26 | Nasāʾī, Sunan Kubrā | 3522 | Ayyūb → ʿIkrimah | ʿAbd al-Wārith → Ayyūb → ʿIkrimah | Formula only |
+| 27 | Nasāʾī, Sunan Kubrā | 3523 | Ayyūb → ʿIkrimah | Wuhayb → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 28 | Nasāʾī, Sunan Kubrā | 3524 | Ayyūb → ʿIkrimah | Maʿmar → Ayyūb → ʿIkrimah | Formula only |
+| 29 | Nasāʾī, Sunan Kubrā | 3525 | Qatādah → ʿIkrimah | Saʿīd → Qatādah → ʿIkrimah | Formula only |
+| 30 | Nasāʾī, Sunan Kubrā | 3527 | Qatādah → Anas | ʿAbd al-Ṣamad → Hishām → Qatādah → Anas | Formula only |
+| 31 | Nasāʾī, Sunan Kubrā | 3528 | Qatādah → Anas | ʿAbd al-Ṣamad → Hishām → Qatādah → Anas | Zuṭṭ story + formula |
+| 32 | Nasāʾī, Sunan Ṣughrā | 4059 | Ayyūb → ʿIkrimah | ʿAbd al-Wārith → Ayyūb → ʿIkrimah | Formula only |
+| 33 | Nasāʾī, Sunan Ṣughrā | 4060 | Ayyūb → ʿIkrimah | Wuhayb → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 34 | Nasāʾī, Sunan Ṣughrā | 4061 | Ayyūb → ʿIkrimah | Maʿmar → Ayyūb → ʿIkrimah | Formula only |
+| 35 | Nasāʾī, Sunan Ṣughrā | 4062 | Qatādah → ʿIkrimah | Saʿīd → Qatādah → ʿIkrimah | Formula only |
+| 36 | Nasāʾī, Sunan Ṣughrā | 4064 | Qatādah → Anas | ʿAbd al-Ṣamad → Hishām → Qatādah → Anas | Formula only |
+| 37 | Nasāʾī, Sunan Ṣughrā | 4065 | Qatādah → Anas | ʿAbd al-Ṣamad → Hishām → Qatādah → Anas | Zuṭṭ story + formula |
+| 38 | al-Shāfiʿī | unnumbered 1496 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula / legal use |
+| 39 | Ṭabarānī, Muʿjam Kabīr | 10638 | Qatādah → Anas | Hishām → Qatādah → Anas | Zuṭṭ / formula family |
+| 40 | Ṭabarānī, Muʿjam Kabīr | 11835 | Qatādah → ʿIkrimah | Qatādah → ʿIkrimah → Ibn ʿAbbās | Formula only |
+| 41 | Ṭabarānī, Muʿjam Kabīr | 11850 | Ayyūb → ʿIkrimah | Maʿmar → Ayyūb → ʿIkrimah | Formula + fire clause |
+| 42 | Jāmiʿ al-Tirmidhī | 1458 | Ayyūb → ʿIkrimah | ʿAbd al-Wahhāb al-Thaqafī → Ayyūb → ʿIkrimah | Apostates burned + fire clause |
+| 43 | Ibn Abī Shaybah | 28992 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+| 44 | Ibn Abī Shaybah | 29006 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+| 45 | Ibn Abī Shaybah | 32728 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+| 46 | Ibn Abī Shaybah | 33143 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+| 47 | Ibn Abī Shaybah | 36491 | Ayyūb → ʿIkrimah | Ibn ʿUyaynah → Ayyūb → ʿIkrimah | Formula only |
+
+## Bibliography
+
+ʿAbd al-Razzāq al-Ṣanʿānī. *al-Muṣannaf*. Reports 9413 and 18706.
+
+Abū Dāwūd, Sulaymān ibn al-Ashʿath. *Sunan Abī Dāwūd*. Report 4351.
+
+Abū Dāwūd al-Ṭayālisī. *Musnad al-Ṭayālisī*. Report 2689.
+
+Abū Yaʿlā al-Mawṣilī. *Musnad Abī Yaʿlā*. Reports 2532 and 2533.
+
+Aḥmad ibn Ḥanbal. *Musnad Aḥmad*. Reports 1871, 2551, 2552, and 2966.
+
+al-Bazzār. *Musnad al-Bazzār*. Report 4056.
+
+al-Bayhaqī, Aḥmad ibn al-Ḥusayn. *al-Sunan al-Kubrā*. Reports 16597, 16635, 16637, 16654, and 17841.
+
+al-Bayhaqī, Aḥmad ibn al-Ḥusayn. *al-Sunan al-Ṣaghīr*. Report 3165.
+
+al-Bukhārī, Muḥammad ibn Ismāʿīl. *Ṣaḥīḥ al-Bukhārī*. Reports 3017 and 6922.
+
+al-Dāraquṭnī, ʿAlī ibn ʿUmar. *Sunan al-Dāraquṭnī*. Reports 90 and 108.
+
+al-Ḥākim al-Nīsābūrī. *al-Mustadrak ʿalā al-Ṣaḥīḥayn*. Report 6295.
+
+Ibn Mājah, Muḥammad ibn Yazīd. *Sunan Ibn Mājah*. Report 2535.
+
+Ibn Ḥibbān. *Ṣaḥīḥ Ibn Ḥibbān*. Reports 4475 and 5606.
+
+al-Nasāʾī, Aḥmad ibn Shuʿayb. *al-Sunan al-Kubrā*. Reports 3522, 3523, 3524, 3525, 3527, and 3528.
+
+al-Nasāʾī, Aḥmad ibn Shuʿayb. *al-Sunan al-Ṣughrā*. Reports 4059, 4060, 4061, 4062, 4064, and 4065.
+
+al-Shāfiʿī, Muḥammad ibn Idrīs. *Musnad al-Shāfiʿī* / transmitted legal material. Unnumbered report 1496.
+
+al-Ṭabarānī. *al-Muʿjam al-Kabīr*. Reports 10638, 11835, and 11850.
+
+al-Tirmidhī. *Jāmiʿ al-Tirmidhī*. Report 1458.
+
+Ibn Abī Shaybah. *al-Muṣannaf*. Reports 28992, 29006, 32728, 33143, and 36491.
+
+Mālik ibn Anas. *al-Muwaṭṭaʾ*. Consulted for comparison with early Medinan legal material.
+
+Muslim ibn al-Ḥajjāj. *Ṣaḥīḥ Muslim*. Consulted for absence of the report through ʿIkrimah.
+
+Ibn Saʿd. *al-Ṭabaqāt al-Kubrā*. Entry on ʿIkrimah.
+
+Ibn Abī Khaythamah. *al-Tārīkh al-Kabīr*. Reports on Mālik’s rejection of ʿIkrimah and the biographical accusations.
+
+Ibn ʿAsākir. *Tārīkh Dimashq*. Biographical reports on ʿIkrimah.
+
+Ibn Ḥajar al-ʿAsqalānī. *Tahdhīb al-Tahdhīb*. Entry on ʿIkrimah and Qatādah.
