@@ -1,96 +1,26 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 
-const { title, description } = Astro.props;
+const { title, description, image, canonical } = Astro.props;
 ---
-<BaseLayout title={title} description={description}>
-  <div class="reading-progress" aria-hidden="true">
-    <div class="reading-progress__bar" id="reading-bar"></div>
-  </div>
-  <main class="hc-article">
+
+<BaseLayout title={title} description={description} image={image} canonical={canonical} type="article">
+  <div class="reading-progress" aria-hidden="true"><div class="reading-progress__bar" data-reading-progress-bar></div></div>
+  <div class="hc-article">
     <slot name="hero" />
     <slot name="metabar" />
     <div class="hc-article-grid">
-      <div class="article-margin-left">
-        <!-- Optional left margin content -->
-      </div>
-      <div class="article-main-content">
-        <slot />
-      </div>
-      <aside class="article-margin-right">
-        <slot name="toc" />
-      </aside>
+      <div class="article-margin-left"></div>
+      <div class="article-main-content"><slot /></div>
+      <aside class="article-margin-right"><slot name="toc" /></aside>
     </div>
-  </main>
+  </div>
 </BaseLayout>
 
-<script>
-  const article = document.querySelector('.hc-article-body');
-  const bar = document.getElementById('reading-bar');
-  if (article && bar) {
-    window.addEventListener('scroll', () => {
-      const rect = article.getBoundingClientRect();
-      const total = article.offsetHeight - window.innerHeight + 400; // rough offset
-      let scrolled = -rect.top + 100; // Start a bit early
-      if (scrolled < 0) scrolled = 0;
-      let progress = (scrolled / total) * 100;
-      if (progress > 100) progress = 100;
-      bar.style.width = `${progress}%`;
-    }, { passive: true });
-  }
-</script>
-
 <style>
-  .reading-progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: transparent;
-    z-index: 1000;
-    pointer-events: none;
-    /* Safe area aware positioning */
-    padding-left: var(--sal, 0px);
-    padding-right: var(--sar, 0px);
-  }
-  .reading-progress__bar {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, var(--hc-gold), var(--hc-gold-soft));
-    box-shadow: 0 0 8px rgba(216, 177, 102, 0.3);
-    transition: width 50ms linear;
-  }
-  .article-margin-left {
-    display: none;
-  }
-  .article-margin-right {
-    display: none;
-  }
-  .article-main-content {
-    width: 100%;
-    /* Prevent content overflow */
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: hidden;
-  }
-
-  @media (min-width: 1200px) {
-    .article-margin-left {
-      display: block;
-    }
-    .article-margin-right {
-      display: block;
-      position: sticky;
-      top: calc(140px + var(--sat, 0px));
-      height: fit-content;
-    }
-  }
-
-  /* Mobile reading progress adjustment */
-  @media (max-width: 640px) {
-    .reading-progress {
-      height: 2px;
-    }
-  }
+  .reading-progress { position: fixed; top: 0; right: 0; left: 0; z-index: 1000; height: 3px; padding-inline: var(--safe-right) var(--safe-left); pointer-events: none; }
+  .reading-progress__bar { width: 100%; height: 100%; background: var(--hc-gold); box-shadow: 0 0 8px rgba(216, 177, 102, .3); transform: scaleX(0); transform-origin: left; }
+  .article-margin-left, .article-margin-right { display: none; }.article-main-content { width: 100%; min-width: 0; }
+  @media (min-width: 1200px) { .article-margin-left, .article-margin-right { display: block; }.article-margin-right { position: sticky; top: calc(8rem + var(--safe-top)); height: fit-content; } }
+  @media (max-width: 640px) { .reading-progress { height: 2px; } }
 </style>

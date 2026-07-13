@@ -2,6 +2,7 @@
 import ArticleLayout from '../../components/article/ArticleLayout.astro';
 import ArticleHero from '../../components/article/ArticleHero.astro';
 import ArticleTOC from '../../components/article/ArticleTOC.astro';
+import MobileArticleTOC from '../../components/MobileArticleTOC.astro';
 import { getCollection, render } from 'astro:content';
 
 const includeBlogMakerPreview = process.env.BLOG_MAKER_PREVIEW === 'true';
@@ -28,7 +29,21 @@ const tocHeadings = headings
 const showToc = tocHeadings.length >= 3;
 ---
 
-<ArticleLayout title={`${post.data.title} | HadithCritic`} description={post.data.description}>
+<ArticleLayout title={`${post.data.title} | HadithCritic`} description={post.data.description} image={post.data.thumbnail} canonical={`/blogs/${post.id}`}>
+  <Fragment slot="head">
+    <script is:inline type="application/ld+json" set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'ScholarlyArticle',
+      headline: post.data.title,
+      description: post.data.description,
+      author: { '@type': 'Person', name: post.data.author },
+      datePublished: post.data.date.toISOString(),
+      ...(post.data.updated ? { dateModified: post.data.updated.toISOString() } : {}),
+      ...(post.data.thumbnail ? { image: new URL(post.data.thumbnail, Astro.site).href } : {}),
+      mainEntityOfPage: new URL(`/blogs/${post.id}`, Astro.site).href,
+      publisher: { '@type': 'Organization', name: 'HadithCritic' }
+    })} />
+  </Fragment>
   <ArticleHero
     slot="hero"
     title={post.data.title}
@@ -43,7 +58,9 @@ const showToc = tocHeadings.length >= 3;
 
   {showToc && <ArticleTOC slot="toc" headings={tocHeadings} />}
 
-  <article class="hc-article-body">
+  {showToc && <MobileArticleTOC headings={tocHeadings} />}
+
+  <article class="hc-article-body" data-reading-progress-source>
     <Content />
   </article>
 

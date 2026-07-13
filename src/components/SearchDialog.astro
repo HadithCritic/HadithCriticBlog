@@ -1,0 +1,71 @@
+<dialog class="search-dialog" id="site-search-dialog" aria-labelledby="site-search-title">
+  <div class="search-dialog__surface">
+    <div class="search-dialog__header">
+      <h2 id="site-search-title">Search the archive</h2>
+      <button type="button" class="search-dialog__close" data-search-close aria-label="Close search">Close</button>
+    </div>
+    <label class="search-dialog__field">
+      <span class="sr-only">Search HadithCritic</span>
+      <input type="search" autocomplete="off" placeholder="Title, study, source, or term" data-search-input />
+    </label>
+    <p class="search-dialog__status" data-search-status role="status" aria-live="polite">Enter a search term to consult the full archive.</p>
+    <ol class="search-dialog__results" data-search-results></ol>
+  </div>
+</dialog>
+
+<style>
+  .search-dialog { width: min(46rem, calc(100% - 2rem)); max-height: min(44rem, calc(100% - 2rem)); padding: 0; border: 1px solid var(--hc-rule-strong); color: var(--hc-text-primary); background: var(--hc-surface-1); box-shadow: var(--hc-popover-shadow); }
+  .search-dialog::backdrop { background: rgba(6, 6, 7, .76); }
+  .search-dialog__surface { padding: clamp(1.1rem, 3vw, 1.8rem); }
+  .search-dialog__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--hc-rule); padding-bottom: .85rem; }
+  .search-dialog h2 { margin: 0; font-family: var(--font-display); font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 500; }
+  .search-dialog__close { min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); background: transparent; font: 700 .75rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+  .search-dialog__field { display: block; margin-top: 1rem; border-bottom: 1px solid var(--hc-rule-strong); }
+  .search-dialog input { width: 100%; min-height: 52px; border: 0; outline: 0; color: inherit; background: transparent; font: 1.1rem var(--font-body); }
+  .search-dialog__status { margin: .85rem 0; color: var(--hc-text-secondary); font: .87rem/1.5 var(--font-ui); }
+  .search-dialog__results { max-height: 25rem; margin: 0; padding: 0; overflow: auto; list-style: none; }
+  .search-dialog__results a { display: block; padding: .85rem 0; border-top: 1px solid var(--hc-rule-soft); color: inherit; text-decoration: none; }
+  .search-dialog__results a:focus-visible, .search-dialog__results a:hover { color: var(--hc-gold-soft); }
+  .search-dialog__result-title { display: block; font: 500 1.25rem/1.1 var(--font-display); }
+  .search-dialog__result-excerpt, .search-dialog__result-route { display: block; margin-top: .35rem; color: var(--hc-text-secondary); font: .8rem/1.45 var(--font-ui); }
+</style>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>('#site-search-dialog');
+  const input = dialog?.querySelector<HTMLInputElement>('[data-search-input]');
+  const status = dialog?.querySelector<HTMLElement>('[data-search-status]');
+  const resultList = dialog?.querySelector('[data-search-results]') as HTMLElement | null;
+  let invoker: HTMLElement | null = null;
+  let timer = 0;
+  const open = (button?: HTMLElement) => { if (!dialog?.open) { invoker = button || document.activeElement as HTMLElement; dialog?.showModal(); input?.focus(); } };
+  const close = () => dialog?.close();
+  document.addEventListener('hc:search-open', (event) => open((event as CustomEvent).detail));
+  document.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); open(); } });
+  dialog?.querySelector('[data-search-close]')?.addEventListener('click', close);
+  dialog?.addEventListener('close', () => invoker?.focus());
+  dialog?.addEventListener('click', (event) => { if (event.target === dialog) close(); });
+  input?.addEventListener('input', () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(async () => {
+      const query = input.value.trim();
+      if (!status || !resultList) return;
+      resultList.innerHTML = '';
+      if (!query) { status.textContent = 'Enter a search term to consult the full archive.'; return; }
+      status.textContent = 'Searching the archive…';
+      try {
+        const pagefindPath = '/pagefind/pagefind.js';
+        const pagefind = await import(/* @vite-ignore */ pagefindPath);
+        await pagefind.init();
+        const search = await pagefind.search(query);
+        type PagefindResult = { data: () => Promise<{ meta: { title?: string }; excerpt?: string; url: string }> };
+        const data = await Promise.all((search.results as PagefindResult[]).slice(0, 12).map((result) => result.data()));
+        status.textContent = data.length ? `${data.length} matching ${data.length === 1 ? 'entry' : 'entries'}.` : 'No entries match this search.';
+        data.forEach((result) => {
+          const item = document.createElement('li'); const link = document.createElement('a');
+          link.href = result.url; link.innerHTML = `<span class="search-dialog__result-title">${result.meta.title || result.url}</span><span class="search-dialog__result-excerpt">${result.excerpt || ''}</span><span class="search-dialog__result-route">${result.url}</span>`;
+          link.addEventListener('click', close); item.appendChild(link); resultList.appendChild(item);
+        });
+      } catch { status.textContent = 'Full-site search is available in the production build.'; }
+    }, 150);
+  });
+</script>

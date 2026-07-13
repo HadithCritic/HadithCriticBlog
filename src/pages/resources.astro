@@ -104,7 +104,7 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
   description="Curated bibliographies, open-source datasets, study materials, and digital tools for Quranic research."
 >
   <div class="resources-page">
-    <header class="resources-hero" aria-labelledby="resources-hero-title">
+    <header class="resources-hero" aria-labelledby="resources-hero-title" data-motion="hero">
       <div class="hc-container resources-hero__inner">
         <p class="hc-eyebrow resources-hero__label">The Library</p>
         <h1 id="resources-hero-title" class="resources-hero__title">
@@ -121,6 +121,12 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
         </p>
       </div>
     </header>
+
+    <div class="resource-filters hc-container" role="search" aria-label="Filter the catalogue">
+      <label><span>Search holdings</span><input id="resource-query" type="search" placeholder="Title or description" autocomplete="off" /></label>
+      <label><span>Format</span><select id="resource-format"><option value="">All formats</option>{[...new Set(categories.flatMap((category) => category.items.map((item) => item.tag)))].sort().map((tag) => <option value={tag}>{tag}</option>)}</select></label>
+      <p id="resource-count" role="status" aria-live="polite">{totalItems} holdings</p>
+    </div>
 
     <div class="catalog hc-container">
       <nav class="catalog-index" aria-label="Catalogue sections">
@@ -141,7 +147,7 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
 
       <div class="catalog-sections">
         {categories.map((category) => (
-          <section id={category.id} class="catalog-section" aria-labelledby={`heading-${category.id}`} data-reveal>
+          <section id={category.id} class="catalog-section" aria-labelledby={`heading-${category.id}`} data-motion="reveal">
             <header class="catalog-section__head">
               <h2 id={`heading-${category.id}`} class="catalog-section__title">{category.title}</h2>
               <span class="catalog-section__rule" aria-hidden="true"></span>
@@ -150,7 +156,7 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
 
             <ul class="catalog-list">
               {category.items.map((item) => (
-                <li class="catalog-entry">
+                <li class="catalog-entry" data-resource data-format={item.tag} data-search={`${item.title} ${item.description} ${category.name} ${item.tag}`.toLowerCase()}>
                   <a href={item.href} target="_blank" rel="noopener noreferrer" class="catalog-entry__link">
                     <span class="catalog-entry__tag">{item.tag}</span>
                     <span class="catalog-entry__body">
@@ -172,7 +178,7 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
       </div>
     </div>
 
-    <section class="resources-cta hc-container" aria-labelledby="resources-cta-title" data-reveal>
+    <section class="resources-cta hc-container" aria-labelledby="resources-cta-title" data-motion="reveal">
       <div class="cta-panel hc-theme-dark">
         <div class="cta-panel__content">
           <p class="hc-eyebrow">Acquisitions</p>
@@ -196,7 +202,35 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
   if (page) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    /* Scroll reveals */
+    const queryInput = page.querySelector<HTMLInputElement>('#resource-query');
+    const formatSelect = page.querySelector('#resource-format') as HTMLSelectElement | null;
+    const count = page.querySelector<HTMLElement>('#resource-count');
+    const catalogueEntries = [...page.querySelectorAll<HTMLElement>('[data-resource]')];
+    const catalogueSections = [...page.querySelectorAll<HTMLElement>('.catalog-section')];
+    const filter = () => {
+      const query = queryInput?.value.trim().toLowerCase() ?? '';
+      const format = formatSelect?.value ?? '';
+      let visible = 0;
+      catalogueEntries.forEach((entry) => {
+        const matches = (!query || entry.dataset.search?.includes(query)) && (!format || entry.dataset.format === format);
+        entry.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      catalogueSections.forEach((section) => section.hidden = !section.querySelector('[data-resource]:not([hidden])'));
+      if (count) count.textContent = `${visible} ${visible === 1 ? 'holding' : 'holdings'} shown`;
+      const url = new URL(window.location.href);
+      query ? url.searchParams.set('q', query) : url.searchParams.delete('q');
+      format ? url.searchParams.set('format', format) : url.searchParams.delete('format');
+      history.replaceState(null, '', url);
+    };
+    const params = new URLSearchParams(location.search);
+    if (queryInput) queryInput.value = params.get('q') ?? '';
+    if (formatSelect) formatSelect.value = params.get('format') ?? '';
+    queryInput?.addEventListener('input', filter);
+    formatSelect?.addEventListener('change', filter);
+    filter();
+
+    /* Legacy scroll reveal support for routes without the shared runtime. */
     const items = [...page.querySelectorAll<HTMLElement>('[data-reveal]')];
 
     if (!reduced && 'IntersectionObserver' in window) {
@@ -246,6 +280,11 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
 </script>
 
 <style>
+  .resource-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(11rem, .35fr) auto; gap: 1rem; align-items: end; padding-block: 1.4rem; border-bottom: 1px solid var(--hc-rule); }
+  .resource-filters label { display: grid; gap: .4rem; color: var(--hc-text-secondary); font: 700 .7rem/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; }
+  .resource-filters input, .resource-filters select { min-height: 44px; border: 1px solid var(--hc-rule); padding: .6rem .7rem; color: var(--hc-text-primary); background: var(--hc-surface-1); font: 1rem var(--font-body); }
+  .resource-filters p { margin: 0 0 .75rem; color: var(--hc-gold-soft); font: .78rem var(--font-ui); white-space: nowrap; }
+  @media (max-width: 640px) { .resource-filters { grid-template-columns: 1fr; gap: .75rem; }.resource-filters p { margin: 0; } }
   .resources-page {
     min-height: 100vh;
     background:

@@ -30,7 +30,7 @@ const entries = posts.map((post, index) => ({
   description="Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts."
 >
   <div class="archive-page">
-    <header class="archive-hero" aria-labelledby="archive-title">
+    <header class="archive-hero" aria-labelledby="archive-title" data-motion="hero">
       <div class="hc-container archive-hero__inner">
         <p class="hc-eyebrow archive-hero__label">The HadithCritic Index</p>
         <h1 id="archive-title" class="archive-hero__title">
@@ -72,19 +72,20 @@ const entries = posts.map((post, index) => ({
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <span class="sr-only">Search entries by title</span>
-          <input type="search" id="archive-search-input" data-shortcut="k" placeholder="Search the index" autocomplete="off" />
+          <input type="search" id="archive-search-input" placeholder="Search title, description, category, tag, or author" autocomplete="off" />
         </label>
       </div>
     </div>
 
     <section class="archive-ledger hc-container" aria-label="All entries">
-      <ol class="ledger" id="ledger">
+      <p class="archive-result-count" id="archive-result-count" role="status" aria-live="polite">{posts.length} entries shown</p>
+      <ol class="ledger" id="ledger" data-motion="ledger">
         {entries.map(({ post, folio, dateLabel, dateISO }, index) => (
           <li
             class="ledger-row"
             data-category={post.data.category}
-            data-title={post.data.title.toLowerCase()}
-            style={`--row-index: ${Math.min(index, 14)}`}
+            data-search={`${post.data.title} ${post.data.description ?? ''} ${post.data.category} ${post.data.tags.join(' ')} ${post.data.author}`.toLowerCase()}
+            data-motion-row
           >
             <a href={`/blogs/${post.id}`} class="ledger-row__link">
               <span class="ledger-row__folio">
@@ -128,6 +129,7 @@ const entries = posts.map((post, index) => ({
     const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
     const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
     const emptyState = page.querySelector<HTMLParagraphElement>('#ledger-empty');
+    const resultCount = page.querySelector<HTMLElement>('#archive-result-count');
 
     
     const track = page.querySelector('.archive-filters');
@@ -148,14 +150,6 @@ const entries = posts.map((post, index) => ({
     // Call once initially (after fonts load or timeout to ensure layout)
     setTimeout(initIndicator, 50);
     window.addEventListener('resize', initIndicator);
-
-    // Keyboard shortcut handler
-    document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInput?.focus();
-      }
-    });
 
     // Scroll progress handler
     const ledgerList = document.getElementById('ledger');
@@ -195,6 +189,7 @@ const entries = posts.map((post, index) => ({
       } else {
         url.searchParams.set('category', activeCategory);
       }
+      query ? url.searchParams.set('q', query) : url.searchParams.delete('q');
       history.replaceState(null, '', url);
     };
 
@@ -203,13 +198,14 @@ const entries = posts.map((post, index) => ({
 
       for (const row of rows) {
         const matchesCategory = activeCategory === 'all' || row.dataset.category === activeCategory;
-        const matchesQuery = !query || (row.dataset.title ?? '').includes(query);
+        const matchesQuery = !query || (row.dataset.search ?? '').includes(query);
         const show = matchesCategory && matchesQuery;
         row.hidden = !show;
         if (show) visible += 1;
       }
 
       if (emptyState) emptyState.hidden = visible > 0;
+      if (resultCount) resultCount.textContent = `${visible} ${visible === 1 ? 'entry' : 'entries'} shown`;
     };
 
     for (const chip of chips) {
@@ -222,11 +218,18 @@ const entries = posts.map((post, index) => ({
 
     searchInput?.addEventListener('input', () => {
       query = searchInput.value.trim().toLowerCase();
+      syncUrl();
       applyFilters();
     });
 
     const requested = new URLSearchParams(location.search).get('category');
     if (requested && setActiveChip(requested)) {
+      applyFilters();
+    }
+    const requestedQuery = new URLSearchParams(location.search).get('q');
+    if (requestedQuery && searchInput) {
+      searchInput.value = requestedQuery;
+      query = requestedQuery.toLowerCase();
       applyFilters();
     }
   }
@@ -438,6 +441,14 @@ const entries = posts.map((post, index) => ({
 
   .archive-ledger {
     padding-block: clamp(2rem, 4vw, 3.25rem) clamp(5rem, 9vw, 7rem);
+  }
+
+  .archive-result-count {
+    margin: 0 0 0.75rem;
+    color: var(--hc-text-secondary);
+    font: 0.76rem var(--font-ui);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
   }
 
   .ledger {
