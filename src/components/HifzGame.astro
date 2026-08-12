@@ -90,7 +90,24 @@
 <div id="global-stamp" class="stamp-overlay" style="display:none;"></div>
 
 <script>
-  const fullDatabase = [
+  interface Narrator {
+    name: string;
+    region: string;
+    tabaqa: string;
+    firstLetter: string;
+  }
+
+  interface Hadith {
+    id: number;
+    collection: string;
+    reference: string;
+    isnad: Narrator[];
+    decoys: string[];
+    matnArabic: string;
+    matnEnglish: string;
+  }
+
+  const fullDatabase: Hadith[] = [
     {
       id: 1,
       collection: "Ṣaḥīḥ al-Bukhārī",
@@ -167,36 +184,38 @@
     }
   ];
 
-  let sessionHadiths = [];
+  let sessionHadiths: Hadith[] = [];
   let currentHadithIndex = 0;
   let reconstructStep = 0;
-  let reconstructExpected = [];
-  
+  let reconstructExpected: Narrator[] = [];
+
   // Scoring
   let mistakes = 0;
   let hintsUsed = 0;
-  let startTime = null;
+  let startTime: number | null = null;
 
   // Baghdad State
   let baghdadPairsFound = 0;
-  let selectedIsnadBtn = null;
-  let selectedMatnBtn = null;
+  let selectedIsnadBtn: HTMLButtonElement | null = null;
+  let selectedMatnBtn: HTMLButtonElement | null = null;
 
   // DOM Elements
-  const statusText = document.getElementById('hifz-status-text');
-  const statMistakes = document.getElementById('stat-mistakes');
-  const statHints = document.getElementById('stat-hints');
-  const jarhLog = document.getElementById('jarh-log');
-  const hintDisplay = document.getElementById('hint-display');
-  
-  function getEl(id) { return document.getElementById(id); }
+  const statusText = document.getElementById('hifz-status-text') as HTMLElement;
+  const statMistakes = document.getElementById('stat-mistakes') as HTMLElement;
+  const statHints = document.getElementById('stat-hints') as HTMLElement;
+  const jarhLog = document.getElementById('jarh-log') as HTMLElement;
+  const hintDisplay = document.getElementById('hint-display') as HTMLElement;
 
-  function showPhase(phaseId) {
+  function getEl(id: string): HTMLElement {
+    return document.getElementById(id) as HTMLElement;
+  }
+
+  function showPhase(phaseId: string) {
     document.querySelectorAll('.hifz-phase').forEach(el => el.classList.remove('active'));
     getEl(phaseId).classList.add('active');
   }
 
-  function shuffle(array) {
+  function shuffle<T>(array: T[]): T[] {
     let arr = [...array];
     for (let i = arr.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -205,7 +224,7 @@
     return arr;
   }
 
-  function safeRenderIsnad(container, isnadNames) {
+  function safeRenderIsnad(container: HTMLElement, isnadNames: string[]) {
     container.innerHTML = '';
     isnadNames.forEach((name, index) => {
       if (index > 0) {
@@ -240,12 +259,12 @@
   function initStudyPhase() {
     const hadith = sessionHadiths[currentHadithIndex];
     statusText.textContent = `Narration ${currentHadithIndex + 1} of 3`;
-    
+
     getEl('study-source').textContent = `${hadith.collection} | ${hadith.reference}`;
     safeRenderIsnad(getEl('study-isnad'), hadith.isnad.map(i => i.name));
     getEl('study-matn-arabic').textContent = hadith.matnArabic;
     getEl('study-matn-english').textContent = `"${hadith.matnEnglish}"`;
-    
+
     showPhase('phase-study');
   }
 
@@ -257,16 +276,16 @@
   function initReconstructPhase() {
     const hadith = sessionHadiths[currentHadithIndex];
     statusText.textContent = `Reconstruct Narration ${currentHadithIndex + 1}`;
-    
+
     getEl('reconstruct-matn-arabic').textContent = hadith.matnArabic;
-    
+
     reconstructExpected = hadith.isnad;
     reconstructStep = 0;
-    
+
     // Pool contains correct + decoys
     const poolNames = [...hadith.isnad.map(i => i.name), ...hadith.decoys];
     const shuffled = shuffle(poolNames);
-    
+
     const pool = getEl('reconstruct-pool');
     pool.innerHTML = '';
     getEl('reconstruct-built').innerHTML = '';
@@ -281,15 +300,15 @@
       btn.addEventListener('click', () => handleReconstructClick(btn, name));
       pool.appendChild(btn);
     });
-    
+
     showPhase('phase-reconstruct');
   }
 
-  document.querySelectorAll('.hint-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+  document.querySelectorAll<HTMLButtonElement>('.hint-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
       hintsUsed++;
       updateStats();
-      const type = e.target.dataset.type;
+      const type = btn.dataset.type;
       const expectedObj = reconstructExpected[reconstructStep];
       let msg = "";
       if (type === 'tabaqa') msg = `Hint: The next transmitter is from the ${expectedObj.tabaqa}.`;
@@ -299,16 +318,16 @@
     });
   });
 
-  function handleReconstructClick(btn, name) {
+  function handleReconstructClick(btn: HTMLButtonElement, name: string) {
     const expectedObj = reconstructExpected[reconstructStep];
-    
+
     if (name === expectedObj.name) {
       // Correct
       btn.classList.add('correct');
       btn.disabled = true;
       jarhLog.style.display = 'none';
       hintDisplay.textContent = '';
-      
+
       const built = getEl('reconstruct-built');
       if (reconstructStep > 0) {
         const arrow = document.createElement('span');
@@ -320,13 +339,13 @@
       node.className = 'isnad-node';
       node.textContent = name;
       built.appendChild(node);
-      
+
       reconstructStep++;
-      
+
       if (reconstructStep === reconstructExpected.length) {
         statusText.textContent = "Ṣaḥīḥ! Chain verified.";
         statusText.style.color = "var(--hc-gold)";
-        showStamp('ṢAḤĪḤ', 'stamp-sahih', getEl('phase-reconstruct').querySelector('.hifz-card'));
+        showStamp('ṢAḤĪḤ', 'stamp-sahih', getEl('phase-reconstruct').querySelector('.hifz-card') as HTMLElement);
         setTimeout(() => {
           statusText.style.color = "";
           currentHadithIndex++;
@@ -342,12 +361,12 @@
       mistakes++;
       updateStats();
       btn.classList.add('wrong');
-      showStamp('ḌAʿĪF', 'stamp-daif', getEl('phase-reconstruct').querySelector('.hifz-card'));
-      
+      showStamp('ḌAʿĪF', 'stamp-daif', getEl('phase-reconstruct').querySelector('.hifz-card') as HTMLElement);
+
       // Determine Jarh reasoning
       const isDecoy = sessionHadiths[currentHadithIndex].decoys.includes(name);
       const isLaterInChain = reconstructExpected.slice(reconstructStep+1).find(i => i.name === name);
-      
+
       let jarhMsg = "Unrecognized error.";
       if (isDecoy) {
         jarhMsg = `<strong>Jarḥ Note:</strong> ${name} is an intruder not found in this chain.`;
@@ -397,9 +416,9 @@
     shuffledIsnads.forEach(h => {
       const btn = document.createElement('button');
       btn.className = 'baghdad-btn baghdad-isnad';
-      btn.dataset.id = h.id;
+      btn.dataset.id = String(h.id);
       btn.innerHTML = `<div class="chain-wrap"></div>`;
-      safeRenderIsnad(btn.querySelector('.chain-wrap'), h.isnad.map(i=>i.name));
+      safeRenderIsnad(btn.querySelector('.chain-wrap') as HTMLElement, h.isnad.map(i=>i.name));
       btn.addEventListener('click', () => handleBaghdadSelect('isnad', btn));
       isnadsCol.appendChild(btn);
     });
@@ -407,7 +426,7 @@
     shuffledMatns.forEach(h => {
       const btn = document.createElement('button');
       btn.className = 'baghdad-btn baghdad-matn';
-      btn.dataset.id = h.id;
+      btn.dataset.id = String(h.id);
       btn.innerHTML = `<div dir="rtl" class="matn-arabic">${h.matnArabic}</div><div class="matn-english mt-2">"${h.matnEnglish}"</div>`;
       btn.addEventListener('click', () => handleBaghdadSelect('matn', btn));
       matnsCol.appendChild(btn);
@@ -416,7 +435,7 @@
     showPhase('phase-baghdad-test');
   }
 
-  function handleBaghdadSelect(type, btn) {
+  function handleBaghdadSelect(type: 'isnad' | 'matn', btn: HTMLButtonElement) {
     if (btn.classList.contains('locked')) return;
     getEl('baghdad-error-log').style.display = 'none';
 
@@ -445,6 +464,8 @@
   });
 
   function checkBaghdadPair() {
+    if (!selectedIsnadBtn || !selectedMatnBtn) return;
+
     const id1 = selectedIsnadBtn.dataset.id;
     const id2 = selectedMatnBtn.dataset.id;
 
@@ -454,7 +475,7 @@
       selectedIsnadBtn.classList.add('locked');
       selectedMatnBtn.classList.remove('selected');
       selectedMatnBtn.classList.add('locked');
-      
+
       baghdadPairsFound++;
       selectedIsnadBtn = null;
       selectedMatnBtn = null;
@@ -469,16 +490,18 @@
       updateStats();
       selectedIsnadBtn.classList.add('wrong');
       selectedMatnBtn.classList.add('wrong');
-      
+
       showStamp('MAQLŪB', 'stamp-maqlub', getEl('phase-baghdad-test'));
 
       const errLog = getEl('baghdad-error-log');
       errLog.innerHTML = `<strong>Maqlūb Error:</strong> You attached a chain to a foreign text.`;
       errLog.style.display = 'block';
-      
+
+      const wrongIsnadBtn = selectedIsnadBtn;
+      const wrongMatnBtn = selectedMatnBtn;
       setTimeout(() => {
-        selectedIsnadBtn.classList.remove('wrong', 'selected');
-        selectedMatnBtn.classList.remove('wrong', 'selected');
+        wrongIsnadBtn.classList.remove('wrong', 'selected');
+        wrongMatnBtn.classList.remove('wrong', 'selected');
         selectedIsnadBtn = null;
         selectedMatnBtn = null;
         getEl('baghdad-action-bar').style.display = 'none';
@@ -487,7 +510,7 @@
     }
   }
 
-  function calculateRank() {
+  function calculateRank(): string {
     if (mistakes === 0 && hintsUsed === 0) return "Ḥāfiẓ";
     if (mistakes === 0) return "Thiqah";
     if (mistakes === 1) return "Ṣadūq yahim";
@@ -498,7 +521,7 @@
   // --- PHASE 5: VICTORY ---
   function initVictory() {
     statusText.textContent = "Audit Complete";
-    const timeTaken = ((Date.now() - startTime) / 1000).toFixed(1);
+    const timeTaken = ((Date.now() - startTime!) / 1000).toFixed(1);
     const rank = calculateRank();
 
     const reportCard = getEl('report-card');
@@ -520,7 +543,7 @@
     `;
 
     showPhase('phase-victory');
-    
+
     if (rank === 'Ḥāfiẓ' || rank === 'Thiqah') {
       setTimeout(() => {
         showStamp(rank.toUpperCase(), 'stamp-hafiz', getEl('report-card'), 3000);
@@ -528,13 +551,13 @@
     }
   }
 
-  function showStamp(text, className, container, duration = 1500) {
+  function showStamp(text: string, className: string, container: HTMLElement, duration = 1500) {
     const stamp = document.createElement('div');
     stamp.className = `stamp-overlay ${className}`;
     stamp.textContent = text;
     container.style.position = 'relative';
     container.appendChild(stamp);
-    
+
     setTimeout(() => {
       if (stamp.parentNode) {
         stamp.parentNode.removeChild(stamp);
@@ -619,6 +642,27 @@
     margin: 0 auto;
     text-align: center;
   }
+
+  :global([data-theme="light"]) .hifz-card {
+    background: linear-gradient(180deg, rgba(251, 249, 244, 0.98), rgba(242, 236, 224, 0.95));
+    border-color: var(--hc-rule);
+    box-shadow: 0 12px 24px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) #hifz-status-text {
+    color: var(--hc-text-secondary);
+  }
+
+  :global([data-theme="light"]) .matn-arabic,
+  :global([data-theme="light"]) .hifz-card-title {
+    color: var(--hc-text-primary);
+  }
+
+  :global([data-theme="light"]) .stat-badge,
+  :global([data-theme="light"]) .hifz-isnad-display {
+    background: rgba(43, 40, 36, 0.04);
+  }
+
 
   .hifz-card-title {
     font-family: var(--font-display);

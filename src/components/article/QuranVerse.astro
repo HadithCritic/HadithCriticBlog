@@ -34,21 +34,29 @@ if (missing.length) {
 }
 
 const arabic = found.map((f) => f.ar).filter(Boolean).join(' ۝ ');
-const english = found
-  .map((f) => f.en)
-  .filter(Boolean)
-  .join(' ');
+const english = found.map((f) => f.en).filter(Boolean);
 const ref = label || `Quran ${verse}`;
+const hasData = Boolean(arabic || english.length);
 ---
 <div class="hc-article-panel hc-article-panel--parchment quran-verse">
   <div class="quran-verse__header">
     <span class="hc-eyebrow">Quran</span>
   </div>
-  {arabic && (
-    <div class="quran-verse__arabic" dir="rtl" lang="ar">{arabic}</div>
+  {hasData ? (
+    <>
+      {arabic && (
+        <div class="quran-verse__arabic" dir="rtl" lang="ar">{arabic}</div>
+      )}
+      {english.length > 0 && (
+        <div class="quran-verse__english">
+          {english.map((text) => <p class="qv-verse">{text}</p>)}
+        </div>
+      )}
+      <div class="quran-verse__ref">{ref}</div>
+    </>
+  ) : (
+    <p class="quran-verse__missing">Verse data unavailable for {ref}.</p>
   )}
-  {english && <div class="quran-verse__english">{english}</div>}
-  <div class="quran-verse__ref">{ref}</div>
 </div>
 <style>
   .quran-verse {
@@ -82,8 +90,26 @@ const ref = label || `Quran ${verse}`;
     margin-bottom: 1.25rem;
     padding-left: 1rem;
     border-left: 1px solid var(--hc-gold-dim);
-    color: #2f281f;
+    color: var(--hc-fixed-parchment-ink);
   }
+
+  .quran-verse__english .qv-verse {
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .quran-verse__english .qv-verse:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .quran-verse__missing {
+    margin: 0;
+    color: var(--hc-fixed-parchment-ink);
+    font-style: italic;
+  }
+
   .quran-verse__ref {
     font-family: var(--font-ui);
     font-size: 0.8rem;

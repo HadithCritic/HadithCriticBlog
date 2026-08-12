@@ -1,0 +1,129 @@
+---
+// Renders a single-transmitter bottleneck fanning out into variant matn forms:
+// one root, one companion node, then branches with a quoted variant + sources.
+export interface VariantBranch {
+  name: string;
+  from?: string;
+  quote: string;
+  sources: string;
+}
+
+export interface Props {
+  title: string;
+  root: string;
+  bottleneck: string;
+  branches: VariantBranch[];
+  ariaLabel?: string;
+}
+
+const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
+---
+
+<div class="variant-tree" aria-label={ariaLabel || title}>
+  <p class="variant-tree__title">{title}</p>
+  <div class="variant-tree__root">{root}</div>
+  <div class="variant-tree__line" aria-hidden="true"></div>
+  <div class="variant-tree__bottleneck">{bottleneck}</div>
+  <div class="variant-tree__branches">
+    {branches.map((branch) => (
+      <div class="variant-tree__branch">
+        <p class="variant-tree__name">
+          {branch.name}
+          {branch.from && <span class="variant-tree__from">← {branch.from}</span>}
+        </p>
+        <p class="variant-tree__quote">{branch.quote}</p>
+        <p class="variant-tree__sources">{branch.sources}</p>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .variant-tree {
+    margin: 2.4rem 0;
+    padding: clamp(1.4rem, 3vw, 2.2rem);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--hc-surface-1) 50%, transparent);
+    text-align: center;
+  }
+
+  .variant-tree__title {
+    margin: 0 0 1.5rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
+  }
+
+  .variant-tree__root,
+  .variant-tree__bottleneck {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--hc-text-primary);
+  }
+
+  .variant-tree__bottleneck {
+    border-color: var(--hc-gold-dim);
+    color: var(--hc-gold);
+    font-weight: 600;
+  }
+
+  .variant-tree__line {
+    width: 1px;
+    height: 1.5rem;
+    margin: 0 auto;
+    background: var(--hc-rule-strong);
+  }
+
+  .variant-tree__branches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.75rem;
+    padding-top: 1.75rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    text-align: left;
+  }
+
+  .variant-tree__branch {
+    padding: 1rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--hc-surface-0) 60%, transparent);
+  }
+
+  .variant-tree__name {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .variant-tree__from {
+    display: block;
+    margin-top: 0.2rem;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .variant-tree__quote {
+    margin: 0 0 0.6rem;
+    font-style: italic;
+    color: var(--hc-text-secondary);
+  }
+
+  .variant-tree__sources {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-gold-dim);
+  }
+</style>

@@ -80,12 +80,11 @@ const entries = posts.map((post, index) => ({
     <section class="archive-ledger hc-container" aria-label="All entries">
       <p class="archive-result-count" id="archive-result-count" role="status" aria-live="polite">{posts.length} entries shown</p>
       <ol class="ledger" id="ledger" data-motion="ledger">
-        {entries.map(({ post, folio, dateLabel, dateISO }, index) => (
+        {entries.map(({ post, folio, dateLabel, dateISO }) => (
           <li
             class="ledger-row"
             data-category={post.data.category}
             data-search={`${post.data.title} ${post.data.description ?? ''} ${post.data.category} ${post.data.tags.join(' ')} ${post.data.author}`.toLowerCase()}
-            data-motion-row
           >
             <a href={`/blogs/${post.id}`} class="ledger-row__link">
               <span class="ledger-row__folio">
@@ -174,9 +173,10 @@ const entries = posts.map((post, index) => ({
     let query = '';
 
     const setActiveChip = (category: string) => {
-      const chip = chips.find((c) => c.dataset.filter === category);
+      const normalized = category.trim().toLowerCase();
+      const chip = chips.find((c) => (c.dataset.filter ?? '').trim().toLowerCase() === normalized);
       if (!chip) return false;
-      activeCategory = category;
+      activeCategory = chip.dataset.filter ?? 'all';
       chips.forEach((c) => c.classList.toggle('is-active', c === chip));
       updateIndicator(chip);
       return true;
@@ -201,7 +201,12 @@ const entries = posts.map((post, index) => ({
         const matchesQuery = !query || (row.dataset.search ?? '').includes(query);
         const show = matchesCategory && matchesQuery;
         row.hidden = !show;
-        if (show) visible += 1;
+        if (show) {
+          visible += 1;
+          row.style.opacity = '1';
+          row.style.visibility = 'visible';
+          row.style.transform = 'none';
+        }
       }
 
       if (emptyState) emptyState.hidden = visible > 0;

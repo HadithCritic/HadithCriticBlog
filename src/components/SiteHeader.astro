@@ -21,6 +21,10 @@ const links = [
     </nav>
     <div class="header-actions">
       <button class="header-search-btn" type="button" data-search-trigger aria-label="Search HadithCritic"><span aria-hidden="true">Search</span><kbd>Ctrl K</kbd></button>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark theme">
+        <svg class="theme-toggle__icon theme-toggle__icon--sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+        <svg class="theme-toggle__icon theme-toggle__icon--moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+      </button>
       <button class="header-menu-toggle" id="menuToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNav"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
     </div>
   </div>
@@ -41,7 +45,12 @@ const links = [
   .hc-header-link { position: relative; display: inline-flex; align-items: center; min-height: 44px; color: var(--hc-text-secondary); font: 700 .76rem/1 var(--font-ui); letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
   .hc-header-link::after { position: absolute; bottom: 4px; left: 0; width: 100%; height: 1px; content: ''; background: var(--hc-gold); transform: scaleX(0); transform-origin: left; transition: transform var(--motion-base) var(--ease-standard); }
   .hc-header-link:hover, .hc-header-link[aria-current='page'] { color: var(--hc-text-primary); }.hc-header-link[aria-current='page']::after, .hc-header-link:hover::after { transform: scaleX(1); }
-  .header-actions { display: flex; align-items: center; gap: .5rem; }.header-search-btn, .header-menu-toggle, .mobile-search { min-height: 44px; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); background: transparent; font: 700 .73rem/1 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+  .header-actions { display: flex; align-items: center; gap: .5rem; }.header-search-btn, .header-menu-toggle, .theme-toggle, .mobile-search { min-height: 44px; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); background: transparent; font: 700 .73rem/1 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
+  .theme-toggle { display: grid; width: 44px; place-content: center; }
+  .theme-toggle:hover { color: var(--hc-text-primary); border-color: var(--hc-rule-strong); }
+  .theme-toggle__icon--sun { display: none; }
+  [data-theme="light"] .theme-toggle__icon--sun { display: block; }
+  [data-theme="light"] .theme-toggle__icon--moon { display: none; }
   .header-search-btn { display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .65rem; }.header-search-btn kbd { padding: .18rem .32rem; border: 1px solid var(--hc-rule-soft); color: var(--hc-gold-soft); font: inherit; }
   .header-menu-toggle { display: none; width: 44px; padding: 0; place-content: center; gap: 4px; }.hamburger-line { display: block; width: 18px; height: 1px; background: currentColor; transition: transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard); }.header-menu-toggle.is-open .hamburger-line:nth-child(1) { transform: translateY(5px) rotate(45deg); }.header-menu-toggle.is-open .hamburger-line:nth-child(2) { opacity: 0; }.header-menu-toggle.is-open .hamburger-line:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
   .mobile-nav-backdrop { position: fixed; z-index: 48; inset: 0; background: rgba(7,7,8,.68); }.header-mobile-nav { display: none; }
@@ -70,4 +79,11 @@ const links = [
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && menu?.classList.contains('is-open')) setMenu(false, true); });
   window.addEventListener('resize', () => { if (window.innerWidth > 980 && menu?.classList.contains('is-open')) setMenu(false); });
   document.querySelectorAll<HTMLElement>('[data-search-trigger]').forEach((button) => button.addEventListener('click', () => { setMenu(false); document.dispatchEvent(new CustomEvent('hc:search-open', { detail: button })); }));
+  const themeToggle = document.querySelector<HTMLButtonElement>('#themeToggle');
+  themeToggle?.addEventListener('click', () => {
+    const root = document.documentElement;
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  });
 </script>

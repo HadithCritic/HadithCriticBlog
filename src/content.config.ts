@@ -10,7 +10,12 @@ const articleCollection = defineCollection({
     updated: z.date().optional(),
     author: z.string().default('HadithCritic'),
     tags: z.array(z.string()).default([]),
-    category: z.string(),
+    category: z.enum([
+      'Origins & Early History',
+      'Transmission & Narrators',
+      'Theology & Epistemology',
+      'Prophecies & Eschatology',
+    ]),
     thumbnail: z.string().optional(),
     heroAlt: z.string().optional(),
     readingTime: z.string().optional(),
