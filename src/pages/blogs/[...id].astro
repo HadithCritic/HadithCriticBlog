@@ -23,8 +23,14 @@ const { Content, headings } = await render(post);
 
 // Build the sidebar table of contents from the real rendered headings so
 // the anchors always resolve. Only top-level sections are shown.
+const seenSlugs = new Set<string>();
 const tocHeadings = headings
-  .filter((h) => h.depth === 2 || h.depth === 3)
+  .filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label')
+  .filter((h) => {
+    if (seenSlugs.has(h.slug)) return false;
+    seenSlugs.add(h.slug);
+    return true;
+  })
   .map((h) => ({ depth: h.depth, text: h.text, slug: h.slug }));
 const showToc = tocHeadings.length >= 3;
 ---
