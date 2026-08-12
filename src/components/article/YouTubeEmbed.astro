@@ -1,0 +1,346 @@
+---
+export interface Props {
+  url: string;
+  title?: string;
+  channel?: string;
+  date?: string;
+}
+
+const { url, title, channel = "YouTube", date } = Astro.props;
+
+function parseYouTube(raw: string) {
+  let id = "";
+  let start = "";
+  try {
+    const u = new URL(raw);
+    if (u.hostname.includes("youtu.be")) {
+      id = u.pathname.replace("/", "");
+    } else {
+      id = u.searchParams.get("v") ?? u.pathname.split("/embed/")[1] ?? "";
+      const t = u.searchParams.get("t");
+      if (t) start = t.replace("s", "");
+    }
+  } catch {
+    id = raw;
+  }
+  return { id, start };
+}
+
+const { id: videoId, start } = parseYouTube(url);
+const thumbnail = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+const watchUrl = `https://www.youtube.com/watch?v=${videoId}${start ? `&t=${start}s` : ""}`;
+---
+
+<figure
+  class="yt-cite"
+  role="region"
+  aria-label={title ? `Video: ${title}` : "YouTube video"}
+>
+  <header class="yt-cite__head">
+    <div class="yt-cite__meta">
+      <svg class="yt-cite__icon" viewBox="0 0 28 28" aria-hidden="true">
+        <rect x="1" y="5" width="26" height="18" rx="6" fill="#FF0000"></rect>
+        <path d="M11.5 9.5L19 14L11.5 18.5V9.5Z" fill="#FFFFFF"></path>
+      </svg>
+      <div class="yt-cite__names">
+        <span class="yt-cite__channel">{channel}</span>
+        <span class="yt-cite__tag">Video</span>
+      </div>
+    </div>
+    {
+      date && (
+        <time class="yt-cite__date" datetime={date}>
+          {date}
+        </time>
+      )
+    }
+  </header>
+
+  {title && <h4 class="yt-cite__title">{title}</h4>}
+
+  <div class="yt-cite__player" data-yt-id={videoId} data-yt-start={start}>
+    <button
+      type="button"
+      class="yt-cite__facade"
+      aria-label={`Play${title ? ` ${title}` : ""}`}
+    >
+      <img
+        class="yt-cite__thumb"
+        src={thumbnail}
+        alt=""
+        loading="lazy"
+        decoding="async"
+      />
+      <span class="yt-cite__play" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path d="M8 5v14l11-7L8 5z" fill="currentColor"></path>
+        </svg>
+      </span>
+    </button>
+  </div>
+
+  <footer class="yt-cite__foot">
+    <span class="yt-cite__domain">youtube.com</span>
+    <a
+      href={watchUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="yt-cite__link"
+    >
+      Watch
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M7 17L17 7M17 7H7M17 7V17"></path>
+      </svg>
+    </a>
+  </footer>
+</figure>
+
+<script is:inline>
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".yt-cite__facade");
+    if (!btn) return;
+    var player = btn.closest("[data-yt-id]");
+    if (!player) return;
+    var id = player.dataset.ytId;
+    var start = player.dataset.ytStart;
+    if (!id) return;
+
+    var iframe = document.createElement("iframe");
+    iframe.src =
+      "https://www.youtube-nocookie.com/embed/" +
+      id +
+      "?autoplay=1&rel=0" +
+      (start ? "&start=" + start : "");
+    iframe.title = "YouTube video player";
+    iframe.setAttribute("frameborder", "0");
+    iframe.setAttribute(
+      "allow",
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share",
+    );
+    iframe.setAttribute("allowfullscreen", "true");
+    iframe.style.opacity = "0";
+    iframe.style.transition = "opacity 0.3s ease";
+
+    player.replaceChildren(iframe);
+    requestAnimationFrame(function () {
+      iframe.style.opacity = "1";
+    });
+  });
+</script>
+
+<style>
+  .yt-cite {
+    --yt-border: rgba(255, 255, 255, 0.1);
+    --yt-surface: rgba(255, 255, 255, 0.03);
+    --yt-text: #e8e6e3;
+    --yt-muted: #888;
+    --yt-accent: #ff3333;
+    --yt-radius: 10px;
+
+    margin: 1.5rem 0;
+    border-radius: var(--yt-radius);
+    background: var(--yt-surface);
+    border: 1px solid var(--yt-border);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+  }
+  .yt-cite:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .yt-cite__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--yt-border);
+  }
+  .yt-cite__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .yt-cite__icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+  .yt-cite__names {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .yt-cite__channel {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--yt-text);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .yt-cite__tag {
+    font-size: 0.7rem;
+    color: var(--yt-accent);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .yt-cite__date {
+    font-size: 0.72rem;
+    color: var(--yt-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .yt-cite__title {
+    margin: 0;
+    padding: 0.6rem 0.9rem 0.2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--yt-text);
+    letter-spacing: -0.01em;
+  }
+
+  .yt-cite__player {
+    position: relative;
+    margin: 0.5rem 0.9rem 0.6rem;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+  }
+  .yt-cite__player iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+  }
+
+  .yt-cite__facade {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: none;
+    cursor: pointer;
+    display: block;
+  }
+  .yt-cite__thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.9);
+    transition:
+      filter 0.2s ease,
+      transform 0.3s ease;
+  }
+  .yt-cite__facade:hover .yt-cite__thumb {
+    filter: brightness(1);
+    transform: scale(1.02);
+  }
+
+  .yt-cite__play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.25);
+    transition: background 0.2s ease;
+  }
+  .yt-cite__facade:hover .yt-cite__play {
+    background: rgba(0, 0, 0, 0.15);
+  }
+  .yt-cite__play svg {
+    width: 44px;
+    height: 44px;
+    padding: 11px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    backdrop-filter: blur(4px);
+    transition:
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      background 0.2s ease;
+  }
+  .yt-cite__facade:hover .yt-cite__play svg {
+    transform: scale(1.08);
+    background: var(--yt-accent);
+  }
+
+  .yt-cite__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.9rem;
+    border-top: 1px solid var(--yt-border);
+  }
+  .yt-cite__domain {
+    font-size: 0.7rem;
+    color: var(--yt-muted);
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    letter-spacing: 0.02em;
+  }
+  .yt-cite__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--yt-muted);
+    text-decoration: none;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    transition:
+      color 0.15s ease,
+      background 0.15s ease;
+  }
+  .yt-cite__link:hover {
+    color: var(--yt-text);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  :global([data-theme="light"]) .yt-cite {
+    --yt-border: rgba(0, 0, 0, 0.1);
+    --yt-surface: rgba(0, 0, 0, 0.02);
+    --yt-text: #1a1a1a;
+    --yt-muted: #666;
+    --yt-accent: #cc0000;
+  }
+  :global([data-theme="light"]) .yt-cite:hover {
+    border-color: rgba(0, 0, 0, 0.18);
+  }
+
+  @media (max-width: 480px) {
+    .yt-cite__head,
+    .yt-cite__foot {
+      padding: 0.55rem 0.75rem;
+    }
+    .yt-cite__title {
+      padding: 0.5rem 0.75rem 0.15rem;
+      font-size: 0.9rem;
+    }
+    .yt-cite__player {
+      margin: 0.4rem 0.75rem 0.5rem;
+    }
+  }
+</style>

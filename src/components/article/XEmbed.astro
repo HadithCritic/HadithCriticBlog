@@ -1,0 +1,408 @@
+---
+// X (Twitter) Citation Embed
+// A static citation card matching the QuranTalk embed pattern — no
+// third-party widget script, so it renders identically for every visitor
+// regardless of network access to x.com/platform.twitter.com.
+
+export interface Props {
+  url: string;
+  author?: string;
+  handle?: string;
+  date?: string;
+  text?: string;
+}
+
+const { url, author = "X", date, text } = Astro.props;
+
+function parseHandle(raw: string) {
+  try {
+    const u = new URL(raw);
+    return u.pathname.split("/").filter(Boolean)[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+const handle = Astro.props.handle ?? parseHandle(url);
+---
+
+<figure class="x-cite" role="region" aria-label={`X post by ${author}`}>
+  <div class="x-cite__glow" aria-hidden="true"></div>
+
+  <div class="x-cite__body">
+    <header class="x-cite__header">
+      <div class="x-cite__brand">
+        <div class="x-cite__logo" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </div>
+        <div class="x-cite__brand-text">
+          <span class="x-cite__brand-name">{author}</span>
+          {handle && <span class="x-cite__handle">@{handle}</span>}
+        </div>
+      </div>
+
+      {date && (
+        <time class="x-cite__date" datetime={date}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          {date}
+        </time>
+      )}
+    </header>
+
+    <a href={url} target="_blank" rel="noopener noreferrer" class="x-cite__link">
+      {text ? <p class="x-cite__quote">&ldquo;{text}&rdquo;</p> : <span class="x-cite__cta-text">View this post on X</span>}
+      <span class="x-cite__link-icon" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          <polyline points="15 3 21 3 21 9" />
+          <line x1="10" y1="14" x2="21" y2="3" />
+        </svg>
+      </span>
+    </a>
+
+    <footer class="x-cite__footer">
+      <div class="x-cite__source">
+        <span class="x-cite__live-dot" aria-hidden="true"></span>
+        <span class="x-cite__domain">x.com</span>
+      </div>
+
+      <a href={url} target="_blank" rel="noopener noreferrer" class="x-cite__cta">
+        <span>View Post</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </a>
+    </footer>
+  </div>
+</figure>
+
+<style>
+  .x-cite {
+    position: relative;
+    margin: 2.75rem 0;
+    border-radius: var(--radius-sm, 8px);
+    background: linear-gradient(170deg, rgba(15,15,16,0.98) 0%, rgba(20,20,23,0.99) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    overflow: hidden;
+    transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .x-cite__glow {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .x-cite:hover .x-cite__glow {
+    opacity: 1;
+  }
+
+  .x-cite:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 20px 50px -15px rgba(0, 0, 0, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .x-cite::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.5px;
+    background: linear-gradient(90deg, transparent 0%, #444 15%, #e8e8e8 50%, #fff 70%, #444 85%, transparent 100%);
+    opacity: 0.6;
+  }
+
+  .x-cite:hover::before {
+    opacity: 1;
+  }
+
+  .x-cite__body {
+    position: relative;
+    z-index: 1;
+    padding: 1.6rem 1.9rem 1.4rem;
+  }
+
+  .x-cite__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .x-cite__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .x-cite__logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: #f2ebdc;
+  }
+
+  .x-cite__brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+  }
+
+  .x-cite__brand-name {
+    font-family: var(--font-display, "Cormorant Garamond", "Cinzel", serif);
+    font-size: 0.96rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #f2ebdc;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+
+  .x-cite__handle {
+    font-family: var(--font-ui, "IBM Plex Sans", sans-serif);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.45);
+  }
+
+  .x-cite__date {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-ui, "IBM Plex Sans", sans-serif);
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--hc-text-tertiary, #8a8276);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.3rem 0.7rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .x-cite__link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    text-decoration: none;
+    padding: 0.9rem 1.1rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: background 0.25s ease, border-color 0.25s ease;
+  }
+
+  .x-cite__link:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .x-cite__quote {
+    margin: 0;
+    font-family: var(--font-body, "Source Serif 4", serif);
+    font-size: 1rem;
+    font-style: italic;
+    line-height: 1.55;
+    color: var(--hc-parchment, #f2ebdc);
+  }
+
+  .x-cite__cta-text {
+    font-family: var(--font-ui, "IBM Plex Sans", sans-serif);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--hc-parchment, #f2ebdc);
+  }
+
+  .x-cite__link-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #f2ebdc;
+    flex-shrink: 0;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .x-cite__link:hover .x-cite__link-icon {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+    transform: translate(2px, -2px);
+  }
+
+  .x-cite__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .x-cite__source {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .x-cite__live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+    animation: xPulse 2.5s ease-in-out infinite;
+  }
+
+  @keyframes xPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+    50% { box-shadow: 0 0 0 5px rgba(255, 255, 255, 0); }
+  }
+
+  .x-cite__domain {
+    font-family: var(--font-ui, "IBM Plex Mono", monospace);
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary, #8a8276);
+    letter-spacing: 0.02em;
+  }
+
+  .x-cite__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.95rem;
+    border-radius: var(--radius-xs, 4px);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #f2ebdc;
+    font-family: var(--font-ui, "IBM Plex Sans", sans-serif);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+  }
+
+  .x-cite__cta:hover {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.4);
+    color: #fff;
+  }
+
+  :global([data-theme="light"]) .x-cite {
+    background: linear-gradient(170deg, rgba(251,249,244,0.98) 0%, rgba(242,236,224,0.99) 100%);
+    border-color: rgba(0, 0, 0, 0.14);
+  }
+
+  :global([data-theme="light"]) .x-cite__logo,
+  :global([data-theme="light"]) .x-cite__brand-name,
+  :global([data-theme="light"]) .x-cite__quote,
+  :global([data-theme="light"]) .x-cite__cta-text,
+  :global([data-theme="light"]) .x-cite__link-icon {
+    color: #2b2824;
+  }
+
+  :global([data-theme="light"]) .x-cite__handle {
+    color: rgba(0, 0, 0, 0.45);
+  }
+
+  :global([data-theme="light"]) .x-cite__domain {
+    color: #8a8276;
+  }
+
+  :global([data-theme="light"]) .x-cite__date {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.06);
+    color: #8a8276;
+  }
+
+  :global([data-theme="light"]) .x-cite__header,
+  :global([data-theme="light"]) .x-cite__footer {
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  :global([data-theme="light"]) .x-cite__link {
+    background: rgba(0, 0, 0, 0.02);
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  :global([data-theme="light"]) .x-cite__link:hover {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+
+  :global([data-theme="light"]) .x-cite__link-icon {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  :global([data-theme="light"]) .x-cite__cta {
+    background: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.15);
+    color: #2b2824;
+  }
+
+  :global([data-theme="light"]) .x-cite__cta:hover {
+    background: rgba(0, 0, 0, 0.1);
+    border-color: rgba(0, 0, 0, 0.3);
+    color: #000;
+  }
+
+  @media (max-width: 640px) {
+    .x-cite__body {
+      padding: 1.25rem 1.4rem 1.1rem;
+    }
+
+    .x-cite__cta span {
+      display: none;
+    }
+
+    .x-cite__cta {
+      padding: 0.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .x-cite,
+    .x-cite__glow,
+    .x-cite__link-icon,
+    .x-cite__cta {
+      transition: none !important;
+      animation: none !important;
+      transform: none !important;
+    }
+
+    .x-cite__live-dot {
+      animation: none;
+      box-shadow: 0 0 4px rgba(255, 255, 255, 0.4);
+    }
+  }
+</style>
