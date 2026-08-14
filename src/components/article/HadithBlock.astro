@@ -5,54 +5,165 @@ export interface Props {
   english?: string;
   source?: string;
   label?: string;
+  type?: 'canonical' | 'variant' | 'mawquf' | 'mursal' | 'quote' | 'default';
 }
-const { arabic, translation, english, source, label = 'Report Text' } = Astro.props;
+
+const {
+  arabic,
+  translation,
+  english,
+  source,
+  label = 'Report Text',
+  type = 'default'
+} = Astro.props;
+
 const finalTranslation = translation || english;
 const hasSlot = Astro.slots.has('default');
 ---
-<div class="hadith-block">
-  <div class="hadith-block__badge">
-    <span>{label}</span>
+
+<div class={`hadith-block hadith-block--${type}`} data-hadith-block>
+  <div class="hadith-block__header">
+    <div class={`hadith-block__badge hadith-block__badge--${type}`}>
+      <span class="hadith-block__badge-dot" aria-hidden="true"></span>
+      <span>{label}</span>
+    </div>
+
+    <button
+      type="button"
+      class="hadith-block__copy"
+      data-hadith-copy
+      title="Copy report text"
+      aria-label="Copy report text to clipboard"
+    >
+      <span class="hadith-block__copy-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </span>
+      <span class="hadith-block__copy-check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </span>
+      <span class="hadith-block__copy-text">Copy</span>
+    </button>
   </div>
 
   <div class="hadith-block__content">
     {arabic ? (
-      <div class="hadith-block__arabic" dir="rtl" lang="ar">{arabic}</div>
+      <div class="hadith-block__arabic" dir="rtl" lang="ar" data-arabic-text>{arabic}</div>
     ) : hasSlot ? (
       <div class="hadith-block__slot-wrap"><slot /></div>
     ) : null}
 
     {finalTranslation && (
-      <div class="hadith-block__english">{finalTranslation}</div>
+      <div class="hadith-block__english" data-english-text>{finalTranslation}</div>
     )}
   </div>
 
   {source && (
-    <div class="hadith-block__source">
+    <div class="hadith-block__source" data-source-text={source}>
       <span class="hadith-block__source-label">Source</span>
-      <span>{source}</span>
+      <span class="hadith-block__source-val">{source}</span>
     </div>
   )}
 </div>
 
+<script>
+  function initHadithCopy() {
+    for (const block of document.querySelectorAll<HTMLElement>('[data-hadith-block]')) {
+      if (block.dataset.copyInitialized) continue;
+      block.dataset.copyInitialized = 'true';
+
+      const copyBtn = block.querySelector<HTMLButtonElement>('[data-hadith-copy]');
+      if (!copyBtn) continue;
+
+      copyBtn.addEventListener('click', async () => {
+        const arabicEl = block.querySelector('[data-arabic-text]');
+        const englishEl = block.querySelector('[data-english-text]');
+        const sourceVal = block.querySelector('[data-source-text]')?.getAttribute('data-source-text');
+
+        let textParts: string[] = [];
+        if (arabicEl?.textContent) textParts.push(arabicEl.textContent.trim());
+        if (englishEl?.textContent) textParts.push(`"${englishEl.textContent.trim()}"`);
+        if (sourceVal) textParts.push(`— ${sourceVal.trim()}`);
+
+        const textToCopy = textParts.join('\n\n');
+        if (!textToCopy) return;
+
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          copyBtn.classList.add('is-copied');
+          const labelSpan = copyBtn.querySelector('.hadith-block__copy-text');
+          if (labelSpan) labelSpan.textContent = 'Copied!';
+
+          setTimeout(() => {
+            copyBtn.classList.remove('is-copied');
+            if (labelSpan) labelSpan.textContent = 'Copy';
+          }, 2200);
+        } catch (err) {
+          console.warn('Failed to copy hadith text:', err);
+        }
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHadithCopy);
+  } else {
+    initHadithCopy();
+  }
+  document.addEventListener('astro:page-load', initHadithCopy);
+</script>
+
 <style>
   .hadith-block {
     position: relative;
-    margin: 2.5rem 0;
+    margin: 2.75rem 0;
     padding: 0;
-    border: 1px solid rgba(216, 177, 102, 0.25);
-    border-top: 3px solid var(--hc-gold-dim);
+    border: 1px solid var(--hc-rule);
+    border-top: 3px solid var(--hc-gold);
     border-radius: var(--radius-sm);
     background:
+      radial-gradient(circle at 10% 0%, rgba(216, 177, 102, 0.05), transparent 45%),
       linear-gradient(
         135deg,
-        color-mix(in srgb, var(--hc-charcoal-2) 70%, transparent),
-        color-mix(in srgb, var(--hc-black-soft) 85%, transparent)
+        color-mix(in srgb, var(--hc-surface-2) 85%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 95%, transparent)
       );
     box-shadow:
-      0 1px 0 rgba(216, 177, 102, 0.06) inset,
-      0 22px 70px rgba(0, 0, 0, 0.28);
+      0 1px 0 rgba(216, 177, 102, 0.08) inset,
+      0 16px 45px rgba(0, 0, 0, 0.16);
     overflow: hidden;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .hadith-block:hover {
+    border-color: var(--hc-rule-strong);
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.12) inset,
+      0 20px 55px rgba(0, 0, 0, 0.22);
+  }
+
+  .hadith-block--variant {
+    border-top-color: var(--hc-copper, #c48b68);
+  }
+
+  .hadith-block--mawquf {
+    border-top-color: var(--hc-gold-soft);
+  }
+
+  .hadith-block--mursal {
+    border-top-color: var(--hc-umber);
+  }
+
+  .hadith-block__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hc-rule);
+    background: rgba(15, 15, 16, 0.35);
   }
 
   .hadith-block__badge {
@@ -61,9 +172,7 @@ const hasSlot = Astro.slots.has('default');
     gap: 0.45rem;
     padding: 0.45rem 1.1rem;
     background: rgba(216, 177, 102, 0.08);
-    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
-    border-right: 1px solid rgba(216, 177, 102, 0.12);
-    border-radius: 0 0 var(--radius-sm) 0;
+    border-right: 1px solid var(--hc-rule);
     color: var(--hc-gold);
     font-family: var(--font-ui);
     font-size: 0.68rem;
@@ -72,20 +181,97 @@ const hasSlot = Astro.slots.has('default');
     text-transform: uppercase;
   }
 
-  .hadith-block__content {
-    padding: clamp(1.2rem, 3vw, 2rem) clamp(1.4rem, 3vw, 2.2rem);
+  .hadith-block__badge-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 6px var(--hc-gold);
   }
 
-  /* Arabic text */
+  .hadith-block__badge--variant {
+    color: var(--hc-copper, #c48b68);
+    background: rgba(196, 139, 104, 0.1);
+  }
+  .hadith-block__badge--variant .hadith-block__badge-dot {
+    background: var(--hc-copper, #c48b68);
+    box-shadow: 0 0 6px var(--hc-copper, #c48b68);
+  }
+
+  .hadith-block__badge--mursal {
+    color: var(--hc-umber);
+    background: rgba(160, 90, 70, 0.1);
+  }
+  .hadith-block__badge--mursal .hadith-block__badge-dot {
+    background: var(--hc-umber);
+    box-shadow: 0 0 6px var(--hc-umber);
+  }
+
+  /* Copy Button */
+  .hadith-block__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-right: 0.75rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--hc-rule);
+    background: rgba(15, 15, 16, 0.6);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+
+  .hadith-block__copy:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .hadith-block__copy-check {
+    display: none;
+    color: #4ade80;
+  }
+
+  .hadith-block__copy.is-copied {
+    border-color: #4ade80;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+  }
+
+  .hadith-block__copy.is-copied .hadith-block__copy-icon {
+    display: none;
+  }
+
+  .hadith-block__copy.is-copied .hadith-block__copy-check {
+    display: inline-flex;
+  }
+
+  .hadith-block__content {
+    padding: clamp(1.3rem, 3vw, 2.2rem) clamp(1.4rem, 3vw, 2.2rem);
+  }
+
+  /* Arabic typography */
   .hadith-block__arabic {
     font-family: var(--font-arabic);
-    font-size: clamp(1.45rem, 1vw + 1.2rem, 1.75rem);
-    line-height: 2.3;
-    color: var(--hc-parchment);
+    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.8rem);
+    line-height: 2.35;
+    color: var(--hc-text-primary);
     text-align: right;
+    direction: rtl;
     margin-bottom: 1.35rem;
     padding-bottom: 1.35rem;
-    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-feature-settings: "cv01" on, "calt" on;
+    text-rendering: optimizeLegibility;
   }
 
   .hadith-block__arabic:last-child {
@@ -94,41 +280,41 @@ const hasSlot = Astro.slots.has('default');
     border-bottom: none;
   }
 
-  /* Slot content: for when users use child divs like hadith-block__arabic etc. */
+  /* Slot content support */
   .hadith-block__slot-wrap {
-    color: var(--hc-parchment);
+    color: var(--hc-text-primary);
   }
 
   .hadith-block__slot-wrap :global(.hadith-block__arabic) {
     font-family: var(--font-arabic);
-    font-size: clamp(1.45rem, 1vw + 1.2rem, 1.75rem);
-    line-height: 2.3;
-    color: var(--hc-parchment);
+    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.8rem);
+    line-height: 2.35;
+    color: var(--hc-text-primary);
     text-align: right;
     direction: rtl;
     margin-bottom: 1.35rem;
     padding-bottom: 1.35rem;
-    border-bottom: 1px solid rgba(216, 177, 102, 0.12);
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
   .hadith-block__slot-wrap :global(.hadith-block__translation) {
     font-family: var(--font-body);
     font-size: clamp(1.05rem, 0.3vw + 1rem, 1.18rem);
-    line-height: 1.75;
-    color: var(--hc-muted);
-    padding-left: 1.1rem;
-    border-left: 1px solid var(--hc-gold-dim);
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+    padding-left: 1.15rem;
+    border-left: 2px solid var(--hc-gold-dim);
     font-style: italic;
   }
 
-  /* English translation via prop */
+  /* English translation */
   .hadith-block__english {
     font-family: var(--font-body);
     font-size: clamp(1.05rem, 0.3vw + 1rem, 1.18rem);
-    line-height: 1.75;
-    color: var(--hc-muted);
-    padding-left: 1.1rem;
-    border-left: 1px solid var(--hc-gold-dim);
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+    padding-left: 1.15rem;
+    border-left: 2px solid var(--hc-gold-dim);
     font-style: italic;
   }
 
@@ -142,16 +328,50 @@ const hasSlot = Astro.slots.has('default');
     border-top: 1px solid rgba(216, 177, 102, 0.12);
     font-family: var(--font-ui);
     font-size: 0.82rem;
-    color: var(--hc-ash);
-    background: rgba(216, 177, 102, 0.03);
+    color: var(--hc-text-secondary);
+    background: rgba(216, 177, 102, 0.035);
   }
 
   .hadith-block__source-label {
     font-size: 0.68rem;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--hc-gold-dim);
+    color: var(--hc-gold);
+  }
+
+  .hadith-block__source-val {
+    color: var(--hc-text-secondary);
+    line-height: 1.5;
+  }
+
+  /* Light Theme Overrides */
+  :global([data-theme="light"]) .hadith-block {
+    background:
+      radial-gradient(circle at 10% 0%, rgba(176, 126, 44, 0.06), transparent 45%),
+      linear-gradient(135deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    border-top-color: var(--hc-gold);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .hadith-block__header {
+    background: rgba(240, 234, 220, 0.6);
+  }
+
+  :global([data-theme="light"]) .hadith-block__badge {
+    background: rgba(176, 126, 44, 0.1);
+    color: var(--hc-gold);
+  }
+
+  :global([data-theme="light"]) .hadith-block__copy {
+    background: rgba(251, 249, 244, 0.9);
+    border-color: var(--hc-rule);
+    color: var(--hc-text-primary);
+  }
+
+  :global([data-theme="light"]) .hadith-block__source {
+    background: rgba(176, 126, 44, 0.04);
   }
 
   @media (max-width: 640px) {
@@ -160,23 +380,18 @@ const hasSlot = Astro.slots.has('default');
     }
 
     .hadith-block__badge {
-      display: flex;
-      width: 100%;
-      justify-content: center;
-      border-right: 0;
-      border-radius: 0;
-      padding-inline: 0.85rem;
-      text-align: center;
+      padding: 0.4rem 0.85rem;
+      font-size: 0.64rem;
     }
 
     .hadith-block__content {
-      padding: 1rem;
+      padding: 1.1rem;
     }
 
     .hadith-block__arabic,
     .hadith-block__slot-wrap :global(.hadith-block__arabic) {
-      font-size: clamp(1.25rem, 7vw, 1.5rem);
-      line-height: 2.05;
+      font-size: clamp(1.28rem, 6.5vw, 1.55rem);
+      line-height: 2.1;
     }
 
     .hadith-block__english,
@@ -187,8 +402,7 @@ const hasSlot = Astro.slots.has('default');
     }
 
     .hadith-block__source {
-      align-items: flex-start;
-      padding: 0.8rem 1rem;
+      padding: 0.8rem 1.1rem;
       gap: 0.35rem 0.65rem;
     }
   }

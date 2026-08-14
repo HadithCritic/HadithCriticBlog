@@ -5,23 +5,36 @@ export interface Props {
   description?: string;
   category: string;
   date?: string;
-  readingTime?: string;
   heroImage?: string;
   heroAlt?: string;
 }
-const { title, subtitle, description, category, date, readingTime, heroImage, heroAlt } = Astro.props;
+const { title, subtitle, description, category, date, heroImage, heroAlt } = Astro.props;
 ---
-<section class="article-hero">
+<section class="article-hero" data-article-hero>
   <div class="hc-container hero-grid">
     <div class="hero-content">
-      <span class="hc-chip article-hero__chip" data-category={category}>{category}</span>
+      <div class="hero-header-top">
+        <span class="hc-chip article-hero__chip" data-category={category}>{category}</span>
+      </div>
       <h1 class="hc-title article-hero__title">{title}</h1>
       {subtitle && <h2 class="hc-title article-hero__subtitle">{subtitle}</h2>}
       {description && <p class="hc-copy article-hero__description">{description}</p>}
+      
       <div class="article-meta">
         {date && <span class="hc-eyebrow">{date}</span>}
-        {date && readingTime && <span class="hc-eyebrow" style="color: var(--hc-rule-strong);">&middot;</span>}
-        {readingTime && <span class="hc-eyebrow">{readingTime}</span>}
+
+        <div class="article-hero__actions">
+          <button type="button" class="article-hero__action-btn" data-share-link title="Copy Study Link" aria-label="Copy study link">
+            <svg class="action-icon action-icon--copy" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <svg class="action-icon action-icon--check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span class="action-btn-text">Share</span>
+          </button>
+        </div>
       </div>
     </div>
     
@@ -36,6 +49,37 @@ const { title, subtitle, description, category, date, readingTime, heroImage, he
     )}
   </div>
 </section>
+
+<script>
+  function initHeroShare() {
+    const btn = document.querySelector<HTMLButtonElement>('[data-share-link]');
+    if (!btn || btn.dataset.shareInitialized) return;
+    btn.dataset.shareInitialized = 'true';
+
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        btn.classList.add('is-copied');
+        const textSpan = btn.querySelector('.action-btn-text');
+        if (textSpan) textSpan.textContent = 'Link Copied!';
+
+        setTimeout(() => {
+          btn.classList.remove('is-copied');
+          if (textSpan) textSpan.textContent = 'Share';
+        }, 2200);
+      } catch (e) {
+        console.warn('Failed to copy link:', e);
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHeroShare);
+  } else {
+    initHeroShare();
+  }
+  document.addEventListener('astro:page-load', initHeroShare);
+</script>
 
 <style>
   .article-hero {
@@ -65,6 +109,17 @@ const { title, subtitle, description, category, date, readingTime, heroImage, he
     height: 120px;
     background: linear-gradient(to bottom, transparent, var(--hc-surface-0));
     pointer-events: none;
+  }
+
+  :global([data-theme="light"]) .article-hero {
+    background:
+      radial-gradient(circle at 78% 34%, rgba(168, 75, 62, 0.08), transparent 45%),
+      linear-gradient(135deg, rgba(251, 249, 244, 0.98) 0%, rgba(242, 236, 224, 0.96) 58%, rgba(251, 249, 244, 0.98) 100%);
+    border-bottom-color: var(--hc-rule);
+  }
+
+  :global([data-theme="light"]) .article-hero::before {
+    border-color: rgba(138, 76, 39, 0.14);
   }
 
   .hero-grid {
@@ -116,102 +171,149 @@ const { title, subtitle, description, category, date, readingTime, heroImage, he
     gap: 0.75rem;
   }
 
-  .hero-plate {
-    margin: 0;
-    position: relative;
-    padding: 0.55rem;
-    border: 1px solid var(--hc-rule);
-    background: rgba(15,15,16,.68);
-    box-shadow: var(--shadow);
+  .article-hero__actions {
+    margin-left: 0.5rem;
+    display: inline-flex;
+    align-items: center;
   }
 
-  .hero-plate::before {
+  .article-hero__action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--hc-rule-strong);
+    background: rgba(15, 15, 16, 0.6);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+
+  .article-hero__action-btn:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .action-icon--check {
+    display: none;
+    color: #4ade80;
+  }
+
+  .article-hero__action-btn.is-copied {
+    border-color: #4ade80;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+  }
+
+  .article-hero__action-btn.is-copied .action-icon--copy {
+    display: none;
+  }
+
+  .article-hero__action-btn.is-copied .action-icon--check {
+    display: inline-flex;
+  }
+
+  :global([data-theme="light"]) .article-hero__action-btn {
+    background: rgba(251, 249, 244, 0.9);
+    border-color: var(--hc-rule);
+    color: var(--hc-text-primary);
+  }
+
+  .hero-plate {
+    margin: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .hero-image-wrapper {
+    position: relative;
+    max-width: 580px;
+    width: 100%;
+    margin-left: auto;
+    padding: 10px;
+    border: 1px solid rgba(216,177,102,.25);
+    background: rgba(20,19,18,.6);
+    box-shadow: 0 30px 100px rgba(0,0,0,.6);
+  }
+
+  :global([data-theme="light"]) .hero-image-wrapper {
+    background: rgba(251, 249, 244, 0.85);
+    border-color: rgba(138, 76, 39, 0.25);
+    box-shadow: 0 16px 40px rgba(43, 40, 36, 0.12);
+  }
+
+  .hero-image-wrapper::before {
     content: "";
     position: absolute;
-    inset: 1rem;
-    border: 1px solid rgba(216,177,102,.14);
+    inset: 4px;
+    border: 1px solid rgba(216,177,102,.15);
     pointer-events: none;
-    z-index: 2;
   }
 
   .hero-plate img {
     width: 100%;
+    height: auto;
     aspect-ratio: 16 / 9;
     object-fit: cover;
-    filter: saturate(.95) contrast(1.04);
+    display: block;
+    filter: contrast(1.05) brightness(0.95);
   }
 
-  @media (max-width: 1050px) {
+  :global([data-theme="light"]) .hero-plate img {
+    filter: none;
+  }
+
+  @media (max-width: 1100px) {
     .hero-grid {
       grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+    .hero-image-wrapper {
+      margin-left: 0;
+      max-width: 100%;
     }
   }
 
   @media (max-width: 640px) {
     .article-hero {
-      /* Add safe area compensation */
-      padding: max(2.75rem, calc(2rem + var(--sat, 0px))) 0 2.4rem;
-    }
-
-    .article-hero::before {
-      inset: 10px;
-    }
-
-    .hero-grid {
-      gap: 1.6rem;
-    }
-
-    .article-hero__chip {
-      margin-bottom: 1.1rem;
-      max-width: 100%;
-      white-space: normal;
+      padding: 2.5rem 0 2rem;
     }
 
     .article-hero__title {
-      font-size: clamp(2.35rem, 12vw, 3.35rem);
-      line-height: 1.02;
-      letter-spacing: -0.015em;
-      /* Prevent long words from breaking layout */
-      overflow-wrap: break-word;
-      word-break: break-word;
+      font-size: clamp(2rem, 8vw, 2.75rem);
+      line-height: 1.1;
     }
 
     .article-hero__subtitle {
+      font-size: clamp(1.15rem, 5vw, 1.35rem);
       margin-bottom: 1rem;
-      font-size: clamp(1.2rem, 6vw, 1.55rem);
     }
 
     .article-hero__description {
       font-size: 1rem;
-      line-height: 1.65;
+      line-height: 1.55;
     }
 
     .article-meta {
-      margin-top: 1.6rem;
-      gap: 0.45rem 0.7rem;
+      margin-top: 1.5rem;
+      gap: 0.5rem;
     }
 
-    .hero-plate {
-      padding: 0.35rem;
+    .hero-image-wrapper {
+      padding: 6px;
     }
-
-    .hero-plate::before {
-      inset: 0.55rem;
-    }
-  }
-
-  .hero-image-wrapper {
-    position: relative;
-    overflow: hidden;
-    border-radius: 4px;
-  }
-
-  .hero-image-wrapper::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at center, transparent 40%, var(--hc-surface-2) 100%);
-    mix-blend-mode: multiply;
-    pointer-events: none;
   }
 </style>

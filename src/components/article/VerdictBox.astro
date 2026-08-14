@@ -1,40 +1,139 @@
 ---
 export interface Props {
   title?: string;
+  status?: string;
 }
-const { title = "Conclusion" } = Astro.props;
+const { title = "Analytical Verdict", status } = Astro.props;
 ---
 <div class="hc-article-panel verdict-box">
   <div class="verdict-header">
-    <span class="hc-eyebrow" style="color: var(--hc-parchment);">{title}</span>
+    <div class="verdict-badge">
+      <span class="verdict-badge__seal" aria-hidden="true">❖</span>
+      <span class="verdict-badge__title">{title}</span>
+    </div>
+    {status && (
+      <span class="verdict-status">{status}</span>
+    )}
   </div>
+
   <div class="verdict-content">
     <slot />
   </div>
 </div>
+
 <style>
   .verdict-box {
-    border: 1px solid var(--hc-gold-dim);
-    background: linear-gradient(145deg, rgba(30,29,27,0.9), rgba(20,19,18,0.95));
     position: relative;
+    margin: 3rem 0;
+    padding: clamp(1.6rem, 3.5vw, 2.5rem);
+    border: 1px solid rgba(216, 177, 102, 0.28);
+    border-radius: var(--radius-sm);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(216, 177, 102, 0.1), transparent 60%),
+      linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--hc-surface-3) 92%, transparent),
+        color-mix(in srgb, var(--hc-surface-2) 96%, transparent)
+      );
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.12) inset,
+      0 22px 60px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
   }
+
   .verdict-box::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, var(--hc-gold), transparent);
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--hc-gold), var(--hc-gold-soft), var(--hc-gold), transparent);
   }
+
   .verdict-header {
-    margin-bottom: 1rem;
-    text-align: center;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 1.35rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
+
+  .verdict-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .verdict-badge__seal {
+    font-size: 0.95rem;
+    color: var(--hc-gold-bright);
+    filter: drop-shadow(0 0 8px rgba(216, 177, 102, 0.4));
+  }
+
+  .verdict-status {
+    display: inline-flex;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.14);
+    border: 1px solid rgba(216, 177, 102, 0.35);
+    color: var(--hc-gold-soft);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
   .verdict-content {
-    font-size: 1.1rem;
-    line-height: 1.7;
-    color: var(--hc-parchment);
+    font-family: var(--font-body);
+    font-size: clamp(1.06rem, 0.3vw + 1.02rem, 1.18rem);
+    line-height: 1.8;
+    color: var(--hc-text-primary);
     text-align: center;
   }
+
   .verdict-content :global(p:last-child) {
     margin-bottom: 0;
+  }
+
+  .verdict-content :global(strong) {
+    font-weight: 700;
+    color: var(--hc-gold-soft);
+  }
+
+  :global([data-theme="light"]) .verdict-box {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(176, 126, 44, 0.08), transparent 60%),
+      linear-gradient(145deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: rgba(176, 126, 44, 0.3);
+    box-shadow: 0 12px 40px rgba(43, 40, 36, 0.09);
+  }
+
+  :global([data-theme="light"]) .verdict-status {
+    background: rgba(176, 126, 44, 0.12);
+    border-color: rgba(176, 126, 44, 0.3);
+    color: var(--hc-gold);
+  }
+
+  @media (max-width: 640px) {
+    .verdict-box {
+      margin: 2rem 0;
+      padding: 1.3rem 1.1rem;
+    }
+
+    .verdict-content {
+      font-size: 1.02rem;
+      line-height: 1.7;
+    }
   }
 </style>

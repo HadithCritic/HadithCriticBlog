@@ -2,80 +2,119 @@
 export interface Props {
   author?: string;
   source?: string;
+  sourceUrl?: string;
 }
-const { author, source } = Astro.props;
+const { author, source, sourceUrl } = Astro.props;
 ---
-<div class="quote-block">
+<figure class="quote-block">
   <div class="quote-block__content">
     <slot />
   </div>
   {(author || source) && (
-    <div class="quote-block__footer">
+    <figcaption class="quote-block__footer">
       {author && <span class="quote-block__author">&mdash; {author}</span>}
-      {source && <span class="quote-block__source">({source})</span>}
-    </div>
+      {source && (
+        sourceUrl ? (
+          <a href={sourceUrl} target="_blank" rel="noopener noreferrer" class="quote-block__source-link">
+            ({source})
+          </a>
+        ) : (
+          <span class="quote-block__source">({source})</span>
+        )
+      )}
+    </figcaption>
   )}
-</div>
+</figure>
 
 <style>
   .quote-block {
     position: relative;
-    margin: 2.5rem 0;
-    padding: 1.5rem 2rem;
+    margin: 2.75rem 0;
+    padding: clamp(1.4rem, 3vw, 2.2rem) clamp(1.5rem, 3vw, 2.5rem);
     border: 1px solid var(--hc-rule);
-    border-top: 3px solid var(--hc-gold-dim);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--hc-surface-3) 60%, transparent), transparent);
+    border-left: 4px solid var(--hc-gold);
+    background:
+      radial-gradient(circle at 10% 20%, rgba(216, 177, 102, 0.05), transparent 45%),
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 88%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
+      );
     border-radius: var(--radius-sm);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-  
-  .quote-block::before {
-    content: '\201C';
-    position: absolute;
-    top: 0.5rem;
-    left: 0.85rem;
-    font-size: 4rem;
-    color: color-mix(in srgb, var(--hc-gold-dim) 35%, transparent);
-    font-family: Georgia, serif;
-    line-height: 1;
-    pointer-events: none;
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.08) inset,
+      0 16px 45px rgba(0, 0, 0, 0.16);
   }
 
   .quote-block__content {
-    font-size: 1.1rem;
-    line-height: 1.6;
+    font-family: var(--font-body);
+    font-size: clamp(1.06rem, 0.3vw + 1.02rem, 1.2rem);
+    line-height: 1.78;
     color: var(--hc-text-primary);
     font-style: italic;
   }
 
+  .quote-block__content :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .quote-block__content :global(strong) {
+    font-style: normal;
+    color: var(--hc-text-primary);
+    font-weight: 700;
+  }
+
   .quote-block__footer {
-    margin-top: 1rem;
+    margin-top: 1.15rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--hc-rule-soft);
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.95rem;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
     color: var(--hc-text-tertiary);
     flex-wrap: wrap;
   }
-  
+
   .quote-block__author {
-    font-weight: 600;
-    color: var(--hc-gold-soft);
+    font-weight: 700;
+    color: var(--hc-gold);
+  }
+
+  .quote-block__source {
+    color: var(--hc-ash);
+  }
+
+  .quote-block__source-link {
+    color: var(--hc-gold-dim);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 180ms ease;
+  }
+
+  .quote-block__source-link:hover {
+    color: var(--hc-gold);
+  }
+
+  :global([data-theme="light"]) .quote-block {
+    background:
+      radial-gradient(circle at 10% 20%, rgba(176, 126, 44, 0.06), transparent 45%),
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    border-left-color: var(--hc-gold);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
   }
 
   @media (max-width: 640px) {
     .quote-block {
       margin: 2rem 0;
-      padding: 1.1rem;
-    }
-
-    .quote-block::before {
-      font-size: 3rem;
+      padding: 1.15rem 1.1rem;
     }
 
     .quote-block__content {
-      font-size: 1rem;
-      line-height: 1.65;
+      font-size: 1.02rem;
+      line-height: 1.68;
     }
   }
 </style>

@@ -22,23 +22,34 @@ const { headings } = Astro.props;
 </nav>
 
 <script>
-  const headings = [...document.querySelectorAll<HTMLElement>('.toc-link')].map((el) => el.dataset.slug);
-  
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        document.querySelectorAll('.toc-link').forEach(link => link.classList.remove('is-active'));
-        const active = document.querySelector(`.toc-link[data-slug="${entry.target.id}"]`);
-        if (active) active.classList.add('is-active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -60% 0px' });
+  function initTOC() {
+    const links = [...document.querySelectorAll<HTMLElement>('.toc-link')];
+    if (!links.length) return;
 
-  headings.forEach(slug => {
-    if (!slug) return;
-    const el = document.getElementById(slug);
-    if (el) observer.observe(el);
-  });
+    const headings = links.map((el) => el.dataset.slug).filter(Boolean);
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(link => link.classList.remove('is-active'));
+          const active = document.querySelector(`.toc-link[data-slug="${entry.target.id}"]`);
+          if (active) active.classList.add('is-active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -60% 0px' });
+
+    headings.forEach(slug => {
+      if (!slug) return;
+      const el = document.getElementById(slug);
+      if (el) observer.observe(el);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTOC);
+  } else {
+    initTOC();
+  }
+  document.addEventListener('astro:page-load', initTOC);
 </script>
 
 <style>

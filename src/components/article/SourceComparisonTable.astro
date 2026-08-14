@@ -1,7 +1,19 @@
 ---
+export interface Props {
+  stickyFirstCol?: boolean;
+  caption?: string;
+}
+
+const { stickyFirstCol = false, caption } = Astro.props;
 ---
-<div class="hc-source-table-wrapper">
+
+<div class={`hc-source-table-wrapper ${stickyFirstCol ? 'has-sticky-col' : ''}`} data-source-table-wrap>
+  <div class="hc-source-table__hint" aria-hidden="true" data-table-hint>
+    <span>Swipe horizontally ➔</span>
+  </div>
+
   <table class="hc-source-table">
+    {caption && <caption class="hc-source-table__caption">{caption}</caption>}
     <thead>
       <tr>
         <slot name="header" />
@@ -12,44 +24,160 @@
     </tbody>
   </table>
 </div>
+
+<script>
+  function initTableScrollHints() {
+    for (const wrap of document.querySelectorAll<HTMLElement>('[data-source-table-wrap]')) {
+      if (wrap.dataset.hintInitialized) continue;
+      wrap.dataset.hintInitialized = 'true';
+
+      const hint = wrap.querySelector<HTMLElement>('[data-table-hint]');
+      if (!hint) continue;
+
+      const handleScroll = () => {
+        if (wrap.scrollLeft > 15) {
+          hint.style.opacity = '0';
+          hint.style.pointerEvents = 'none';
+        } else {
+          hint.style.opacity = '1';
+        }
+      };
+
+      wrap.addEventListener('scroll', handleScroll, { passive: true });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTableScrollHints);
+  } else {
+    initTableScrollHints();
+  }
+  document.addEventListener('astro:page-load', initTableScrollHints);
+</script>
+
 <style>
   .hc-source-table-wrapper {
+    position: relative;
     overflow-x: auto;
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
-    margin: 2.5rem 0;
+    margin: 2.75rem 0;
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-sm);
-    background: rgba(30, 29, 27, 0.5);
+    background:
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 90%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 95%, transparent)
+      );
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
   }
+
+  .hc-source-table__hint {
+    display: none;
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 10;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(15, 15, 16, 0.85);
+    border: 1px solid var(--hc-gold-dim);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+    backdrop-filter: blur(6px);
+  }
+
   .hc-source-table {
     width: 100%;
-    min-width: 42rem;
+    min-width: 44rem;
     border-collapse: collapse;
     text-align: left;
   }
+
+  .hc-source-table__caption {
+    caption-side: bottom;
+    padding: 0.75rem 1.25rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary);
+    text-align: left;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
   .hc-source-table :global(th) {
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--hc-gold);
-    padding: 1rem 1.25rem;
+    padding: 0.95rem 1.25rem;
     border-bottom: 1px solid var(--hc-rule);
-    background: rgba(26, 23, 21, 0.8);
+    background: color-mix(in srgb, var(--hc-surface-3) 90%, transparent);
   }
+
   .hc-source-table :global(td) {
-    padding: 1rem 1.25rem;
+    padding: 0.95rem 1.25rem;
     border-bottom: 1px solid var(--hc-rule-soft);
-    color: var(--hc-parchment);
-    font-size: 0.95rem;
-    line-height: 1.6;
+    color: var(--hc-text-primary);
+    font-size: 0.94rem;
+    line-height: 1.65;
     vertical-align: top;
     overflow-wrap: break-word;
   }
+
+  .hc-source-table :global(tr:nth-child(even) td) {
+    background: rgba(216, 177, 102, 0.025);
+  }
+
   .hc-source-table :global(tr:last-child td) {
     border-bottom: none;
+  }
+
+  .hc-source-table :global(td strong) {
+    color: var(--hc-gold-soft);
+    font-weight: 600;
+  }
+
+  /* Sticky First Column */
+  .has-sticky-col .hc-source-table :global(th:first-child),
+  .has-sticky-col .hc-source-table :global(td:first-child) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--hc-surface-2);
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.2);
+  }
+
+  :global([data-theme="light"]) .hc-source-table-wrapper {
+    background:
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .hc-source-table :global(th) {
+    background: rgba(240, 234, 220, 0.85);
+    color: var(--hc-gold);
+    border-bottom-color: var(--hc-rule);
+  }
+
+  :global([data-theme="light"]) .hc-source-table :global(tr:nth-child(even) td) {
+    background: rgba(176, 126, 44, 0.03);
+  }
+
+  :global([data-theme="light"]) .hc-source-table__hint {
+    background: rgba(251, 249, 244, 0.95);
+    border-color: var(--hc-rule);
+    color: var(--hc-text-primary);
   }
 
   @media (max-width: 640px) {
@@ -58,13 +186,17 @@
       border-radius: var(--radius-xs);
     }
 
+    .hc-source-table__hint {
+      display: inline-flex;
+    }
+
     .hc-source-table {
-      min-width: 34rem;
+      min-width: 36rem;
     }
 
     .hc-source-table :global(th),
     .hc-source-table :global(td) {
-      padding: 0.8rem 0.9rem;
+      padding: 0.8rem 0.95rem;
     }
   }
 </style>

@@ -74,13 +74,35 @@ npm install
 
 ### Local Development
 
+#### Starting the Development Server
+
+To start the Astro development server locally with Hot Module Replacement (HMR):
+
+```bash
+npm run dev
+```
+
+Or run Astro directly:
+
+```bash
+npx astro dev --host 127.0.0.1
+```
+
+Once the development server is running, open your browser and navigate to:
+- **`http://localhost:4321`** or **`http://127.0.0.1:4321`**
+
+> **Note on Localhost Connection**: The dev server binds explicitly to `127.0.0.1:4321`. If your browser has trouble resolving `localhost`, navigate directly to `http://127.0.0.1:4321`.
+
+#### Available Development Commands
+
 | Command | Action |
 | :--- | :--- |
-| `npm run dev` | Start the Astro development server at `http://localhost:4321` |
+| `npm run dev` | Start the Astro development server at `http://127.0.0.1:4321` |
 | `npm run build` | Build the site to `./dist/` and generate the Pagefind search index |
-| `npm run preview` | Preview the production build locally (required to test search functionality) |
+| `npm run preview` | Preview the production build locally at `http://127.0.0.1:4321` (required to test search functionality) |
+| `npm run validate` | Run full validation suite (footnote linting, type check, design audit, and build) |
 
-*Search Note*: The Pagefind index is only generated during the build process. To test the search feature locally, you must run `npm run build` followed by `npm run preview`.
+*Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
 
 ---
 

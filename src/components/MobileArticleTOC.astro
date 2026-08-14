@@ -2,20 +2,344 @@
 interface Heading { depth: number; text: string; slug: string; }
 const { headings = [] } = Astro.props as { headings: Heading[] };
 ---
+
 {headings.length > 0 && (
-  <details class="mobile-article-toc">
-    <summary>In this study</summary>
-    <ol>
-      {headings.map((heading) => <li class:list={{ 'is-subheading': heading.depth === 3 }}><a href={`#${heading.slug}`}>{heading.text}</a></li>)}
-    </ol>
-  </details>
+  <>
+    <!-- Top In-Page Accordion -->
+    <details class="mobile-article-toc">
+      <summary>
+        <span class="mobile-toc__summary-icon" aria-hidden="true">◈</span>
+        <span>Study Outline ({headings.length} Sections)</span>
+      </summary>
+      <ol class="mobile-toc__list">
+        {headings.map((heading) => (
+          <li class:list={{ 'is-subheading': heading.depth === 3 }}>
+            <a href={`#${heading.slug}`}>{heading.text}</a>
+          </li>
+        ))}
+      </ol>
+    </details>
+
+    <!-- Floating Bottom Navigation Pill (Mobile only) -->
+    <div class="mobile-toc-pill-wrap" data-mobile-toc-pill>
+      <button type="button" class="mobile-toc-pill-btn" data-mobile-toc-open aria-label="Open Table of Contents">
+        <svg class="mobile-toc-pill__icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        </svg>
+        <span class="mobile-toc-pill__text">Outline</span>
+      </button>
+    </div>
+
+    <!-- Mobile Bottom-Sheet TOC Dialog -->
+    <dialog class="mobile-toc-dialog" data-mobile-toc-dialog aria-label="Table of Contents">
+      <div class="mobile-toc-sheet">
+        <div class="mobile-toc-sheet__header">
+          <div class="mobile-toc-sheet__title">
+            <span class="mobile-toc-sheet__icon" aria-hidden="true">❖</span>
+            <span>Study Outline</span>
+          </div>
+          <button type="button" class="mobile-toc-sheet__close" data-mobile-toc-close aria-label="Close outline">
+            ✕
+          </button>
+        </div>
+        <div class="mobile-toc-sheet__body">
+          <ol class="mobile-toc-sheet__list">
+            {headings.map((heading) => (
+              <li class:list={{ 'is-subheading': heading.depth === 3 }}>
+                <a href={`#${heading.slug}`} class="mobile-toc-sheet__link" data-slug={heading.slug}>
+                  <span class="mobile-toc-sheet__link-text">{heading.text}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+    </dialog>
+  </>
 )}
 
+<script>
+  function initMobileTOC() {
+    const pillWrap = document.querySelector<HTMLElement>('[data-mobile-toc-pill]');
+    const openBtn = document.querySelector<HTMLButtonElement>('[data-mobile-toc-open]');
+    const dialog = document.querySelector<HTMLDialogElement>('[data-mobile-toc-dialog]');
+    const closeBtn = document.querySelector<HTMLButtonElement>('[data-mobile-toc-close]');
+    if (!pillWrap || !openBtn || !dialog) return;
+
+    // Show/hide floating pill based on scroll position
+    const togglePillVisibility = () => {
+      if (window.scrollY > 400) {
+        pillWrap.classList.add('is-visible');
+      } else {
+        pillWrap.classList.remove('is-visible');
+      }
+    };
+
+    window.addEventListener('scroll', togglePillVisibility, { passive: true });
+    togglePillVisibility();
+
+    openBtn.addEventListener('click', () => {
+      if (typeof dialog.showModal === 'function') {
+        dialog.showModal();
+        document.body.style.overflow = 'hidden';
+      }
+    });
+
+    const closeDialog = () => {
+      dialog.close();
+      document.body.style.overflow = '';
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) closeDialog();
+    });
+
+    for (const link of dialog.querySelectorAll<HTMLAnchorElement>('.mobile-toc-sheet__link')) {
+      link.addEventListener('click', () => {
+        closeDialog();
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMobileTOC);
+  } else {
+    initMobileTOC();
+  }
+  document.addEventListener('astro:page-load', initMobileTOC);
+</script>
+
 <style>
-  .mobile-article-toc { margin: 1.5rem auto; max-width: var(--wrap-reading); border-block: 1px solid var(--hc-rule); color: var(--hc-text-secondary); }
-  summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--hc-gold-soft); font-family: var(--font-ui); font-size: .78rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
-  ol { margin: 0 0 1rem; padding-left: 1.2rem; }
-  li { margin: .45rem 0; } .is-subheading { margin-left: .85rem; }
-  a { color: inherit; text-underline-offset: .2em; }
-  @media (min-width: 1200px) { .mobile-article-toc { display: none; } }
+  /* In-Page Accordion */
+  .mobile-article-toc {
+    margin: 2rem auto;
+    max-width: var(--wrap-reading, 760px);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm);
+    background:
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 85%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 95%, transparent)
+      );
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  summary {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+
+  .mobile-toc__summary-icon {
+    font-size: 0.95rem;
+  }
+
+  .mobile-toc__list {
+    margin: 0;
+    padding: 0.5rem 1.25rem 1.25rem 2.25rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    color: var(--hc-text-secondary);
+  }
+
+  .mobile-toc__list li {
+    margin: 0.55rem 0;
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .mobile-toc__list li.is-subheading {
+    margin-left: 1rem;
+    font-size: 0.82rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .mobile-toc__list a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+
+  .mobile-toc__list a:hover {
+    color: var(--hc-gold);
+  }
+
+  /* Floating Bottom Pill */
+  .mobile-toc-pill-wrap {
+    position: fixed;
+    bottom: calc(1.5rem + var(--safe-bottom, 0px));
+    right: calc(1.5rem + var(--safe-right, 0px));
+    z-index: 900;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+    transition: opacity 240ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-toc-pill-wrap.is-visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .mobile-toc-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 999px;
+    border: 1px solid rgba(216, 177, 102, 0.35);
+    background: rgba(20, 19, 18, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4), 0 0 12px rgba(216, 177, 102, 0.2);
+    cursor: pointer;
+    transition: transform 180ms ease, background 180ms ease;
+  }
+
+  .mobile-toc-pill-btn:active {
+    transform: scale(0.96);
+  }
+
+  /* Bottom-Sheet Dialog */
+  .mobile-toc-dialog {
+    margin: auto auto 0 auto;
+    width: 100%;
+    max-width: 540px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-md, 14px) var(--radius-md, 14px) 0 0;
+    background: var(--hc-surface-1, #1a1918);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    color: var(--hc-text-primary);
+  }
+
+  .mobile-toc-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+  }
+
+  .mobile-toc-sheet {
+    display: flex;
+    flex-direction: column;
+    max-height: 80vh;
+  }
+
+  .mobile-toc-sheet__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.15rem 1.4rem;
+    border-bottom: 1px solid var(--hc-rule);
+    background: var(--hc-surface-2);
+  }
+
+  .mobile-toc-sheet__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .mobile-toc-sheet__close {
+    background: none;
+    border: none;
+    color: var(--hc-text-secondary);
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .mobile-toc-sheet__body {
+    padding: 1.25rem 1.4rem 2rem;
+    overflow-y: auto;
+  }
+
+  .mobile-toc-sheet__list {
+    margin: 0;
+    padding-left: 1.4rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .mobile-toc-sheet__list li {
+    margin: 0.65rem 0;
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+  }
+
+  .mobile-toc-sheet__list li.is-subheading {
+    margin-left: 1rem;
+    font-size: 0.85rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .mobile-toc-sheet__link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+
+  .mobile-toc-sheet__link:hover {
+    color: var(--hc-gold);
+  }
+
+  /* Light Theme */
+  :global([data-theme="light"]) .mobile-article-toc {
+    background:
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    box-shadow: 0 10px 30px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .mobile-toc-pill-btn {
+    background: rgba(251, 249, 244, 0.92);
+    border-color: rgba(176, 126, 44, 0.4);
+    color: var(--hc-gold);
+    box-shadow: 0 12px 35px rgba(43, 40, 36, 0.2);
+  }
+
+  :global([data-theme="light"]) .mobile-toc-dialog {
+    background: #fbf9f4;
+  }
+
+  :global([data-theme="light"]) .mobile-toc-sheet__header {
+    background: #f4efdf;
+  }
+
+  @media (min-width: 1200px) {
+    .mobile-article-toc,
+    .mobile-toc-pill-wrap,
+    .mobile-toc-dialog {
+      display: none !important;
+    }
+  }
 </style>

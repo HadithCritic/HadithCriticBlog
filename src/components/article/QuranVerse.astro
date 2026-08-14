@@ -38,65 +38,235 @@ const english = found.map((f) => f.en).filter(Boolean);
 const ref = label || `Quran ${verse}`;
 const hasData = Boolean(arabic || english.length);
 ---
-<div class="hc-article-panel hc-article-panel--parchment quran-verse">
+
+<div class="hc-article-panel quran-verse" data-quran-verse>
   <div class="quran-verse__header">
-    <span class="hc-eyebrow">Quran</span>
+    <div class="quran-verse__badge">
+      <span class="quran-verse__badge-icon" aria-hidden="true">✦</span>
+      <span class="quran-verse__badge-label">Quran</span>
+    </div>
+
+    {hasData && (
+      <button
+        type="button"
+        class="quran-verse__copy"
+        data-quran-copy
+        title="Copy verse"
+        aria-label="Copy verse to clipboard"
+      >
+        <span class="quran-verse__copy-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </span>
+        <span class="quran-verse__copy-check" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </span>
+        <span class="quran-verse__copy-text">Copy</span>
+      </button>
+    )}
   </div>
-  {hasData ? (
-    <>
-      {arabic && (
-        <div class="quran-verse__arabic" dir="rtl" lang="ar">{arabic}</div>
-      )}
-      {english.length > 0 && (
-        <div class="quran-verse__english">
-          {english.map((text) => <p class="qv-verse">{text}</p>)}
+
+  <div class="quran-verse__content">
+    {hasData ? (
+      <>
+        {arabic && (
+          <div class="quran-verse__arabic" dir="rtl" lang="ar" data-arabic-text>{arabic}</div>
+        )}
+        {english.length > 0 && (
+          <div class="quran-verse__english" data-english-text>
+            {english.map((text) => <p class="qv-verse">{text}</p>)}
+          </div>
+        )}
+        <div class="quran-verse__ref" data-ref-text={ref}>
+          <span class="quran-verse__ref-icon" aria-hidden="true">✦</span>
+          <span>{ref}</span>
         </div>
-      )}
-      <div class="quran-verse__ref">{ref}</div>
-    </>
-  ) : (
-    <p class="quran-verse__missing">Verse data unavailable for {ref}.</p>
-  )}
+      </>
+    ) : (
+      <p class="quran-verse__missing">Verse data unavailable for {ref}.</p>
+    )}
+  </div>
 </div>
+
+<script>
+  function initQuranCopy() {
+    for (const card of document.querySelectorAll<HTMLElement>('[data-quran-verse]')) {
+      if (card.dataset.copyInitialized) continue;
+      card.dataset.copyInitialized = 'true';
+
+      const copyBtn = card.querySelector<HTMLButtonElement>('[data-quran-copy]');
+      if (!copyBtn) continue;
+
+      copyBtn.addEventListener('click', async () => {
+        const arabicEl = card.querySelector('[data-arabic-text]');
+        const englishEl = card.querySelector('[data-english-text]');
+        const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
+
+        let textParts: string[] = [];
+        if (arabicEl?.textContent) textParts.push(arabicEl.textContent.trim());
+        if (englishEl?.textContent) textParts.push(`"${englishEl.textContent.trim()}"`);
+        if (refVal) textParts.push(`— ${refVal.trim()}`);
+
+        const textToCopy = textParts.join('\n\n');
+        if (!textToCopy) return;
+
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          copyBtn.classList.add('is-copied');
+          const labelSpan = copyBtn.querySelector('.quran-verse__copy-text');
+          if (labelSpan) labelSpan.textContent = 'Copied!';
+
+          setTimeout(() => {
+            copyBtn.classList.remove('is-copied');
+            if (labelSpan) labelSpan.textContent = 'Copy';
+          }, 2200);
+        } catch (err) {
+          console.warn('Failed to copy verse:', err);
+        }
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQuranCopy);
+  } else {
+    initQuranCopy();
+  }
+  document.addEventListener('astro:page-load', initQuranCopy);
+</script>
+
 <style>
   .quran-verse {
     position: relative;
-    padding-top: 3rem;
+    margin: 2.75rem 0;
+    padding: 0;
+    border: 1px solid var(--hc-rule);
+    border-top: 3px solid var(--hc-gold);
+    border-radius: var(--radius-sm);
+    background:
+      radial-gradient(circle at 85% 10%, rgba(216, 177, 102, 0.06), transparent 45%),
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 88%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
+      );
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.08) inset,
+      0 16px 45px rgba(0, 0, 0, 0.16);
+    overflow: hidden;
   }
+
   .quran-verse__header {
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding: 0.5rem 1.25rem;
-    background: var(--hc-parchment-deep);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: var(--radius-sm) 0 var(--radius-sm) 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hc-rule);
+    background: rgba(15, 15, 16, 0.35);
   }
-  .quran-verse__header .hc-eyebrow {
-    color: var(--hc-umber-dark);
+
+  .quran-verse__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 1.1rem;
+    background: rgba(216, 177, 102, 0.08);
+    border-right: 1px solid var(--hc-rule);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
   }
+
+  .quran-verse__badge-icon {
+    font-size: 0.85rem;
+  }
+
+  /* Copy Button */
+  .quran-verse__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-right: 0.75rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--hc-rule);
+    background: rgba(15, 15, 16, 0.6);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+
+  .quran-verse__copy:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.1);
+    transform: translateY(-1px);
+  }
+
+  .quran-verse__copy-check {
+    display: none;
+    color: #4ade80;
+  }
+
+  .quran-verse__copy.is-copied {
+    border-color: #4ade80;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+  }
+
+  .quran-verse__copy.is-copied .quran-verse__copy-icon {
+    display: none;
+  }
+
+  .quran-verse__copy.is-copied .quran-verse__copy-check {
+    display: inline-flex;
+  }
+
+  .quran-verse__content {
+    padding: clamp(1.3rem, 3vw, 2.2rem) clamp(1.4rem, 3vw, 2.2rem);
+  }
+
   .quran-verse__arabic {
     font-family: var(--font-arabic);
-    font-size: 1.65rem;
-    line-height: 2.3;
-    margin-bottom: 1.5rem;
-    color: var(--hc-parchment-ink);
+    font-size: clamp(1.5rem, 1.2vw + 1.25rem, 1.85rem);
+    line-height: 2.35;
+    color: var(--hc-text-primary);
     text-align: right;
+    direction: rtl;
+    margin-bottom: 1.35rem;
+    padding-bottom: 1.35rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-feature-settings: "cv01" on, "calt" on;
+    text-rendering: optimizeLegibility;
   }
+
   .quran-verse__english {
-    font-size: 1.15rem;
-    line-height: 1.75;
+    font-family: var(--font-body);
+    font-size: clamp(1.06rem, 0.3vw + 1.02rem, 1.2rem);
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+    padding-left: 1.15rem;
+    border-left: 2px solid var(--hc-gold-dim);
+    font-style: italic;
     margin-bottom: 1.25rem;
-    padding-left: 1rem;
-    border-left: 1px solid var(--hc-gold-dim);
-    color: var(--hc-fixed-parchment-ink);
   }
 
   .quran-verse__english .qv-verse {
     margin: 0 0 0.75rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
   .quran-verse__english .qv-verse:last-child {
@@ -104,44 +274,79 @@ const hasData = Boolean(arabic || english.length);
     padding-bottom: 0;
     border-bottom: none;
   }
+
   .quran-verse__missing {
     margin: 0;
-    color: var(--hc-fixed-parchment-ink);
+    color: var(--hc-text-secondary);
     font-style: italic;
   }
 
   .quran-verse__ref {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--hc-umber-dark);
-    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    color: var(--hc-gold);
+    border-top: 1px solid var(--hc-rule-soft);
     padding-top: 1rem;
-    font-weight: 600;
+    font-weight: 700;
+  }
+
+  .quran-verse__ref-icon {
+    font-size: 0.75rem;
+    color: var(--hc-gold-bright);
+  }
+
+  :global([data-theme="light"]) .quran-verse {
+    background:
+      radial-gradient(circle at 85% 10%, rgba(176, 126, 44, 0.08), transparent 45%),
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    border-top-color: var(--hc-gold);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .quran-verse__header {
+    background: rgba(240, 234, 220, 0.6);
+  }
+
+  :global([data-theme="light"]) .quran-verse__badge {
+    background: rgba(176, 126, 44, 0.1);
+    color: var(--hc-gold);
+  }
+
+  :global([data-theme="light"]) .quran-verse__copy {
+    background: rgba(251, 249, 244, 0.9);
+    border-color: var(--hc-rule);
+    color: var(--hc-text-primary);
   }
 
   @media (max-width: 640px) {
     .quran-verse {
-      padding-top: 3.25rem;
+      margin: 2rem 0;
     }
 
-    .quran-verse__header {
-      right: 0;
-      border-right: 0;
-      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      text-align: center;
+    .quran-verse__badge {
+      padding: 0.4rem 0.85rem;
+      font-size: 0.64rem;
+    }
+
+    .quran-verse__content {
+      padding: 1.1rem;
     }
 
     .quran-verse__arabic {
-      font-size: clamp(1.3rem, 7vw, 1.55rem);
-      line-height: 2.05;
+      font-size: clamp(1.3rem, 6.8vw, 1.6rem);
+      line-height: 2.1;
     }
 
     .quran-verse__english {
-      padding-left: 0.8rem;
+      padding-left: 0.85rem;
       font-size: 1rem;
-      line-height: 1.65;
+      line-height: 1.68;
     }
   }
 </style>

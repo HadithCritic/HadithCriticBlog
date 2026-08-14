@@ -1,71 +1,1245 @@
+---
+import { getCollection } from 'astro:content';
+
+const allArticles = await getCollection('articles', ({ data }) => import.meta.env.DEV || !data.draft);
+const searchIndex = allArticles.map((article) => ({
+  url: `/blogs/${article.id}`,
+  title: article.data.title,
+  description: article.data.description || '',
+  category: article.data.category,
+  tags: article.data.tags || [],
+  date: article.data.date ? new Date(article.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : ''
+}));
+---
+
 <dialog class="search-dialog" id="site-search-dialog" aria-labelledby="site-search-title">
   <div class="search-dialog__surface">
+    <!-- Header -->
     <div class="search-dialog__header">
-      <h2 id="site-search-title">Search the archive</h2>
-      <button type="button" class="search-dialog__close" data-search-close aria-label="Close search">Close</button>
+      <div class="search-dialog__title-group">
+        <span class="search-dialog__eyebrow">
+          <span class="search-dialog__diamond" aria-hidden="true"></span>
+          Archive Inquiries
+        </span>
+        <h2 id="site-search-title" class="search-dialog__title">Search HadithCritic</h2>
+      </div>
+      <button type="button" class="search-dialog__close" data-search-close aria-label="Close search">
+        <span class="search-dialog__close-text">Close</span>
+        <kbd class="search-dialog__kbd">ESC</kbd>
+      </button>
     </div>
-    <label class="search-dialog__field">
-      <span class="sr-only">Search HadithCritic</span>
-      <input type="search" autocomplete="off" placeholder="Title, study, source, or term" data-search-input />
-    </label>
-    <p class="search-dialog__status" data-search-status role="status" aria-live="polite">Enter a search term to consult the full archive.</p>
-    <ol class="search-dialog__results" data-search-results></ol>
+
+    <!-- Search Input Box -->
+    <div class="search-dialog__input-wrap">
+      <div class="search-dialog__input-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </div>
+      <label class="sr-only" for="site-search-input">Search HadithCritic archive</label>
+      <input
+        type="search"
+        id="site-search-input"
+        class="search-dialog__input"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="Search studies, isnads, narrators, topics, or terms…"
+        data-search-input
+        aria-controls="search-results-list"
+        aria-autocomplete="list"
+      />
+      <button type="button" class="search-dialog__clear" data-search-clear aria-label="Clear search input" hidden>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Category Filter Chips -->
+    <div class="search-dialog__chips-bar" role="tablist" aria-label="Filter search results by category">
+      <button type="button" class="search-chip is-active" data-cat-filter="all">All Topics</button>
+      <button type="button" class="search-chip" data-cat-filter="Theology & Epistemology" data-cat="theology">
+        <span class="search-chip__dot"></span>Theology
+      </button>
+      <button type="button" class="search-chip" data-cat-filter="Origins & Early History" data-cat="origins">
+        <span class="search-chip__dot"></span>Origins & History
+      </button>
+      <button type="button" class="search-chip" data-cat-filter="Transmission & Narrators" data-cat="transmission">
+        <span class="search-chip__dot"></span>Transmission
+      </button>
+      <button type="button" class="search-chip" data-cat-filter="Prophecies & Eschatology" data-cat="prophecies">
+        <span class="search-chip__dot"></span>Prophecies
+      </button>
+    </div>
+
+    <!-- Subheader / Status Bar -->
+    <div class="search-dialog__status-bar">
+      <span class="search-dialog__status" data-search-status role="status" aria-live="polite">
+        Suggested Research Topics
+      </span>
+      <span class="search-dialog__nav-hint" aria-hidden="true">
+        Navigate with <kbd>↑</kbd> <kbd>↓</kbd>
+      </span>
+    </div>
+
+    <!-- Results / Content Area -->
+    <div class="search-dialog__body">
+      <!-- Suggested Inquiries (Initial View) -->
+      <div class="search-dialog__suggested" data-search-suggested>
+        <p class="suggested-title">Frequent Inquiries & Themes</p>
+        <div class="suggested-pills">
+          <button type="button" class="suggested-pill" data-suggest="Messiah ben Aaron">
+            <span class="suggested-pill__icon">✦</span> Messiah ben Aaron
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="The Family of Amram">
+            <span class="suggested-pill__icon">✦</span> Family of Amram
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Plural of Participation">
+            <span class="suggested-pill__icon">✦</span> Plural of Participation
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Ibn Shihab al-Zuhri">
+            <span class="suggested-pill__icon">✦</span> Al-Zuhri Forensics
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Isnad Politics">
+            <span class="suggested-pill__icon">✦</span> Isnad Politics
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Bukhari Fourth Criterion">
+            <span class="suggested-pill__icon">✦</span> Bukhari Criteria
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Zubayrid Call Narrative">
+            <span class="suggested-pill__icon">✦</span> Zubayrid Narrative
+          </button>
+          <button type="button" class="suggested-pill" data-suggest="Prophetic Knowledge">
+            <span class="suggested-pill__icon">✦</span> Prophetic Knowledge
+          </button>
+        </div>
+      </div>
+
+      <!-- Results List -->
+      <ol class="search-dialog__results" id="search-results-list" data-search-results></ol>
+
+      <!-- Empty State -->
+      <div class="search-dialog__empty" data-search-empty hidden>
+        <div class="search-dialog__empty-icon" aria-hidden="true">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+        </div>
+        <p class="search-dialog__empty-title">No matching entries found</p>
+        <p class="search-dialog__empty-desc">No articles match your query. Try searching for a broader keyword, narrator name, or select a different category above.</p>
+      </div>
+    </div>
+
+    <!-- Footer Bar -->
+    <div class="search-dialog__footer" aria-hidden="true">
+      <div class="search-dialog__footer-hint">
+        <kbd class="hc-kbd">↵</kbd> <span>Select</span>
+      </div>
+      <div class="search-dialog__footer-hint">
+        <kbd class="hc-kbd">↑</kbd><kbd class="hc-kbd">↓</kbd> <span>Navigate</span>
+      </div>
+      <div class="search-dialog__footer-hint">
+        <kbd class="hc-kbd">ESC</kbd> <span>Dismiss</span>
+      </div>
+    </div>
   </div>
 </dialog>
 
+<script id="hc-article-catalog" type="application/json" is:inline set:html={JSON.stringify(searchIndex)} />
+
 <style>
-  .search-dialog { width: min(46rem, calc(100% - 2rem)); max-height: min(44rem, calc(100% - 2rem)); padding: 0; border: 1px solid var(--hc-rule-strong); color: var(--hc-text-primary); background: var(--hc-surface-1); box-shadow: var(--hc-popover-shadow); }
-  .search-dialog::backdrop { background: rgba(6, 6, 7, .76); }
-  .search-dialog__surface { padding: clamp(1.1rem, 3vw, 1.8rem); }
-  .search-dialog__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--hc-rule); padding-bottom: .85rem; }
-  .search-dialog h2 { margin: 0; font-family: var(--font-display); font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 500; }
-  .search-dialog__close { min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); background: transparent; font: 700 .75rem var(--font-ui); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
-  .search-dialog__field { display: block; margin-top: 1rem; border-bottom: 1px solid var(--hc-rule-strong); }
-  .search-dialog input { width: 100%; min-height: 52px; border: 0; outline: 0; color: inherit; background: transparent; font: 1.1rem var(--font-body); }
-  .search-dialog__status { margin: .85rem 0; color: var(--hc-text-secondary); font: .87rem/1.5 var(--font-ui); }
-  .search-dialog__results { max-height: 25rem; margin: 0; padding: 0; overflow: auto; list-style: none; }
-  .search-dialog__results a { display: block; padding: .85rem 0; border-top: 1px solid var(--hc-rule-soft); color: inherit; text-decoration: none; }
-  .search-dialog__results a:focus-visible, .search-dialog__results a:hover { color: var(--hc-gold-soft); }
-  .search-dialog__result-title { display: block; font: 500 1.25rem/1.1 var(--font-display); }
-  .search-dialog__result-excerpt, .search-dialog__result-route { display: block; margin-top: .35rem; color: var(--hc-text-secondary); font: .8rem/1.45 var(--font-ui); }
+  .search-dialog {
+    width: min(48rem, calc(100vw - 2rem));
+    max-height: min(48rem, calc(100vh - 4rem));
+    padding: 0;
+    margin: auto;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-lg, 12px);
+    color: var(--hc-text-primary);
+    background: linear-gradient(180deg, var(--hc-surface-1, #141416) 0%, var(--hc-surface-0, #0f0f10) 100%);
+    box-shadow: 
+      0 25px 80px -10px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(216, 177, 102, 0.16),
+      0 0 40px rgba(216, 177, 102, 0.04);
+    overflow: hidden;
+  }
+
+  .search-dialog[open] {
+    animation: searchModalEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes searchModalEnter {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .search-dialog::backdrop {
+    background: rgba(6, 6, 8, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    animation: searchBackdropEnter 0.22s ease both;
+  }
+
+  @keyframes searchBackdropEnter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .search-dialog__surface {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: inherit;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  .search-dialog__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.1));
+  }
+
+  .search-dialog__title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .search-dialog__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--hc-gold-dim, #9d7a3c);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .search-dialog__diamond {
+    width: 4px;
+    height: 4px;
+    background: var(--hc-gold);
+    transform: rotate(45deg);
+  }
+
+  .search-dialog__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3vw, 1.85rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
+  }
+
+  .search-dialog__close {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 36px;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill, 999px);
+    color: var(--hc-text-secondary);
+    background: rgba(242, 235, 220, 0.03);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+
+  .search-dialog__close:hover {
+    color: var(--hc-gold-bright);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.08);
+  }
+
+  .search-dialog__kbd {
+    padding: 0.15rem 0.35rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 4px;
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    color: var(--hc-gold-soft);
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  /* ── Input Box ── */
+  .search-dialog__input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin: 1.1rem 1.5rem 0.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-md, 8px);
+    background: rgba(242, 235, 220, 0.03);
+    transition: all 200ms ease;
+  }
+
+  .search-dialog__input-wrap:focus-within {
+    border-color: var(--hc-gold);
+    background: rgba(242, 235, 220, 0.05);
+    box-shadow: 
+      0 0 0 3px rgba(216, 177, 102, 0.14),
+      0 4px 20px rgba(0, 0, 0, 0.35);
+  }
+
+  .search-dialog__input-icon {
+    display: grid;
+    place-items: center;
+    color: var(--hc-gold);
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+  }
+
+  .search-dialog__input {
+    width: 100%;
+    min-height: 48px;
+    border: 0;
+    outline: 0;
+    color: var(--hc-text-primary);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+  }
+
+  .search-dialog__input::placeholder {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+  }
+
+  .search-dialog__input::-webkit-search-cancel-button,
+  .search-dialog__input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .search-dialog__clear {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    color: var(--hc-text-secondary);
+    background: rgba(242, 235, 220, 0.08);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 160ms ease;
+  }
+
+  .search-dialog__clear:hover {
+    color: var(--hc-text-primary);
+    background: rgba(216, 177, 102, 0.2);
+  }
+
+  /* ── Category Chips Bar ── */
+  .search-dialog__chips-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0 1.5rem 0.85rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .search-dialog__chips-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .search-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 28px;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-pill, 999px);
+    color: var(--hc-text-secondary);
+    background: rgba(242, 235, 220, 0.02);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+
+  .search-chip:hover {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-rule);
+    background: rgba(242, 235, 220, 0.06);
+  }
+
+  .search-chip.is-active {
+    color: var(--hc-surface-0);
+    background: var(--hc-gold);
+    border-color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .search-chip__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+
+  .search-chip[data-cat="theology"] .search-chip__dot { background: #8bb397; }
+  .search-chip[data-cat="origins"] .search-chip__dot { background: #d1a37c; }
+  .search-chip[data-cat="transmission"] .search-chip__dot { background: #94a5c9; }
+  .search-chip[data-cat="prophecies"] .search-chip__dot { background: #cf7365; }
+
+  /* ── Status Bar ── */
+  .search-dialog__status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1.5rem;
+    border-top: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
+    border-bottom: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .search-dialog__status {
+    color: var(--hc-gold-soft);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .search-dialog__nav-hint {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+  }
+
+  .search-dialog__nav-hint kbd {
+    padding: 0.1rem 0.3rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 3px;
+    font-size: 0.65rem;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ── Content / Results Body ── */
+  .search-dialog__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem 1.5rem;
+    max-height: 25rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hc-rule) transparent;
+  }
+
+  .search-dialog__body::-webkit-scrollbar {
+    width: 6px;
+  }
+  .search-dialog__body::-webkit-scrollbar-thumb {
+    background: var(--hc-rule);
+    border-radius: 3px;
+  }
+
+  /* ── Suggested Inquiries View ── */
+  .search-dialog__suggested {
+    padding: 0.5rem 0 1rem;
+  }
+
+  .suggested-title {
+    margin: 0 0 0.85rem;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .suggested-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .suggested-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-md, 8px);
+    color: var(--hc-text-primary);
+    background: rgba(242, 235, 220, 0.03);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 180ms ease;
+  }
+
+  .suggested-pill__icon {
+    color: var(--hc-gold);
+    font-size: 0.7rem;
+  }
+
+  .suggested-pill:hover {
+    color: var(--hc-gold-bright);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.08);
+    transform: translateY(-1px);
+  }
+
+  /* ── Results List & Cards ── */
+  .search-dialog__results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .search-result-card {
+    position: relative;
+    display: block;
+    padding: 1rem 1.2rem;
+    border: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.12));
+    border-radius: var(--radius-md, 8px);
+    background: rgba(242, 235, 220, 0.02);
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+    transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .search-result-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--hc-gold);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 200ms ease;
+  }
+
+  .search-result-card:hover,
+  .search-result-card.is-selected,
+  .search-result-card:focus-visible {
+    border-color: var(--hc-gold-dim);
+    background: linear-gradient(90deg, rgba(216, 177, 102, 0.08) 0%, rgba(242, 235, 220, 0.02) 100%);
+    transform: translateX(4px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    outline: none;
+  }
+
+  .search-result-card:hover::before,
+  .search-result-card.is-selected::before,
+  .search-result-card:focus-visible::before {
+    transform: scaleY(1);
+  }
+
+  .search-result-card {
+    position: relative;
+    display: block;
+    padding: 1.1rem 1.35rem;
+    border: 1px solid var(--card-border, var(--hc-rule));
+    border-left: 3px solid var(--card-color, var(--hc-gold));
+    border-radius: var(--radius-md, 8px);
+    background: linear-gradient(90deg, var(--card-bg, rgba(200, 155, 75, 0.05)) 0%, var(--hc-surface-1) 100%);
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+    transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .search-result-card[data-cat="Origins & Early History"] {
+    --card-color: #d48b52;
+    --card-bg: rgba(212, 139, 82, 0.08);
+    --card-border: rgba(212, 139, 82, 0.28);
+  }
+  .search-result-card[data-cat="Prophecies & Eschatology"] {
+    --card-color: #e05a47;
+    --card-bg: rgba(224, 90, 71, 0.08);
+    --card-border: rgba(224, 90, 71, 0.28);
+  }
+  .search-result-card[data-cat="Theology & Epistemology"] {
+    --card-color: #4fa86c;
+    --card-bg: rgba(79, 168, 108, 0.08);
+    --card-border: rgba(79, 168, 108, 0.28);
+  }
+  .search-result-card[data-cat="Transmission & Narrators"] {
+    --card-color: #608fd6;
+    --card-bg: rgba(96, 143, 214, 0.08);
+    --card-border: rgba(96, 143, 214, 0.28);
+  }
+
+  .search-result-card:hover,
+  .search-result-card.is-selected,
+  .search-result-card:focus-visible {
+    border-color: var(--card-color, var(--hc-gold));
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-color, #c89b4b) 16%, transparent) 0%, var(--hc-surface-2) 100%);
+    transform: translateX(4px);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 16px var(--card-bg, rgba(216, 177, 102, 0.15));
+    outline: none;
+  }
+
+  .search-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .search-card__cat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-pill, 999px);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid var(--card-border, var(--hc-rule));
+    color: var(--card-color, var(--hc-gold-soft));
+    background: var(--card-bg, rgba(216, 177, 102, 0.1));
+  }
+
+  .search-card__cat-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .search-card__date {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+  }
+
+  .search-card__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+    color: var(--hc-text-primary);
+    transition: color 180ms ease;
+  }
+
+  .search-result-card:hover .search-card__title,
+  .search-result-card.is-selected .search-card__title {
+    color: var(--card-color, var(--hc-gold-soft));
+  }
+
+  .search-card__section-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: var(--radius-sm);
+    background: rgba(200, 155, 75, 0.1);
+    border: 1px solid rgba(200, 155, 75, 0.25);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .search-card__section-badge strong {
+    color: var(--hc-text-primary);
+  }
+
+  .search-card__excerpt {
+    margin: 0.4rem 0 0;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  :global(.search-highlight) {
+    background: rgba(216, 177, 102, 0.35);
+    color: var(--hc-gold-soft);
+    font-weight: 700;
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+
+  .search-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed rgba(242, 235, 220, 0.08);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .search-card__jump-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--card-color, var(--hc-gold));
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .search-card__arrow {
+    display: inline-flex;
+    align-items: center;
+    color: var(--card-color, var(--hc-gold));
+    transform: translateX(0);
+    transition: transform 200ms ease;
+  }
+
+  .search-result-card:hover .search-card__arrow,
+  .search-result-card.is-selected .search-card__arrow {
+    transform: translateX(4px);
+  }
+
+  /* ── Empty State ── */
+  .search-dialog__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+  }
+
+  .search-dialog__empty-icon {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 1px solid var(--hc-rule);
+    color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.06);
+    margin-bottom: 1rem;
+  }
+
+  .search-dialog__empty-title {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .search-dialog__empty-desc {
+    max-width: 380px;
+    margin: 0;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    line-height: 1.55;
+  }
+
+  /* ── Footer ── */
+  .search-dialog__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.25rem;
+    padding: 0.75rem 1.5rem;
+    border-top: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  .search-dialog__footer-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+  }
+
+  .hc-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 1px solid var(--hc-rule);
+    border-radius: 3px;
+    color: var(--hc-text-secondary);
+    background: rgba(242, 235, 220, 0.05);
+    font-family: var(--font-ui);
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 640px) {
+    .search-dialog {
+      width: 100vw;
+      max-height: 100vh;
+      height: 100vh;
+      border-radius: 0;
+      border: none;
+    }
+
+    .search-dialog__header,
+    .search-dialog__input-wrap,
+    .search-dialog__chips-bar,
+    .search-dialog__status-bar,
+    .search-dialog__body,
+    .search-dialog__footer {
+      padding-inline: 1rem;
+    }
+
+    .search-dialog__input-wrap {
+      margin-inline: 1rem;
+    }
+
+    .search-dialog__footer-hint:not(:first-child) {
+      display: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     LIGHT THEME OVERRIDES — Search Modal
+     ═══════════════════════════════════════════════════════════════ */
+  :global([data-theme="light"]) .search-dialog {
+    background: var(--hc-surface-0);
+    border-color: var(--hc-rule-strong);
+    box-shadow: 0 20px 60px rgba(43, 40, 36, 0.18);
+  }
+
+  :global([data-theme="light"]) .search-dialog__status-bar {
+    background: var(--hc-surface-1);
+    border-color: var(--hc-rule-soft);
+  }
+
+  :global([data-theme="light"]) .search-result-card {
+    background: var(--hc-surface-1);
+    border-color: var(--hc-rule-soft);
+  }
+
+  :global([data-theme="light"]) .search-result-card:hover,
+  :global([data-theme="light"]) .search-result-card.is-selected,
+  :global([data-theme="light"]) .search-result-card:focus-visible {
+    background: linear-gradient(90deg, rgba(176, 126, 44, 0.1) 0%, var(--hc-surface-2) 100%);
+    box-shadow: 0 4px 16px rgba(43, 40, 36, 0.1);
+  }
+
+  :global([data-theme="light"]) .search-dialog__footer {
+    background: var(--hc-surface-1);
+    border-color: var(--hc-rule-soft);
+  }
+
+  :global([data-theme="light"]) .search-card__cat-badge[data-cat="Theology & Epistemology"] {
+    color: #3b5f44;
+    background: rgba(74, 107, 82, 0.12);
+    border-color: rgba(74, 107, 82, 0.3);
+  }
+
+  :global([data-theme="light"]) .search-card__cat-badge[data-cat="Origins & Early History"] {
+    color: #8a4c27;
+    background: rgba(138, 76, 39, 0.12);
+    border-color: rgba(138, 76, 39, 0.3);
+  }
+
+  :global([data-theme="light"]) .search-card__cat-badge[data-cat="Prophetic Reports"] {
+    color: #a84b3e;
+    background: rgba(168, 75, 62, 0.12);
+    border-color: rgba(168, 75, 62, 0.3);
+  }
+
+  :global([data-theme="light"]) .search-card__cat-badge[data-cat="Philosophy & Reasoning"] {
+    color: #3b4e68;
+    background: rgba(78, 92, 120, 0.12);
+    border-color: rgba(78, 92, 120, 0.3);
+  }
 </style>
 
 <script>
+  interface SearchSection {
+    heading: string;
+    slug: string;
+    text: string;
+  }
+  interface SearchDoc {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[];
+    date: string;
+    sections: SearchSection[];
+    fullText: string;
+  }
+  interface ArticleEntry {
+    url: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[];
+    date: string;
+  }
+
   const dialog = document.querySelector<HTMLDialogElement>('#site-search-dialog');
   const input = dialog?.querySelector<HTMLInputElement>('[data-search-input]');
+  const clearBtn = dialog?.querySelector<HTMLButtonElement>('[data-search-clear]');
   const status = dialog?.querySelector<HTMLElement>('[data-search-status]');
-  const resultList = dialog?.querySelector('[data-search-results]') as HTMLElement | null;
+  const resultList = dialog?.querySelector<HTMLOListElement>('[data-search-results]');
+  const suggestedView = dialog?.querySelector<HTMLElement>('[data-search-suggested]');
+  const emptyView = dialog?.querySelector<HTMLElement>('[data-search-empty]');
+  const chipButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-cat-filter]')) : [];
+  const suggestButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-suggest]')) : [];
+
+  let localCatalog: ArticleEntry[] = [];
+  try {
+    const catalogEl = document.getElementById('hc-article-catalog');
+    if (catalogEl?.textContent) {
+      localCatalog = JSON.parse(catalogEl.textContent);
+    }
+  } catch (err) {
+    console.error('Failed to load local article catalog', err);
+  }
+
+  let deepCatalog: SearchDoc[] = [];
+  fetch('/search-index.json')
+    .then((res) => res.json() as Promise<SearchDoc[]>)
+    .then((docs) => {
+      deepCatalog = docs;
+    })
+    .catch(() => {});
+
   let invoker: HTMLElement | null = null;
   let timer = 0;
-  const open = (button?: HTMLElement) => { if (!dialog?.open) { invoker = button || document.activeElement as HTMLElement; dialog?.showModal(); input?.focus(); } };
-  const close = () => dialog?.close();
+  let activeCategory = 'all';
+  let selectedIndex = -1;
+
+  const open = (button?: HTMLElement) => {
+    if (!dialog?.open) {
+      invoker = button || (document.activeElement as HTMLElement);
+      dialog?.showModal();
+      setTimeout(() => input?.focus(), 50);
+    }
+  };
+
+  const close = () => {
+    dialog?.close();
+  };
+
   document.addEventListener('hc:search-open', (event) => open((event as CustomEvent).detail));
-  document.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); open(); } });
+  
+  document.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      dialog?.open ? close() : open();
+    }
+  });
+
   dialog?.querySelector('[data-search-close]')?.addEventListener('click', close);
   dialog?.addEventListener('close', () => invoker?.focus());
-  dialog?.addEventListener('click', (event) => { if (event.target === dialog) close(); });
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) close();
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    if (input) {
+      input.value = '';
+      clearBtn.hidden = true;
+      input.focus();
+      runSearch('');
+    }
+  });
+
+  chipButtons.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      chipButtons.forEach((c) => c.classList.remove('is-active'));
+      chip.classList.add('is-active');
+      activeCategory = chip.dataset.catFilter || 'all';
+      runSearch(input?.value.trim() || '');
+    });
+  });
+
+  suggestButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const term = btn.dataset.suggest || '';
+      if (input) {
+        input.value = term;
+        clearBtn && (clearBtn.hidden = false);
+        runSearch(term);
+      }
+    });
+  });
+
+  function escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function highlightMatches(text: string, query: string): string {
+    if (!query || !text) return text || '';
+    const terms = query.split(/\s+/).filter(Boolean);
+    if (!terms.length) return text;
+    const regex = new RegExp(`(${terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+    return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+  }
+
+  function createSnippetText(text: string, term: string): string {
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(term.toLowerCase());
+    if (idx === -1) return text.slice(0, 140) + '...';
+
+    const start = Math.max(0, idx - 65);
+    const end = Math.min(text.length, idx + term.length + 85);
+    let snippet = text.slice(start, end);
+    if (start > 0) snippet = '...' + snippet;
+    if (end < text.length) snippet = snippet + '...';
+    return snippet;
+  }
+
+  function renderCards(
+    entries: Array<{
+      url: string;
+      title: string;
+      excerpt: string;
+      category?: string;
+      date?: string;
+      sectionHeading?: string;
+    }>,
+    query: string
+  ) {
+    if (!resultList || !status || !emptyView || !suggestedView) return;
+
+    resultList.innerHTML = '';
+    selectedIndex = -1;
+
+    if (!entries.length) {
+      suggestedView.hidden = true;
+      resultList.hidden = true;
+      emptyView.hidden = false;
+      status.textContent = 'No matching results';
+      return;
+    }
+
+    suggestedView.hidden = true;
+    emptyView.hidden = true;
+    resultList.hidden = false;
+    status.textContent = `${entries.length} ${entries.length === 1 ? 'study' : 'studies'} discovered`;
+
+    entries.forEach((item, idx) => {
+      const li = document.createElement('li');
+      const categoryLabel = item.category || 'Analysis';
+
+      li.innerHTML = `
+        <a href="${item.url}" class="search-result-card" data-cat="${categoryLabel}" data-index="${idx}">
+          <div class="search-card__header">
+            <span class="search-card__cat-badge" data-cat="${categoryLabel}">
+              <span class="search-card__cat-dot" aria-hidden="true"></span>
+              <span>${categoryLabel}</span>
+            </span>
+            ${item.date ? `<time class="search-card__date">${item.date}</time>` : ''}
+          </div>
+          <h3 class="search-card__title">${highlightMatches(item.title, query)}</h3>
+          ${item.sectionHeading ? `
+            <div class="search-card__section-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>Matched in: <strong>${escapeHtml(item.sectionHeading)}</strong></span>
+            </div>
+          ` : ''}
+          ${item.excerpt ? `<p class="search-card__excerpt">${highlightMatches(item.excerpt, query)}</p>` : ''}
+          <div class="search-card__footer">
+            <span class="search-card__jump-hint">
+              ${item.sectionHeading ? 'Jump directly to section' : 'Read study'}
+            </span>
+            <span class="search-card__arrow" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </span>
+          </div>
+        </a>
+      `;
+
+      const link = li.querySelector('a');
+      link?.addEventListener('click', close);
+      resultList.appendChild(li);
+    });
+  }
+
+  async function runSearch(query: string) {
+    if (!status || !resultList || !suggestedView || !emptyView) return;
+
+    if (!query) {
+      resultList.innerHTML = '';
+      resultList.hidden = true;
+      emptyView.hidden = true;
+      suggestedView.hidden = false;
+      status.textContent = 'Suggested Research Topics';
+      selectedIndex = -1;
+      return;
+    }
+
+    status.textContent = 'Searching archive & content…';
+
+    const lowerQuery = query.toLowerCase();
+    const catalogToSearch = deepCatalog.length > 0 ? deepCatalog : localCatalog.map(c => ({
+      id: c.url.replace('/blogs/', ''),
+      title: c.title,
+      description: c.description,
+      category: c.category,
+      tags: c.tags,
+      date: c.date,
+      sections: [],
+      fullText: `${c.title} ${c.description} ${c.tags.join(' ')}`
+    }));
+
+    const results: Array<{
+      url: string;
+      title: string;
+      excerpt: string;
+      category?: string;
+      date?: string;
+      sectionHeading?: string;
+      score: number;
+    }> = [];
+
+    for (const item of catalogToSearch) {
+      if (activeCategory !== 'all' && item.category !== activeCategory) {
+        continue;
+      }
+
+      const inTitle = item.title.toLowerCase().includes(lowerQuery);
+      const inDesc = item.description.toLowerCase().includes(lowerQuery);
+      const inTags = item.tags ? item.tags.some(t => t.toLowerCase().includes(lowerQuery)) : false;
+      
+      let sectionMatch: SearchSection | null = null;
+      let sectionSnippet = '';
+
+      if (item.sections && item.sections.length > 0) {
+        for (const sec of item.sections) {
+          if (sec.heading.toLowerCase().includes(lowerQuery) || sec.text.toLowerCase().includes(lowerQuery)) {
+            sectionMatch = sec;
+            const src = sec.text.toLowerCase().includes(lowerQuery) ? sec.text : sec.heading;
+            sectionSnippet = createSnippetText(src, lowerQuery);
+            break;
+          }
+        }
+      }
+
+      const inFullText = item.fullText ? item.fullText.toLowerCase().includes(lowerQuery) : false;
+
+      if (inTitle || inDesc || inTags || sectionMatch || inFullText) {
+        let score = 0;
+        if (inTitle) score += 10;
+        if (inTags) score += 6;
+        if (inDesc) score += 4;
+        if (sectionMatch) score += 5;
+
+        const targetUrl = sectionMatch && sectionMatch.slug 
+          ? `/blogs/${item.id}#${sectionMatch.slug}` 
+          : `/blogs/${item.id}`;
+
+        const excerpt = sectionSnippet || item.description || (item.fullText ? createSnippetText(item.fullText, lowerQuery) : '');
+
+        results.push({
+          url: targetUrl,
+          title: item.title,
+          excerpt,
+          category: item.category,
+          date: item.date,
+          sectionHeading: sectionMatch ? sectionMatch.heading : undefined,
+          score
+        });
+      }
+    }
+
+    results.sort((a, b) => b.score - a.score);
+    renderCards(results.slice(0, 16), query);
+  }
+
+  dialog?.addEventListener('keydown', (e: KeyboardEvent) => {
+    const cards = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('.search-result-card'));
+    if (!cards.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % cards.length;
+      updateSelection(cards);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + cards.length) % cards.length;
+      updateSelection(cards);
+    } else if (e.key === 'Enter') {
+      if (selectedIndex >= 0 && selectedIndex < cards.length) {
+        e.preventDefault();
+        cards[selectedIndex].click();
+      }
+    }
+  });
+
+  function updateSelection(cards: HTMLAnchorElement[]) {
+    cards.forEach((card, idx) => {
+      const isSelected = idx === selectedIndex;
+      card.classList.toggle('is-selected', isSelected);
+      if (isSelected) {
+        card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }
+
   input?.addEventListener('input', () => {
     window.clearTimeout(timer);
-    timer = window.setTimeout(async () => {
-      const query = input.value.trim();
-      if (!status || !resultList) return;
-      resultList.innerHTML = '';
-      if (!query) { status.textContent = 'Enter a search term to consult the full archive.'; return; }
-      status.textContent = 'Searching the archive…';
-      try {
-        const pagefindPath = '/pagefind/pagefind.js';
-        const pagefind = await import(/* @vite-ignore */ pagefindPath);
-        await pagefind.init();
-        const search = await pagefind.search(query);
-        type PagefindResult = { data: () => Promise<{ meta: { title?: string }; excerpt?: string; url: string }> };
-        const data = await Promise.all((search.results as PagefindResult[]).slice(0, 12).map((result) => result.data()));
-        status.textContent = data.length ? `${data.length} matching ${data.length === 1 ? 'entry' : 'entries'}.` : 'No entries match this search.';
-        data.forEach((result) => {
-          const item = document.createElement('li'); const link = document.createElement('a');
-          link.href = result.url; link.innerHTML = `<span class="search-dialog__result-title">${result.meta.title || result.url}</span><span class="search-dialog__result-excerpt">${result.excerpt || ''}</span><span class="search-dialog__result-route">${result.url}</span>`;
-          link.addEventListener('click', close); item.appendChild(link); resultList.appendChild(item);
-        });
-      } catch { status.textContent = 'Full-site search is available in the production build.'; }
-    }, 150);
+    const query = input.value.trim();
+    if (clearBtn) clearBtn.hidden = !query;
+    timer = window.setTimeout(() => {
+      runSearch(query);
+    }, 120);
   });
 </script>

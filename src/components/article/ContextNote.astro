@@ -1,36 +1,176 @@
 ---
 export interface Props {
   title?: string;
+  collapsible?: boolean;
 }
-const { title = "Historical Context Note" } = Astro.props;
+const { title = "Historical Context", collapsible = false } = Astro.props;
 ---
-<div class="hc-article-panel hc-article-panel--umber context-note">
-  <div class="note-header">
-    <span class="hc-eyebrow" style="color: var(--hc-gold);">{title}</span>
-  </div>
-  <div class="note-content">
-    <slot />
-  </div>
+<div class={`hc-article-panel hc-article-panel--umber context-note ${collapsible ? 'context-note--collapsible' : ''}`}>
+  {collapsible ? (
+    <details class="context-details">
+      <summary class="context-summary">
+        <span class="note-badge">
+          <span class="note-badge__icon" aria-hidden="true">◈</span>
+          <span class="note-badge__text">{title}</span>
+        </span>
+        <span class="context-summary__arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </span>
+      </summary>
+      <div class="note-content">
+        <slot />
+      </div>
+    </details>
+  ) : (
+    <>
+      <div class="note-header">
+        <span class="note-badge">
+          <span class="note-badge__icon" aria-hidden="true">◈</span>
+          <span class="note-badge__text">{title}</span>
+        </span>
+      </div>
+      <div class="note-content">
+        <slot />
+      </div>
+    </>
+  )}
 </div>
+
 <style>
   .context-note {
+    position: relative;
+    margin: 2.75rem 0;
+    padding: clamp(1.4rem, 3vw, 2.2rem);
+    border: 1px solid var(--hc-rule);
     border-top: 3px solid var(--hc-gold);
+    border-radius: var(--radius-sm);
+    background:
+      radial-gradient(circle at 10% 90%, rgba(216, 177, 102, 0.05), transparent 45%),
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 90%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
+      );
+    box-shadow:
+      0 1px 0 rgba(216, 177, 102, 0.08) inset,
+      0 18px 50px rgba(0, 0, 0, 0.16);
+    overflow: hidden;
   }
+
+  .context-note::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 3px;
+    background: linear-gradient(180deg, var(--hc-copper, #c48b68), transparent 80%);
+    pointer-events: none;
+  }
+
   .note-header {
-    margin-bottom: 1rem;
+    margin-bottom: 1.15rem;
   }
+
+  .note-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(196, 139, 104, 0.12);
+    border: 1px solid rgba(196, 139, 104, 0.3);
+    color: var(--hc-copper, #c48b68);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .note-badge__icon {
+    font-size: 0.82rem;
+  }
+
   .note-content {
-    font-size: 1.05rem;
-    line-height: 1.6;
+    font-family: var(--font-body);
+    font-size: clamp(1.04rem, 0.3vw + 0.98rem, 1.15rem);
+    line-height: 1.78;
+    color: var(--hc-text-primary);
   }
+
   .note-content :global(p:last-child) {
     margin-bottom: 0;
   }
 
+  .note-content :global(strong) {
+    font-weight: 700;
+    color: var(--hc-gold-soft);
+  }
+
+  /* Collapsible Details */
+  .context-details summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+
+  .context-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .context-summary__arrow {
+    display: inline-flex;
+    color: var(--hc-gold-dim);
+    transition: transform 200ms ease, color 200ms ease;
+  }
+
+  .context-details[open] .context-summary__arrow {
+    transform: rotate(180deg);
+    color: var(--hc-gold);
+  }
+
+  .context-details[open] .note-content {
+    margin-top: 1.15rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    animation: fadeInContext 240ms ease forwards;
+  }
+
+  @keyframes fadeInContext {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  :global([data-theme="light"]) .context-note {
+    background:
+      radial-gradient(circle at 10% 90%, rgba(138, 76, 39, 0.06), transparent 45%),
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    border-top-color: var(--hc-copper, #8a4c27);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .note-badge {
+    background: rgba(138, 76, 39, 0.1);
+    border-color: rgba(138, 76, 39, 0.28);
+    color: var(--hc-copper, #8a4c27);
+  }
+
   @media (max-width: 640px) {
+    .context-note {
+      margin: 2rem 0;
+      padding: 1.2rem 1.1rem;
+    }
+
     .note-content {
       font-size: 1rem;
-      line-height: 1.65;
+      line-height: 1.68;
     }
   }
 </style>

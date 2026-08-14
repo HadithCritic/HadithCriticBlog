@@ -20,18 +20,41 @@ const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
 ---
 
 <div class="variant-tree" aria-label={ariaLabel || title}>
-  <p class="variant-tree__title">{title}</p>
-  <div class="variant-tree__root">{root}</div>
-  <div class="variant-tree__line" aria-hidden="true"></div>
-  <div class="variant-tree__bottleneck">{bottleneck}</div>
+  <div class="variant-tree__header">
+    <span class="variant-tree__badge">
+      <span class="variant-tree__badge-icon" aria-hidden="true">⑂</span>
+      <span>{title}</span>
+    </span>
+  </div>
+
+  <div class="variant-tree__trunk">
+    <div class="variant-tree__node variant-tree__root">{root}</div>
+    <div class="variant-tree__stem" aria-hidden="true">
+      <svg width="2" height="28" viewBox="0 0 2 28">
+        <line x1="1" y1="0" x2="1" y2="28" stroke="var(--hc-gold-dim)" stroke-width="2" stroke-dasharray="3 3"></line>
+      </svg>
+    </div>
+    <div class="variant-tree__node variant-tree__bottleneck">
+      <span class="variant-tree__bottleneck-tag">Bottleneck</span>
+      <span class="variant-tree__bottleneck-name">{bottleneck}</span>
+    </div>
+    <div class="variant-tree__stem" aria-hidden="true">
+      <svg width="2" height="24" viewBox="0 0 2 24">
+        <line x1="1" y1="0" x2="1" y2="24" stroke="var(--hc-gold)" stroke-width="2"></line>
+      </svg>
+    </div>
+  </div>
+
   <div class="variant-tree__branches">
     {branches.map((branch) => (
       <div class="variant-tree__branch">
-        <p class="variant-tree__name">
-          {branch.name}
-          {branch.from && <span class="variant-tree__from">← {branch.from}</span>}
-        </p>
-        <p class="variant-tree__quote">{branch.quote}</p>
+        <div class="variant-tree__branch-head">
+          <p class="variant-tree__name">
+            {branch.name}
+            {branch.from && <span class="variant-tree__from">via {branch.from}</span>}
+          </p>
+        </div>
+        <p class="variant-tree__quote">&ldquo;{branch.quote}&rdquo;</p>
         <p class="variant-tree__sources">{branch.sources}</p>
       </div>
     ))}
@@ -40,69 +63,133 @@ const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
 
 <style>
   .variant-tree {
-    margin: 2.4rem 0;
+    margin: 2.75rem 0;
     padding: clamp(1.4rem, 3vw, 2.2rem);
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--hc-surface-1) 50%, transparent);
+    background:
+      radial-gradient(circle at 50% 0%, rgba(216, 177, 102, 0.05), transparent 50%),
+      linear-gradient(
+        140deg,
+        color-mix(in srgb, var(--hc-surface-2) 90%, transparent),
+        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
+      );
+    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
     text-align: center;
   }
 
-  .variant-tree__title {
-    margin: 0 0 1.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold-dim);
+  .variant-tree__header {
+    margin-bottom: 1.5rem;
   }
 
-  .variant-tree__root,
-  .variant-tree__bottleneck {
-    display: inline-block;
-    padding: 0.4rem 1rem;
-    border: 1px solid var(--hc-rule-strong);
+  .variant-tree__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.1);
+    border: 1px solid rgba(216, 177, 102, 0.25);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .variant-tree__badge-icon {
+    font-size: 0.85rem;
+  }
+
+  .variant-tree__trunk {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .variant-tree__node {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.45rem 1.25rem;
     border-radius: var(--radius-xs);
     font-family: var(--font-ui);
     font-size: 0.9rem;
+  }
+
+  .variant-tree__root {
+    border: 1px solid var(--hc-rule-strong);
+    background: color-mix(in srgb, var(--hc-surface-3) 75%, transparent);
     color: var(--hc-text-primary);
   }
 
   .variant-tree__bottleneck {
-    border-color: var(--hc-gold-dim);
-    color: var(--hc-gold);
-    font-weight: 600;
+    border: 1px solid var(--hc-gold);
+    background: rgba(216, 177, 102, 0.12);
+    box-shadow: 0 0 16px rgba(216, 177, 102, 0.15);
   }
 
-  .variant-tree__line {
-    width: 1px;
+  .variant-tree__bottleneck-tag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
+    margin-bottom: 0.1rem;
+  }
+
+  .variant-tree__bottleneck-name {
+    color: var(--hc-gold);
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .variant-tree__stem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     height: 1.5rem;
-    margin: 0 auto;
-    background: var(--hc-rule-strong);
   }
 
   .variant-tree__branches {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1.25rem;
-    margin-top: 1.75rem;
-    padding-top: 1.75rem;
-    border-top: 1px solid var(--hc-rule-soft);
+    margin-top: 0.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hc-rule);
     text-align: left;
+    position: relative;
   }
 
   .variant-tree__branch {
-    padding: 1rem;
+    padding: 1.1rem;
     border: 1px solid var(--hc-rule-soft);
+    border-top: 2px solid var(--hc-gold-dim);
     border-radius: var(--radius-xs);
-    background: color-mix(in srgb, var(--hc-surface-0) 60%, transparent);
+    background: color-mix(in srgb, var(--hc-surface-0) 70%, transparent);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 180ms ease, border-color 180ms ease;
+  }
+
+  .variant-tree__branch:hover {
+    transform: translateY(-2px);
+    border-color: var(--hc-gold-dim);
+  }
+
+  .variant-tree__branch-head {
+    margin-bottom: 0.75rem;
   }
 
   .variant-tree__name {
-    margin: 0 0 0.6rem;
+    margin: 0;
     font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.86rem;
+    font-weight: 700;
     color: var(--hc-text-primary);
   }
 
@@ -110,20 +197,42 @@ const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
     display: block;
     margin-top: 0.2rem;
     font-weight: 400;
-    font-size: 0.8rem;
-    color: var(--hc-text-tertiary);
+    font-size: 0.76rem;
+    color: var(--hc-gold-dim);
   }
 
   .variant-tree__quote {
-    margin: 0 0 0.6rem;
+    margin: 0 0 0.85rem;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.65;
     font-style: italic;
     color: var(--hc-text-secondary);
   }
 
   .variant-tree__sources {
     margin: 0;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--hc-rule-soft);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-gold-dim);
+    font-size: 0.74rem;
+    color: var(--hc-ash);
+  }
+
+  :global([data-theme="light"]) .variant-tree {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(176, 126, 44, 0.08), transparent 50%),
+      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+    border-color: var(--hc-rule);
+    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .variant-tree__branch {
+    background: rgba(251, 249, 244, 0.9);
+    border-color: var(--hc-rule);
+  }
+
+  :global([data-theme="light"]) .variant-tree__root {
+    background: rgba(240, 234, 220, 0.7);
   }
 </style>

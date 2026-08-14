@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
+import { isNewPost } from '../../lib/new-badge';
 
 const allPosts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -21,7 +22,9 @@ const entries = posts.map((post, index) => ({
   post,
   folio: String(posts.length - index).padStart(3, '0'),
   dateLabel: formatDate(post.data.date),
-  dateISO: post.data.date.toISOString().slice(0, 10)
+  dateISO: post.data.date.toISOString().slice(0, 10),
+  isNew: isNewPost(post.data.date),
+  tags: post.data.tags ?? []
 }));
 ---
 
@@ -32,20 +35,20 @@ const entries = posts.map((post, index) => ({
   <div class="archive-page">
     <header class="archive-hero" aria-labelledby="archive-title" data-motion="hero">
       <div class="hc-container archive-hero__inner">
-        <p class="hc-eyebrow archive-hero__label">The HadithCritic Index</p>
+        <p class="hc-eyebrow archive-hero__label">The HadithCritic Research Archive</p>
         <h1 id="archive-title" class="archive-hero__title">
-          Blogs <em>&amp;</em> Analysis
+          Studies <em>&amp;</em> Analysis
         </h1>
         <div class="archive-hero__meta" aria-label="Archive statistics">
-          <span>{posts.length} entries</span>
+          <span>{posts.length} Studies Catalogued</span>
           <span class="archive-hero__diamond" aria-hidden="true"></span>
-          <span>{categories.length} categories</span>
+          <span>{categories.length} Research Fields</span>
           <span class="archive-hero__diamond" aria-hidden="true"></span>
-          <span>Last entry {entries[0]?.dateLabel}</span>
+          <span>Latest: {entries[0]?.dateLabel}</span>
         </div>
         <p class="archive-hero__lead">
           Critical studies, transmission forensics, and historical analyses of prophetic
-          reports and early Islamic source texts. Every entry is catalogued below.
+          reports and early Islamic source texts. Search by topic, narrator, or category below.
         </p>
       </div>
     </header>
@@ -53,102 +56,133 @@ const entries = posts.map((post, index) => ({
     <div class="archive-tools" role="region" aria-label="Filter the index">
       <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress__bar" id="scroll-bar"></div></div>
       <div class="hc-container archive-tools__inner">
-        <div class="archive-filters" style="position:relative;" role="group" aria-label="Filter by category">
-          <button type="button" class="filter-tab is-active" data-filter="all">
-            All <span class="filter-tab__count">{posts.length}</span>
-          </button>
-          {categories.map((category) => (
-            <button type="button" class="filter-tab" data-filter={category.name} data-category={category.name}>
-              {category.name} <span class="filter-tab__count">{category.count}</span>
+        <!-- Search Bar Row -->
+        <div class="archive-search-row">
+          <div class="archive-search-wrap">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="search"
+              id="archive-search-input"
+              class="archive-search-input"
+              placeholder="Search studies by title, narrator, thesis, tag, or author..."
+              autocomplete="off"
+              aria-label="Search studies"
+            />
+            <button type="button" id="archive-search-clear" class="archive-search-clear" aria-label="Clear search" hidden>
+              ✕
             </button>
-          ))}
-          <div class="filter-indicator" aria-hidden="true"></div>
+          </div>
+          <kbd class="search-kbd" aria-hidden="true">⌘K</kbd>
         </div>
 
-        <label class="archive-search">
-          <kbd class="search-kbd" aria-hidden="true">⌘K</kbd>
-          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <span class="sr-only">Search entries by title</span>
-          <input type="search" id="archive-search-input" placeholder="Search title, description, category, tag, or author" autocomplete="off" />
-        </label>
+        <!-- Filter Chips Row -->
+        <div class="archive-filters-row">
+          <div class="archive-filters" role="group" aria-label="Filter by category">
+            <button type="button" class="filter-tab is-active" data-filter="all">
+              <span class="filter-tab__dot" aria-hidden="true"></span>
+              <span class="filter-tab__label">All Studies</span>
+              <span class="filter-tab__count">{posts.length}</span>
+            </button>
+            {categories.map((category) => (
+              <button type="button" class="filter-tab" data-filter={category.name} data-category={category.name}>
+                <span class="filter-tab__dot" aria-hidden="true"></span>
+                <span class="filter-tab__label">{category.name}</span>
+                <span class="filter-tab__count">{category.count}</span>
+              </button>
+            ))}
+          </div>
+
+          <button type="button" id="archive-reset-btn" class="archive-reset-btn" hidden aria-label="Reset all filters">
+            <span>Reset Filters</span>
+            <span aria-hidden="true">✕</span>
+          </button>
+        </div>
       </div>
     </div>
 
     <section class="archive-ledger hc-container" aria-label="All entries">
-      <p class="archive-result-count" id="archive-result-count" role="status" aria-live="polite">{posts.length} entries shown</p>
+      <div class="archive-status-bar">
+        <p class="archive-result-count" id="archive-result-count" role="status" aria-live="polite">
+          Showing <strong>{posts.length}</strong> of {posts.length} studies
+        </p>
+      </div>
+
       <ol class="ledger" id="ledger" data-motion="ledger">
-        {entries.map(({ post, folio, dateLabel, dateISO }) => (
+        {entries.map(({ post, folio, dateLabel, dateISO, isNew, tags }) => (
           <li
             class="ledger-row"
+            data-id={post.id}
             data-category={post.data.category}
-            data-search={`${post.data.title} ${post.data.description ?? ''} ${post.data.category} ${post.data.tags.join(' ')} ${post.data.author}`.toLowerCase()}
+            data-search={`${post.data.title} ${post.data.description ?? ''} ${post.data.category} ${tags.join(' ')} ${post.data.author}`.toLowerCase()}
           >
             <a href={`/blogs/${post.id}`} class="ledger-row__link">
-              <span class="ledger-row__folio">
-                <span class="ledger-row__no">No. {folio}</span>
+              <div class="ledger-row__meta">
+                <span class="ledger-row__folio">No. {folio}</span>
                 <time class="ledger-row__date" datetime={dateISO}>{dateLabel}</time>
-              </span>
+                {isNew && <span class="new-badge">New</span>}
+              </div>
 
-              <span class="ledger-row__body">
-                <span class="ledger-row__title">{post.data.title}</span>
+              <div class="ledger-row__body">
+                <div class="ledger-row__header">
+                  <span class="ledger-row__cat" data-category={post.data.category}>{post.data.category}</span>
+                  <h2 class="ledger-row__title">{post.data.title}</h2>
+                </div>
+
                 {post.data.description && (
-                  <span class="ledger-row__desc">{post.data.description}</span>
+                  <p class="ledger-row__desc">{post.data.description}</p>
                 )}
-              </span>
 
-              <span class="ledger-row__aside">
-                <span class="ledger-row__cat" data-category={post.data.category}>{post.data.category}</span>
-                <span class="ledger-row__arrow" aria-hidden="true">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
-                  </svg>
-                </span>
-              </span>
+                <div class="ledger-row__match" hidden></div>
+
+                {tags.length > 0 && (
+                  <div class="ledger-row__tags" aria-label="Keywords">
+                    {tags.slice(0, 4).map((tag: string) => (
+                      <span class="ledger-tag">#{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div class="ledger-row__arrow" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </div>
             </a>
           </li>
         ))}
       </ol>
 
-      <p class="ledger-empty" id="ledger-empty" hidden>
-        No entries match this filter. Clear the search or choose another category.
-      </p>
+      <div class="ledger-empty" id="ledger-empty" hidden>
+        <div class="ledger-empty__icon" aria-hidden="true">◈</div>
+        <h3>No Studies Found</h3>
+        <p>No research entries match your active search or category filters.</p>
+        <button type="button" class="hc-btn hc-btn--ghost" id="ledger-empty-reset">
+          Clear Filters &amp; View All
+        </button>
+      </div>
     </section>
   </div>
 </BaseLayout>
 
 <script>
-  const page = document.querySelector('.archive-page');
+  function initArchive() {
+    const page = document.querySelector('.archive-page');
+    if (!page) return;
 
-  if (page) {
     const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-tab')];
     const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
     const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
-    const emptyState = page.querySelector<HTMLParagraphElement>('#ledger-empty');
+    const searchClear = page.querySelector<HTMLButtonElement>('#archive-search-clear');
+    const resetBtn = page.querySelector<HTMLButtonElement>('#archive-reset-btn');
+    const emptyState = page.querySelector<HTMLElement>('#ledger-empty');
+    const emptyReset = page.querySelector<HTMLButtonElement>('#ledger-empty-reset');
     const resultCount = page.querySelector<HTMLElement>('#archive-result-count');
-
-    
-    const track = page.querySelector('.archive-filters');
-    const indicator = page.querySelector<HTMLElement>('.filter-indicator');
-    
-    const updateIndicator = (activeTab: HTMLElement) => {
-      if (!indicator || !track || !activeTab) return;
-      // Use relative offset
-      indicator.style.transform = `translateX(${activeTab.offsetLeft}px)`;
-      indicator.style.width = `${activeTab.offsetWidth}px`;
-    };
-
-    // Initialize on load and resize
-    const initIndicator = () => {
-      const current = track?.querySelector<HTMLElement>('.is-active');
-      if (current) updateIndicator(current);
-    };
-    // Call once initially (after fonts load or timeout to ensure layout)
-    setTimeout(initIndicator, 50);
-    window.addEventListener('resize', initIndicator);
+    const totalEntries = rows.length;
 
     // Scroll progress handler
     const ledgerList = document.getElementById('ledger');
@@ -156,29 +190,82 @@ const entries = posts.map((post, index) => ({
     if (ledgerList && scrollBar) {
       window.addEventListener('scroll', () => {
         const rect = ledgerList.getBoundingClientRect();
-        // Calculate progress based on ledger position relative to viewport
-        const total = ledgerList.scrollHeight - window.innerHeight + 200; // rough offset
+        const total = ledgerList.scrollHeight - window.innerHeight + 200;
         let current = -rect.top;
         if (current < 0) current = 0;
         let progress = (current / total) * 100;
         if (progress > 100) progress = 100;
         if (progress < 0) progress = 0;
-        
-        // Only show if we actually reached the ledger
         scrollBar.style.width = `${progress}%`;
       }, { passive: true });
+    }
+
+    interface SearchSection {
+      heading: string;
+      slug: string;
+      text: string;
+    }
+    interface SearchDoc {
+      id: string;
+      title: string;
+      description: string;
+      category: string;
+      tags: string[];
+      sections: SearchSection[];
+      fullText: string;
+    }
+
+    const searchMap = new Map<string, SearchDoc>();
+
+    fetch('/search-index.json')
+      .then((res) => res.json() as Promise<SearchDoc[]>)
+      .then((docs) => {
+        docs.forEach((doc) => searchMap.set(doc.id, doc));
+        if (query) applyFilters();
+      })
+      .catch(() => {});
+
+    function escapeHtml(str: string): string {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function createSnippet(text: string, term: string): string {
+      const lower = text.toLowerCase();
+      const idx = lower.indexOf(term.toLowerCase());
+      if (idx === -1) return '';
+
+      const start = Math.max(0, idx - 65);
+      const end = Math.min(text.length, idx + term.length + 85);
+      let snippet = text.slice(start, end);
+      if (start > 0) snippet = '...' + snippet;
+      if (end < text.length) snippet = snippet + '...';
+
+      const escapedSnippet = escapeHtml(snippet);
+      const escapedTerm = escapeHtml(term);
+      const regex = new RegExp(`(${escapedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      return escapedSnippet.replace(regex, '<mark class="search-match-mark">$1</mark>');
     }
 
     let activeCategory = 'all';
     let query = '';
 
+    const updateControls = () => {
+      const isFiltered = activeCategory !== 'all' || query.length > 0;
+      if (resetBtn) resetBtn.hidden = !isFiltered;
+      if (searchClear) searchClear.hidden = query.length === 0;
+    };
+
     const setActiveChip = (category: string) => {
       const normalized = category.trim().toLowerCase();
-      const chip = chips.find((c) => (c.dataset.filter ?? '').trim().toLowerCase() === normalized);
-      if (!chip) return false;
+      const chip = chips.find((c) => (c.dataset.filter ?? '').trim().toLowerCase() === normalized) || chips[0];
       activeCategory = chip.dataset.filter ?? 'all';
       chips.forEach((c) => c.classList.toggle('is-active', c === chip));
-      updateIndicator(chip);
+      updateControls();
       return true;
     };
 
@@ -197,20 +284,97 @@ const entries = posts.map((post, index) => ({
       let visible = 0;
 
       for (const row of rows) {
+        const id = row.dataset.id ?? '';
+        const doc = searchMap.get(id);
         const matchesCategory = activeCategory === 'all' || row.dataset.category === activeCategory;
-        const matchesQuery = !query || (row.dataset.search ?? '').includes(query);
+
+        let matchesQuery = !query;
+        let matchSection: SearchSection | null = null;
+        let matchSnippetHtml = '';
+
+        if (query) {
+          const titleDescMatch = (row.dataset.search ?? '').includes(query);
+          if (titleDescMatch) {
+            matchesQuery = true;
+          }
+
+          if (doc) {
+            for (const sec of doc.sections) {
+              const inHeading = sec.heading.toLowerCase().includes(query);
+              const inText = sec.text.toLowerCase().includes(query);
+              if (inHeading || inText) {
+                matchesQuery = true;
+                matchSection = sec;
+                const source = inText ? sec.text : sec.heading;
+                matchSnippetHtml = createSnippet(source, query);
+                break;
+              }
+            }
+
+            if (!matchSection && doc.fullText.toLowerCase().includes(query)) {
+              matchesQuery = true;
+              matchSnippetHtml = createSnippet(doc.fullText, query);
+            }
+          }
+        }
+
         const show = matchesCategory && matchesQuery;
         row.hidden = !show;
         if (show) {
           visible += 1;
-          row.style.opacity = '1';
-          row.style.visibility = 'visible';
-          row.style.transform = 'none';
+        }
+
+        // Update direct section link and snippet box
+        const link = row.querySelector<HTMLAnchorElement>('.ledger-row__link');
+        const matchBox = row.querySelector<HTMLElement>('.ledger-row__match');
+
+        if (link) {
+          if (matchSection && matchSection.slug) {
+            link.setAttribute('href', `/blogs/${id}#${matchSection.slug}`);
+          } else {
+            link.setAttribute('href', `/blogs/${id}`);
+          }
+        }
+
+        if (matchBox) {
+          if (show && matchSnippetHtml) {
+            matchBox.hidden = false;
+            const headingLabel = matchSection ? matchSection.heading : 'Article Content';
+            matchBox.innerHTML = `
+              <div class="search-match-box">
+                <span class="search-match-badge">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <span>Matched in: <strong>${escapeHtml(headingLabel)}</strong></span>
+                </span>
+                <p class="search-match-text">${matchSnippetHtml}</p>
+                <span class="search-match-jump">Jump to this section <span aria-hidden="true">→</span></span>
+              </div>
+            `;
+          } else {
+            matchBox.hidden = true;
+            matchBox.innerHTML = '';
+          }
         }
       }
 
       if (emptyState) emptyState.hidden = visible > 0;
-      if (resultCount) resultCount.textContent = `${visible} ${visible === 1 ? 'entry' : 'entries'} shown`;
+      if (resultCount) {
+        const catLabel = activeCategory === 'all' ? '' : ` in ${activeCategory}`;
+        resultCount.innerHTML = `Showing <strong>${visible}</strong> of ${totalEntries} studies${catLabel}`;
+      }
+      updateControls();
+    };
+
+    const resetAll = () => {
+      activeCategory = 'all';
+      query = '';
+      if (searchInput) searchInput.value = '';
+      setActiveChip('all');
+      syncUrl();
+      applyFilters();
     };
 
     for (const chip of chips) {
@@ -227,17 +391,45 @@ const entries = posts.map((post, index) => ({
       applyFilters();
     });
 
-    const requested = new URLSearchParams(location.search).get('category');
-    if (requested && setActiveChip(requested)) {
+    searchClear?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      query = '';
+      syncUrl();
       applyFilters();
+    });
+
+    resetBtn?.addEventListener('click', resetAll);
+    emptyReset?.addEventListener('click', resetAll);
+
+    // Keyboard shortcut (Cmd/Ctrl + K) to focus search
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInput?.focus();
+      }
+    });
+
+    const requested = new URLSearchParams(location.search).get('category');
+    if (requested) {
+      setActiveChip(requested);
     }
     const requestedQuery = new URLSearchParams(location.search).get('q');
     if (requestedQuery && searchInput) {
       searchInput.value = requestedQuery;
       query = requestedQuery.toLowerCase();
-      applyFilters();
     }
+    applyFilters();
   }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initArchive);
+  } else {
+    initArchive();
+  }
+  document.addEventListener('astro:page-load', initArchive);
 </script>
 
 <style>
@@ -249,11 +441,10 @@ const entries = posts.map((post, index) => ({
   }
 
   /* Hero */
-
   .archive-hero {
     position: relative;
     overflow: hidden;
-    padding: clamp(6rem, 9vw, 8.5rem) 0 clamp(2.75rem, 5vw, 4rem);
+    padding: clamp(5rem, 8vw, 7.5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
     border-bottom: 1px solid var(--hc-rule);
   }
 
@@ -279,7 +470,7 @@ const entries = posts.map((post, index) => ({
     margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(3.2rem, 6.5vw, 6rem);
+    font-size: clamp(3rem, 6vw, 5.5rem);
     line-height: 0.95;
     letter-spacing: -0.03em;
     color: var(--hc-text-primary);
@@ -313,7 +504,7 @@ const entries = posts.map((post, index) => ({
   }
 
   .archive-hero__lead {
-    max-width: 620px;
+    max-width: 680px;
     margin: 1.2rem 0 0;
     color: var(--hc-text-secondary);
     font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
@@ -333,127 +524,292 @@ const entries = posts.map((post, index) => ({
   }
 
   /* Filter toolbar */
-
   .archive-tools {
     position: sticky;
     top: var(--site-header-height, 72px);
-    z-index: 20;
+    z-index: 40;
     border-bottom: 1px solid var(--hc-rule);
-    background: rgba(15, 15, 16, 0.92);
-    backdrop-filter: blur(10px);
-    animation: heroRise 0.8s var(--ease) 260ms both;
+    background: rgba(20, 19, 18, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  :global([data-theme="light"]) .archive-tools {
+    background: rgba(251, 249, 244, 0.94);
+  }
+
+  .scroll-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: transparent;
+  }
+
+  .scroll-progress__bar {
+    height: 100%;
+    width: 0%;
+    background: var(--hc-gold);
+    transition: width 100ms ease;
   }
 
   .archive-tools__inner {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
-    width: max-content;
-    max-width: 100%;
-    margin: 0 auto;
     gap: 0.85rem;
-    padding-block: 1.25rem;
+    padding-block: 1rem;
   }
 
-  .archive-filters {
-    position: relative;
-    display: inline-flex;
-    flex-wrap: nowrap;
-    max-width: 100%;
-    gap: 0;
-    padding: 4px;
-    background: rgba(242, 235, 220, 0.04);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-pill);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .archive-filters::-webkit-scrollbar {
-    display: none;
-  }
-
-  .filter-tab {
-    position: relative;
-    z-index: 2;
-    display: inline-flex;
+  /* Search Row */
+  .archive-search-row {
+    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.55rem 1.1rem;
-    border: none;
-    background: transparent;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: color 250ms ease;
-    border-radius: var(--radius-pill);
-  }
-  
-
-  .filter-tab:hover {
-    color: var(--hc-text-primary);
+    gap: 0.75rem;
+    width: 100%;
   }
 
-  .filter-tab.is-active {
-    color: var(--hc-surface-0);
-  }
-
-  .filter-tab__count {
-    font-size: 0.68rem;
-    opacity: 0.72;
-  }
-
-  .archive-search {
+  .archive-search-wrap {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    min-width: 260px;
-    padding: 0.5rem 1rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-pill);
-    background: rgba(242, 235, 220, 0.03);
-    transition: all 250ms ease;
+    flex: 1;
+    min-height: 46px;
+    padding: 0 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-sm, 8px);
+    background: var(--hc-surface-1);
+    transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
   }
 
-  .archive-search:focus-within {
-    border-color: var(--hc-gold-dim);
-    color: var(--hc-gold);
+  .archive-search-wrap:focus-within {
+    border-color: var(--hc-gold);
+    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.18);
+    background: var(--hc-surface-2);
   }
 
-  .archive-search input {
+  .search-icon {
+    color: var(--hc-gold-dim);
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .archive-search-input {
     width: 100%;
     border: 0;
     background: transparent;
     color: var(--hc-text-primary);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
-  }
-
-  .archive-search input::placeholder {
-    color: var(--hc-text-tertiary);
-  }
-
-  .archive-search input:focus {
+    font-size: 0.92rem;
     outline: none;
   }
 
-  /* Ledger */
+  .archive-search-input::placeholder {
+    color: var(--hc-text-tertiary);
+  }
 
+  .archive-search-clear {
+    background: none;
+    border: none;
+    color: var(--hc-text-tertiary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    transition: color 180ms ease;
+  }
+
+  .archive-search-clear:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .search-kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 6px;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+    background: var(--hc-surface-1);
+  }
+
+  /* Filters Row */
+  .archive-filters-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+
+  .archive-filters-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .archive-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+  }
+
+  /* Unique Category Color System for Filters */
+  .filter-tab[data-filter="all"] {
+    --tab-color: #c89b4b;
+    --tab-bg: rgba(200, 155, 75, 0.12);
+    --tab-border: rgba(200, 155, 75, 0.35);
+    --tab-active-bg: #c89b4b;
+    --tab-active-text: #141312;
+  }
+
+  .filter-tab[data-category="Origins & Early History"],
+  .filter-tab[data-filter="Origins & Early History"] {
+    --tab-color: #d48b52;
+    --tab-bg: rgba(212, 139, 82, 0.12);
+    --tab-border: rgba(212, 139, 82, 0.35);
+    --tab-active-bg: #c4783d;
+    --tab-active-text: #ffffff;
+  }
+
+  .filter-tab[data-category="Prophecies & Eschatology"],
+  .filter-tab[data-filter="Prophecies & Eschatology"] {
+    --tab-color: #e05a47;
+    --tab-bg: rgba(224, 90, 71, 0.12);
+    --tab-border: rgba(224, 90, 71, 0.35);
+    --tab-active-bg: #c94532;
+    --tab-active-text: #ffffff;
+  }
+
+  .filter-tab[data-category="Theology & Epistemology"],
+  .filter-tab[data-filter="Theology & Epistemology"] {
+    --tab-color: #4fa86c;
+    --tab-bg: rgba(79, 168, 108, 0.12);
+    --tab-border: rgba(79, 168, 108, 0.35);
+    --tab-active-bg: #3f8e58;
+    --tab-active-text: #ffffff;
+  }
+
+  .filter-tab[data-category="Transmission & Narrators"],
+  .filter-tab[data-filter="Transmission & Narrators"] {
+    --tab-color: #608fd6;
+    --tab-bg: rgba(96, 143, 214, 0.12);
+    --tab-border: rgba(96, 143, 214, 0.35);
+    --tab-active-bg: #4f78b8;
+    --tab-active-text: #ffffff;
+  }
+
+  .filter-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.9rem;
+    border: 1px solid var(--tab-border, var(--hc-rule));
+    border-radius: var(--radius-pill);
+    background: var(--hc-surface-1);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 200ms ease;
+  }
+
+  .filter-tab__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--tab-color, var(--hc-gold));
+    display: inline-block;
+    flex-shrink: 0;
+    transition: transform 200ms ease, background 200ms ease;
+  }
+
+  .filter-tab:hover {
+    color: var(--tab-color, var(--hc-text-primary));
+    border-color: var(--tab-color, var(--hc-rule-strong));
+    background: var(--tab-bg, var(--hc-surface-2));
+  }
+
+  .filter-tab:hover .filter-tab__dot {
+    transform: scale(1.25);
+  }
+
+  .filter-tab.is-active {
+    color: var(--tab-active-text, #ffffff);
+    background: var(--tab-active-bg, var(--hc-gold));
+    border-color: var(--tab-active-bg, var(--hc-gold));
+    font-weight: 700;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--tab-active-bg) 40%, transparent);
+  }
+
+  .filter-tab.is-active .filter-tab__dot {
+    background: currentColor;
+  }
+
+  .filter-tab__count {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-pill);
+    background: rgba(0, 0, 0, 0.18);
+  }
+
+  .filter-tab.is-active .filter-tab__count {
+    background: rgba(0, 0, 0, 0.26);
+    color: currentColor;
+  }
+
+  .archive-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: var(--radius-pill);
+    border: 1px dashed var(--hc-rule-strong);
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 180ms ease;
+  }
+
+  .archive-reset-btn:hover {
+    border-color: var(--hc-gold);
+    background: rgba(216, 177, 102, 0.1);
+  }
+
+  /* Ledger Section */
   .archive-ledger {
-    padding-block: clamp(2rem, 4vw, 3.25rem) clamp(5rem, 9vw, 7rem);
+    padding-block: 2rem 6rem;
+  }
+
+  .archive-status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
   }
 
   .archive-result-count {
-    margin: 0 0 0.75rem;
+    margin: 0;
     color: var(--hc-text-secondary);
-    font: 0.76rem var(--font-ui);
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+  }
+
+  .archive-result-count strong {
+    color: var(--hc-gold);
   }
 
   .ledger {
@@ -464,322 +820,327 @@ const entries = posts.map((post, index) => ({
   }
 
   .ledger-row {
-    border-bottom: 1px solid var(--hc-rule-soft);
-    animation: rowEnter 0.6s var(--ease) both;
-    animation-delay: calc(var(--row-index, 0) * 45ms);
+    border-bottom: 1px solid var(--hc-rule);
+    transition: background 200ms ease;
   }
 
-  @keyframes rowEnter {
-    from {
-      opacity: 0;
-      transform: translateY(14px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .ledger-row:hover {
+    background:
+      linear-gradient(90deg, rgba(216, 177, 102, 0.05) 0%, transparent 80%);
   }
 
   .ledger-row__link {
-    position: relative;
     display: grid;
-    grid-template-columns: 122px minmax(0, 1fr) auto;
+    grid-template-columns: 140px minmax(0, 1fr) 40px;
     align-items: center;
-    gap: clamp(1.25rem, 3vw, 2.5rem);
-    padding: clamp(1.1rem, 2vw, 1.5rem) clamp(0.5rem, 1.5vw, 1.25rem);
+    gap: clamp(1.2rem, 3vw, 2.5rem);
+    padding: clamp(1.4rem, 2.2vw, 2rem) clamp(0.5rem, 1.5vw, 1.25rem);
     text-decoration: none;
-    transition: background 250ms ease;
   }
 
-  .ledger-row__link:hover {
-    background: linear-gradient(90deg, rgba(216, 177, 102, 0.06), transparent 60%);
-  }
-
-  .ledger-row__folio {
-    display: grid;
-    gap: 0.3rem;
+  .ledger-row__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
     font-family: var(--font-ui);
   }
 
-  .ledger-row__no {
-    color: var(--hc-gold-dim);
-    font-size: 0.7rem;
-    font-weight: 600;
+  .ledger-row__folio {
+    color: var(--hc-gold);
+    font-size: 0.72rem;
+    font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
   .ledger-row__date {
     color: var(--hc-text-tertiary);
-    font-size: 0.78rem;
+    font-size: 0.82rem;
+  }
+
+  .new-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 0.16rem 0.55rem;
+    border-radius: var(--radius-pill);
+    background: rgba(224, 90, 71, 0.14);
+    border: 1px solid rgba(224, 90, 71, 0.4);
+    color: #e05a47;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   .ledger-row__body {
-    display: grid;
-    gap: 0.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
     min-width: 0;
   }
 
-  .ledger-row__title {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-    line-height: 1.02;
-    letter-spacing: -0.02em;
-    color: var(--hc-text-primary);
-    transition: color 220ms ease;
-  }
-
-  .ledger-row__link:hover .ledger-row__title {
-    color: var(--hc-gold-soft);
-  }
-
-  .ledger-row__desc {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    color: var(--hc-text-secondary);
-    font-size: 0.93rem;
-    line-height: 1.5;
-  }
-
-  .ledger-row__aside {
+  .ledger-row__header {
     display: flex;
-    align-items: center;
-    gap: 1.1rem;
+    flex-direction: column;
+    gap: 0.4rem;
   }
 
   .ledger-row__cat {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 0.2rem 0.7rem;
-    border: 1px solid var(--cat-border, var(--hc-rule));
+    width: fit-content;
+    padding: 0.18rem 0.65rem;
+    border: 1px solid var(--hc-rule);
     border-radius: var(--radius-pill);
-    color: var(--cat-color, var(--hc-gold-soft));
-    background: var(--cat-bg, rgba(216, 177, 102, 0.06));
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.06);
     font-family: var(--font-ui);
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.09em;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    white-space: nowrap;
+  }
+
+  .ledger-row__cat[data-category="Origins & Early History"] {
+    color: #d48b52;
+    background: rgba(212, 139, 82, 0.12);
+    border-color: rgba(212, 139, 82, 0.32);
+  }
+
+  .ledger-row__cat[data-category="Prophecies & Eschatology"] {
+    color: #e05a47;
+    background: rgba(224, 90, 71, 0.12);
+    border-color: rgba(224, 90, 71, 0.32);
+  }
+
+  .ledger-row__cat[data-category="Theology & Epistemology"] {
+    color: #4fa86c;
+    background: rgba(79, 168, 108, 0.12);
+    border-color: rgba(79, 168, 108, 0.32);
+  }
+
+  .ledger-row__cat[data-category="Transmission & Narrators"] {
+    color: #608fd6;
+    background: rgba(96, 143, 214, 0.12);
+    border-color: rgba(96, 143, 214, 0.32);
+  }
+
+  .ledger-row__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(1.45rem, 2.2vw, 1.95rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
+    transition: color 200ms ease;
+  }
+
+  .ledger-row:hover .ledger-row__title {
+    color: var(--hc-gold-soft);
+  }
+
+  /* Multi-line rich description preview */
+  .ledger-row__desc {
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: var(--hc-text-secondary);
+    font-size: 0.94rem;
+    line-height: 1.62;
+  }
+
+  /* Deep Content Search Match Box */
+  .ledger-row__match {
+    margin-top: 0.5rem;
+  }
+
+  .search-match-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-sm);
+    background: rgba(200, 155, 75, 0.08);
+    border: 1px solid rgba(200, 155, 75, 0.28);
+    border-left: 3px solid var(--hc-gold);
+    transition: all 200ms ease;
+  }
+
+  .ledger-row:hover .search-match-box {
+    background: rgba(200, 155, 75, 0.13);
+    border-color: var(--hc-gold);
+  }
+
+  .search-match-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .search-match-text {
+    margin: 0;
+    color: var(--hc-text-secondary);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  :global(.search-match-mark) {
+    background: rgba(216, 177, 102, 0.35);
+    color: var(--hc-gold-soft);
+    font-weight: 700;
+    font-style: normal;
+    border-radius: 2px;
+    padding: 0 3px;
+  }
+
+  .search-match-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 0.2rem;
+  }
+
+  .ledger-row:hover .search-match-jump {
+    color: var(--hc-gold-soft);
+  }
+
+  .ledger-row__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+  }
+
+  .ledger-tag {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    color: var(--hc-text-tertiary);
+    background: var(--hc-surface-2);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid var(--hc-rule-soft);
   }
 
   .ledger-row__arrow {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border: 1px solid var(--hc-rule);
     border-radius: 50%;
     color: var(--hc-gold-dim);
-    transition: color 250ms ease, border-color 250ms ease, transform 250ms var(--ease);
+    transition: all 220ms ease;
   }
 
-  .ledger-row__link:hover .ledger-row__arrow {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold-dim);
+  .ledger-row:hover .ledger-row__arrow {
+    color: var(--hc-fixed-black, #141312);
+    background: var(--hc-gold);
+    border-color: var(--hc-gold);
     transform: translateX(4px);
   }
 
+  /* Empty state */
   .ledger-empty {
-    margin: 2.5rem 0 0;
-    padding: 2rem;
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-text-secondary);
+    margin: 3rem auto;
+    max-width: 520px;
+    padding: 3rem 2rem;
+    border: 1px dashed var(--hc-rule-strong);
+    border-radius: var(--radius-sm);
     text-align: center;
-    font-family: var(--font-ui);
-    font-size: 0.92rem;
+    background: var(--hc-surface-1);
   }
 
-  /* Responsive */
+  .ledger-empty__icon {
+    font-size: 2rem;
+    color: var(--hc-gold);
+    margin-bottom: 0.75rem;
+  }
 
+  .ledger-empty h3 {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--hc-text-primary);
+  }
+
+  .ledger-empty p {
+    margin: 0 0 1.5rem;
+    color: var(--hc-text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+
+  /* Light Theme */
+  :global([data-theme="light"]) .ledger-row:hover {
+    background: linear-gradient(90deg, rgba(176, 126, 44, 0.06) 0%, transparent 80%);
+  }
+
+  :global([data-theme="light"]) .ledger-tag {
+    background: #f4efdf;
+    border-color: var(--hc-rule);
+    color: var(--hc-text-secondary);
+  }
+
+  /* Responsive Adjustments */
   @media (max-width: 900px) {
     .ledger-row__link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
+      grid-template-columns: 1fr;
+      gap: 1rem;
     }
 
-    .ledger-row__folio {
-      grid-column: 1 / -1;
-      grid-template-columns: auto auto;
+    .ledger-row__meta {
+      flex-direction: row;
       align-items: baseline;
-      gap: 0.85rem;
+      gap: 1rem;
     }
 
     .ledger-row__arrow {
       display: none;
     }
-  }
-
-  @media (max-width: 640px) {
-    .archive-hero {
-      padding: max(4rem, calc(2rem + var(--sat, 0px))) 0 2.4rem;
-    }
-
-    .archive-hero::before {
-      inset: 10px;
-    }
-
-    .archive-hero__title {
-      font-size: clamp(2.65rem, 13vw, 3.55rem);
-      line-height: 1.03;
-      letter-spacing: -0.02em;
-      /* Prevent title overflow */
-      overflow-wrap: break-word;
-      word-break: break-word;
-    }
-
-    .archive-hero__meta {
-      gap: 0.55rem 0.7rem;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-    }
-
-    .archive-hero__lead {
-      font-size: 1rem;
-      line-height: 1.65;
-    }
-
-    .archive-tools__inner {
-      justify-content: flex-start;
-      width: min(100% - (var(--pad) * 2), var(--wrap));
-      max-width: none;
-      padding-block: 0.8rem;
-      gap: 0.65rem;
-      /* Safe area padding */
-      padding-left: max(var(--pad), var(--sal, 0px));
-      padding-right: max(var(--pad), var(--sar, 0px));
-    }
-
-    .archive-filters {
-      border-radius: var(--radius-md);
-      padding: 3px;
-      /* Prevent filter overflow */
-      max-width: 100%;
-    }
-
-    .filter-tab {
-      min-height: 44px;
-      padding: 0.5rem 0.85rem;
-      font-size: 0.72rem;
-      /* Ensure tabs don't shrink too much */
-      flex-shrink: 0;
-    }
-
-    .archive-search {
-      width: 100%;
-      min-width: 0;
-      border-radius: var(--radius-md);
-    }
-
-    .ledger-row__link {
-      grid-template-columns: minmax(0, 1fr);
-      padding-inline: max(0.5rem, var(--sal, 0px)) max(0.5rem, var(--sar, 0px));
-      /* Ensure link doesn't overflow */
-      min-width: 0;
-    }
-
-    .ledger-row__aside {
-      justify-content: flex-start;
-      flex-wrap: wrap;
-      gap: 0.7rem;
-    }
-
-    .ledger-row__title {
-      font-size: clamp(1.45rem, 8vw, 1.85rem);
-      overflow-wrap: break-word;
-      word-break: break-word;
-    }
 
     .ledger-row__desc {
       -webkit-line-clamp: 2;
     }
+  }
 
-    .ledger-row__cat {
-      max-width: 100%;
-      white-space: normal;
-      line-height: 1.25;
+  @media (max-width: 640px) {
+    .archive-hero {
+      padding: 3.5rem 0 2rem;
     }
-  }
 
-  .filter-indicator {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    height: calc(100% - 8px);
-    background: var(--hc-gold);
-    border-radius: var(--radius-pill);
-    transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1), width 350ms cubic-bezier(0.22, 1, 0.36, 1);
-    z-index: 1;
-    pointer-events: none;
-  }
+    .archive-search-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
 
-  .archive-search:focus-within {
-    border-color: var(--hc-gold-dim);
-    background: rgba(242, 235, 220, 0.06);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.08);
-  }
-  .search-kbd {
-    padding: 0.15rem 0.4rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 4px;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.05em;
-    opacity: 0.7;
-    transition: opacity 250ms ease, transform 250ms ease;
-  }
-  .archive-search:focus-within .search-kbd {
-    opacity: 0;
-    transform: scale(0.8);
-  }
+    .search-kbd {
+      display: none;
+    }
 
-  .ledger-row__link {
-    overflow: hidden;
-  }
-  .ledger-row__link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--hc-gold);
-    transform: scaleY(0);
-    transition: transform 300ms var(--ease);
-  }
-  .ledger-row__link:hover::before {
-    transform: scaleY(1);
-  }
-  .ledger-row__link::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, rgba(216, 177, 102, 0.04), transparent 40%);
-    opacity: 0;
-    transition: opacity 300ms ease;
-  }
-  .ledger-row__link:hover::after {
-    opacity: 1;
-  }
-  
-  .scroll-progress {
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--hc-rule);
-    z-index: 30;
-  }
-  .scroll-progress__bar {
-    height: 100%;
-    width: 0%;
-    background: var(--hc-gold);
-    transition: width 50ms linear;
+    .ledger-row__link {
+      padding: 1.25rem 0.5rem;
+    }
+
+    .ledger-row__title {
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
   }
 </style>

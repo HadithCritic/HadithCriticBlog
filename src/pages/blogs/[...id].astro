@@ -3,6 +3,8 @@ import ArticleLayout from '../../components/article/ArticleLayout.astro';
 import ArticleHero from '../../components/article/ArticleHero.astro';
 import ArticleTOC from '../../components/article/ArticleTOC.astro';
 import MobileArticleTOC from '../../components/MobileArticleTOC.astro';
+import PreviousNext from '../../components/article/PreviousNext.astro';
+import RelatedPosts from '../../components/article/RelatedPosts.astro';
 import { getCollection, render } from 'astro:content';
 
 const includeBlogMakerPreview = process.env.BLOG_MAKER_PREVIEW === 'true';
@@ -12,13 +14,38 @@ export async function getStaticPaths() {
     if (data.preview) return includeBlogMakerPreview;
     return import.meta.env.DEV || !data.draft;
   });
-  return posts.map(post => ({
-    params: { id: post.id },
-    props: { post },
-  }));
+
+  const sorted = [...posts].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+  return sorted.map((post, index) => {
+    const prevPost = index < sorted.length - 1 ? sorted[index + 1] : null;
+    const nextPost = index > 0 ? sorted[index - 1] : null;
+
+    const currentTags = new Set(post.data.tags || []);
+    const relatedPosts = sorted
+      .filter((p) => p.id !== post.id)
+      .map((p) => {
+        let score = 0;
+        if (p.data.category === post.data.category) score += 3;
+        if (p.data.tags) {
+          for (const t of p.data.tags) {
+            if (currentTags.has(t)) score += 2;
+          }
+        }
+        return { post: p, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((item) => item.post);
+
+    return {
+      params: { id: post.id },
+      props: { post, prevPost, nextPost, relatedPosts },
+    };
+  });
 }
 
-const { post } = Astro.props;
+const { post, prevPost, nextPost, relatedPosts } = Astro.props;
 const { Content, headings } = await render(post);
 
 // Build the sidebar table of contents from the real rendered headings so
@@ -57,7 +84,6 @@ const showToc = tocHeadings.length >= 3;
     description={post.data.description}
     category={post.data.category}
     date={new Date(post.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-    readingTime={post.data.readingTime ?? "10 min read"}
     heroImage={post.data.thumbnail}
     heroAlt={post.data.heroAlt}
   />
@@ -68,27 +94,50 @@ const showToc = tocHeadings.length >= 3;
 
   <article class="hc-article-body" data-reading-progress-source>
     <Content />
+
+    {(prevPost || nextPost) && (
+      <PreviousNext
+        prevUrl={prevPost ? `/blogs/${prevPost.id}` : undefined}
+        prevTitle={prevPost?.data.title}
+        nextUrl={nextPost ? `/blogs/${nextPost.id}` : undefined}
+        nextTitle={nextPost?.data.title}
+      />
+    )}
   </article>
+
+  {relatedPosts && relatedPosts.length > 0 && (
+    <RelatedPosts currentCategory={post.data.category} posts={relatedPosts} />
+  )}
 
   <footer class="article-footer hc-container" style="max-width: 760px; margin-inline: auto;">
     <a href="/blogs" class="article-footer__back">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="19" y1="12" x2="5" y2="12"/>
         <polyline points="12 19 5 12 12 5"/>
       </svg>
-      Back to Index
+      <span>Back to All Studies</span>
     </a>
     
-    <div class="article-footer__related">
-      <span class="related-label" style="font-family: var(--font-ui); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold-dim);">More in {post.data.category}</span>
+    <div class="article-footer__nav-right">
+      <a href={`/blogs?category=${encodeURIComponent(post.data.category)}`} class="article-footer__category">
+        <span class="related-label">More in {post.data.category}</span>
+        <span aria-hidden="true">➔</span>
+      </a>
+
+      <button type="button" class="article-footer__top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Scroll to top" aria-label="Scroll to top">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+        <span>Top</span>
+      </button>
     </div>
   </footer>
 
 <style>
   .article-footer {
-    margin-top: 4rem;
+    margin-top: 4.5rem;
     padding-top: 2rem;
-    padding-bottom: 4rem;
+    padding-bottom: 5rem;
     border-top: 1px solid var(--hc-rule);
     display: flex;
     justify-content: space-between;
@@ -96,6 +145,7 @@ const showToc = tocHeadings.length >= 3;
     flex-wrap: wrap;
     gap: 1.5rem;
   }
+
   .article-footer__back {
     display: inline-flex;
     align-items: center;
@@ -103,11 +153,74 @@ const showToc = tocHeadings.length >= 3;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
     font-size: 0.85rem;
+    font-weight: 600;
     text-decoration: none;
     transition: color 200ms ease;
   }
+
   .article-footer__back:hover {
     color: var(--hc-gold);
+  }
+
+  .article-footer__nav-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  .article-footer__category {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
+    transition: color 180ms ease;
+  }
+
+  .article-footer__category:hover {
+    color: var(--hc-gold);
+  }
+
+  .article-footer__top {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid var(--hc-rule);
+    background: color-mix(in srgb, var(--hc-surface-2) 80%, transparent);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .article-footer__top:hover {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.1);
+  }
+
+  @media (max-width: 640px) {
+    .article-footer {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1.25rem;
+    }
+
+    .article-footer__nav-right {
+      width: 100%;
+      justify-content: space-between;
+    }
   }
 </style>
 </ArticleLayout>
