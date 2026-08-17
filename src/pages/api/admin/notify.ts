@@ -9,6 +9,7 @@ import { sendArticleBroadcast } from '../../../lib/resend.mjs';
 
 const notifySchema = z.object({
   slug: z.string().min(1),
+  token: z.string().min(1),
 });
 
 export const POST: APIRoute = async ({ request, site }) => {
@@ -20,6 +21,10 @@ export const POST: APIRoute = async ({ request, site }) => {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  if (parsed.data.token !== env.ADMIN_NOTIFY_TOKEN) {
+    return new Response('Not found', { status: 404 });
   }
 
   const { slug } = parsed.data;

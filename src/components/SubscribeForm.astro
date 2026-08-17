@@ -1,64 +1,110 @@
 ---
 interface Props {
-  variant: 'article' | 'footer';
+  variant: "article" | "footer";
 }
 
 const { variant } = Astro.props;
 ---
 
-<div class:list={['subscribe-form', `subscribe-form--${variant}`]} data-subscribe-form>
-  <div class="subscribe-form__copy">
-    <h3>Get new studies by email</h3>
-    <p>One email whenever a new piece publishes. No spam, unsubscribe anytime.</p>
+<section
+  class:list={["subscribe-form", `subscribe-form--${variant}`]}
+  data-subscribe-form
+  aria-labelledby={`subscribe-title-${variant}`}
+>
+  <div class="subscribe-form__inner">
+    <div class="subscribe-form__identity" aria-hidden="true">
+      <span class="subscribe-form__index">HC / DISPATCH</span>
+      <span class="subscribe-form__rule"></span>
+    </div>
+
+    <div class="subscribe-form__content">
+      <div class="subscribe-form__eyebrow">Stay informed</div>
+      <h3 id={`subscribe-title-${variant}`}>Receive new investigations</h3>
+      <p>
+        One concise email when a new study publishes — with research, sources,
+        and the key argument upfront.
+      </p>
+    </div>
+
+    <form class="subscribe-form__form" data-subscribe-form-el>
+      <label for={`subscribe-email-${variant}`} class="sr-only"
+        >Email address</label
+      >
+      <div class="subscribe-form__field">
+        <input
+          type="email"
+          id={`subscribe-email-${variant}`}
+          name="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          inputmode="email"
+          aria-describedby={`subscribe-note-${variant}`}
+        />
+        <button type="submit">
+          <span>Subscribe</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      <p id={`subscribe-note-${variant}`} class="subscribe-form__note">
+        No spam. Unsubscribe anytime.
+      </p>
+    </form>
   </div>
-  <form class="subscribe-form__form" data-subscribe-form-el>
-    <label for={`subscribe-email-${variant}`} class="sr-only">Email address</label>
-    <input
-      type="email"
-      id={`subscribe-email-${variant}`}
-      name="email"
-      placeholder="you@example.com"
-      required
-      autocomplete="email"
-    />
-    <button type="submit">Subscribe</button>
-  </form>
-  <p class="subscribe-form__status" data-subscribe-form-status role="status" aria-live="polite"></p>
-</div>
+
+  <p
+    class="subscribe-form__status"
+    data-subscribe-form-status
+    role="status"
+    aria-live="polite"
+  >
+  </p>
+</section>
 
 <script>
-  document.querySelectorAll('[data-subscribe-form]').forEach((container) => {
-    const form = container.querySelector('[data-subscribe-form-el]');
-    const status = container.querySelector('[data-subscribe-form-status]');
+  document.querySelectorAll("[data-subscribe-form]").forEach((container) => {
+    const form = container.querySelector("[data-subscribe-form-el]");
+    const status = container.querySelector("[data-subscribe-form-status]");
     if (!(form instanceof HTMLFormElement) || !status) return;
 
-    form.addEventListener('submit', async (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const email = new FormData(form).get('email');
-      if (typeof email !== 'string' || !email) return;
+      const email = new FormData(form).get("email");
+      if (typeof email !== "string" || !email) return;
 
       const submitButton = form.querySelector('button[type="submit"]');
-      if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
-      status.textContent = '';
+      if (submitButton instanceof HTMLButtonElement)
+        submitButton.disabled = true;
+      status.textContent = "";
+      container.classList.remove("is-success", "is-error");
 
       try {
-        const response = await fetch('/api/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email }),
         });
-        const result = (await response.json()) as { success: boolean; error?: string };
+        const result = (await response.json()) as {
+          success: boolean;
+          error?: string;
+        };
 
         if (result.success) {
-          status.textContent = "You're subscribed. Look out for the next one.";
+          status.textContent =
+            "You're subscribed. Look out for the next investigation.";
+          container.classList.add("is-success");
           form.reset();
         } else {
-          status.textContent = result.error || 'Something went wrong. Please try again.';
+          status.textContent =
+            result.error || "Something went wrong. Please try again.";
+          container.classList.add("is-error");
         }
       } catch {
-        status.textContent = 'Something went wrong. Please try again.';
+        status.textContent = "Something went wrong. Please try again.";
+        container.classList.add("is-error");
       } finally {
-        if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+        if (submitButton instanceof HTMLButtonElement)
+          submitButton.disabled = false;
       }
     });
   });
@@ -66,89 +112,244 @@ const { variant } = Astro.props;
 
 <style>
   .subscribe-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    padding: 1.75rem 2rem;
+    --subscribe-accent: var(--hc-gold);
+    --subscribe-accent-soft: var(--hc-gold-soft, var(--hc-gold));
+    --subscribe-panel: color-mix(in srgb, var(--hc-surface-2) 74%, transparent);
+
+    position: relative;
+    margin-top: clamp(3rem, 5vw, 4.5rem);
+    overflow: hidden;
     border: 1px solid var(--hc-rule);
-    background: color-mix(in srgb, var(--hc-surface-2) 60%, transparent);
+    background: var(--subscribe-panel);
   }
 
-  .subscribe-form__copy h3 {
-    margin: 0 0 0.35rem;
+  .subscribe-form::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--subscribe-accent) 18%,
+      var(--subscribe-accent) 82%,
+      transparent 100%
+    );
+    opacity: 0.65;
+  }
+
+  .subscribe-form::after {
+    content: "";
+    position: absolute;
+    width: 15rem;
+    height: 15rem;
+    right: -8rem;
+    top: -9rem;
+    border: 1px solid
+      color-mix(in srgb, var(--subscribe-accent) 12%, transparent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .subscribe-form__inner {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1.05fr) minmax(20rem, 1fr);
+    align-items: center;
+    gap: clamp(1.5rem, 3vw, 3rem);
+    padding: clamp(1.75rem, 3vw, 2.5rem);
+  }
+
+  .subscribe-form__identity {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.8rem;
+    min-width: 4.5rem;
+    padding-right: clamp(1.25rem, 2vw, 2rem);
+    border-right: 1px solid var(--hc-rule);
+  }
+
+  .subscribe-form__index {
+    font-family: var(--font-ui);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    line-height: 1.4;
+    color: var(--hc-text-tertiary);
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+  }
+
+  .subscribe-form__rule {
+    width: 1px;
+    flex: 1;
+    min-height: 2rem;
+    margin-inline: auto;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      var(--subscribe-accent),
+      transparent
+    );
+    opacity: 0.6;
+  }
+
+  .subscribe-form__content {
+    min-width: 0;
+  }
+
+  .subscribe-form__eyebrow {
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--subscribe-accent);
+  }
+
+  .subscribe-form__content h3 {
+    margin: 0 0 0.55rem;
     font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 600;
+    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
   }
 
-  .subscribe-form__copy p {
+  .subscribe-form__content p {
     margin: 0;
+    max-width: 48ch;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.88rem;
-    max-width: 40ch;
+    font-size: 0.86rem;
+    line-height: 1.6;
   }
 
   .subscribe-form__form {
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .subscribe-form__field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.55rem;
   }
 
   .subscribe-form__form input {
-    min-width: 15rem;
-    padding: 0.6rem 0.85rem;
+    width: 100%;
+    min-width: 0;
+    height: 2.9rem;
+    padding: 0 0.9rem;
     border: 1px solid var(--hc-rule);
-    background: transparent;
-    color: inherit;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--hc-surface-1) 72%, transparent);
+    color: var(--hc-text-primary);
     font-family: var(--font-ui);
-    font-size: 0.9rem;
+    font-size: 0.86rem;
+    outline: none;
+    transition:
+      border-color 180ms ease,
+      background 180ms ease,
+      box-shadow 180ms ease;
+  }
+
+  .subscribe-form__form input::placeholder {
+    color: var(--hc-text-tertiary);
+  }
+
+  .subscribe-form__form input:focus {
+    border-color: color-mix(
+      in srgb,
+      var(--subscribe-accent) 62%,
+      var(--hc-rule)
+    );
+    background: var(--hc-surface-1);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--subscribe-accent) 10%, transparent);
   }
 
   .subscribe-form__form button {
-    padding: 0.6rem 1.1rem;
-    border: 1px solid var(--hc-gold-dim);
-    background: rgba(216, 177, 102, 0.12);
-    color: var(--hc-gold);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    height: 2.9rem;
+    padding: 0 1rem;
+    border: 1px solid var(--subscribe-accent);
+    border-radius: 0;
+    background: var(--subscribe-accent);
+    color: #17130d;
     font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: background 180ms ease, border-color 180ms ease;
+    transition:
+      transform 180ms ease,
+      background 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
   }
 
   .subscribe-form__form button:hover {
-    background: rgba(216, 177, 102, 0.2);
-    border-color: var(--hc-gold);
+    transform: translateY(-1px);
+    background: var(--subscribe-accent-soft);
+    border-color: var(--subscribe-accent-soft);
+  }
+
+  .subscribe-form__form button:focus-visible {
+    outline: 2px solid var(--subscribe-accent);
+    outline-offset: 3px;
   }
 
   .subscribe-form__form button:disabled {
-    opacity: 0.6;
+    opacity: 0.55;
     cursor: default;
+    transform: none;
+  }
+
+  .subscribe-form__note {
+    margin: 0.6rem 0 0;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    line-height: 1.5;
   }
 
   .subscribe-form__status {
-    flex-basis: 100%;
+    position: relative;
+    z-index: 1;
     margin: 0;
+    padding: 0 clamp(1.75rem, 3vw, 2.5rem) 1rem;
+    min-height: 1.2rem;
     font-family: var(--font-ui);
-    font-size: 0.82rem;
-    color: var(--hc-gold-dim);
+    font-size: 0.76rem;
+    color: var(--subscribe-accent-soft);
+  }
+
+  .subscribe-form.is-error .subscribe-form__status {
+    color: #e07a6b;
   }
 
   .subscribe-form--footer {
-    border-color: rgba(216, 177, 102, 0.26);
-    background: rgba(242, 235, 220, 0.05);
+    margin-top: 0;
+    --subscribe-panel: rgba(242, 235, 220, 0.045);
+    border-color: rgba(216, 177, 102, 0.23);
   }
 
-  .subscribe-form--footer .subscribe-form__copy h3,
-  .subscribe-form--footer .subscribe-form__copy p {
-    color: var(--hc-fixed-parchment, #F2EBDC);
+  .subscribe-form--footer .subscribe-form__content h3,
+  .subscribe-form--footer .subscribe-form__content p {
+    color: var(--hc-fixed-parchment, #f2ebdc);
   }
 
-  .subscribe-form--footer .subscribe-form__copy p {
+  .subscribe-form--footer .subscribe-form__content p {
     opacity: 0.78;
   }
 
@@ -156,24 +357,49 @@ const { variant } = Astro.props;
     position: absolute;
     width: 1px;
     height: 1px;
+    padding: 0;
+    margin: -1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
+    border: 0;
   }
 
-  @media (max-width: 640px) {
-    .subscribe-form {
-      flex-direction: column;
-      align-items: flex-start;
+  @media (max-width: 900px) {
+    .subscribe-form__inner {
+      grid-template-columns: auto minmax(0, 1fr);
     }
 
     .subscribe-form__form {
+      grid-column: 2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .subscribe-form__inner {
+      grid-template-columns: 1fr;
+      gap: 1.35rem;
+      padding: 1.5rem;
+    }
+
+    .subscribe-form__identity {
+      display: none;
+    }
+
+    .subscribe-form__form {
+      grid-column: auto;
+    }
+
+    .subscribe-form__field {
+      grid-template-columns: 1fr;
+    }
+
+    .subscribe-form__form button {
       width: 100%;
     }
 
-    .subscribe-form__form input {
-      flex: 1 1 auto;
-      min-width: 0;
+    .subscribe-form__status {
+      padding-inline: 1.5rem;
     }
   }
 </style>

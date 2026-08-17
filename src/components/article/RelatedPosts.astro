@@ -1,10 +1,10 @@
 ---
-import type { CollectionEntry } from 'astro:content';
-import { isNewPost } from '../../lib/new-badge';
+import type { CollectionEntry } from "astro:content";
+import { isNewPost } from "../../lib/new-badge";
 
 interface Props {
   currentCategory: string;
-  posts: CollectionEntry<'articles'>[];
+  posts: CollectionEntry<"articles">[];
 }
 
 const { currentCategory, posts } = Astro.props;
@@ -17,311 +17,533 @@ const formatDate = (date: Date) =>
   });
 ---
 
-<section class="hc-read-more" aria-labelledby="read-more-title">
-  <div class="read-more-header">
-    <div class="read-more-title-wrap">
-      <span class="read-more-eyebrow">Continue Exploring</span>
-      <h2 id="read-more-title" class="read-more-title">Related Investigations</h2>
-    </div>
-    <a href={`/blogs?category=${encodeURIComponent(currentCategory)}`} class="read-more-all-link">
-      <span>More in {currentCategory}</span>
-      <span class="read-more-arrow" aria-hidden="true">→</span>
-    </a>
-  </div>
+{
+  posts.length > 0 && (
+    <section class="hc-read-more" aria-labelledby="read-more-title">
+      <div class="read-more-header">
+        <div class="read-more-heading-group">
+          <span class="read-more-eyebrow">Continue exploring</span>
+          <div class="read-more-title-row">
+            <h2 id="read-more-title" class="read-more-title">
+              Related Investigations
+            </h2>
+            <span class="read-more-count" aria-hidden="true">
+              {String(posts.length).padStart(2, "0")} studies
+            </span>
+          </div>
+        </div>
 
-  <div class="read-more-grid">
-    {posts.map((item) => (
-      <a href={`/blogs/${item.id}`} class="read-more-card" data-category={item.data.category}>
-        <div class="read-more-media">
-          {item.data.thumbnail ? (
-            <img
-              src={item.data.thumbnail}
-              alt={`Cover illustration for ${item.data.title}`}
-              class="read-more-thumb"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <div class="read-more-thumb-placeholder" />
-          )}
-          <span class="read-more-cat-badge" data-category={item.data.category}>
-            <span class="read-more-dot" aria-hidden="true"></span>
-            <span>{item.data.category}</span>
+        <a
+          href={`/blogs?category=${encodeURIComponent(currentCategory)}`}
+          class="read-more-all-link"
+          aria-label={`View more investigations in ${currentCategory}`}
+        >
+          <span>View all in {currentCategory}</span>
+          <span class="read-more-arrow" aria-hidden="true">
+            ↗
           </span>
-        </div>
-        <div class="read-more-body">
-          <div class="read-more-meta">
-            <time datetime={item.data.date.toISOString().slice(0, 10)}>
-              {formatDate(item.data.date)}
-            </time>
-            {isNewPost(item.data.date) && <span class="new-badge">New</span>}
-          </div>
-          <h3 class="read-more-heading">{item.data.title}</h3>
-          {item.data.description && (
-            <p class="read-more-desc">{item.data.description}</p>
-          )}
-          <div class="read-more-cta">
-            <span>Read Investigation</span>
-            <span class="cta-arrow" aria-hidden="true">→</span>
-          </div>
-        </div>
-      </a>
-    ))}
-  </div>
-</section>
+        </a>
+      </div>
+
+      <div class="read-more-rule" aria-hidden="true" />
+
+      <div class="read-more-grid">
+        {posts.map((item, index) => (
+          <a
+            href={`/blogs/${item.id}`}
+            class="read-more-card"
+            data-category={item.data.category}
+            aria-label={`Read: ${item.data.title}`}
+          >
+            <div class="read-more-media">
+              {item.data.thumbnail ? (
+                <img
+                  src={item.data.thumbnail}
+                  alt={`Cover illustration for ${item.data.title}`}
+                  class="read-more-thumb"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <div class="read-more-thumb-placeholder" aria-hidden="true">
+                  <span>HC</span>
+                </div>
+              )}
+              <span class="read-more-index" aria-hidden="true">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            </div>
+
+            <div class="read-more-body">
+              <div class="read-more-meta">
+                <span class="read-more-category">
+                  <span class="read-more-dot" aria-hidden="true" />
+                  {item.data.category}
+                </span>
+                <span class="read-more-meta-separator" aria-hidden="true">
+                  •
+                </span>
+                <time datetime={item.data.date.toISOString().slice(0, 10)}>
+                  {formatDate(item.data.date)}
+                </time>
+                {isNewPost(item.data.date) && (
+                  <span class="new-badge">New</span>
+                )}
+              </div>
+
+              <h3 class="read-more-title-card">{item.data.title}</h3>
+
+              {item.data.description && (
+                <p class="read-more-desc">{item.data.description}</p>
+              )}
+
+              <div class="read-more-footer">
+                <span class="read-more-label">Read investigation</span>
+                <span class="cta-arrow" aria-hidden="true">
+                  →
+                </span>
+              </div>
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 <style>
   .hc-read-more {
-    margin-top: clamp(4rem, 6vw, 5.5rem);
-    padding-top: clamp(2.5rem, 4vw, 3.5rem);
-    border-top: 1px solid var(--hc-rule);
-    max-width: 1140px;
+    --read-more-accent: var(--hc-gold, #d8b166);
+    --read-more-surface: var(--hc-surface-1, #181716);
+    --read-more-surface-raised: color-mix(
+      in srgb,
+      var(--hc-surface-2, #22201e) 78%,
+      black
+    );
+    --read-more-rule: var(--hc-rule, rgba(242, 235, 220, 0.14));
+    --read-more-text: var(--hc-text-primary, #f2ebdc);
+    --read-more-text-soft: var(--hc-text-secondary, #c8c0b3);
+    --read-more-text-muted: var(--hc-text-tertiary, #8f887d);
+
     margin-inline: auto;
-    padding-inline: clamp(1rem, 3vw, 2rem);
+    margin-top: clamp(3.75rem, 6vw, 5.25rem);
+    width: min(100%, 1140px);
+    padding: clamp(2.5rem, 4vw, 3.5rem) clamp(1rem, 3vw, 2rem) 0;
+    border-top: 1px solid var(--read-more-rule);
   }
 
   .read-more-header {
     display: flex;
-    justify-content: space-between;
     align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 2rem;
+    justify-content: space-between;
+    gap: 1.75rem;
+  }
+
+  .read-more-heading-group {
+    min-width: 0;
   }
 
   .read-more-eyebrow {
     display: block;
+    margin-bottom: 0.5rem;
     font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--hc-gold);
-    margin-bottom: 0.35rem;
+    color: var(--read-more-accent);
+  }
+
+  .read-more-title-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.8rem 1rem;
   }
 
   .read-more-title {
     margin: 0;
     font-family: var(--font-display);
+    font-size: clamp(1.65rem, 2.35vw, 2.15rem);
     font-weight: 500;
-    font-size: clamp(1.6rem, 2.5vw, 2.2rem);
-    color: var(--hc-text-primary);
-    letter-spacing: -0.02em;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+    color: var(--read-more-text);
+  }
+
+  .read-more-count {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--read-more-text-muted);
+    white-space: nowrap;
   }
 
   .read-more-all-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.55rem;
+    flex: 0 0 auto;
+    padding-bottom: 0.18rem;
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--read-more-accent) 35%, transparent);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--hc-gold-soft);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
     text-decoration: none;
-    transition: gap 200ms ease, color 200ms ease;
+    color: var(--read-more-accent);
+    transition:
+      color 180ms ease,
+      border-color 180ms ease,
+      gap 180ms ease;
   }
 
   .read-more-all-link:hover {
-    color: var(--hc-gold);
-    gap: 0.65rem;
+    gap: 0.7rem;
+    border-color: var(--read-more-accent);
+    color: var(--hc-gold-soft, #e4c987);
   }
 
+  .read-more-arrow {
+    font-size: 0.92rem;
+    line-height: 1;
+  }
+
+  .read-more-rule {
+    height: 1px;
+    margin-top: 1.5rem;
+    background: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--read-more-accent) 42%, transparent),
+      var(--read-more-rule) 32%,
+      transparent
+    );
+  }
+
+  /*
+   * Auto-fit instead of a fixed column count. With exactly 2 tracks hard-coded,
+   * an odd number of posts (almost always 3, since that's what this section
+   * ships with) stranded the last card alone in its row with a dead gap next
+   * to it. auto-fit + a capped track width means:
+   *   - 3 posts  -> 3 even columns, one tidy row, no orphan.
+   *   - 2 posts  -> 2 columns, capped so they don't stretch into giant cards.
+   *   - 1 post   -> a single reasonably-sized card, not a full-bleed slab.
+   *   - 4+ posts -> wraps cleanly to a second row instead of an ugly gap.
+   */
   .read-more-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: clamp(1.25rem, 2vw, 1.75rem);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 360px));
+    justify-content: flex-start;
+    gap: 1rem;
+    margin-top: 1.25rem;
   }
 
   .read-more-card {
+    container-type: inline-size;
+    container-name: read-more-card;
+    position: relative;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    min-height: 100%;
     overflow: hidden;
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--read-more-rule);
+    border-radius: 6px;
+    background: linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--read-more-surface) 92%, white),
+      var(--read-more-surface-raised)
+    );
     text-decoration: none;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-surface-1);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
     transition:
-      border-color 250ms ease,
-      box-shadow 250ms ease,
-      transform 250ms var(--ease);
+      transform 220ms ease,
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      background 220ms ease;
+  }
+
+  /*
+   * Card layout now responds to the card's own rendered width via a
+   * container query, not the viewport. That's what actually matters here:
+   * this section sits next to a sticky TOC sidebar, so "viewport is wide"
+   * doesn't mean "this card has room." Below ~360px of card width the image
+   * moves on top of the text instead of squeezing beside it.
+   */
+  @container read-more-card (min-width: 360px) {
+    .read-more-card {
+      flex-direction: row;
+    }
+
+    .read-more-media {
+      flex: 0 0 42%;
+      width: 42%;
+      align-self: flex-start;
+    }
+  }
+
+  .read-more-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: var(--card-color, var(--read-more-accent));
+    opacity: 0.6;
+    transition: opacity 220ms ease;
   }
 
   .read-more-card:hover {
-    border-color: var(--card-color, var(--hc-gold));
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22), 0 0 16px var(--card-bg, rgba(216, 177, 102, 0.12));
-    transform: translateY(-3px);
+    border-color: color-mix(
+      in srgb,
+      var(--card-color, var(--read-more-accent)) 55%,
+      var(--read-more-rule)
+    );
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    transform: translateY(-2px);
+  }
+
+  .read-more-card:hover::before {
+    opacity: 1;
   }
 
   .read-more-media {
     position: relative;
     width: 100%;
+    min-width: 0;
     aspect-ratio: 16 / 9;
-    background: var(--hc-surface-2);
     overflow: hidden;
+    background: var(--hc-surface-2, #23211f);
+  }
+
+  .read-more-media::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 72%, rgba(0, 0, 0, 0.2));
+    pointer-events: none;
+  }
+
+  .read-more-thumb,
+  .read-more-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: block;
   }
 
   .read-more-thumb {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: left center;
-    display: block;
-    filter: saturate(0.95) contrast(1.02);
-    transition: transform 450ms var(--ease);
+    object-fit: contain;
+    object-position: center;
+    filter: saturate(0.9) contrast(1.02);
+    transition:
+      transform 500ms var(--ease, ease),
+      filter 300ms ease;
   }
 
   .read-more-card:hover .read-more-thumb {
-    transform: scale(1.04);
+    transform: scale(1.035);
+    filter: saturate(1) contrast(1.03);
   }
 
-  .read-more-cat-badge {
+  .read-more-thumb-placeholder {
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(
+        circle at 25% 25%,
+        rgba(216, 177, 102, 0.14),
+        transparent 34%
+      ),
+      linear-gradient(145deg, #24211f, #151412);
+    color: rgba(242, 235, 220, 0.45);
+    font-family: var(--font-display);
+    font-size: 2rem;
+  }
+
+  .read-more-index {
     position: absolute;
-    top: 0.75rem;
-    left: 0.75rem;
+    left: 0.7rem;
+    bottom: 0.65rem;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.22rem 0.6rem;
-    border-radius: var(--radius-pill);
-    background: rgba(20, 19, 18, 0.85);
-    border: 1px solid var(--card-border, var(--hc-rule));
+    justify-content: center;
+    min-width: 2.05rem;
+    height: 1.7rem;
+    padding-inline: 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 3px;
+    background: rgba(13, 12, 11, 0.72);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    color: var(--card-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.68rem;
-    font-weight: 700;
+    font-size: 0.64rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
+    color: #f2ebdc;
+  }
+
+  .read-more-body {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    padding: 1rem 1rem 0.95rem;
+  }
+
+  .read-more-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.48rem;
+    margin-bottom: 0.55rem;
+    min-height: 1.1rem;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: var(--read-more-text-muted);
+  }
+
+  .read-more-category {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    max-width: 100%;
+    color: var(--card-color, var(--read-more-accent));
+    font-weight: 750;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
 
   .read-more-dot {
     width: 5px;
     height: 5px;
+    flex: 0 0 auto;
     border-radius: 50%;
     background: currentColor;
   }
 
-  /* Category colors */
-  .read-more-card[data-category="Origins & Early History"] {
-    --card-color: #d48b52;
-    --card-bg: rgba(212, 139, 82, 0.12);
-    --card-border: rgba(212, 139, 82, 0.35);
-  }
-  .read-more-card[data-category="Prophecies & Eschatology"] {
-    --card-color: #e05a47;
-    --card-bg: rgba(224, 90, 71, 0.12);
-    --card-border: rgba(224, 90, 71, 0.35);
-  }
-  .read-more-card[data-category="Theology & Epistemology"] {
-    --card-color: #4fa86c;
-    --card-bg: rgba(79, 168, 108, 0.12);
-    --card-border: rgba(79, 168, 108, 0.35);
-  }
-  .read-more-card[data-category="Transmission & Narrators"] {
-    --card-color: #608fd6;
-    --card-bg: rgba(96, 143, 214, 0.12);
-    --card-border: rgba(96, 143, 214, 0.35);
-  }
-
-  .read-more-body {
-    padding: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-  }
-
-  .read-more-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.74rem;
-    color: var(--hc-text-tertiary);
-    margin-bottom: 0.65rem;
+  .read-more-meta-separator {
+    color: color-mix(in srgb, var(--read-more-text-muted) 55%, transparent);
   }
 
   .new-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.14rem 0.5rem;
-    border-radius: var(--radius-pill);
-    background: rgba(224, 90, 71, 0.14);
-    border: 1px solid rgba(224, 90, 71, 0.4);
+    padding: 0.14rem 0.42rem;
+    border: 1px solid rgba(224, 90, 71, 0.38);
+    border-radius: 3px;
+    background: rgba(224, 90, 71, 0.1);
     color: #e05a47;
-    font-weight: 700;
+    font-size: 0.58rem;
+    font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    font-size: 0.66rem;
   }
 
-  .read-more-heading {
-    margin: 0 0 0.65rem;
+  .read-more-title-card {
+    margin: 0;
     font-family: var(--font-display);
+    font-size: clamp(1.05rem, 1.2vw, 1.23rem);
     font-weight: 500;
-    font-size: clamp(1.2rem, 1.4vw, 1.45rem);
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-    color: var(--hc-text-primary);
-    transition: color 200ms ease;
+    line-height: 1.23;
+    letter-spacing: -0.015em;
+    color: var(--read-more-text);
+    transition: color 180ms ease;
   }
 
-  .read-more-card:hover .read-more-heading {
-    color: var(--card-color, var(--hc-gold-soft));
+  .read-more-card:hover .read-more-title-card {
+    color: var(--card-color, var(--hc-gold-soft, #e4c987));
   }
 
   .read-more-desc {
-    margin: 0 0 1.25rem;
-    font-size: 0.88rem;
-    line-height: 1.55;
-    color: var(--hc-text-secondary);
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
     overflow: hidden;
-    flex-grow: 1;
-  }
-
-  .read-more-cta {
-    margin-top: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
+    margin: 0.5rem 0 0;
+    color: var(--read-more-text-soft);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--card-color, var(--hc-gold));
-    transition: gap 200ms ease;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
-  .read-more-card:hover .read-more-cta {
-    gap: 0.65rem;
+  .read-more-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: auto;
+    padding-top: 0.8rem;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--card-color, var(--read-more-accent));
+  }
+
+  .read-more-label {
+    white-space: nowrap;
   }
 
   .cta-arrow {
-    transition: transform 200ms ease;
+    transition: transform 180ms ease;
   }
 
   .read-more-card:hover .cta-arrow {
     transform: translateX(3px);
   }
 
-  @media (max-width: 960px) {
-    .read-more-grid {
-      grid-template-columns: repeat(2, 1fr);
+  /* Category accents */
+  .read-more-card[data-category="Origins & Early History"] {
+    --card-color: #d48b52;
+  }
+
+  .read-more-card[data-category="Prophecies & Eschatology"] {
+    --card-color: #e05a47;
+  }
+
+  .read-more-card[data-category="Theology & Epistemology"] {
+    --card-color: #4fa86c;
+  }
+
+  .read-more-card[data-category="Transmission & Narrators"] {
+    --card-color: #608fd6;
+  }
+
+  @media (max-width: 860px) {
+    .read-more-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .read-more-all-link {
+      margin-top: 0.1rem;
     }
   }
 
-  @media (max-width: 640px) {
+  /*
+   * Below this width even a single auto-fit track (min 240px) plus section
+   * padding gets tight, so drop to one column outright.
+   */
+  @media (max-width: 480px) {
     .read-more-grid {
       grid-template-columns: 1fr;
-      gap: 1rem;
     }
-    .read-more-card {
-      max-width: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .read-more-card,
+    .read-more-thumb,
+    .read-more-all-link,
+    .cta-arrow,
+    .read-more-card:hover .read-more-thumb {
+      transition: none;
+      transform: none;
     }
   }
 </style>

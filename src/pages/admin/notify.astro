@@ -4,6 +4,11 @@ export const prerender = false;
 import { getCollection } from 'astro:content';
 import { env } from 'cloudflare:workers';
 
+const token = Astro.url.searchParams.get('token');
+if (token !== env.ADMIN_NOTIFY_TOKEN) {
+  return new Response('Not found', { status: 404 });
+}
+
 const posts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
 const sorted = [...posts].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
@@ -62,7 +67,7 @@ const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
       <p id="notify-status" role="status" aria-live="polite"></p>
     </main>
 
-    <script>
+    <script define:vars={{ token }}>
       document.querySelectorAll('[data-notify-form]').forEach((form) => {
         if (!(form instanceof HTMLFormElement)) return;
         const slug = form.dataset.slug;
@@ -80,9 +85,9 @@ const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
             const response = await fetch('/api/admin/notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ slug }),
+              body: JSON.stringify({ slug, token }),
             });
-            const result = (await response.json()) as { success: boolean; error?: string; warning?: string };
+            const result = await response.json();
 
             if (result.success) {
               if (status) status.textContent = result.warning ? `Sent, but: ${result.warning}` : `Sent for ${slug}.`;
