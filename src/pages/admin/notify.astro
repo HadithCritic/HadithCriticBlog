@@ -1,0 +1,102 @@
+---
+export const prerender = false;
+
+import { getCollection } from 'astro:content';
+import { env } from 'cloudflare:workers';
+
+const posts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
+const sorted = [...posts].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
+
+const { results: sentRows } = await env.DB.prepare('SELECT slug, sent_at FROM article_notifications').all<{
+  slug: string;
+  sent_at: string;
+}>();
+const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Notify subscribers</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid #ddd; }
+      button { padding: 0.35rem 0.9rem; cursor: pointer; }
+      #notify-status { margin-top: 1rem; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Notify subscribers</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Published</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((post) => {
+            const sentAt = sentBySlug.get(post.id);
+            return (
+              <tr>
+                <td>{post.data.title}</td>
+                <td>{new Date(post.data.date).toLocaleDateString('en-US')}</td>
+                <td>{sentAt ? `Sent ${new Date(sentAt).toLocaleString('en-US')}` : 'Not sent'}</td>
+                <td>
+                  {!sentAt && (
+                    <form data-notify-form data-slug={post.id}>
+                      <button type="submit">Send</button>
+                    </form>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p id="notify-status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script>
+      document.querySelectorAll('[data-notify-form]').forEach((form) => {
+        if (!(form instanceof HTMLFormElement)) return;
+        const slug = form.dataset.slug;
+
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          if (!confirm(`Send the new-article email for "${slug}" to all subscribers?`)) return;
+
+          const button = form.querySelector('button');
+          if (button instanceof HTMLButtonElement) button.disabled = true;
+
+          const status = document.getElementById('notify-status');
+
+          try {
+            const response = await fetch('/api/admin/notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug }),
+            });
+            const result = (await response.json()) as { success: boolean; error?: string; warning?: string };
+
+            if (result.success) {
+              if (status) status.textContent = result.warning ? `Sent, but: ${result.warning}` : `Sent for ${slug}.`;
+              window.location.reload();
+            } else {
+              if (status) status.textContent = result.error || 'Send failed.';
+              if (button instanceof HTMLButtonElement) button.disabled = false;
+            }
+          } catch {
+            if (status) status.textContent = 'Send failed.';
+            if (button instanceof HTMLButtonElement) button.disabled = false;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
