@@ -7,7 +7,10 @@ import { env } from 'cloudflare:workers';
 const posts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
 const sorted = [...posts].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
-const { results: sentRows } = await env.DB.prepare('SELECT slug, sent_at FROM article_notifications').all();
+const { results: sentRows } = await env.DB.prepare('SELECT slug, sent_at FROM article_notifications').all<{
+  slug: string;
+  sent_at: string;
+}>();
 const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
 ---
 
@@ -79,7 +82,7 @@ const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ slug }),
             });
-            const result = await response.json();
+            const result = (await response.json()) as { success: boolean; error?: string; warning?: string };
 
             if (result.success) {
               if (status) status.textContent = result.warning ? `Sent, but: ${result.warning}` : `Sent for ${slug}.`;
