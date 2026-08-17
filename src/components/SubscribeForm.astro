@@ -1,0 +1,179 @@
+---
+interface Props {
+  variant: 'article' | 'footer';
+}
+
+const { variant } = Astro.props;
+---
+
+<div class:list={['subscribe-form', `subscribe-form--${variant}`]} data-subscribe-form>
+  <div class="subscribe-form__copy">
+    <h3>Get new studies by email</h3>
+    <p>One email whenever a new piece publishes. No spam, unsubscribe anytime.</p>
+  </div>
+  <form class="subscribe-form__form" data-subscribe-form-el>
+    <label for={`subscribe-email-${variant}`} class="sr-only">Email address</label>
+    <input
+      type="email"
+      id={`subscribe-email-${variant}`}
+      name="email"
+      placeholder="you@example.com"
+      required
+      autocomplete="email"
+    />
+    <button type="submit">Subscribe</button>
+  </form>
+  <p class="subscribe-form__status" data-subscribe-form-status role="status" aria-live="polite"></p>
+</div>
+
+<script>
+  document.querySelectorAll('[data-subscribe-form]').forEach((container) => {
+    const form = container.querySelector('[data-subscribe-form-el]');
+    const status = container.querySelector('[data-subscribe-form-status]');
+    if (!(form instanceof HTMLFormElement) || !status) return;
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = new FormData(form).get('email');
+      if (typeof email !== 'string' || !email) return;
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      if (submitButton instanceof HTMLButtonElement) submitButton.disabled = true;
+      status.textContent = '';
+
+      try {
+        const response = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          status.textContent = "You're subscribed. Look out for the next one.";
+          form.reset();
+        } else {
+          status.textContent = result.error || 'Something went wrong. Please try again.';
+        }
+      } catch {
+        status.textContent = 'Something went wrong. Please try again.';
+      } finally {
+        if (submitButton instanceof HTMLButtonElement) submitButton.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .subscribe-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.75rem 2rem;
+    border: 1px solid var(--hc-rule);
+    background: color-mix(in srgb, var(--hc-surface-2) 60%, transparent);
+  }
+
+  .subscribe-form__copy h3 {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+
+  .subscribe-form__copy p {
+    margin: 0;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.88rem;
+    max-width: 40ch;
+  }
+
+  .subscribe-form__form {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .subscribe-form__form input {
+    min-width: 15rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    background: transparent;
+    color: inherit;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+  }
+
+  .subscribe-form__form button {
+    padding: 0.6rem 1.1rem;
+    border: 1px solid var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.12);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+
+  .subscribe-form__form button:hover {
+    background: rgba(216, 177, 102, 0.2);
+    border-color: var(--hc-gold);
+  }
+
+  .subscribe-form__form button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .subscribe-form__status {
+    flex-basis: 100%;
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    color: var(--hc-gold-dim);
+  }
+
+  .subscribe-form--footer {
+    border-color: rgba(216, 177, 102, 0.26);
+    background: rgba(242, 235, 220, 0.05);
+  }
+
+  .subscribe-form--footer .subscribe-form__copy h3,
+  .subscribe-form--footer .subscribe-form__copy p {
+    color: var(--hc-fixed-parchment, #F2EBDC);
+  }
+
+  .subscribe-form--footer .subscribe-form__copy p {
+    opacity: 0.78;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 640px) {
+    .subscribe-form {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .subscribe-form__form {
+      width: 100%;
+    }
+
+    .subscribe-form__form input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+  }
+</style>
