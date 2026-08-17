@@ -16,7 +16,6 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 - **Rich Interactive Components**: Custom components like `IsnadDiagram`, `IsnadDilemmaVisual`, and `HifzGame` embedded directly into articles.
 - **MDX Powered Content**: Write content seamlessly using Markdown with embedded JSX components.
 - **Integrated Full-Text Search**: Client-side, lightning-fast search powered by [Pagefind](https://pagefind.app/).
-- **Custom Authoring Environment**: A tailor-made WYSIWYG editor built with Tiptap and React (`tools/blog-maker`) for crafting rich scholarly posts.
 
 ---
 
@@ -25,8 +24,6 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 - **Framework**: [Astro 6](https://astro.build) (Static Site Generation)
 - **Content Formatting**: MDX (`@astrojs/mdx`)
 - **Search**: [Pagefind](https://pagefind.app/)
-- **UI Components & Icons**: React, Lucide React
-- **Custom Editor (Blog Maker)**: Vite, React, Tiptap (Headless Editor)
 - **Deployment**: Hosted on **Cloudflare Pages** using the `@astrojs/cloudflare` adapter.
 
 ---
@@ -51,8 +48,6 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 │   ├── lib/               # Shared utilities
 │   ├── pages/             # Astro application routes
 │   └── styles/            # Global visual system and article-specific styles
-└── tools/
-    └── blog-maker/        # Custom Vite+React authoring workspace for writing posts
 ```
 
 ---
@@ -103,18 +98,6 @@ Once the development server is running, open your browser and navigate to:
 | `npm run validate` | Run full validation suite (footnote linting, type check, design audit, and build) |
 
 *Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
-
----
-
-## Blog Authoring Environment
-
-Unlike traditional static blogs, this repository includes a custom authoring tool (`tools/blog-maker`) tailored for academic and scholarly writing, built with **Tiptap** and **React**.
-
-To launch the local authoring workspace:
-```bash
-npm run author
-```
-This runs a concurrent Vite dev server and an Express backend API specifically designed for seamlessly creating and managing the MDX files in `src/content/articles/`.
 
 ---
 
