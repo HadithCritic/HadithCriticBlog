@@ -1,5 +1,5 @@
 ---
-import verses from '../../data/quran-verses.json';
+import verses from "../../data/quran-verses.json";
 
 export interface Props {
   /** A verse reference or list: "49:6", "6:74-76", or "2:255, 24:13". */
@@ -14,7 +14,10 @@ const { verse, label } = Astro.props;
 // Expand "6:74-76" -> ["6:74","6:75","6:76"] and split comma lists.
 function expand(ref: string): string[] {
   const out: string[] = [];
-  for (const part of ref.split(',').map((s) => s.trim()).filter(Boolean)) {
+  for (const part of ref
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     const m = part.match(/^(\d+):(\d+)-(\d+)$/);
     if (m) {
       const ch = m[1];
@@ -30,13 +33,37 @@ const refs = expand(verse);
 const found = refs.map((r) => ({ ref: r, ...(data[r] || {}) }));
 const missing = found.filter((f) => !f.ar && !f.en).map((f) => f.ref);
 if (missing.length) {
-  console.warn(`[QuranVerse] No data for: ${missing.join(', ')} (verse="${verse}")`);
+  console.warn(
+    `[QuranVerse] No data for: ${missing.join(", ")} (verse="${verse}")`,
+  );
 }
 
-const arabic = found.map((f) => f.ar).filter(Boolean).join(' ۝ ');
-const english = found.map((f) => f.en).filter(Boolean);
+// Western -> Arabic-Indic digits, for the ayah-end marker and any other
+// Arabic-context numerals ("12" -> "١٢").
+const ARABIC_INDIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+function toArabicIndicDigits(input: string): string {
+  return input.replace(/\d/g, (d) => ARABIC_INDIC_DIGITS[Number(d)]);
+}
+
+// Per-verse segments (Arabic text + its own verse number), so each ayah
+// can carry its own end-of-verse marker instead of a single Unicode
+// glyph stitched between whole-surah strings. Most web fonts render the
+// classical U+06DD end-of-ayah character as an oversized, badly aligned
+// fallback circle -- rendering the marker as a small CSS badge instead
+// sidesteps that entirely and is closer to how printed muṣḥafs set it.
+const arabicSegments = found
+  .filter((f) => f.ar)
+  .map((f) => ({ text: f.ar, num: f.ref.split(":")[1] ?? "" }));
+
+// Plain-text Arabic string (still separated by the real ayah-end glyph)
+// kept only for the "Copy" button, where a font fallback glyph doesn't
+// matter -- it's just going onto the user's clipboard as text.
+const arabicPlain = arabicSegments.map((s) => s.text).join(" \u06DD ");
+
+const verseEntries = found.filter((f) => f.en);
+const english = verseEntries.map((f) => f.en);
 const ref = label || `Quran ${verse}`;
-const hasData = Boolean(arabic || english.length);
+const hasData = Boolean(arabicSegments.length || english.length);
 ---
 
 <div class="hc-article-panel quran-verse" data-quran-verse>
@@ -46,97 +73,155 @@ const hasData = Boolean(arabic || english.length);
       <span class="quran-verse__badge-label">Quran</span>
     </div>
 
-    {hasData && (
-      <button
-        type="button"
-        class="quran-verse__copy"
-        data-quran-copy
-        title="Copy verse"
-        aria-label="Copy verse to clipboard"
-      >
-        <span class="quran-verse__copy-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-        </span>
-        <span class="quran-verse__copy-check" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </span>
-        <span class="quran-verse__copy-text">Copy</span>
-      </button>
-    )}
+    {
+      hasData && (
+        <button
+          type="button"
+          class="quran-verse__copy"
+          data-quran-copy
+          title="Copy verse"
+          aria-label="Copy verse to clipboard"
+        >
+          <span class="quran-verse__copy-icon" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </span>
+          <span class="quran-verse__copy-check" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span class="quran-verse__copy-text">Copy</span>
+        </button>
+      )
+    }
   </div>
 
   <div class="quran-verse__content">
-    {hasData ? (
-      <>
-        {arabic && (
-          <div class="quran-verse__arabic" dir="rtl" lang="ar" data-arabic-text>{arabic}</div>
-        )}
-        {english.length > 0 && (
-          <div class="quran-verse__english" data-english-text>
-            {english.map((text) => <p class="qv-verse">{text}</p>)}
+    {
+      hasData ? (
+        <>
+          {arabicSegments.length > 0 && (
+            <div
+              class="quran-verse__arabic"
+              dir="rtl"
+              lang="ar"
+              data-arabic-text
+              data-copy-text={arabicPlain}
+            >
+              {arabicSegments.map((seg) => (
+                <span class="qv-ayah">
+                  {seg.text}
+                  {seg.num && (
+                    <span class="qv-ayah-end" aria-hidden="true">
+                      {toArabicIndicDigits(seg.num)}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          {english.length > 0 && (
+            <div class="quran-verse__english" data-english-text>
+              {verseEntries.map((f) => (
+                <p class="qv-verse">
+                  {f.ref.includes(":") && (
+                    <span class="qv-verse-num" aria-hidden="true">
+                      {f.ref.split(":")[1]}
+                    </span>
+                  )}
+                  {f.en}
+                </p>
+              ))}
+            </div>
+          )}
+          <div class="quran-verse__ref" data-ref-text={ref}>
+            <span class="quran-verse__ref-icon" aria-hidden="true">
+              ✦
+            </span>
+            <span>{ref}</span>
           </div>
-        )}
-        <div class="quran-verse__ref" data-ref-text={ref}>
-          <span class="quran-verse__ref-icon" aria-hidden="true">✦</span>
-          <span>{ref}</span>
-        </div>
-      </>
-    ) : (
-      <p class="quran-verse__missing">Verse data unavailable for {ref}.</p>
-    )}
+        </>
+      ) : (
+        <p class="quran-verse__missing">Verse data unavailable for {ref}.</p>
+      )
+    }
   </div>
 </div>
 
 <script>
   function initQuranCopy() {
-    for (const card of document.querySelectorAll<HTMLElement>('[data-quran-verse]')) {
+    for (const card of document.querySelectorAll<HTMLElement>(
+      "[data-quran-verse]",
+    )) {
       if (card.dataset.copyInitialized) continue;
-      card.dataset.copyInitialized = 'true';
+      card.dataset.copyInitialized = "true";
 
-      const copyBtn = card.querySelector<HTMLButtonElement>('[data-quran-copy]');
+      const copyBtn =
+        card.querySelector<HTMLButtonElement>("[data-quran-copy]");
       if (!copyBtn) continue;
 
-      copyBtn.addEventListener('click', async () => {
-        const arabicEl = card.querySelector('[data-arabic-text]');
-        const englishEl = card.querySelector('[data-english-text]');
-        const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
+      copyBtn.addEventListener("click", async () => {
+        const arabicEl = card.querySelector("[data-arabic-text]");
+        const englishEl = card.querySelector("[data-english-text]");
+        const refVal = card
+          .querySelector("[data-ref-text]")
+          ?.getAttribute("data-ref-text");
 
         let textParts: string[] = [];
-        if (arabicEl?.textContent) textParts.push(arabicEl.textContent.trim());
-        if (englishEl?.textContent) textParts.push(`"${englishEl.textContent.trim()}"`);
+        const arabicCopyText =
+          arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent;
+        if (arabicCopyText) textParts.push(arabicCopyText.trim());
+        if (englishEl?.textContent)
+          textParts.push(`"${englishEl.textContent.trim()}"`);
         if (refVal) textParts.push(`— ${refVal.trim()}`);
 
-        const textToCopy = textParts.join('\n\n');
+        const textToCopy = textParts.join("\n\n");
         if (!textToCopy) return;
 
         try {
           await navigator.clipboard.writeText(textToCopy);
-          copyBtn.classList.add('is-copied');
-          const labelSpan = copyBtn.querySelector('.quran-verse__copy-text');
-          if (labelSpan) labelSpan.textContent = 'Copied!';
+          copyBtn.classList.add("is-copied");
+          const labelSpan = copyBtn.querySelector(".quran-verse__copy-text");
+          if (labelSpan) labelSpan.textContent = "Copied!";
 
           setTimeout(() => {
-            copyBtn.classList.remove('is-copied');
-            if (labelSpan) labelSpan.textContent = 'Copy';
+            copyBtn.classList.remove("is-copied");
+            if (labelSpan) labelSpan.textContent = "Copy";
           }, 2200);
         } catch (err) {
-          console.warn('Failed to copy verse:', err);
+          console.warn("Failed to copy verse:", err);
         }
       });
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initQuranCopy);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initQuranCopy);
   } else {
     initQuranCopy();
   }
-  document.addEventListener('astro:page-load', initQuranCopy);
+  document.addEventListener("astro:page-load", initQuranCopy);
 </script>
 
 <style>
@@ -148,7 +233,11 @@ const hasData = Boolean(arabic || english.length);
     border-top: 3px solid var(--hc-gold);
     border-radius: var(--radius-sm);
     background:
-      radial-gradient(circle at 85% 10%, rgba(216, 177, 102, 0.06), transparent 45%),
+      radial-gradient(
+        circle at 85% 10%,
+        rgba(216, 177, 102, 0.06),
+        transparent 45%
+      ),
       linear-gradient(
         140deg,
         color-mix(in srgb, var(--hc-surface-2) 88%, transparent),
@@ -205,7 +294,11 @@ const hasData = Boolean(arabic || english.length);
     text-transform: uppercase;
     cursor: pointer;
     backdrop-filter: blur(8px);
-    transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
+    transition:
+      color 180ms ease,
+      border-color 180ms ease,
+      background 180ms ease,
+      transform 180ms ease;
   }
 
   .quran-verse__copy:hover {
@@ -248,8 +341,41 @@ const hasData = Boolean(arabic || english.length);
     margin-bottom: 1.35rem;
     padding-bottom: 1.35rem;
     border-bottom: 1px solid var(--hc-rule-soft);
-    font-feature-settings: "cv01" on, "calt" on;
+    font-feature-settings:
+      "cv01" on,
+      "calt" on;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Each ayah is its own span so the end-of-verse badge below can be
+     glued to the verse it belongs to and wrap with it as a unit. */
+  .qv-ayah {
+    display: inline;
+  }
+
+  /* End-of-ayah marker, drawn in CSS rather than relying on the
+     Unicode U+06DD glyph (\u06DD), which most web fonts either lack or
+     render as an oversized fallback circle sitting off the baseline --
+     the exact "floating O" look this replaces. A small ring with the
+     verse number in Arabic-Indic numerals matches printed muṣḥaf
+     typesetting and stays correctly sized and aligned in any font. */
+  .qv-ayah-end {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    margin: 0 0.3em;
+    border: 1.5px solid var(--hc-gold-dim);
+    border-radius: 50%;
+    background: rgba(216, 177, 102, 0.08);
+    font-family: var(--font-arabic);
+    font-size: 0.5em;
+    line-height: 1;
+    color: var(--hc-gold);
+    vertical-align: 0.02em;
+    direction: ltr; /* single-digit/short numbers don't need RTL shaping */
   }
 
   .quran-verse__english {
@@ -267,6 +393,25 @@ const hasData = Boolean(arabic || english.length);
     margin: 0 0 0.75rem;
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .qv-verse-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35em;
+    height: 1.35em;
+    margin-right: 0.55em;
+    border: 1.5px solid var(--hc-gold-dim);
+    border-radius: 50%;
+    background: rgba(216, 177, 102, 0.08);
+    font-family: var(--font-ui);
+    font-size: 0.68em;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--hc-gold);
+    vertical-align: 0.05em;
   }
 
   .quran-verse__english .qv-verse:last-child {
@@ -302,8 +447,16 @@ const hasData = Boolean(arabic || english.length);
 
   :global([data-theme="light"]) .quran-verse {
     background:
-      radial-gradient(circle at 85% 10%, rgba(176, 126, 44, 0.08), transparent 45%),
-      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
+      radial-gradient(
+        circle at 85% 10%,
+        rgba(176, 126, 44, 0.08),
+        transparent 45%
+      ),
+      linear-gradient(
+        140deg,
+        rgba(251, 249, 244, 0.98),
+        rgba(244, 239, 229, 0.96)
+      );
     border-color: var(--hc-rule);
     border-top-color: var(--hc-gold);
     box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
@@ -343,10 +496,20 @@ const hasData = Boolean(arabic || english.length);
       line-height: 2.1;
     }
 
+    .qv-ayah-end {
+      margin: 0 0.2em;
+    }
+
     .quran-verse__english {
       padding-left: 0.85rem;
       font-size: 1rem;
       line-height: 1.68;
+    }
+
+    .qv-verse-num {
+      width: 1.2em;
+      height: 1.2em;
+      margin-right: 0.45em;
     }
   }
 </style>
