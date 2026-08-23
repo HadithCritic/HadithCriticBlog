@@ -1,0 +1,267 @@
+---
+// FootnoteSheet.astro - Interactive mobile bottom-sheet & desktop modal for footnote citations
+---
+
+<dialog class="footnote-dialog" id="footnoteDialog" aria-labelledby="footnoteTitle">
+  <div class="footnote-sheet">
+    <div class="footnote-sheet__header">
+      <div class="footnote-sheet__title-wrap">
+        <span class="footnote-sheet__icon" aria-hidden="true">❖</span>
+        <h3 id="footnoteTitle" class="footnote-sheet__title">Citation</h3>
+      </div>
+      <button type="button" class="footnote-sheet__close" id="footnoteClose" aria-label="Close citation">
+        <span aria-hidden="true">✕</span>
+      </button>
+    </div>
+
+    <div class="footnote-sheet__body" id="footnoteContent">
+      <!-- Cloned footnote content injected dynamically -->
+    </div>
+
+    <div class="footnote-sheet__footer">
+      <a href="#footnote-label" class="footnote-sheet__jump" id="footnoteJumpLink">
+        <span>View in full bibliography</span>
+        <span aria-hidden="true">&darr;</span>
+      </a>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  function initFootnotes() {
+    const dialog = document.querySelector<HTMLDialogElement>('#footnoteDialog');
+    const closeBtn = document.querySelector<HTMLButtonElement>('#footnoteClose');
+    const titleEl = document.querySelector<HTMLElement>('#footnoteTitle');
+    const contentEl = document.querySelector<HTMLElement>('#footnoteContent');
+    const jumpLink = document.querySelector<HTMLAnchorElement>('#footnoteJumpLink');
+
+    if (!dialog || !closeBtn || !titleEl || !contentEl) return;
+
+    const closeDialog = () => {
+      if (dialog.open) {
+        dialog.close();
+        document.body.style.overflow = '';
+      }
+    };
+
+    closeBtn.addEventListener('click', closeDialog);
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) closeDialog();
+    });
+
+    if (jumpLink) {
+      jumpLink.addEventListener('click', () => {
+        closeDialog();
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dialog.open) {
+        closeDialog();
+      }
+    });
+
+    // Intercept footnote reference clicks
+    const footnoteLinks = document.querySelectorAll<HTMLAnchorElement>(
+      'sup a[data-footnote-ref], a[data-footnote-ref], sup a[href*="fn"], a[href^="#user-content-fn-"], a[href^="#fn-"], a[href^="#fn"]'
+    );
+
+    footnoteLinks.forEach((link) => {
+      link.addEventListener('click', (e) => {
+        const href = link.getAttribute('href');
+        if (!href || !href.startsWith('#')) return;
+
+        const targetId = href.slice(1);
+        const targetEl = document.getElementById(targetId) || document.getElementById(`user-content-${targetId}`);
+        if (!targetEl) return;
+
+        e.preventDefault();
+
+        // Extract footnote text/html
+        const clone = targetEl.cloneNode(true) as HTMLElement;
+        // Remove backrefs
+        clone.querySelectorAll('[data-footnote-backref], .data-footnote-backref, a[href^="#fnref"]').forEach((el) => el.remove());
+
+        // Extract footnote label/number
+        const refText = link.textContent?.trim() || '';
+        titleEl.textContent = refText ? `Footnote [${refText}]` : 'Citation & Reference';
+
+        if (jumpLink) {
+          jumpLink.setAttribute('href', `#${targetId}`);
+        }
+
+        contentEl.innerHTML = clone.innerHTML;
+
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+          document.body.style.overflow = 'hidden';
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFootnotes);
+  } else {
+    initFootnotes();
+  }
+  document.addEventListener('astro:page-load', initFootnotes);
+</script>
+
+<style>
+  .footnote-dialog {
+    margin: auto auto 0 auto;
+    width: 100%;
+    max-width: 580px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-md, 12px) var(--radius-md, 12px) 0 0;
+    background: var(--hc-surface-1, #141312);
+    box-shadow: 0 -12px 45px rgba(0, 0, 0, 0.6);
+    color: var(--hc-text-primary);
+  }
+
+  .footnote-dialog[open] {
+    animation: footnoteSlideUp 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes footnoteSlideUp {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .footnote-dialog::backdrop {
+    background: rgba(7, 7, 8, 0.7);
+    backdrop-filter: blur(4px);
+  }
+
+  .footnote-sheet {
+    display: flex;
+    flex-direction: column;
+    max-height: 75vh;
+    max-height: 75dvh;
+  }
+
+  .footnote-sheet__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--hc-rule);
+    background: var(--hc-surface-2);
+  }
+
+  .footnote-sheet__title-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--hc-gold);
+  }
+
+  .footnote-sheet__icon {
+    font-size: 0.85rem;
+  }
+
+  .footnote-sheet__title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .footnote-sheet__close {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: var(--radius-xs, 4px);
+    color: var(--hc-text-secondary);
+    font-size: 1.15rem;
+    cursor: pointer;
+    transition: color 180ms ease, background 180ms ease;
+  }
+
+  .footnote-sheet__close:hover,
+  .footnote-sheet__close:focus-visible {
+    color: var(--hc-gold-bright);
+    background: rgba(216, 177, 102, 0.12);
+  }
+
+  .footnote-sheet__body {
+    padding: 1.2rem 1.35rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    font-family: var(--font-body), serif;
+    font-size: 0.98rem;
+    line-height: 1.72;
+    color: var(--hc-text-primary);
+  }
+
+  .footnote-sheet__body :global(p) {
+    margin: 0 0 0.8rem;
+  }
+
+  .footnote-sheet__body :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .footnote-sheet__body :global(a) {
+    color: var(--hc-gold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .footnote-sheet__footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.75rem 1.25rem max(1rem, var(--sab, var(--safe-bottom, 0px)));
+    border-top: 1px solid var(--hc-rule-soft);
+    background: var(--hc-surface-2);
+  }
+
+  .footnote-sheet__jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 180ms ease;
+  }
+
+  .footnote-sheet__jump:hover {
+    color: var(--hc-gold-soft);
+  }
+
+  @media (min-width: 768px) {
+    .footnote-dialog {
+      margin: auto;
+      border-radius: var(--radius-md, 12px);
+      border: 1px solid var(--hc-rule);
+    }
+  }
+
+  :global([data-theme="light"]) .footnote-dialog {
+    background: #fbf9f4;
+  }
+
+  :global([data-theme="light"]) .footnote-sheet__header,
+  :global([data-theme="light"]) .footnote-sheet__footer {
+    background: #f4efdf;
+  }
+</style>
