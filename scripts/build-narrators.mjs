@@ -32,11 +32,51 @@ if (!fs.existsSync(chunksDir)) fs.mkdirSync(chunksDir, { recursive: true });
 
 const CHUNK_SIZE = 1000;
 
-// narrator_id 0, 1 and 2 are placeholder buckets in the source data
-// ("[a narrator whose biography we could not find]", "[ambiguous narrator]").
-// They collect thousands of unrelated surface forms and must never be
-// published as if they were people.
-const FIRST_REAL_ID = 3;
+// Reviewable fixes layered on top of ifta.db. See data/narrator-corrections.json.
+const correctionsPath = path.resolve(rootDir, 'data', 'narrator-corrections.json');
+const corrections = fs.existsSync(correctionsPath)
+  ? JSON.parse(fs.readFileSync(correctionsPath, 'utf8'))
+  : { displayNameEn: {}, placeholderIds: [] };
+
+const nameOverrides = new Map(
+  Object.entries(corrections.displayNameEn || {}).map(([id, entry]) => [
+    Number(id),
+    typeof entry === 'string' ? entry : entry.now
+  ])
+);
+
+// Ids that stand for a class of unnamed transmitters rather than one person.
+// They aggregate many individuals under one id, so they are never published as
+// people, but they are still emitted to placeholders.json: an anonymous link in
+// an isnad is a defect worth surfacing, and hadith display needs a label.
+const placeholderIds = new Set(corrections.placeholderIds || []);
+
+// A qualified anonymous entry ("a man from Banu Damrah", "the wife of Rib'i ibn
+// Hirash") points at a single referent, so it stays in the register but is
+// flagged rather than presented as a named authority.
+// \b is ASCII only in JS and never matches next to Arabic letters, so word ends
+// are written as an explicit space-or-end lookahead.
+const E = '(?=\\s|$)';
+const UNNAMED_PATTERN = new RegExp(
+  [
+    '^\\s*[\\[(]',
+    'لم\\s*(نهتد|نقف|يسم|أقف)',
+    'موضع\\s*إبهام',
+    `^رجل${E}`,
+    `^رجلان${E}`,
+    `^امرأة${E}`,
+    `^نساء${E}`,
+    `^أعرابي${E}`,
+    `^قوم${E}`,
+    `^ناس${E}`,
+    '^رجل\\s',
+    '^امرأة\\s',
+    '^أحد\\s',
+    '^بعض\\s',
+    '^مولى\\s',
+    '^غير\\s*مسمى'
+  ].join('|')
+);
 
 // Ibn Hajar's Taqrib grades are a fixed scale, so the reliability facet is
 // derived from the Arabic head term rather than the free-text translation.
@@ -171,10 +211,9 @@ const narratorRows = db
             travel_place, travel_place_en, death_place, death_place_en,
             birth_date, death_date, death_ah_min, death_ah_max
        FROM narrators
-      WHERE narrator_id >= ?
       ORDER BY narrator_id`
   )
-  .all(FIRST_REAL_ID);
+  .all();
 
 console.log(`[Narrators Build] ${narratorRows.length} narrators loaded.`);
 
@@ -188,7 +227,7 @@ console.log('[Narrators Build] Walking isnad chains...');
 const chainStmt = db.prepare(
   `SELECT main_id, path_idx, pos, narrator_id
      FROM chain
-    WHERE narrator_id >= ?
+    WHERE narrator_id > 0
     ORDER BY main_id, path_idx, pos`
 );
 
@@ -207,7 +246,7 @@ function bump(outer, key, inner) {
 
 let chainRowCount = 0;
 let prev = null;
-for (const row of chainStmt.iterate(FIRST_REAL_ID)) {
+for (const row of chainStmt.iterate()) {
   chainRowCount++;
 
   let set = hadithSets.get(row.narrator_id);
@@ -221,7 +260,11 @@ for (const row of chainStmt.iterate(FIRST_REAL_ID)) {
     prev &&
     prev.main_id === row.main_id &&
     prev.path_idx === row.path_idx &&
-    prev.pos === row.pos - 1
+    prev.pos === row.pos - 1 &&
+    // An edge to "a man" names no teacher, so placeholders are left out of the
+    // transmission network even though their hadith are still counted above.
+    !placeholderIds.has(prev.narrator_id) &&
+    !placeholderIds.has(row.narrator_id)
   ) {
     bump(studentEdges, prev.narrator_id, row.narrator_id);
     bump(teacherEdges, row.narrator_id, prev.narrator_id);
@@ -239,10 +282,10 @@ const aliasRows = db
   .prepare(
     `SELECT narrator_id, surface, COUNT(*) AS n
        FROM mention
-      WHERE narrator_id >= ?
+      WHERE narrator_id > 0
       GROUP BY narrator_id, surface`
   )
-  .all(FIRST_REAL_ID);
+  .all();
 
 const aliasMap = new Map();
 for (const row of aliasRows) {
@@ -262,9 +305,14 @@ for (const list of aliasMap.values()) list.sort((a, b) => b.count - a.count);
 const MAX_RELATIONS = 40;
 const MAX_ALIASES = 25;
 
+function displayNameEnFor(row) {
+  return nameOverrides.get(row.narrator_id) || clean(row.display_name_en);
+}
+
 const nameById = new Map();
 for (const row of narratorRows) {
-  nameById.set(row.narrator_id, clean(row.display_name_en) || clean(row.display_name));
+  if (placeholderIds.has(row.narrator_id)) continue;
+  nameById.set(row.narrator_id, displayNameEnFor(row) || clean(row.display_name));
 }
 
 function relationList(edges, id) {
@@ -285,11 +333,28 @@ const placeCounts = {};
 const flagCounts = {};
 const tabaqaCounts = {};
 
+const placeholders = [];
+
 for (const row of narratorRows) {
   const id = row.narrator_id;
-  const nameEn = clean(row.display_name_en);
+  const nameEn = displayNameEnFor(row);
   const nameAr = clean(row.display_name);
   if (!nameEn && !nameAr) continue;
+
+  if (placeholderIds.has(id)) {
+    placeholders.push({
+      id,
+      nameEn,
+      nameAr,
+      hadithCount: hadithSets.get(id)?.size ?? 0,
+      aliasCount: (aliasMap.get(id) || []).length
+    });
+    continue;
+  }
+
+  // Qualified anonymous entries stay, but are marked so a chain that runs
+  // through one is not read as though it named an authority.
+  const isUnnamed = UNNAMED_PATTERN.test(nameAr);
 
   const rankHajarAr = clean(row.rank_ibn_hajar);
   const rankHajarEn = clean(row.rank_ibn_hajar_en);
@@ -301,6 +366,7 @@ for (const row of narratorRows) {
   const tabaqaNum = tabaqaToNumber(tabaqaAr);
   const generation = tabaqaToGeneration(tabaqaNum);
   const flags = extractFlags(rankHajarAr, rankDhahabiAr, clean(row.madhhab));
+  if (isUnnamed) flags.unshift('Unnamed in Isnad');
 
   const deathAhMin = row.death_ah_min ?? null;
   const deathAhMax = row.death_ah_max ?? null;
@@ -373,6 +439,7 @@ for (const row of narratorRows) {
     madhhab: clean(row.madhhab),
     madhhabEn: clean(row.madhhab_en),
     flags,
+    unnamed: isUnnamed,
     birthPlace: clean(row.birth_place_en) || clean(row.birth_place),
     residence,
     travelPlace: clean(row.travel_place_en) || clean(row.travel_place),
@@ -427,9 +494,22 @@ const topPlaces = Object.entries(placeCounts)
   .slice(0, 15)
   .map(([place, count]) => ({ place, count }));
 
+// Anonymous classes are published separately so hadith display can label them,
+// without letting them into any narrator count.
+fs.writeFileSync(
+  path.resolve(outDir, 'placeholders.json'),
+  JSON.stringify(placeholders, null, 2)
+);
+
 const stats = {
   total: compactIndex.length,
   source: 'ifta.db',
+  corrections: {
+    renamed: nameOverrides.size,
+    placeholdersExcluded: placeholders.length,
+    placeholderHadith: placeholders.reduce((sum, p) => sum + p.hadithCount, 0),
+    unnamedFlagged: compactIndex.filter((n) => n.t.includes('Unnamed in Isnad')).length
+  },
   generations: genCounts,
   grades: gradeCounts,
   tabaqat: tabaqaCounts,
