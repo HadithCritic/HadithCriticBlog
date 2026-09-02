@@ -127,6 +127,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <option value="students-desc">Most Students</option>
               <option value="teachers-desc">Most Teachers</option>
               <option value="hadith-desc">Most Hadith Transmitted</option>
+              <option value="criticism-desc">Most Discussed by Critics</option>
+              <option value="jarh-desc">Most Criticised (Jarh)</option>
             </select>
           </div>
 
@@ -313,6 +315,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
               <div class="dossier-tags" id="modal-flags"></div>
             </section>
 
+            <!-- Jarh and ta'dil apparatus: every statement attributed to the
+                 critic who made it, with the work and page it is cited from. -->
+            <section class="dossier-section" id="modal-criticism-section" style="display: none;">
+              <div class="network-header">
+                <h3 class="dossier-section__title">Jarh &amp; Ta'dil</h3>
+                <div class="criticism-tally" id="modal-criticism-tally"></div>
+              </div>
+              <div class="dossier-tags" id="modal-phenomena"></div>
+              <div class="criticism-list" id="modal-criticism-list"></div>
+            </section>
+
             <!-- Names, kunya, lineage and the surface forms this narrator
                  appears under across the corpus. -->
             <section class="dossier-section" id="modal-names-section">
@@ -433,6 +446,10 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     sc: number;     // Students count
     hc: number;     // Hadith transmitted, counted across the isnad chains
     tb: number | null; // Ibn Hajar tabaqa number, 1 to 12
+    cs: number;     // Criticism statements recorded against this narrator
+    cc: number;     // Distinct critics who spoke about them
+    cj: number;     // Statements read as jarh
+    ct: number;     // Statements read as ta'dil
     t: string[];    // Flags (tadlis, accusations, confusion in later life)
   }
 
@@ -488,6 +505,36 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     aliases: AliasForm[];
     teachers: RelationItem[];
     students: RelationItem[];
+    criticism: CriticismSummary | null;
+  }
+
+  interface CriticismSummary {
+    criticCount: number;
+    statementCount: number;
+    tally: { jarh: number; tadil: number; mixed: number; unclassified: number };
+    phenomena: { label: string; count: number }[];
+    shard: number;
+  }
+
+  interface CriticStatement {
+    text: string;
+    citation: string;
+    pageId: number | null;
+    verdict: 'jarh' | 'tadil' | 'mixed' | 'unclassified';
+  }
+
+  interface CriticGroup {
+    critic: string;
+    statements: CriticStatement[];
+  }
+
+  interface CriticismRecord {
+    id: number;
+    criticCount: number;
+    statementCount: number;
+    tally: { jarh: number; tadil: number; mixed: number; unclassified: number };
+    critics: CriticGroup[];
+    phenomena: { key: string; label: string; statements: CriticStatement[] }[];
   }
 
   let allTransmitters: RawiIndexItem[] = [];
@@ -599,6 +646,90 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  const criticismCache = new Map<number, Record<string, CriticismRecord>>();
+
+  async function fetchCriticism(id: number, shard: number): Promise<CriticismRecord | null> {
+    if (!criticismCache.has(shard)) {
+      try {
+        const res = await fetch(`/data/narrators/criticism/${shard}.json`);
+        if (!res.ok) throw new Error(`Failed to load criticism shard ${shard}`);
+        criticismCache.set(shard, await res.json());
+      } catch (err) {
+        console.error(err);
+        return null;
+      }
+    }
+    return criticismCache.get(shard)?.[id] || null;
+  }
+
+  const VERDICT_LABELS: Record<string, string> = {
+    jarh: 'Jarh',
+    tadil: "Ta'dil",
+    mixed: 'Mixed',
+    unclassified: 'Unclassified'
+  };
+
+  function renderCriticism(record: CriticismRecord | null, summary: CriticismSummary) {
+    const section = document.getElementById('modal-criticism-section')!;
+    const tallyEl = document.getElementById('modal-criticism-tally')!;
+    const phenomenaEl = document.getElementById('modal-phenomena')!;
+    const listEl = document.getElementById('modal-criticism-list')!;
+    section.style.display = 'block';
+
+    const t = summary.tally;
+    tallyEl.innerHTML = (['jarh', 'tadil', 'mixed', 'unclassified'] as const)
+      .filter((k) => t[k] > 0)
+      .map(
+        (k) =>
+          `<span class="tally-pill tally-pill--${k}">${VERDICT_LABELS[k]} ${t[k]}</span>`
+      )
+      .join('');
+
+    phenomenaEl.innerHTML = (summary.phenomena || [])
+      .map(
+        (p) =>
+          `<span class="canonical-tag">${escapeHtml(p.label)} <span class="alias-chip__count">${p.count}</span></span>`
+      )
+      .join('');
+
+    if (!record) {
+      listEl.innerHTML =
+        '<p class="alias-lead">Could not load the statements for this narrator.</p>';
+      return;
+    }
+
+    // Critics who said more are shown first. Every statement keeps the wording
+    // and the citation it was recorded with.
+    const groups = [...record.critics].sort(
+      (a, b) => b.statements.length - a.statements.length
+    );
+
+    listEl.innerHTML = groups
+      .map((g) => {
+        const statements = g.statements
+          .map(
+            (s) => `
+              <li class="statement statement--${s.verdict}">
+                <p class="statement__text" dir="rtl" lang="ar">${escapeHtml(s.text)}</p>
+                <div class="statement__meta">
+                  <span class="statement__verdict">${VERDICT_LABELS[s.verdict]}</span>
+                  ${s.citation ? `<cite class="statement__cite" dir="rtl" lang="ar">${escapeHtml(s.citation)}</cite>` : ''}
+                </div>
+              </li>`
+          )
+          .join('');
+        return `
+          <details class="critic-group">
+            <summary class="critic-group__head">
+              <span class="critic-group__name" dir="rtl" lang="ar">${escapeHtml(g.critic)}</span>
+              <span class="critic-group__count">${g.statements.length}</span>
+            </summary>
+            <ul class="statement-list">${statements}</ul>
+          </details>`;
+      })
+      .join('');
   }
 
   // The build step pre-splits the journey into one list per script, because only
@@ -718,6 +849,8 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       if (sort === 'students-desc') return b.sc - a.sc;
       if (sort === 'teachers-desc') return b.tc - a.tc;
       if (sort === 'hadith-desc') return b.hc - a.hc;
+      if (sort === 'criticism-desc') return b.cs - a.cs;
+      if (sort === 'jarh-desc') return b.cj - a.cj;
       return a.i - b.i;
     });
 
@@ -1460,6 +1593,23 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
     document.getElementById('modal-names-section')!.style.display =
       nameRows.length > 0 || (detail.aliases && detail.aliases.length > 0) ? 'block' : 'none';
+
+    // The statements are large, so the shard is fetched only once a dossier is
+    // actually opened. The summary renders immediately from the detail record.
+    const criticismSection = document.getElementById('modal-criticism-section')!;
+    if (detail.criticism) {
+      renderCriticism(null, detail.criticism);
+      document.getElementById('modal-criticism-list')!.innerHTML =
+        '<p class="alias-lead">Loading statements...</p>';
+      const requestedId = detail.id;
+      fetchCriticism(detail.id, detail.criticism.shard).then((record) => {
+        // Guard against a slower fetch landing after the reader moved on.
+        if (activeDossierId !== requestedId) return;
+        renderCriticism(record, detail.criticism!);
+      });
+    } else {
+      criticismSection.style.display = 'none';
+    }
 
     modalTeachersCount.textContent = (detail.teachers?.length || 0).toString();
     modalStudentsCount.textContent = (detail.students?.length || 0).toString();
@@ -3312,6 +3462,125 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     line-height: 1.9;
     color: var(--hc-gold);
     direction: rtl;
+  }
+
+  .criticism-tally {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .tally-pill {
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-secondary);
+  }
+
+  .tally-pill--jarh {
+    border-color: color-mix(in oklch, var(--hc-danger, #b4472e) 45%, transparent);
+    color: var(--hc-danger, #c2593c);
+  }
+
+  .tally-pill--tadil {
+    border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent);
+    color: var(--hc-gold);
+  }
+
+  .criticism-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
+  }
+
+  .critic-group {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+  }
+
+  .critic-group__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .critic-group__head::-webkit-details-marker {
+    display: none;
+  }
+
+  .critic-group__name {
+    font-family: var(--font-arabic);
+    font-size: 1rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .critic-group__count {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .statement-list {
+    margin: 0;
+    padding: 0 0.75rem 0.7rem;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .statement {
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .statement__text {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1rem;
+    line-height: 1.95;
+    color: var(--hc-text-secondary);
+  }
+
+  .statement__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+  }
+
+  .statement__verdict {
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .statement--jarh .statement__verdict {
+    color: var(--hc-danger, #c2593c);
+  }
+
+  .statement--tadil .statement__verdict {
+    color: var(--hc-gold);
+  }
+
+  .statement__cite {
+    font-family: var(--font-arabic);
+    font-size: 0.82rem;
+    font-style: normal;
+    color: var(--hc-text-tertiary);
   }
 
   .dossier-aliases {

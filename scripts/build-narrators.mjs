@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
+import { asyncBufferFromFile, parquetReadObjects } from 'hyparquet';
+import { compressors } from 'hyparquet-compressors';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,9 +28,27 @@ if (!dbPath) {
   process.exit(1);
 }
 
+// Criticism layer: the Shamela rijal export. It shares ifta.db's narrator_id
+// space (same-id name agreement averages 0.81 Jaccard against 0.11 for a
+// shuffled control), so it joins on id behind a name-agreement gate.
+const CRITICISM_CANDIDATES = [
+  process.env.NARRATOR_CRITICISM_PARQUET,
+  path.resolve('C:', 'Users', 'Jonathan', 'Desktop', 'db', '_meta', 'narrators.parquet'),
+  path.resolve(rootDir, '..', 'db', '_meta', 'narrators.parquet'),
+  path.resolve(rootDir, 'data', 'narrators.parquet')
+].filter(Boolean);
+
+const criticismPath = CRITICISM_CANDIDATES.find((p) => fs.existsSync(p));
+
 const outDir = path.resolve(rootDir, 'public', 'data', 'narrators');
 const chunksDir = path.resolve(outDir, 'chunks');
+const criticismDir = path.resolve(outDir, 'criticism');
 if (!fs.existsSync(chunksDir)) fs.mkdirSync(chunksDir, { recursive: true });
+if (!fs.existsSync(criticismDir)) fs.mkdirSync(criticismDir, { recursive: true });
+
+// Shards of this size keep a dossier fetch near 120 KB without putting 15,000
+// loose files in the repository.
+const CRITICISM_SHARD = 50;
 
 const CHUNK_SIZE = 1000;
 
@@ -189,6 +209,111 @@ function splitPlaces(...fields) {
   return [...new Set(parts)];
 }
 
+// ------------------------------------------------- criticism classification
+
+// Polarity of a single jarh/ta'dil statement. Deliberately conservative: a
+// statement is only labelled when an unambiguous formula is present, and the
+// rest stay unclassified rather than being guessed at. Roughly 43 percent are
+// narrative notes with no verdict formula and land in that bucket.
+const AT_END = '(?=\\s|$|[.,،:؛])';
+
+// Negations that are actually praise. "ليس به بأس" is a standard ta'dil formula,
+// so it has to be taken out before the generic negation rule sees it.
+const NEG_IS_PRAISE = /ليس[ت]?\s+ب[هها]\s+بأس|ليس\s+بالمتروك|ليس\s+بمتروك/g;
+
+// A praise word inside a negation is jarh, not praise, so these are stripped
+// before the ta'dil vocabulary runs. Otherwise "ليس بثقة" reads as trustworthy.
+const NEG_OF_PRAISE =
+  /ليس[ت]?\s+ب(ال)?(ثقة|حجة|قوي|القوي|ذاك|شيء|متقن|مأمون|صدوق|ثبت)|غير\s+ثقة|لم\s+يكن\s+ثقة|لا\s+يحتج|لا\s+يكتب\s+حديثه|لا\s+يساوي/g;
+
+const JARH_TERMS =
+  /ضعيف|ضعفه|متروك|تركوه|تركه|كذاب|يكذب|وضاع|يضع\s+الحديث|منكر\s+الحديث|مناكير|مجهول|لين\s+الحديث|واه|سيئ\s+الحفظ|سكتوا\s+عنه|فيه\s+نظر|يسرق\s+الحديث|اتهم|متهم|يهم|أوهام|مضطرب|ذاهب\s+الحديث|رديء/;
+
+const TADIL_TERMS = new RegExp(
+  `ثقة|ثقات|صدوق|حجة|ثبت|مأمون|وثق${AT_END}|وثقه|وثقوه|لا\\s+بأس\\s+به|ما\\s+به\\s+بأس|متقن|صالح\\s+الحديث|مستقيم\\s+الحديث`
+);
+
+function classifyStatement(text) {
+  if (!text) return 'unclassified';
+  let rest = text;
+  let praise = false;
+  let blame = false;
+
+  if (NEG_IS_PRAISE.test(rest)) {
+    praise = true;
+    rest = rest.replace(NEG_IS_PRAISE, ' ');
+  }
+  NEG_IS_PRAISE.lastIndex = 0;
+
+  if (NEG_OF_PRAISE.test(rest)) {
+    blame = true;
+    rest = rest.replace(NEG_OF_PRAISE, ' ');
+  }
+  NEG_OF_PRAISE.lastIndex = 0;
+
+  if (JARH_TERMS.test(rest)) blame = true;
+  if (TADIL_TERMS.test(rest)) praise = true;
+
+  if (blame && praise) return 'mixed';
+  if (blame) return 'jarh';
+  if (praise) return 'tadil';
+  return 'unclassified';
+}
+
+// The fwaed layer is keyed by phenomenon rather than by critic. Tadlis, irsal
+// and idrak decide whether a chain is even possible, so they surface as flags.
+const PHENOMENON_LABELS = new Map([
+  ['الإرسال', 'Irsal (Mursal Transmission)'],
+  ['التدليس', 'Tadlis'],
+  ['الاختلاط', 'Ikhtilat (Confusion in Later Life)'],
+  ['الإدراك', 'Idrak (Contemporaneity)'],
+  ['إثبات سماع الراوي', 'Audition Established'],
+  ['الاختلاف في سماع الراوي', 'Audition Disputed'],
+  ['التوثيق الضمني', 'Implicit Authentication'],
+  ['التضعيف الضمني', 'Implicit Weakening'],
+  ['التوثيق الاستثنائي', 'Exceptional Authentication'],
+  ['التضعيف الاستثنائي', 'Exceptional Weakening'],
+  ['المفاضلة بين الرواة', 'Comparative Ranking'],
+  ['المفاضلة بين الرواة في راو', 'Comparative Ranking (Shared Teacher)'],
+  ['المفاضلة بين الرواة في بلد', 'Comparative Ranking (Regional)']
+]);
+
+// Phenomena that describe a defect in the chain, promoted onto the index so the
+// explorer can filter for them.
+const PHENOMENON_FLAGS = new Map([
+  // Same label as the rank-derived flag, so the two sources merge into one
+  // count instead of showing Tadlis and Mudallis as separate things.
+  ['التدليس', 'Mudallis'],
+  ['الاختلاط', 'Confused in Later Life'],
+  ['الإرسال', 'Sends Mursal Reports'],
+  ['الاختلاف في سماع الراوي', 'Audition Disputed']
+]);
+
+function nameTokens(...values) {
+  const joined = values.filter(Boolean).join(' ');
+  const normalised = joined
+    .replace(/[ً-ْٰـ‌-‏]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[^ء-ي ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return new Set(normalised.split(' ').filter((t) => t && t !== 'بن' && t !== 'ابن'));
+}
+
+// Containment, not Jaccard. The id already asserts the link, so this gate only
+// has to catch the cases where the two sources name different people. Jaccard
+// punishes a name that is merely shorter on one side, and the sources routinely
+// differ that way ("حرب بن قيس" against "حرب بن قيس المدني مولى يحيى بن طلحة"),
+// which threw out several hundred correct matches including identical names.
+function containment(a, b) {
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  for (const t of a) if (b.has(t)) shared++;
+  return shared / Math.min(a.size, b.size);
+}
+
 function clean(value) {
   if (value === null || value === undefined) return '';
   const s = String(value).trim();
@@ -300,6 +425,103 @@ for (const row of aliasRows) {
 }
 for (const list of aliasMap.values()) list.sort((a, b) => b.count - a.count);
 
+// ---------------------------------------------------------- criticism merge
+
+// Minimum name containment between the two sources for the same id. At 0.5,
+// 9 of 18,926 shared ids are rejected, and each of those is a genuine
+// disagreement about who the person is rather than a difference in how fully
+// the name is written out.
+const NAME_GATE = 0.5;
+
+const criticismById = new Map();
+let criticismRejected = 0;
+let criticismStatements = 0;
+
+if (!criticismPath) {
+  console.warn('[Narrators Build] narrators.parquet not found, skipping criticism layer.');
+  for (const p of CRITICISM_CANDIDATES) console.warn(`  looked in ${p}`);
+} else {
+  console.log(`[Narrators Build] Merging criticism from ${criticismPath}`);
+  const buffer = await asyncBufferFromFile(criticismPath);
+  const critRows = await parquetReadObjects({ file: buffer, compressors });
+
+  const iftaNames = new Map();
+  for (const row of narratorRows) {
+    iftaNames.set(row.narrator_id, nameTokens(row.display_name, row.full_name));
+  }
+
+  for (const row of critRows) {
+    const id = Number(row.id);
+    if (placeholderIds.has(id)) continue;
+    const target = iftaNames.get(id);
+    if (!target) continue;
+
+    // Guard the id join: an id that carries a different person's name in the
+    // two sources must not have someone else's criticism attached to it.
+    if (containment(target, nameTokens(row.short_name, row.long_name)) < NAME_GATE) {
+      criticismRejected++;
+      continue;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(row.criticism_text || '{}');
+    } catch {
+      continue;
+    }
+
+    const critics = [];
+    for (const [critic, quotes] of parsed.garh || []) {
+      const statements = (quotes || []).map(([text, citation, pageId]) => ({
+        text: clean(text),
+        citation: clean(citation),
+        pageId: pageId ?? null,
+        verdict: classifyStatement(text || '')
+      }));
+      if (statements.length > 0) critics.push({ critic: clean(critic), statements });
+    }
+
+    const phenomena = [];
+    for (const [key, quotes] of parsed.fwaed || []) {
+      const statements = (quotes || []).map(([text, citation, pageId]) => ({
+        text: clean(text),
+        citation: clean(citation),
+        pageId: pageId ?? null
+      }));
+      if (statements.length === 0) continue;
+      phenomena.push({
+        key: clean(key),
+        label: PHENOMENON_LABELS.get(clean(key)) || clean(key),
+        statements
+      });
+    }
+
+    const tally = { jarh: 0, tadil: 0, mixed: 0, unclassified: 0 };
+    for (const c of critics) for (const s of c.statements) tally[s.verdict]++;
+    const total = critics.reduce((n, c) => n + c.statements.length, 0);
+    criticismStatements += total;
+
+    if (total === 0 && phenomena.length === 0) continue;
+
+    criticismById.set(id, {
+      id,
+      criticCount: critics.length,
+      statementCount: total,
+      tally,
+      critics,
+      phenomena,
+      flags: [
+        ...new Set(
+          phenomena.map((p) => PHENOMENON_FLAGS.get(p.key)).filter(Boolean)
+        )
+      ]
+    });
+  }
+  console.log(
+    `[Narrators Build] criticism matched ${criticismById.size} narrators, ${criticismStatements.toLocaleString()} statements, ${criticismRejected} rejected by the name gate.`
+  );
+}
+
 // ------------------------------------------------------------------- build
 
 const MAX_RELATIONS = 40;
@@ -365,7 +587,12 @@ for (const row of narratorRows) {
   const tabaqaAr = clean(row.tabaqa);
   const tabaqaNum = tabaqaToNumber(tabaqaAr);
   const generation = tabaqaToGeneration(tabaqaNum);
+  const criticism = criticismById.get(id) || null;
+
   const flags = extractFlags(rankHajarAr, rankDhahabiAr, clean(row.madhhab));
+  // Phenomena evidenced by an actual cited statement outrank a keyword read off
+  // the grade string, so they are merged in rather than duplicated.
+  for (const f of criticism?.flags || []) if (!flags.includes(f)) flags.push(f);
   if (isUnnamed) flags.unshift('Unnamed in Isnad');
 
   const deathAhMin = row.death_ah_min ?? null;
@@ -415,6 +642,10 @@ for (const row of narratorRows) {
     sc: students.length,
     hc: hadithCount,
     tb: tabaqaNum,
+    cs: criticism?.statementCount ?? 0,
+    cc: criticism?.criticCount ?? 0,
+    cj: criticism?.tally.jarh ?? 0,
+    ct: criticism?.tally.tadil ?? 0,
     t: flags.slice(0, 3)
   });
 
@@ -458,7 +689,21 @@ for (const row of narratorRows) {
     aliasCount: (aliasMap.get(id) || []).length,
     aliases,
     teachers,
-    students
+    students,
+    // Summary only. The statements themselves live in the criticism shards,
+    // which are fetched when a dossier is opened.
+    criticism: criticism
+      ? {
+          criticCount: criticism.criticCount,
+          statementCount: criticism.statementCount,
+          tally: criticism.tally,
+          phenomena: criticism.phenomena.map((p) => ({
+            label: p.label,
+            count: p.statements.length
+          })),
+          shard: Math.floor(id / CRITICISM_SHARD)
+        }
+      : null
   };
 }
 
@@ -494,6 +739,21 @@ const topPlaces = Object.entries(placeCounts)
   .slice(0, 15)
   .map(([place, count]) => ({ place, count }));
 
+// Criticism shards, fetched on demand when a dossier opens.
+for (const stale of fs.readdirSync(criticismDir)) {
+  if (stale.endsWith('.json')) fs.unlinkSync(path.resolve(criticismDir, stale));
+}
+const shards = new Map();
+for (const [id, entry] of criticismById) {
+  const shard = Math.floor(id / CRITICISM_SHARD);
+  if (!shards.has(shard)) shards.set(shard, {});
+  shards.get(shard)[id] = entry;
+}
+for (const [shard, payload] of shards) {
+  fs.writeFileSync(path.resolve(criticismDir, `${shard}.json`), JSON.stringify(payload));
+}
+console.log(`[Narrators Build] Wrote ${shards.size} criticism shards.`);
+
 // Anonymous classes are published separately so hadith display can label them,
 // without letting them into any narrator count.
 fs.writeFileSync(
@@ -515,6 +775,19 @@ const stats = {
   tabaqat: tabaqaCounts,
   flags: flagCounts,
   topPlaces,
+  criticism: {
+    narratorsWithCriticism: criticismById.size,
+    statements: criticismStatements,
+    rejectedByNameGate: criticismRejected,
+    nameGate: NAME_GATE,
+    verdicts: [...criticismById.values()].reduce(
+      (acc, c) => {
+        for (const k of Object.keys(acc)) acc[k] += c.tally[k];
+        return acc;
+      },
+      { jarh: 0, tadil: 0, mixed: 0, unclassified: 0 }
+    )
+  },
   withVerdict: compactIndex.filter((n) => n.r !== 'Unrated').length,
   withDatedDeath: compactIndex.filter((n) => n.dh).length,
   inIsnadChains: compactIndex.filter((n) => n.hc > 0).length
