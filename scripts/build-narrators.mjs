@@ -356,9 +356,30 @@ const chainStmt = db.prepare(
     ORDER BY main_id, path_idx, pos`
 );
 
+// Which collection each hadith belongs to, so the same pass can answer "where
+// in the corpus does this narrator actually appear". Joining chain to hadith in
+// SQL instead costs about 45 seconds; this map costs a few hundred milliseconds.
+const bookTitles = new Map();
+for (const b of db.prepare('SELECT book_id, title, title_en FROM books').all()) {
+  bookTitles.set(b.book_id, clean(b.title_en) || clean(b.title));
+}
+const bookOfHadith = new Map();
+const numberOfHadith = new Map();
+for (const h of db.prepare('SELECT main_id, book_id, hadith_num FROM hadith').all()) {
+  bookOfHadith.set(h.main_id, h.book_id);
+  numberOfHadith.set(h.main_id, clean(h.hadith_num));
+}
+
 const studentEdges = new Map(); // teacherId -> Map<studentId, count>
 const teacherEdges = new Map(); // studentId -> Map<teacherId, count>
 const hadithSets = new Map(); // narratorId -> Set<main_id>
+const bookCounts = new Map(); // narratorId -> Map<bookId, Set<main_id>>
+const positionCounts = new Map(); // narratorId -> Map<pos, count>
+const sampleChains = new Map(); // narratorId -> up to SAMPLE_CHAINS paths
+
+// Enough to show how a narrator actually sits in a chain without inflating the
+// payload. Paths are stored as ids and resolved against the index in the client.
+const SAMPLE_CHAINS = 3;
 
 function bump(outer, key, inner) {
   let m = outer.get(key);
@@ -369,8 +390,28 @@ function bump(outer, key, inner) {
   m.set(inner, (m.get(inner) || 0) + 1);
 }
 
+// Flush one completed transmission path: record a sample of it for each
+// narrator on it that does not have enough samples yet.
+function recordPath(mainId, path) {
+  if (path.length < 2) return;
+  const bookId = bookOfHadith.get(mainId);
+  for (const id of path) {
+    if (placeholderIds.has(id)) continue;
+    const held = sampleChains.get(id);
+    if (held && held.length >= SAMPLE_CHAINS) continue;
+    const entry = {
+      book: bookTitles.get(bookId) || '',
+      number: numberOfHadith.get(mainId) || '',
+      path: [...path]
+    };
+    if (held) held.push(entry);
+    else sampleChains.set(id, [entry]);
+  }
+}
+
 let chainRowCount = 0;
 let prev = null;
+let currentPath = [];
 for (const row of chainStmt.iterate()) {
   chainRowCount++;
 
@@ -381,10 +422,33 @@ for (const row of chainStmt.iterate()) {
   }
   set.add(row.main_id);
 
+  const bookId = bookOfHadith.get(row.main_id);
+  if (bookId !== undefined) {
+    let byBook = bookCounts.get(row.narrator_id);
+    if (!byBook) {
+      byBook = new Map();
+      bookCounts.set(row.narrator_id, byBook);
+    }
+    let seen = byBook.get(bookId);
+    if (!seen) {
+      seen = new Set();
+      byBook.set(bookId, seen);
+    }
+    seen.add(row.main_id);
+  }
+
+  bump(positionCounts, row.narrator_id, Math.min(row.pos, 12));
+
+  const samePath =
+    prev && prev.main_id === row.main_id && prev.path_idx === row.path_idx;
+  if (!samePath) {
+    if (prev) recordPath(prev.main_id, currentPath);
+    currentPath = [];
+  }
+  currentPath.push(row.narrator_id);
+
   if (
-    prev &&
-    prev.main_id === row.main_id &&
-    prev.path_idx === row.path_idx &&
+    samePath &&
     prev.pos === row.pos - 1 &&
     // An edge to "a man" names no teacher, so placeholders are left out of the
     // transmission network even though their hadith are still counted above.
@@ -396,6 +460,7 @@ for (const row of chainStmt.iterate()) {
   }
   prev = row;
 }
+if (prev) recordPath(prev.main_id, currentPath);
 console.log(`[Narrators Build] ${chainRowCount.toLocaleString()} chain positions walked.`);
 
 // ----------------------------------------------------------------- aliases
@@ -618,6 +683,17 @@ for (const row of narratorRows) {
 
   const teachers = relationList(teacherEdges, id);
   const students = relationList(studentEdges, id);
+
+  // Where in the corpus this narrator actually appears, and where in a chain
+  // they tend to sit. Position 0 is the Companion end.
+  const books = [...(bookCounts.get(id) || new Map())]
+    .map(([bookId, seen]) => ({ book: bookTitles.get(bookId) || '', count: seen.size }))
+    .filter((b) => b.book)
+    .sort((a, b) => b.count - a.count);
+
+  const positions = [...(positionCounts.get(id) || new Map())]
+    .sort((a, b) => a[0] - b[0])
+    .map(([pos, count]) => ({ pos, count }));
   const aliases = (aliasMap.get(id) || []).slice(0, MAX_ALIASES);
   const hadithCount = hadithSets.get(id)?.size ?? 0;
 
@@ -690,6 +766,9 @@ for (const row of narratorRows) {
     aliases,
     teachers,
     students,
+    books,
+    positions,
+    sampleChains: sampleChains.get(id) || [],
     // Summary only. The statements themselves live in the criticism shards,
     // which are fetched when a dossier is opened.
     criticism: criticism
@@ -710,6 +789,53 @@ for (const row of narratorRows) {
 console.log(`[Narrators Build] Assembled ${compactIndex.length} dossiers.`);
 
 // ------------------------------------------------------------------ output
+
+// Cloudflare Workers static assets cap a deployment at 20,000 files. The
+// register holds 20,950 narrators, and the rest of the site plus the Pagefind
+// index take several thousand more, so a static page for every narrator does
+// not fit. Pages go to the narrators research actually reaches for: those with
+// recorded criticism first, ordered by how much was said about them, then the
+// prolific transmitters. The explorer covers all of them client side either way.
+const PAGE_BUDGET = Number(process.env.NARRATOR_PAGE_LIMIT || 12000);
+
+// Two rankings, taken in turn. Ranking on criticism alone drops the prolific
+// transmitters who were never argued about, which cut compilers held in this
+// very corpus: Abu Ya'la al-Mawsili, 11,184 hadith, and al-Diya' al-Maqdisi,
+// 4,944, both fell outside the budget behind narrators with two statements
+// against them. Alternating guarantees the top of both lists gets a page.
+const byCriticism = compactIndex
+  .filter((n) => n.cs > 0)
+  .sort((a, b) => b.cs - a.cs || b.hc - a.hc || a.i - b.i);
+const byVolume = compactIndex
+  .filter((n) => n.hc > 0)
+  .sort((a, b) => b.hc - a.hc || b.cs - a.cs || a.i - b.i);
+
+const prerenderIds = [];
+const chosen = new Set();
+for (let i = 0; prerenderIds.length < PAGE_BUDGET; i++) {
+  if (i >= byCriticism.length && i >= byVolume.length) break;
+  for (const list of [byCriticism, byVolume]) {
+    const candidate = list[i];
+    if (!candidate || chosen.has(candidate.i)) continue;
+    chosen.add(candidate.i);
+    prerenderIds.push(candidate.i);
+    if (prerenderIds.length >= PAGE_BUDGET) break;
+  }
+}
+
+const prerenderSet = chosen;
+for (const item of compactIndex) {
+  // Lets the explorer link to a dossier page only where one was generated.
+  if (prerenderSet.has(item.i)) item.p = 1;
+}
+
+fs.writeFileSync(
+  path.resolve(outDir, 'prerendered.json'),
+  JSON.stringify(prerenderIds)
+);
+console.log(
+  `[Narrators Build] ${prerenderIds.length.toLocaleString()} narrators marked for a static page.`
+);
 
 const indexFile = path.resolve(outDir, 'index.json');
 fs.writeFileSync(indexFile, JSON.stringify(compactIndex));
@@ -743,8 +869,15 @@ const topPlaces = Object.entries(placeCounts)
 for (const stale of fs.readdirSync(criticismDir)) {
   if (stale.endsWith('.json')) fs.unlinkSync(path.resolve(criticismDir, stale));
 }
+// Narrators with a static page carry their statements in that page's HTML,
+// which is also what makes the criticism searchable. Shipping the shard for
+// them as well would deploy the same 54 MB twice, so shards are emitted only
+// for the narrators the explorer cannot hand off to a page.
 const shards = new Map();
+let shardedNarrators = 0;
 for (const [id, entry] of criticismById) {
+  if (prerenderSet.has(id)) continue;
+  shardedNarrators++;
   const shard = Math.floor(id / CRITICISM_SHARD);
   if (!shards.has(shard)) shards.set(shard, {});
   shards.get(shard)[id] = entry;
@@ -752,7 +885,9 @@ for (const [id, entry] of criticismById) {
 for (const [shard, payload] of shards) {
   fs.writeFileSync(path.resolve(criticismDir, `${shard}.json`), JSON.stringify(payload));
 }
-console.log(`[Narrators Build] Wrote ${shards.size} criticism shards.`);
+console.log(
+  `[Narrators Build] Wrote ${shards.size} criticism shards covering ${shardedNarrators.toLocaleString()} narrators without a page.`
+);
 
 // Anonymous classes are published separately so hadith display can label them,
 // without letting them into any narrator count.

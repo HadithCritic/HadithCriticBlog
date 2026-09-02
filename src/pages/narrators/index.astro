@@ -250,6 +250,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div class="dossier-header__top">
             <span class="dossier-id-badge" id="modal-id">#0</span>
             <div class="dossier-header__actions">
+              <a id="modal-full-link" class="dossier-btn-text dossier-btn-text--primary" href="/narrators" title="Open the full dossier page">
+                Full dossier &rarr;
+              </a>
               <button id="modal-compare-toggle-btn" class="dossier-btn-text" title="Add to comparison workspace">
                 + Compare
               </button>
@@ -446,6 +449,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     sc: number;     // Students count
     hc: number;     // Hadith transmitted, counted across the isnad chains
     tb: number | null; // Ibn Hajar tabaqa number, 1 to 12
+    p?: 1;          // Present when a static dossier page was generated for them
     cs: number;     // Criticism statements recorded against this narrator
     cc: number;     // Distinct critics who spoke about them
     cj: number;     // Statements read as jarh
@@ -1491,6 +1495,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
     switchNetworkTab('teachers');
 
+    // A static page exists only for the narrators the build prerendered, so the
+    // link is hidden rather than pointing at a 404.
+    const fullLink = document.getElementById('modal-full-link') as HTMLAnchorElement | null;
+    const hasPage = Boolean(allTransmitters.find((t) => t.i === id)?.p);
+    if (fullLink) {
+      if (hasPage) {
+        fullLink.href = `/narrators/${id}`;
+        fullLink.style.display = '';
+      } else {
+        fullLink.style.display = 'none';
+      }
+    }
+
     const detail = await fetchTransmitterDetail(id);
     if (!detail) {
       modalLoading.innerHTML = '<p class="error-msg">Could not load details for this transmitter.</p>';
@@ -1599,14 +1616,20 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     const criticismSection = document.getElementById('modal-criticism-section')!;
     if (detail.criticism) {
       renderCriticism(null, detail.criticism);
-      document.getElementById('modal-criticism-list')!.innerHTML =
-        '<p class="alias-lead">Loading statements...</p>';
-      const requestedId = detail.id;
-      fetchCriticism(detail.id, detail.criticism.shard).then((record) => {
-        // Guard against a slower fetch landing after the reader moved on.
-        if (activeDossierId !== requestedId) return;
-        renderCriticism(record, detail.criticism!);
-      });
+      const listEl = document.getElementById('modal-criticism-list')!;
+      if (hasPage) {
+        // The statements live in that narrator's dossier page, which is where
+        // they are also indexed for search, so they are not shipped twice.
+        listEl.innerHTML = `<p class="alias-lead">Read all ${detail.criticism.statementCount.toLocaleString()} statements on the <a href="/narrators/${detail.id}">full dossier</a>.</p>`;
+      } else {
+        listEl.innerHTML = '<p class="alias-lead">Loading statements...</p>';
+        const requestedId = detail.id;
+        fetchCriticism(detail.id, detail.criticism.shard).then((record) => {
+          // Guard against a slower fetch landing after the reader moved on.
+          if (activeDossierId !== requestedId) return;
+          renderCriticism(record, detail.criticism!);
+        });
+      }
     } else {
       criticismSection.style.display = 'none';
     }
@@ -1684,7 +1707,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
     const deathPart = item.dh ? `d. ${item.dh} AH / ${item.dg} CE` : 'n.d.';
     const placePart = item.dp ? `, ${item.dp}` : '';
-    const cite = `HadithCritic Rijāl Register, s.v. "${item.e}" (Ar. ${item.a || item.e}, ${deathPart}${placePart}), Scholar Index #${item.i}, accessed ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}, https://hadithcriticblog.com/narrators?id=${item.i}.`;
+    const cite = `HadithCritic Rijāl Register, s.v. "${item.e}" (Ar. ${item.a || item.e}, ${deathPart}${placePart}), Scholar Index #${item.i}, accessed ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}, https://hadithcriticblog.com/narrators/${item.i}.`;
 
     citationText.textContent = cite;
     citationModal.classList.add('is-open');
@@ -3462,6 +3485,11 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     line-height: 1.9;
     color: var(--hc-gold);
     direction: rtl;
+  }
+
+  .dossier-btn-text--primary {
+    color: var(--hc-gold);
+    text-decoration: none;
   }
 
   .criticism-tally {

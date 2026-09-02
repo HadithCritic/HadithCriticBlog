@@ -1,0 +1,722 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+// Astro evaluates getStaticPaths in an isolated scope, so everything it needs
+// is declared inside it rather than shared with the rest of the frontmatter.
+export async function getStaticPaths() {
+  const dataDir = path.resolve(process.cwd(), 'public', 'data', 'narrators');
+
+  // Read the generated dossiers once per build rather than once per page.
+  const readAll = (dir: string): Record<string, any> => {
+    const merged: Record<string, any> = {};
+    const full = path.join(dataDir, dir);
+    if (!fs.existsSync(full)) return merged;
+    for (const file of fs.readdirSync(full)) {
+      if (!file.endsWith('.json')) continue;
+      Object.assign(merged, JSON.parse(fs.readFileSync(path.join(full, file), 'utf8')));
+    }
+    return merged;
+  };
+
+  const details = readAll('chunks');
+  const criticism = readAll('criticism');
+
+  // Which narrators get a page is decided in scripts/build-narrators.mjs, which
+  // also marks them in index.json so the explorer only links where a page
+  // exists. Cloudflare Workers static assets cap a deployment at 20,000 files
+  // and the register holds more narrators than that once the rest of the site
+  // and the Pagefind index are counted.
+  const listPath = path.join(dataDir, 'prerendered.json');
+  const ids = fs.existsSync(listPath)
+    ? JSON.parse(fs.readFileSync(listPath, 'utf8')).map(String)
+    : Object.keys(details);
+
+  const hasPage = new Set(ids);
+
+  return ids.map((id: string) => {
+    const detail = details[id];
+
+    // Sample chains are stored as ids to keep the dossier payload small. A
+    // static page has no client side index to resolve them against, so the
+    // names each page needs are resolved here and passed with it.
+    const chainNames: Record<string, string> = {};
+    for (const chain of detail.sampleChains || []) {
+      for (const nid of chain.path) {
+        const other = details[String(nid)];
+        if (other) chainNames[nid] = other.nameEn || other.nameAr;
+      }
+    }
+
+    // Only the ids this page actually links to, so no page carries the whole
+    // 12,000-entry set just to decide whether a link is safe.
+    const referenced = [
+      ...(detail.sampleChains || []).flatMap((c: { path: number[] }) => c.path),
+      ...(detail.teachers || []).map((t: { id: number }) => t.id),
+      ...(detail.students || []).map((t: { id: number }) => t.id)
+    ];
+    const linkable = referenced.filter((nid: number) => hasPage.has(String(nid)));
+
+    return {
+      params: { id },
+      props: {
+        detail,
+        criticism: criticism[id] || null,
+        chainNames,
+        linkable: [...new Set(linkable)]
+      }
+    };
+  });
+}
+
+type Verdict = 'jarh' | 'tadil' | 'mixed' | 'unclassified';
+
+interface Relation {
+  id: number;
+  name: string;
+  count: number;
+}
+
+interface Statement {
+  text: string;
+  citation: string;
+  pageId: number | null;
+  verdict: Verdict;
+}
+
+interface Detail {
+  id: number;
+  nameEn: string;
+  nameAr: string;
+  fullName: string;
+  kunya: string;
+  nickname: string;
+  lineage: string;
+  relation: string;
+  generation: string;
+  grade: string;
+  tabaqa: string;
+  tabaqaEn: string;
+  tabaqaNumber: number | null;
+  rankIbnHajar: string;
+  rankIbnHajarEn: string;
+  rankDhahabi: string;
+  rankDhahabiEn: string;
+  madhhab: string;
+  madhhabEn: string;
+  flags: string[];
+  deathPlace: string;
+  placesEn: string[];
+  placesAr: string[];
+  deathDate: string;
+  deathHijri: string;
+  deathGregorian: string;
+  hadithCount: number;
+  aliasCount: number;
+  aliases: { form: string; count: number }[];
+  teachers: Relation[];
+  students: Relation[];
+  books: { book: string; count: number }[];
+  positions: { pos: number; count: number }[];
+  sampleChains: { book: string; number: string; path: number[] }[];
+}
+
+interface Criticism {
+  criticCount: number;
+  statementCount: number;
+  tally: Record<Verdict, number>;
+  critics: { critic: string; statements: Statement[] }[];
+  phenomena: { key: string; label: string; statements: Statement[] }[];
+}
+
+const { detail, criticism, chainNames, linkable } = Astro.props as {
+  detail: Detail;
+  criticism: Criticism | null;
+  chainNames: Record<string, string>;
+  linkable: number[];
+};
+
+const linkableIds = new Set(linkable);
+
+const VERDICT_LABELS: Record<Verdict, string> = {
+  jarh: 'Jarh',
+  tadil: "Ta'dil",
+  mixed: 'Mixed',
+  unclassified: 'Unclassified'
+};
+
+const verdicts = [
+  ['Ibn Hajar al-Asqalani', detail.rankIbnHajarEn, detail.rankIbnHajar],
+  ['al-Dhahabi', detail.rankDhahabiEn, detail.rankDhahabi],
+  ['Tabaqa (Taqrib al-Tahdhib)', detail.tabaqaEn, detail.tabaqa],
+  ['Creedal Attribution', detail.madhhabEn, detail.madhhab]
+].filter(([, en, ar]) => en || ar);
+
+const nameRows = [
+  ['Full name', detail.fullName],
+  ['Kunya', detail.kunya],
+  ['Nickname', detail.nickname],
+  ['Lineage', detail.lineage],
+  ['Relations', detail.relation]
+].filter(([, v]) => v);
+
+const journey = detail.placesEn?.length ? detail.placesEn : detail.placesAr || [];
+
+const deathLine = detail.deathHijri
+  ? `${detail.deathHijri} AH / ${detail.deathGregorian} CE`
+  : 'date not recorded';
+
+const critics = [...(criticism?.critics || [])].sort(
+  (a, b) => b.statements.length - a.statements.length
+);
+
+const maxBook = detail.books?.[0]?.count || 1;
+const maxPos = Math.max(1, ...(detail.positions || []).map((p) => p.count));
+
+const title = `${detail.nameEn || detail.nameAr} | Rijāl Dossier | HadithCritic`;
+const description = [
+  `${detail.nameEn}${detail.nameAr ? ` (${detail.nameAr})` : ''}, ${deathLine}.`,
+  detail.rankIbnHajarEn ? `Ibn Hajar: ${detail.rankIbnHajarEn}` : '',
+  detail.hadithCount ? `${detail.hadithCount} hadith across the corpus.` : '',
+  criticism ? `${criticism.statementCount} recorded statements from ${criticism.criticCount} critics.` : ''
+]
+  .filter(Boolean)
+  .join(' ')
+  .slice(0, 300);
+---
+
+<BaseLayout title={title} description={description}>
+  <article class="rijal-page">
+    <header class="rijal-head">
+      <a class="rijal-back" href="/narrators">&larr; Rijāl register</a>
+      <span class="rijal-id">#{detail.id}</span>
+      <h1 class="rijal-name-en">{detail.nameEn || detail.nameAr}</h1>
+      {detail.nameAr && <p class="rijal-name-ar" dir="rtl" lang="ar">{detail.nameAr}</p>}
+
+      <div class="rijal-badges">
+        <span class="rijal-badge">{detail.generation}</span>
+        {detail.tabaqaNumber && <span class="rijal-badge">Tabaqa {detail.tabaqaNumber}</span>}
+        <span class="rijal-badge rijal-badge--grade">{detail.grade}</span>
+        {detail.flags?.map((f) => <span class="rijal-badge rijal-badge--flag">{f}</span>)}
+      </div>
+
+      <dl class="rijal-facts">
+        <div><dt>Died</dt><dd>{deathLine}{detail.deathPlace ? `, ${detail.deathPlace}` : ''}</dd></div>
+        <div><dt>Hadith</dt><dd>{detail.hadithCount ? detail.hadithCount.toLocaleString() : '—'}</dd></div>
+        <div><dt>Teachers</dt><dd>{detail.teachers?.length || 0}</dd></div>
+        <div><dt>Students</dt><dd>{detail.students?.length || 0}</dd></div>
+      </dl>
+    </header>
+
+    {verdicts.length > 0 && (
+      <section class="rijal-section">
+        <h2>Scholarly Verdicts</h2>
+        <p class="rijal-note">Each verdict is the named authority's own wording, shown in translation with the Arabic alongside.</p>
+        <div class="rijal-verdicts">
+          {verdicts.map(([who, en, ar]) => (
+            <div class="rijal-verdict">
+              <span class="rijal-verdict__who">{who}</span>
+              {en && <p class="rijal-verdict__en">{en}</p>}
+              {ar && <p class="rijal-verdict__ar" dir="rtl" lang="ar">{ar}</p>}
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {detail.deathDate && (
+      <section class="rijal-section">
+        <h2>Death Notice</h2>
+        <p class="rijal-note">Kept verbatim: the source preserves the disagreement between authorities over the year, which is itself evidence.</p>
+        <p class="rijal-arabic" dir="rtl" lang="ar">{detail.deathDate}</p>
+      </section>
+    )}
+
+    {detail.books?.length > 0 && (
+      <section class="rijal-section">
+        <h2>Presence in the Corpus</h2>
+        <ul class="rijal-bars">
+          {detail.books.slice(0, 12).map((b) => (
+            <li class="rijal-bar">
+              <span class="rijal-bar__label">{b.book}</span>
+              <span class="rijal-bar__track"><span class="rijal-bar__fill" style={`width:${Math.max(2, (b.count / maxBook) * 100)}%`}></span></span>
+              <span class="rijal-bar__value">{b.count.toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+
+        {detail.positions?.length > 0 && (
+          <>
+            <h3 class="rijal-subhead">Position in the chain</h3>
+            <p class="rijal-note">Position 0 sits at the Companion end; the highest position sits with the compiler.</p>
+            <ul class="rijal-bars rijal-bars--compact">
+              {detail.positions.map((p) => (
+                <li class="rijal-bar">
+                  <span class="rijal-bar__label">Position {p.pos}</span>
+                  <span class="rijal-bar__track"><span class="rijal-bar__fill" style={`width:${Math.max(2, (p.count / maxPos) * 100)}%`}></span></span>
+                  <span class="rijal-bar__value">{p.count.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    )}
+
+    {detail.sampleChains?.length > 0 && (
+      <section class="rijal-section">
+        <h2>Sample Isnads</h2>
+        <p class="rijal-note">Read left to right from the Companion end toward the compiler. This narrator is marked.</p>
+        {detail.sampleChains.map((chain) => (
+          <div class="rijal-chain">
+            <span class="rijal-chain__src">{chain.book}{chain.number ? ` ${chain.number}` : ''}</span>
+            <ol class="rijal-chain__path">
+              {chain.path.map((nid) => (
+                <li class={nid === detail.id ? 'rijal-node rijal-node--self' : 'rijal-node'}>
+                  {nid === detail.id ? (
+                    <span>{detail.nameEn || detail.nameAr}</span>
+                  ) : linkableIds.has(nid) ? (
+                    <a href={`/narrators/${nid}`}>{chainNames[nid] || `#${nid}`}</a>
+                  ) : (
+                    <span>{chainNames[nid] || `#${nid}`}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </section>
+    )}
+
+    {criticism && (
+      <section class="rijal-section">
+        <h2>Jarh &amp; Ta'dil</h2>
+        <p class="rijal-note">
+          {criticism.statementCount.toLocaleString()} statements from {criticism.criticCount} critics.
+          A statement is labelled only where an unambiguous formula is present; the rest are left unclassified rather than guessed at.
+        </p>
+        <div class="rijal-tally">
+          {(Object.entries(criticism.tally) as [Verdict, number][])
+            .filter(([, n]) => n > 0)
+            .map(([k, n]) => <span class={`rijal-pill rijal-pill--${k}`}>{VERDICT_LABELS[k]} {n}</span>)}
+        </div>
+
+        {criticism.phenomena?.length > 0 && (
+          <div class="rijal-phenomena">
+            {criticism.phenomena.map((p) => (
+              <span class="rijal-badge rijal-badge--flag">{p.label} {p.statements.length}</span>
+            ))}
+          </div>
+        )}
+
+        {critics.map((g) => (
+          <details class="rijal-critic">
+            <summary>
+              <span dir="rtl" lang="ar">{g.critic}</span>
+              <span class="rijal-critic__count">{g.statements.length}</span>
+            </summary>
+            <ul class="rijal-statements">
+              {g.statements.map((s) => (
+                <li class={`rijal-statement rijal-statement--${s.verdict}`}>
+                  <p dir="rtl" lang="ar">{s.text}</p>
+                  <div class="rijal-statement__meta">
+                    <span class="rijal-statement__verdict">{VERDICT_LABELS[s.verdict]}</span>
+                    {s.citation && <cite dir="rtl" lang="ar">{s.citation}</cite>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </section>
+    )}
+
+    {(nameRows.length > 0 || detail.aliases?.length > 0) && (
+      <section class="rijal-section">
+        <h2>Names &amp; Attested Forms</h2>
+        {nameRows.length > 0 && (
+          <dl class="rijal-names">
+            {nameRows.map(([label, value]) => (
+              <div><dt>{label}</dt><dd dir="auto">{value}</dd></div>
+            ))}
+          </dl>
+        )}
+        {detail.aliases?.length > 0 && (
+          <>
+            <p class="rijal-note">Appears in the isnads under {detail.aliasCount} distinct form{detail.aliasCount === 1 ? '' : 's'}.</p>
+            <div class="rijal-aliases">
+              {detail.aliases.map((a) => (
+                <span class="rijal-alias" dir="rtl" lang="ar">{a.form}<span class="rijal-alias__count">{a.count}</span></span>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+    )}
+
+    {journey.length > 0 && (
+      <section class="rijal-section">
+        <h2>Places</h2>
+        <p class="rijal-journey">{journey.map((p) => <span class="rijal-place" dir="auto">{p}</span>)}</p>
+      </section>
+    )}
+
+    {(detail.teachers?.length > 0 || detail.students?.length > 0) && (
+      <section class="rijal-section">
+        <h2>Transmission Network</h2>
+        <p class="rijal-note">Derived from adjacency in the isnad chains, with the number of times each pairing occurs.</p>
+        <div class="rijal-network">
+          <div>
+            <h3 class="rijal-subhead">Teachers ({detail.teachers.length})</h3>
+            <ul class="rijal-relations">
+              {detail.teachers.map((t) => (
+                <li>
+                  {linkableIds.has(t.id) ? <a href={`/narrators/${t.id}`}>{t.name}</a> : <span class="rijal-plain">{t.name}</span>}
+                  <span>{t.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 class="rijal-subhead">Students ({detail.students.length})</h3>
+            <ul class="rijal-relations">
+              {detail.students.map((s) => (
+                <li>
+                  {linkableIds.has(s.id) ? <a href={`/narrators/${s.id}`}>{s.name}</a> : <span class="rijal-plain">{s.name}</span>}
+                  <span>{s.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+    )}
+  </article>
+</BaseLayout>
+
+<style>
+  .rijal-page {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+
+  .rijal-back {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+  }
+
+  .rijal-back:hover { color: var(--hc-gold); }
+
+  .rijal-id {
+    margin-left: 0.7rem;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rijal-name-en {
+    margin: 0.8rem 0 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.9rem, 4vw, 2.9rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .rijal-name-ar {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.6rem;
+    color: var(--hc-gold);
+    direction: rtl;
+    line-height: 1.7;
+  }
+
+  .rijal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 1rem;
+  }
+
+  .rijal-badge {
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-pill);
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-badge--grade { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
+
+  .rijal-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.9rem;
+    margin: 1.6rem 0 0;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .rijal-facts dt {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-facts dd {
+    margin: 0.25rem 0 0;
+    font-size: 0.95rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-section {
+    margin-top: 2.6rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .rijal-section h2 {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-display, serif);
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+  }
+
+  .rijal-subhead {
+    margin: 1.4rem 0 0.3rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-note {
+    margin: 0 0 1rem;
+    max-width: 68ch;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-arabic {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.05rem;
+    line-height: 2;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-verdicts { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .rijal-verdict {
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+  }
+
+  .rijal-verdict__who {
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-verdict__en { margin: 0.35rem 0 0; font-size: 0.95rem; line-height: 1.6; max-width: 68ch; }
+
+  .rijal-verdict__ar {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.05rem;
+    line-height: 1.95;
+    color: var(--hc-gold);
+    direction: rtl;
+  }
+
+  .rijal-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .rijal-bar {
+    display: grid;
+    grid-template-columns: minmax(8rem, 15rem) 1fr auto;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.84rem;
+  }
+
+  .rijal-bar__label { color: var(--hc-text-secondary); }
+
+  .rijal-bar__track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--hc-surface-2);
+    overflow: hidden;
+  }
+
+  .rijal-bar__fill { display: block; height: 100%; background: var(--hc-gold); opacity: 0.75; }
+
+  .rijal-bar__value { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.78rem; }
+
+  .rijal-chain {
+    margin-bottom: 0.9rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    overflow-x: auto;
+  }
+
+  .rijal-chain__src {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--hc-text-tertiary);
+    margin-bottom: 0.45rem;
+  }
+
+  .rijal-chain__path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: none;
+  }
+
+  .rijal-node { font-size: 0.82rem; }
+  .rijal-node:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
+  .rijal-node a { color: var(--hc-text-secondary); text-decoration: none; }
+  .rijal-node a:hover { color: var(--hc-gold); }
+  .rijal-node--self > span { color: var(--hc-gold); font-weight: 600; }
+
+  .rijal-tally { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
+
+  .rijal-pill {
+    padding: 0.18rem 0.5rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-pill--jarh { color: var(--hc-danger, #c2593c); border-color: color-mix(in oklch, var(--hc-danger, #b4472e) 45%, transparent); }
+  .rijal-pill--tadil { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
+
+  .rijal-phenomena { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+
+  .rijal-critic {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    margin-bottom: 0.4rem;
+  }
+
+  .rijal-critic > summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.7rem;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    font-family: var(--font-arabic);
+    font-size: 1rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-critic__count { font-family: var(--font-ui); font-size: 0.7rem; color: var(--hc-text-tertiary); }
+
+  .rijal-statements { list-style: none; margin: 0; padding: 0 0.75rem 0.7rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .rijal-statement { padding-top: 0.6rem; border-top: 1px solid var(--hc-rule-soft); }
+
+  .rijal-statement p {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1rem;
+    line-height: 1.95;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-statement__meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; margin-top: 0.3rem; }
+
+  .rijal-statement__verdict {
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-statement--jarh .rijal-statement__verdict { color: var(--hc-danger, #c2593c); }
+  .rijal-statement--tadil .rijal-statement__verdict { color: var(--hc-gold); }
+
+  .rijal-statement cite {
+    font-family: var(--font-arabic);
+    font-size: 0.82rem;
+    font-style: normal;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-names { margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .rijal-names dt {
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-names dd { margin: 0.15rem 0 0; font-size: 0.95rem; color: var(--hc-text-secondary); }
+
+  .rijal-aliases { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+  .rijal-alias {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 4px;
+    background: var(--hc-surface-2);
+    font-family: var(--font-arabic);
+    font-size: 0.95rem;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-alias__count { font-family: var(--font-ui); font-size: 0.66rem; color: var(--hc-text-tertiary); }
+
+  .rijal-journey { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin: 0; }
+  .rijal-place { font-size: 0.9rem; color: var(--hc-text-secondary); }
+  .rijal-place:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
+
+  .rijal-network { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.4rem; }
+
+  .rijal-relations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+
+  .rijal-relations li { display: flex; justify-content: space-between; gap: 0.7rem; font-size: 0.86rem; }
+  .rijal-relations a { color: var(--hc-text-secondary); text-decoration: none; }
+  .rijal-relations a:hover { color: var(--hc-gold); }
+  .rijal-relations span { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.76rem; }
+  /* A narrator with no page of their own still shows, just not as a link. */
+  .rijal-relations .rijal-plain { color: var(--hc-text-secondary); font-size: 0.86rem; font-variant-numeric: normal; }
+</style>
