@@ -50,27 +50,52 @@ function parseFrontmatter(raw) {
   }
 
   const dateMatch = front.match(/date:\s*["']?([^"'\n\r]+)["']?/);
-  if (dateMatch) data.date = dateMatch[1].trim();
+  if (dateMatch) {
+    const rawDate = dateMatch[1].trim();
+    const d = new Date(rawDate);
+    data.date = isNaN(d.getTime()) ? rawDate : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
 
   return { data, content };
 }
 
+function stripCodeAndMdx(content) {
+  // Strip import statements
+  let clean = content.replace(/^import\s+[\s\S]*?;(?:\r?\n|$)/gm, '');
+  clean = clean.replace(/^import\s+['"][^'"]+['"];?(?:\r?\n|$)/gm, '');
+
+  // Strip multi-line/single-line export blocks
+  clean = clean.replace(/^export\s+(?:const|let|var|function|default)\s+[\s\S]*?;(?:\r?\n|$)/gm, '');
+  
+  // Strip code blocks
+  clean = clean.replace(/```[\s\S]*?```/g, ' ');
+
+  // Strip JSX / MDX components (like <IsnadDiagram ... />, <HadithBlock>...</HadithBlock>, etc.)
+  clean = clean.replace(/<[A-Z][A-Za-z0-9_]*[\s\S]*?(\/>|<\/[A-Z][A-Za-z0-9_]*>)/g, ' ');
+  // Strip standard HTML tags and comments
+  clean = clean.replace(/<!--[\s\S]*?-->/g, ' ');
+  clean = clean.replace(/<[^>]+>/g, ' ');
+
+  return clean;
+}
+
 function cleanMarkdown(md) {
-  return md
-    .replace(/import\s+.*?from\s+['"].*?['"];?/g, '')
-    .replace(/export\s+const\s+[\s\S]*?;\n/g, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^#+\s+/gm, '')
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`([^`]+)`/g, '$1')
+  return stripCodeAndMdx(md)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // markdown links
+    .replace(/\[\^[^\]]+\]:?[^\n]*/g, '') // footnotes
+    .replace(/^#+\s+/gm, '') // headings
+    .replace(/^>\s+/gm, '') // blockquotes
+    .replace(/`([^`]+)`/g, '$1') // inline code
+    .replace(/[*_~]+/g, '') // emphasis
+    .replace(/\\n/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function extractSections(rawContent) {
+  const sanitized = stripCodeAndMdx(rawContent);
   const sections = [];
-  const lines = rawContent.split('\n');
+  const lines = sanitized.split(/\r?\n/);
   let currentHeading = 'Introduction';
   let currentSlug = '';
   let currentParagraphs = [];
@@ -78,28 +103,28 @@ function extractSections(rawContent) {
   for (const line of lines) {
     const headerMatch = line.match(/^##\s+(.+)$/);
     if (headerMatch) {
-      if (currentParagraphs.length > 0) {
+      const sectionText = cleanMarkdown(currentParagraphs.join(' '));
+      if (sectionText.length > 20) {
         sections.push({
           heading: currentHeading,
           slug: currentSlug,
-          text: cleanMarkdown(currentParagraphs.join(' '))
+          text: sectionText
         });
       }
       currentHeading = headerMatch[1].trim();
       currentSlug = slugify(currentHeading);
       currentParagraphs = [];
     } else {
-      if (!line.startsWith('import ') && !line.startsWith('export ')) {
-        currentParagraphs.push(line);
-      }
+      currentParagraphs.push(line);
     }
   }
 
-  if (currentParagraphs.length > 0) {
+  const lastSectionText = cleanMarkdown(currentParagraphs.join(' '));
+  if (lastSectionText.length > 20) {
     sections.push({
       heading: currentHeading,
       slug: currentSlug,
-      text: cleanMarkdown(currentParagraphs.join(' '))
+      text: lastSectionText
     });
   }
 
