@@ -42,9 +42,16 @@ const criticismPath = CRITICISM_CANDIDATES.find((p) => fs.existsSync(p));
 
 const outDir = path.resolve(rootDir, 'public', 'data', 'narrators');
 const chunksDir = path.resolve(outDir, 'chunks');
+
+// Two homes for the criticism. Every narrator's statements go to the build
+// input directory, which [id].astro reads to inline them into a dossier page
+// but which is never served. Only the narrators without a page also get a
+// shard under public/, so the deploy never carries the same statements twice.
+const criticismBuildDir = path.resolve(rootDir, 'data', 'generated', 'criticism');
 const criticismDir = path.resolve(outDir, 'criticism');
 if (!fs.existsSync(chunksDir)) fs.mkdirSync(chunksDir, { recursive: true });
 if (!fs.existsSync(criticismDir)) fs.mkdirSync(criticismDir, { recursive: true });
+if (!fs.existsSync(criticismBuildDir)) fs.mkdirSync(criticismBuildDir, { recursive: true });
 
 // Shards of this size keep a dossier fetch near 120 KB without putting 15,000
 // loose files in the repository.
@@ -790,13 +797,16 @@ console.log(`[Narrators Build] Assembled ${compactIndex.length} dossiers.`);
 
 // ------------------------------------------------------------------ output
 
-// Cloudflare Workers static assets cap a deployment at 20,000 files. The
-// register holds 20,950 narrators, and the rest of the site plus the Pagefind
-// index take several thousand more, so a static page for every narrator does
-// not fit. Pages go to the narrators research actually reaches for: those with
-// recorded criticism first, ordered by how much was said about them, then the
-// prolific transmitters. The explorer covers all of them client side either way.
-const PAGE_BUDGET = Number(process.env.NARRATOR_PAGE_LIMIT || 12000);
+// Cloudflare Workers static assets cap a deployment at 20,000 files, and each
+// dossier costs two of them: the page, and the Pagefind fragment that makes its
+// criticism searchable. With about 1,450 files for the rest of the site that
+// leaves room for roughly 9,200 dossiers, so the budget is set below that to
+// leave the site somewhere to grow. The cut is shallow either way: at this
+// budget no excluded narrator has more than 13 hadith or 7 recorded statements.
+// Pages go to the narrators research actually reaches for, those with recorded
+// criticism first, ordered by how much was said about them, then the prolific
+// transmitters. The explorer covers all 20,950 client side regardless.
+const PAGE_BUDGET = Number(process.env.NARRATOR_PAGE_LIMIT || 8000);
 
 // Two rankings, taken in turn. Ranking on criticism alone drops the prolific
 // transmitters who were never argued about, which cut compilers held in this
@@ -874,13 +884,23 @@ for (const stale of fs.readdirSync(criticismDir)) {
 // them as well would deploy the same 54 MB twice, so shards are emitted only
 // for the narrators the explorer cannot hand off to a page.
 const shards = new Map();
+const buildShards = new Map();
 let shardedNarrators = 0;
 for (const [id, entry] of criticismById) {
+  const shard = Math.floor(id / CRITICISM_SHARD);
+  if (!buildShards.has(shard)) buildShards.set(shard, {});
+  buildShards.get(shard)[id] = entry;
+
   if (prerenderSet.has(id)) continue;
   shardedNarrators++;
-  const shard = Math.floor(id / CRITICISM_SHARD);
   if (!shards.has(shard)) shards.set(shard, {});
   shards.get(shard)[id] = entry;
+}
+for (const stale of fs.readdirSync(criticismBuildDir)) {
+  if (stale.endsWith('.json')) fs.unlinkSync(path.resolve(criticismBuildDir, stale));
+}
+for (const [shard, payload] of buildShards) {
+  fs.writeFileSync(path.resolve(criticismBuildDir, `${shard}.json`), JSON.stringify(payload));
 }
 for (const [shard, payload] of shards) {
   fs.writeFileSync(path.resolve(criticismDir, `${shard}.json`), JSON.stringify(payload));

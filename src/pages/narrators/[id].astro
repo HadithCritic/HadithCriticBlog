@@ -21,7 +21,18 @@ export async function getStaticPaths() {
   };
 
   const details = readAll('chunks');
-  const criticism = readAll('criticism');
+
+  // Criticism is read from the build input directory, not from public/. The
+  // served shards deliberately hold only the narrators without a page, so
+  // reading those here would leave every dossier page missing its statements.
+  const criticismDir = path.resolve(process.cwd(), 'data', 'generated', 'criticism');
+  const criticism: Record<string, any> = {};
+  if (fs.existsSync(criticismDir)) {
+    for (const file of fs.readdirSync(criticismDir)) {
+      if (!file.endsWith('.json')) continue;
+      Object.assign(criticism, JSON.parse(fs.readFileSync(path.join(criticismDir, file), 'utf8')));
+    }
+  }
 
   // Which narrators get a page is decided in scripts/build-narrators.mjs, which
   // also marks them in index.json so the explorer only links where a page
