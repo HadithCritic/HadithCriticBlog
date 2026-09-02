@@ -1,0 +1,223 @@
+---
+// Manuscript Lightbox Modal for Primary Source Scans
+---
+
+<div id="manuscriptLightbox" class="manuscript-lightbox" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+  <div class="lightbox-backdrop" data-lightbox-close></div>
+  <div class="lightbox-dialog">
+    <header class="lightbox-header">
+      <div class="lightbox-meta">
+        <span class="lightbox-eyebrow">Primary Source Manuscript Scan</span>
+        <h3 id="lightboxTitle" class="lightbox-title">Manuscript Citation</h3>
+      </div>
+      <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close manuscript viewer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </header>
+    <div class="lightbox-body">
+      <div class="lightbox-image-container">
+        <img id="lightboxImg" src="" alt="Primary Source Scan" class="lightbox-image" />
+      </div>
+    </div>
+    <footer class="lightbox-footer">
+      <span id="lightboxCaption" class="lightbox-caption">Original Manuscript / Reference Edition Proof</span>
+      <a id="lightboxDownload" href="" target="_blank" rel="noopener noreferrer" class="lightbox-open-full">Open Full Image ↗</a>
+    </footer>
+  </div>
+</div>
+
+<style>
+  .manuscript-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+  }
+
+  .manuscript-lightbox.is-open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 8, 9, 0.88);
+    backdrop-filter: blur(8px);
+  }
+
+  .lightbox-dialog {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    max-width: 900px;
+    width: 100%;
+    max-height: 92vh;
+    background: var(--hc-surface-1, #161618);
+    border: 1px solid var(--hc-rule-strong, rgba(212, 175, 55, 0.3));
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .lightbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    background: var(--hc-surface-2, #1c1c1f);
+  }
+
+  .lightbox-eyebrow {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--hc-gold, #c8a755);
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 600;
+  }
+
+  .lightbox-title {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-family: var(--font-display, serif);
+    font-weight: 500;
+  }
+
+  .lightbox-close {
+    background: transparent;
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    color: var(--hc-text-secondary, #a8a5a0);
+    padding: 0.4rem;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .lightbox-close:hover {
+    color: var(--hc-text-primary, #f5f2eb);
+    border-color: var(--hc-gold, #c8a755);
+  }
+
+  .lightbox-body {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: #09090a;
+    min-height: 300px;
+  }
+
+  .lightbox-image-container {
+    max-width: 100%;
+    max-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .lightbox-image {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.05));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-radius: 2px;
+  }
+
+  .lightbox-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    background: var(--hc-surface-2, #1c1c1f);
+    font-size: 0.8rem;
+    color: var(--hc-text-secondary, #a8a5a0);
+    font-family: var(--font-ui, sans-serif);
+  }
+
+  .lightbox-open-full {
+    color: var(--hc-gold, #c8a755);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .lightbox-open-full:hover {
+    text-decoration: underline;
+  }
+</style>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const lightbox = document.getElementById('manuscriptLightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxTitle = document.getElementById('lightboxTitle');
+    const lightboxCaption = document.getElementById('lightboxCaption');
+    const lightboxDownload = document.getElementById('lightboxDownload');
+
+    function openLightbox(src, title, caption) {
+      if (!lightbox || !lightboxImg) return;
+      lightboxImg.src = src;
+      if (lightboxTitle) lightboxTitle.textContent = title || 'Manuscript Citation';
+      if (lightboxCaption) lightboxCaption.textContent = caption || 'Primary Source Evidence';
+      if (lightboxDownload) lightboxDownload.href = src;
+      lightbox.hidden = false;
+      requestAnimationFrame(() => {
+        lightbox.classList.add('is-open');
+        lightbox.setAttribute('aria-hidden', 'false');
+      });
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      if (!lightbox) return;
+      lightbox.classList.remove('is-open');
+      lightbox.setAttribute('aria-hidden', 'true');
+      setTimeout(() => {
+        lightbox.hidden = true;
+        if (lightboxImg) lightboxImg.src = '';
+        document.body.style.overflow = '';
+      }, 200);
+    }
+
+    // Bind triggers
+    document.addEventListener('click', (e) => {
+      const trigger = e.target.closest('[data-lightbox-src]');
+      if (trigger) {
+        e.preventDefault();
+        const src = trigger.getAttribute('data-lightbox-src');
+        const title = trigger.getAttribute('data-lightbox-title') || '';
+        const caption = trigger.getAttribute('data-lightbox-caption') || '';
+        openLightbox(src, title, caption);
+        return;
+      }
+
+      if (e.target.closest('[data-lightbox-close]')) {
+        e.preventDefault();
+        closeLightbox();
+      }
+    });
+
+    // Escape key closes modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightbox && !lightbox.hidden) {
+        closeLightbox();
+      }
+    });
+  });
+</script>

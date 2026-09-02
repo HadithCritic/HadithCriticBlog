@@ -1,0 +1,506 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import ManuscriptLightbox from '../components/treatise/ManuscriptLightbox.astro';
+import chaptersData from '../data/shirk-endorsed/chapters.json';
+
+interface Props {
+  title: string;
+  description?: string;
+  currentSlug?: string;
+  prevPage?: { title: string; href: string } | null;
+  nextPage?: { title: string; href: string } | null;
+}
+
+const {
+  title,
+  description = "A 10-century evidentiary critical edition documenting the classical Sunni scholarly consensus on Tawassul, Tashaffuʿ, and Istighāthah.",
+  currentSlug = 'index',
+  prevPage = null,
+  nextPage = null
+} = Astro.props;
+
+// Group chapters into sections
+const coreChapters = chaptersData.filter((c) => c.category === 'core');
+const imamsChapters = chaptersData.filter((c) => c.category === 'four-imams');
+---
+
+<BaseLayout title={`${title} | HadithCritic`} description={description}>
+  <div class="treatise-page">
+    <!-- Progress bar -->
+    <div id="readingProgress" class="reading-progress-bar" aria-hidden="true"></div>
+
+    <div class="wrap treatise-container">
+      <!-- Sidebar TOC -->
+      <aside class="treatise-sidebar" id="treatiseSidebar">
+        <div class="sidebar-sticky">
+          <div class="sidebar-header">
+            <a href="/research/shirk-endorsed" class="treatise-back-link">
+              ← Overview & Scholar Register
+            </a>
+            <span class="sidebar-eyebrow">Critical Research Edition</span>
+            <h2 class="sidebar-title">Shirk: Endorsed By The Scholars of Islam</h2>
+          </div>
+
+          <nav class="sidebar-nav" aria-label="Treatise Table of Contents">
+            <!-- Part 1: Core Treatises -->
+            <div class="nav-section">
+              <span class="nav-section-title">Part I: The Core Thesis</span>
+              <ul class="nav-list">
+                {coreChapters.map((c) => {
+                  const href = `/research/shirk-endorsed/${c.id}`;
+                  const isActive = currentSlug === c.id;
+                  return (
+                    <li>
+                      <a href={href} class={`nav-item ${isActive ? 'is-active' : ''}`}>
+                        {c.title}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <!-- Part 2: The 4 Imams -->
+            <div class="nav-section">
+              <span class="nav-section-title">Part II: The Four Sunni Imams</span>
+              <ul class="nav-list">
+                {imamsChapters.map((c) => {
+                  const href = `/research/shirk-endorsed/${c.id}`;
+                  const isActive = currentSlug === c.id;
+                  return (
+                    <li>
+                      <a href={href} class={`nav-item ${isActive ? 'is-active' : ''}`}>
+                        {c.title}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <!-- Part 3: The Major Scholars -->
+            <div class="nav-section">
+              <span class="nav-section-title">Part III: The 99 Major Scholars</span>
+              <ul class="nav-list">
+                <li>
+                  <a
+                    href="/research/shirk-endorsed/scholars-worth-mentioning"
+                    class={`nav-item ${currentSlug === 'scholars-worth-mentioning' ? 'is-active' : ''}`}
+                  >
+                    Scholars Worth Mentioning
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/research/shirk-endorsed#scholar-ledger"
+                    class="nav-item nav-item--highlight"
+                  >
+                    View 99-Scholar Interactive Register ↗
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main Reading Article -->
+      <main class="treatise-main" id="mainContent">
+        <!-- Breadcrumbs -->
+        <nav class="treatise-breadcrumbs" aria-label="Breadcrumb">
+          <a href="/" class="crumb-link">HadithCritic</a>
+          <span class="crumb-sep">/</span>
+          <a href="/research/shirk-endorsed" class="crumb-link">Research</a>
+          <span class="crumb-sep">/</span>
+          <span class="crumb-current">{title}</span>
+        </nav>
+
+        <article class="treatise-prose">
+          <slot />
+        </article>
+
+        <!-- Previous / Next Navigation Footer -->
+        {(prevPage || nextPage) && (
+          <footer class="treatise-pagination">
+            {prevPage ? (
+              <a href={prevPage.href} class="pagination-btn pagination-btn--prev">
+                <span class="pagination-label">← Previous Chapter</span>
+                <span class="pagination-title">{prevPage.title}</span>
+              </a>
+            ) : <div />}
+
+            {nextPage ? (
+              <a href={nextPage.href} class="pagination-btn pagination-btn--next">
+                <span class="pagination-label">Next Chapter →</span>
+                <span class="pagination-title">{nextPage.title}</span>
+              </a>
+            ) : <div />}
+          </footer>
+        )}
+      </main>
+    </div>
+  </div>
+
+  <ManuscriptLightbox />
+</BaseLayout>
+
+<style>
+  .treatise-page {
+    position: relative;
+    background: var(--hc-surface-0, #0c0c0d);
+    min-height: 100vh;
+  }
+
+  .reading-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--hc-gold, #c8a755);
+    z-index: 100;
+    width: 0%;
+    transition: width 0.1s ease;
+  }
+
+  .treatise-container {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 3.5rem;
+    padding-top: 2rem;
+    padding-bottom: 5rem;
+  }
+
+  /* Sidebar */
+  .treatise-sidebar {
+    position: relative;
+  }
+
+  .sidebar-sticky {
+    position: sticky;
+    top: 96px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding-right: 1.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hc-rule, rgba(255, 255, 255, 0.1)) transparent;
+  }
+
+  .sidebar-header {
+    margin-bottom: 1.75rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .treatise-back-link {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--hc-gold, #c8a755);
+    text-decoration: none;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    transition: color 0.15s ease;
+  }
+
+  .treatise-back-link:hover {
+    text-decoration: underline;
+  }
+
+  .sidebar-eyebrow {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--hc-text-tertiary, #858077);
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 600;
+  }
+
+  .sidebar-title {
+    font-size: 1.1rem;
+    line-height: 1.35;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-family: var(--font-display, serif);
+    font-weight: 600;
+    margin: 0.35rem 0 0;
+  }
+
+  .nav-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .nav-section-title {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hc-gold, #c8a755);
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 700;
+    margin-bottom: 0.6rem;
+  }
+
+  .nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .nav-item {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    color: var(--hc-text-secondary, #b5b0a5);
+    text-decoration: none;
+    font-family: var(--font-ui, sans-serif);
+    border-radius: 2px;
+    line-height: 1.4;
+    transition: all 0.15s ease;
+  }
+
+  .nav-item:hover {
+    color: var(--hc-text-primary, #f5f2eb);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .nav-item.is-active {
+    color: var(--hc-gold, #c8a755);
+    background: rgba(200, 167, 85, 0.1);
+    font-weight: 600;
+    border-left: 2px solid var(--hc-gold, #c8a755);
+  }
+
+  .nav-item--highlight {
+    color: var(--hc-gold, #c8a755);
+    font-weight: 600;
+  }
+
+  /* Main */
+  .treatise-main {
+    max-width: 820px;
+    width: 100%;
+  }
+
+  .treatise-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--hc-text-tertiary, #858077);
+    font-family: var(--font-ui, sans-serif);
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .crumb-link {
+    color: var(--hc-text-secondary, #b5b0a5);
+    text-decoration: none;
+  }
+
+  .crumb-link:hover {
+    color: var(--hc-gold, #c8a755);
+  }
+
+  .crumb-sep {
+    color: var(--hc-rule-strong, rgba(255, 255, 255, 0.15));
+  }
+
+  .crumb-current {
+    color: var(--hc-text-primary, #f5f2eb);
+    font-weight: 500;
+  }
+
+  /* Typography & Prose */
+  .treatise-prose :global(h1) {
+    font-size: clamp(2rem, 3.5vw, 2.75rem);
+    font-family: var(--font-display, serif);
+    color: var(--hc-text-primary, #f5f2eb);
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    padding-bottom: 1rem;
+  }
+
+  .treatise-prose :global(h2) {
+    font-size: 1.6rem;
+    font-family: var(--font-display, serif);
+    color: var(--hc-text-primary, #f5f2eb);
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.25;
+  }
+
+  .treatise-prose :global(h3) {
+    font-size: 1.25rem;
+    font-family: var(--font-display, serif);
+    color: var(--hc-text-primary, #f5f2eb);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .treatise-prose :global(p) {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: var(--hc-text-secondary, #dcd8cf);
+    margin-bottom: 1.5rem;
+  }
+
+  .treatise-prose :global(ul), .treatise-prose :global(ol) {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+    color: var(--hc-text-secondary, #dcd8cf);
+    font-size: 1.05rem;
+    line-height: 1.75;
+  }
+
+  .treatise-prose :global(li) {
+    margin-bottom: 0.5rem;
+  }
+
+  .treatise-prose :global(blockquote) {
+    margin: 2rem 0;
+    padding: 1.25rem 1.75rem;
+    background: rgba(200, 167, 85, 0.05);
+    border-left: 3px solid var(--hc-gold, #c8a755);
+    font-style: italic;
+    color: var(--hc-text-primary, #f5f2eb);
+  }
+
+  .treatise-prose :global(mark) {
+    background: rgba(200, 167, 85, 0.2);
+    color: var(--hc-gold-bright, #e8c872);
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+  }
+
+  .treatise-prose :global(.arabic-passage) {
+    direction: rtl;
+    font-family: 'Amiri', 'Scheherazade New', serif;
+    font-size: 1.35rem;
+    line-height: 2.2;
+    color: #fff;
+    background: rgba(200, 167, 85, 0.04);
+    padding: 1.25rem 1.5rem;
+    border-right: 3px solid var(--hc-gold, #c8a755);
+    margin: 1.75rem 0;
+    border-radius: 2px;
+  }
+
+  .treatise-prose :global(.manuscript-gallery) {
+    display: flex;
+    gap: 1.25rem;
+    margin: 2rem 0;
+    flex-wrap: wrap;
+  }
+
+  .treatise-prose :global(.manuscript-scan) {
+    max-width: 380px;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--hc-rule-strong, rgba(212, 175, 55, 0.3));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .treatise-prose :global(.manuscript-scan:hover) {
+    transform: scale(1.02);
+    border-color: var(--hc-gold, #c8a755);
+  }
+
+  /* Pagination */
+  .treatise-pagination {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .pagination-btn {
+    display: flex;
+    flex-direction: column;
+    padding: 1.25rem;
+    background: var(--hc-surface-1, #141416);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    border-radius: 4px;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .pagination-btn:hover {
+    border-color: var(--hc-gold, #c8a755);
+    background: var(--hc-surface-2, #18181b);
+  }
+
+  .pagination-btn--next {
+    text-align: right;
+  }
+
+  .pagination-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hc-gold, #c8a755);
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  .pagination-title {
+    font-size: 1rem;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-family: var(--font-display, serif);
+    font-weight: 500;
+  }
+
+  @media (max-width: 900px) {
+    .treatise-container {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .treatise-sidebar {
+      display: none; /* Can be opened via mobile menu or anchor */
+    }
+  }
+</style>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Reading progress
+    const progressBar = document.getElementById('readingProgress');
+    if (progressBar) {
+      window.addEventListener('scroll', () => {
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
+        progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+      }, { passive: true });
+    }
+
+    // Auto-bind click on manuscript scans inside prose to trigger lightbox
+    document.querySelectorAll('.manuscript-scan').forEach((img) => {
+      img.addEventListener('click', () => {
+        const trigger = document.querySelector(`[data-lightbox-src="${img.getAttribute('src')}"]`);
+        if (trigger) {
+          trigger.click();
+        } else {
+          // Open directly
+          const lightbox = document.getElementById('manuscriptLightbox');
+          const lightboxImg = document.getElementById('lightboxImg');
+          if (lightbox && lightboxImg) {
+            lightboxImg.src = img.getAttribute('src');
+            lightbox.hidden = false;
+            requestAnimationFrame(() => lightbox.classList.add('is-open'));
+            document.body.style.overflow = 'hidden';
+          }
+        }
+      });
+    });
+  });
+</script>

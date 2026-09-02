@@ -1,0 +1,309 @@
+---
+import TreatiseLayout from '../../../layouts/TreatiseLayout.astro';
+import chaptersData from '../../../data/shirk-endorsed/chapters.json';
+import scholarsData from '../../../data/shirk-endorsed/scholars.json';
+import { marked } from 'marked';
+
+export async function getStaticPaths() {
+  const paths: any[] = [];
+
+  // 1. Core Chapters (13 items)
+  for (let i = 0; i < chaptersData.length; i++) {
+    const chap = chaptersData[i];
+    const prev = i > 0 ? { title: chaptersData[i - 1].title, href: `/research/shirk-endorsed/${chaptersData[i - 1].id}` } : null;
+    const next = i < chaptersData.length - 1 ? { title: chaptersData[i + 1].title, href: `/research/shirk-endorsed/${chaptersData[i + 1].id}` } : (
+      scholarsData.length > 0 ? { title: scholarsData[0].title, href: `/research/shirk-endorsed/${scholarsData[0].id}` } : null
+    );
+
+    paths.push({
+      params: { slug: chap.id },
+      props: {
+        item: chap,
+        isScholar: false,
+        prevPage: prev,
+        nextPage: next
+      }
+    });
+  }
+
+  // 2. Scholar Dossiers (99 items)
+  for (let i = 0; i < scholarsData.length; i++) {
+    const sch = scholarsData[i];
+    const prev = i > 0 ? { title: scholarsData[i - 1].title, href: `/research/shirk-endorsed/${scholarsData[i - 1].id}` } : {
+      title: 'Scholars Worth Mentioning',
+      href: '/research/shirk-endorsed/scholars-worth-mentioning'
+    };
+    const next = i < scholarsData.length - 1 ? { title: scholarsData[i + 1].title, href: `/research/shirk-endorsed/${scholarsData[i + 1].id}` } : null;
+
+    paths.push({
+      params: { slug: sch.id },
+      props: {
+        item: sch,
+        isScholar: true,
+        prevPage: prev,
+        nextPage: next
+      }
+    });
+  }
+
+  return paths;
+}
+
+const { item, isScholar, prevPage, nextPage } = Astro.props;
+
+// Helper to sanitize any GitBook header/footer artifacts
+function cleanContent(raw: string): string {
+  if (!raw) return '';
+  let content = raw;
+  // Strip top GitBook metadata remnants if present
+  content = content.replace(/^For the complete documentation index, see \[llms\.txt\].*?\n\nCopy\n\nOn this page\n\n/is, '');
+  content = content.replace(/^.*?\bllms\.txt\b.*?\n\nCopy\n\nOn this page\n\n/is, '');
+  // Strip bottom GitBook nav remnants
+  content = content.replace(/\n*\[Previous.*?\]\(.*?\)\s*\[Next.*?\]\(.*?\)\s*Last updated.*$/is, '');
+  content = content.replace(/\n*Last updated.*$/is, '');
+  return content.trim();
+}
+
+// Render markdown content to HTML
+// Configure marked to allow raw HTML tags
+marked.setOptions({
+  gfm: true,
+  breaks: false
+});
+
+const htmlContent = marked.parse(cleanContent(item.content));
+---
+
+<TreatiseLayout
+  title={item.title}
+  description={isScholar ? `Classical citation and evidence on Tawassul from ${item.name} (${item.deathYear ? `d. ${item.deathYear} AH` : 'Classical Authority'}).` : `Critical analysis: ${item.title}`}
+  currentSlug={item.id}
+  prevPage={prevPage}
+  nextPage={nextPage}
+>
+  {isScholar && (
+    <div class="scholar-header-banner">
+      <div class="scholar-header-meta">
+        <span class="era-pill">{item.deathYear ? `Died ${item.deathYear} AH` : 'Classical Period'}</span>
+        <span class="century-pill">{item.century ? `${item.century}th Century Hijri` : ''}</span>
+        <span class="madhhab-pill">{item.madhhab}</span>
+      </div>
+      <h1 class="scholar-heading">{item.title}</h1>
+    </div>
+  )}
+
+  <div class="treatise-rendered-content" set:html={htmlContent} />
+
+  {item.scans && item.scans.length > 0 && (
+    <section class="manuscript-evidence-section">
+      <div class="evidence-header">
+        <span class="evidence-eyebrow">Primary Source Archival Evidence</span>
+        <h3 class="evidence-title">Manuscript & Reference Edition Scans</h3>
+        <p class="evidence-desc">
+          Click on any page scan below to open the high-resolution lightbox and examine the original Arabic text in context.
+        </p>
+      </div>
+
+      <div class="scans-gallery">
+        {item.scans.map((scanUrl: string, idx: number) => (
+          <figure class="scan-figure">
+            <button
+              type="button"
+              class="scan-interactive-btn"
+              data-lightbox-src={scanUrl}
+              data-lightbox-title={`${item.title} - Scan ${idx + 1}`}
+              data-lightbox-caption={`Original printed edition citation proof for ${item.title}`}
+              aria-label={`Open scan ${idx + 1} for ${item.title}`}
+            >
+              <img src={scanUrl} alt={`${item.title} scan proof ${idx + 1}`} loading="lazy" class="scan-img" />
+              <span class="scan-overlay">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+                Inspect Page {idx + 1}
+              </span>
+            </button>
+            <figcaption class="scan-caption">Proof Page {idx + 1}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  )}
+</TreatiseLayout>
+
+<style>
+  .scholar-header-banner {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .scholar-header-meta {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .era-pill, .century-pill, .madhhab-pill {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 600;
+  }
+
+  .era-pill {
+    background: rgba(200, 167, 85, 0.15);
+    color: var(--hc-gold, #c8a755);
+    border: 1px solid rgba(200, 167, 85, 0.3);
+  }
+
+  .century-pill {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--hc-text-secondary, #b5b0a5);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .madhhab-pill {
+    background: rgba(200, 167, 85, 0.08);
+    color: var(--hc-text-primary, #f5f2eb);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .scholar-heading {
+    font-size: clamp(2rem, 3.5vw, 2.6rem);
+    font-family: var(--font-display, serif);
+    color: var(--hc-text-primary, #f5f2eb);
+    margin: 0;
+    line-height: 1.2;
+  }
+
+  .treatise-rendered-content {
+    color: var(--hc-text-secondary, #dcd8cf);
+    font-size: 1.1rem;
+    line-height: 1.85;
+  }
+
+  .treatise-rendered-content :global(h1:first-child) {
+    display: none; /* Already rendered in banner */
+  }
+
+  .treatise-rendered-content :global(.treatise-video-embed) {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+    margin: 2rem 0;
+    border-radius: 4px;
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    background: #000;
+  }
+
+  .treatise-rendered-content :global(.treatise-video-embed iframe) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  .manuscript-evidence-section {
+    margin-top: 4rem;
+    padding: 2rem;
+    background: var(--hc-surface-1, #141416);
+    border: 1px solid var(--hc-rule-strong, rgba(212, 175, 55, 0.25));
+    border-radius: 4px;
+  }
+
+  .evidence-eyebrow {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--hc-gold, #c8a755);
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+  }
+
+  .evidence-title {
+    font-size: 1.35rem;
+    font-family: var(--font-display, serif);
+    color: var(--hc-text-primary, #f5f2eb);
+    margin: 0 0 0.5rem;
+  }
+
+  .evidence-desc {
+    font-size: 0.95rem;
+    color: var(--hc-text-secondary, #a8a5a0);
+    margin: 0 0 1.75rem;
+    line-height: 1.5;
+  }
+
+  .scans-gallery {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .scan-figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .scan-interactive-btn {
+    position: relative;
+    padding: 0;
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.15));
+    background: #09090a;
+    border-radius: 3px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .scan-interactive-btn:hover {
+    transform: translateY(-3px);
+    border-color: var(--hc-gold, #c8a755);
+  }
+
+  .scan-img {
+    width: 240px;
+    height: 320px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 12, 13, 0.7);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-size: 0.85rem;
+    font-family: var(--font-ui, sans-serif);
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .scan-interactive-btn:hover .scan-overlay {
+    opacity: 1;
+  }
+
+  .scan-caption {
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary, #858077);
+    font-family: var(--font-ui, sans-serif);
+    margin-top: 0.5rem;
+  }
+</style>
