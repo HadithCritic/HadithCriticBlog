@@ -18,102 +18,112 @@ const centuries = [
 
 const madhhabs = [
   { id: 'all', label: 'All Schools' },
-  { id: 'Shafii', label: 'Shāfiʿī' },
-  { id: 'Hanafi', label: 'Ḥanafī' },
-  { id: 'Hanbali', label: 'Ḥanbalī' },
-  { id: 'Maliki', label: 'Mālikī' }
+  { id: 'shafii', label: 'Shāfiʿī' },
+  { id: 'hanafi', label: 'Ḥanafī' },
+  { id: 'hanbali', label: 'Ḥanbalī' },
+  { id: 'maliki', label: 'Mālikī' }
 ];
+
+function toAscii(text: string): string {
+  return (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f\u02be\u02bf]/g, '')
+    .replace(/[ʿʾāīūḍṣṭẓḥ]/gi, (c) => ({
+      'ʿ': '', 'ʾ': '', 'ā': 'a', 'ī': 'i', 'ū': 'u', 'ḍ': 'd', 'ṣ': 's', 'ṭ': 't', 'ẓ': 'z', 'ḥ': 'h',
+      'Ā': 'a', 'Ī': 'i', 'Ū': 'u', 'Ḍ': 'd', 'Ṣ': 's', 'Ṭ': 't', 'Ẓ': 'z', 'Ḥ': 'h'
+    })[c] || c)
+    .toLowerCase();
+}
 ---
 
 <section class="scholar-ledger" id="scholar-ledger">
-  <div class="ledger-header">
-    <div class="ledger-title-group">
-      <span class="ledger-eyebrow">Archival Evidence Ledger</span>
-      <h2 class="ledger-title">Register of 99 Classical Sunni Authorities</h2>
-      <p class="ledger-subtitle">
-        Chronological testimonies spanning ten centuries, documenting explicit scholarly consensus on the permissibility of Tawassul, Tashaffuʿ, and Istighāthah.
-      </p>
-    </div>
-
-    <!-- Controls -->
-    <div class="ledger-controls">
+  <!-- Ledger Controls & Filters -->
+  <div class="ledger-controls-panel">
+    <div class="controls-top">
       <div class="search-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <input
           type="text"
           id="scholarSearch"
           class="search-input"
-          placeholder="Search by scholar, book, or citation..."
-          aria-label="Search scholars"
+          placeholder="Filter by scholar name, book title, or keywords..."
+          aria-label="Filter scholars by name or citation"
         />
-        <button type="button" id="clearSearch" class="clear-btn" aria-label="Clear search" hidden>×</button>
+        <button type="button" id="clearSearch" class="clear-btn" aria-label="Clear search input" hidden>×</button>
       </div>
 
-      <!-- Madhhab Filter -->
-      <div class="filter-row">
-        <span class="filter-label">School:</span>
-        <div class="filter-chips" role="radiogroup" aria-label="Filter by school of jurisprudence">
-          {madhhabs.map((m) => (
-            <button
-              type="button"
-              class={`filter-chip ${m.id === 'all' ? 'is-active' : ''}`}
-              data-filter-madhhab={m.id}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <!-- Century Filter -->
-      <div class="filter-row">
-        <span class="filter-label">Era:</span>
-        <div class="filter-chips filter-chips--centuries" role="radiogroup" aria-label="Filter by century">
-          {centuries.map((c) => (
-            <button
-              type="button"
-              class={`filter-chip ${c.id === 'all' ? 'is-active' : ''}`}
-              data-filter-century={c.id}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div class="ledger-status-bar">
+      <div class="ledger-status-pill">
         <span id="ledgerCount" class="ledger-count">Showing 99 of 99 scholars</span>
-        <span class="ledger-sort-hint">Chronologically ordered by death date (Hijri)</span>
+      </div>
+    </div>
+
+    <!-- Madhhab Filter Chips -->
+    <div class="filter-row">
+      <span class="filter-label">School:</span>
+      <div class="filter-chips" role="radiogroup" aria-label="Filter by school of jurisprudence">
+        {madhhabs.map((m) => (
+          <button
+            type="button"
+            class={`filter-chip ${m.id === 'all' ? 'is-active' : ''}`}
+            data-filter-madhhab={m.id}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <!-- Century Filter Chips -->
+    <div class="filter-row">
+      <span class="filter-label">Era:</span>
+      <div class="filter-chips filter-chips--centuries" role="radiogroup" aria-label="Filter by century">
+        {centuries.map((c) => (
+          <button
+            type="button"
+            class={`filter-chip ${c.id === 'all' ? 'is-active' : ''}`}
+            data-filter-century={c.id}
+          >
+            {c.label}
+          </button>
+        ))}
       </div>
     </div>
   </div>
 
-  <!-- Ledger Rows -->
+  <!-- Scholar Ledger Rows -->
   <div class="ledger-list" id="ledgerList">
-    {scholarsData.map((s, idx) => (
-      <article
-        class="ledger-row"
-        data-scholar-id={s.id}
-        data-century={s.century || ''}
-        data-madhhab={s.madhhab.toLowerCase()}
-        data-search-text={`${s.title} ${s.name} ${s.madhhab} ${s.deathYear || ''} ${s.arabicExcerpt || ''}`.toLowerCase()}
-      >
-        <div class="ledger-row__header">
-          <div class="ledger-row__meta">
-            <span class="era-badge">{s.deathYear ? `d. ${s.deathYear} AH` : 'Classical'}</span>
-            <span class="century-tag">{s.century ? `${s.century}th Century AH` : ''}</span>
-            <span class={`madhhab-tag madhhab-tag--${s.madhhab.toLowerCase().replace(/[^a-z]/g, '')}`}>
-              {s.madhhab}
-            </span>
-          </div>
-          <h3 class="scholar-name">
-            <a href={`/research/shirk-endorsed/${s.id}`} class="scholar-link">
-              <span class="scholar-num">{idx + 1}.</span> {s.title}
-            </a>
-          </h3>
-        </div>
+    {scholarsData.map((s, idx) => {
+      const rawSearch = `${s.title} ${s.name} ${s.madhhab} ${s.deathYear || ''} ${s.arabicExcerpt || ''}`;
+      const normalizedSearch = `${rawSearch} ${toAscii(rawSearch)}`.toLowerCase();
+      const normalizedMadhhab = toAscii(s.madhhab);
 
-        <div class="ledger-row__content">
+      return (
+        <article
+          class="ledger-row"
+          data-scholar-id={s.id}
+          data-century={s.century || ''}
+          data-madhhab={normalizedMadhhab}
+          data-search-text={normalizedSearch}
+        >
+          <div class="ledger-row__header">
+            <div class="ledger-row__meta">
+              <span class="era-badge">{s.deathYear ? `d. ${s.deathYear} AH` : 'Classical'}</span>
+              <span class="meta-dot" aria-hidden="true">·</span>
+              <span class="century-tag">{s.century ? `${s.century}th Century Hijri` : ''}</span>
+              <span class="meta-dot" aria-hidden="true">·</span>
+              <span class={`madhhab-tag madhhab-tag--${normalizedMadhhab.replace(/[^a-z]/g, '')}`}>
+                {s.madhhab}
+              </span>
+            </div>
+
+            <h3 class="scholar-name">
+              <a href={`/research/shirk-endorsed/${s.id}`} class="scholar-link">
+                <span class="scholar-num">{String(idx + 1).padStart(2, '0')}.</span>
+                <span class="scholar-title-text">{s.title}</span>
+              </a>
+            </h3>
+          </div>
+
           {s.arabicExcerpt && (
             <div class="arabic-quote-box" dir="rtl" lang="ar">
               <p class="arabic-text">{s.arabicExcerpt}</p>
@@ -122,20 +132,22 @@ const madhhabs = [
 
           {s.scans && s.scans.length > 0 && (
             <div class="scans-preview">
-              <span class="scans-label">Primary Source Scans ({s.scans.length}):</span>
+              <div class="scans-header">
+                <span class="scans-label">Verified Archival Scans ({s.scans.length})</span>
+              </div>
               <div class="scans-thumbnails">
                 {s.scans.map((scanUrl, sIdx) => (
                   <button
                     type="button"
                     class="scan-thumb-btn"
                     data-lightbox-src={scanUrl}
-                    data-lightbox-title={`${s.title} - Page Scan ${sIdx + 1}`}
-                    data-lightbox-caption={`Primary source manuscript/print proof citation for ${s.name}`}
+                    data-lightbox-title={`${s.title} — Archival Scan ${sIdx + 1}`}
+                    data-lightbox-caption={`Primary source citation and page scan for ${s.name}`}
                     aria-label={`View manuscript scan ${sIdx + 1} for ${s.name}`}
                   >
                     <img src={scanUrl} alt={`${s.name} scan ${sIdx + 1}`} loading="lazy" class="scan-thumb-img" />
                     <span class="scan-zoom-badge">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                       Scan {sIdx + 1}
                     </span>
                   </button>
@@ -143,65 +155,31 @@ const madhhabs = [
               </div>
             </div>
           )}
-        </div>
 
-        <div class="ledger-row__actions">
-          <a href={`/research/shirk-endorsed/${s.id}`} class="read-dossier-link">
-            Read Complete Citation & Analysis →
-          </a>
-        </div>
-      </article>
-    ))}
+          <div class="ledger-row__footer">
+            <a href={`/research/shirk-endorsed/${s.id}`} class="read-dossier-link">
+              <span>Read Complete Citation & Analysis</span>
+              <svg class="dossier-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </a>
+          </div>
+        </article>
+      );
+    })}
   </div>
 
   <div id="noResults" class="no-results" hidden>
-    <p>No scholars match your current filter criteria.</p>
+    <p class="no-results-text">No scholars match your current filter criteria.</p>
     <button type="button" id="resetFilters" class="reset-btn">Reset All Filters</button>
   </div>
 </section>
 
 <style>
   .scholar-ledger {
-    margin: 3.5rem 0;
-    padding-top: 2rem;
-    border-top: 1px solid var(--hc-rule-strong, rgba(212, 175, 55, 0.25));
+    margin: 2rem 0;
   }
 
-  .ledger-header {
-    margin-bottom: 2.5rem;
-  }
-
-  .ledger-eyebrow {
-    display: inline-block;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .ledger-title {
-    font-size: clamp(1.6rem, 3vw, 2.2rem);
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-display, serif);
-    font-weight: 600;
-    margin: 0 0 0.75rem;
-    line-height: 1.2;
-  }
-
-  .ledger-subtitle {
-    font-size: 1.05rem;
-    color: var(--hc-text-secondary, #b5b0a5);
-    line-height: 1.6;
-    max-width: 48rem;
-    margin: 0;
-  }
-
-  /* Controls */
-  .ledger-controls {
-    margin-top: 2rem;
+  /* ── Controls Panel ── */
+  .ledger-controls-panel {
     padding: 1.5rem;
     background: var(--hc-surface-1, #141416);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
@@ -209,13 +187,22 @@ const madhhabs = [
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .controls-top {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
   }
 
   .search-box {
     position: relative;
     display: flex;
     align-items: center;
-    width: 100%;
+    flex: 1;
+    min-width: 260px;
   }
 
   .search-icon {
@@ -230,16 +217,17 @@ const madhhabs = [
     padding: 0.8rem 2.75rem 0.8rem 2.6rem;
     background: var(--hc-surface-0, #0c0c0d);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
-    border-radius: 3px;
+    border-radius: 4px;
     color: var(--hc-text-primary, #f5f2eb);
     font-family: var(--font-ui, sans-serif);
-    font-size: 0.95rem;
-    transition: border-color 0.15s ease;
+    font-size: 0.92rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   .search-input:focus {
     outline: none;
     border-color: var(--hc-gold, #c8a755);
+    box-shadow: 0 0 0 1px var(--hc-gold, #c8a755);
   }
 
   .clear-btn {
@@ -251,6 +239,26 @@ const madhhabs = [
     font-size: 1.2rem;
     cursor: pointer;
     padding: 0.2rem 0.5rem;
+    line-height: 1;
+  }
+
+  .clear-btn:hover {
+    color: var(--hc-text-primary, #f5f2eb);
+  }
+
+  .ledger-status-pill {
+    padding: 0.5rem 0.9rem;
+    background: var(--hc-surface-2, #1b1b1e);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    border-radius: 4px;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .ledger-count {
+    color: var(--hc-gold, #c8a755);
+    font-weight: 600;
   }
 
   .filter-row {
@@ -261,13 +269,13 @@ const madhhabs = [
   }
 
   .filter-label {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--hc-text-tertiary, #858077);
     font-family: var(--font-ui, sans-serif);
     font-weight: 700;
-    min-width: 4rem;
+    min-width: 3.8rem;
   }
 
   .filter-chips {
@@ -277,118 +285,126 @@ const madhhabs = [
   }
 
   .filter-chip {
-    padding: 0.35rem 0.75rem;
+    padding: 0.32rem 0.75rem;
     background: var(--hc-surface-0, #0c0c0d);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
     color: var(--hc-text-secondary, #b5b0a5);
     font-size: 0.78rem;
     font-family: var(--font-ui, sans-serif);
     font-weight: 500;
-    border-radius: 2px;
+    border-radius: 3px;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .filter-chip:hover {
     color: var(--hc-text-primary, #f5f2eb);
-    border-color: var(--hc-rule-strong, rgba(212, 175, 55, 0.4));
+    border-color: var(--hc-rule-strong, rgba(200, 167, 85, 0.4));
   }
 
   .filter-chip.is-active {
-    background: rgba(200, 167, 85, 0.15);
+    background: rgba(200, 167, 85, 0.12);
     border-color: var(--hc-gold, #c8a755);
     color: var(--hc-gold, #c8a755);
     font-weight: 600;
   }
 
-  .ledger-status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.06));
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-  }
-
-  .ledger-count {
-    color: var(--hc-gold, #c8a755);
-    font-weight: 600;
-  }
-
-  /* List */
+  /* ── Ledger List ── */
   .ledger-list {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    margin-top: 2rem;
   }
 
   .ledger-row {
     background: var(--hc-surface-1, #141416);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
     border-radius: 4px;
-    padding: 1.5rem;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    padding: 1.6rem 1.6rem 1.4rem;
+    transition: border-color 0.2s ease, background 0.2s ease;
   }
 
   .ledger-row:hover {
-    border-color: var(--hc-rule-strong, rgba(212, 175, 55, 0.35));
+    border-color: var(--hc-rule-strong, rgba(200, 167, 85, 0.35));
     background: var(--hc-surface-2, #18181b);
   }
 
   .ledger-row__header {
-    margin-bottom: 1rem;
+    margin-bottom: 0.85rem;
   }
 
   .ledger-row__meta {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
     flex-wrap: wrap;
     margin-bottom: 0.45rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.72rem;
   }
 
   .era-badge {
-    font-size: 0.72rem;
     font-weight: 700;
     color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
     letter-spacing: 0.05em;
   }
 
-  .century-tag {
-    font-size: 0.72rem;
+  .meta-dot {
     color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
+    opacity: 0.5;
+  }
+
+  .century-tag {
+    color: var(--hc-text-secondary, #b5b0a5);
   }
 
   .madhhab-tag {
     font-size: 0.68rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 2px;
+    padding: 0.12rem 0.5rem;
+    border-radius: 3px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-family: var(--font-ui, sans-serif);
+    letter-spacing: 0.06em;
     font-weight: 600;
     background: rgba(255, 255, 255, 0.05);
-    color: var(--hc-text-secondary, #b5b0a5);
+    color: var(--hc-text-primary, #f5f2eb);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
   }
 
+  .madhhab-tag--shafii {
+    border-color: rgba(138, 76, 39, 0.35);
+    background: rgba(138, 76, 39, 0.12);
+  }
+
+  .madhhab-tag--hanafi {
+    border-color: rgba(78, 92, 120, 0.35);
+    background: rgba(78, 92, 120, 0.12);
+  }
+
+  .madhhab-tag--hanbali {
+    border-color: rgba(168, 75, 62, 0.35);
+    background: rgba(168, 75, 62, 0.12);
+  }
+
+  .madhhab-tag--maliki {
+    border-color: rgba(74, 107, 82, 0.35);
+    background: rgba(74, 107, 82, 0.12);
+  }
+
   .scholar-name {
-    font-size: 1.25rem;
+    font-size: 1.32rem;
     margin: 0;
     font-family: var(--font-display, serif);
     font-weight: 600;
-    line-height: 1.3;
+    line-height: 1.25;
   }
 
   .scholar-link {
     color: var(--hc-text-primary, #f5f2eb);
     text-decoration: none;
     transition: color 0.15s ease;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
   }
 
   .scholar-link:hover {
@@ -396,43 +412,47 @@ const madhhabs = [
   }
 
   .scholar-num {
-    color: var(--hc-gold-soft, rgba(200, 167, 85, 0.6));
-    font-weight: 400;
-    margin-right: 0.25rem;
+    color: var(--hc-text-tertiary, #858077);
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.88rem;
+    font-weight: 600;
   }
 
-  /* Content */
+  /* Arabic Quote Block */
   .arabic-quote-box {
-    margin: 1rem 0;
-    padding: 1rem 1.25rem;
-    background: rgba(200, 167, 85, 0.04);
+    margin: 1.1rem 0;
+    padding: 1.1rem 1.4rem;
+    background: rgba(200, 167, 85, 0.03);
     border-right: 3px solid var(--hc-gold, #c8a755);
-    border-radius: 2px;
+    border-radius: 3px;
   }
 
   .arabic-text {
-    font-family: 'Amiri', 'Scheherazade New', serif;
-    font-size: 1.25rem;
+    font-family: var(--font-arabic, 'Amiri', serif);
+    font-size: 1.28rem;
     line-height: 2.1;
     color: var(--hc-text-primary, #f5f2eb);
     margin: 0;
   }
 
+  /* Scans Section */
   .scans-preview {
     margin-top: 1.25rem;
     padding-top: 1rem;
-    border-top: 1px dashed var(--hc-rule, rgba(255, 255, 255, 0.07));
+    border-top: 1px dashed var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .scans-header {
+    margin-bottom: 0.75rem;
   }
 
   .scans-label {
-    display: block;
-    font-size: 0.72rem;
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.7rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    margin-bottom: 0.65rem;
-    font-weight: 600;
   }
 
   .scans-thumbnails {
@@ -447,9 +467,9 @@ const madhhabs = [
     flex-direction: column;
     align-items: center;
     padding: 0;
-    background: #09090a;
+    background: #0a0a0c;
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
-    border-radius: 2px;
+    border-radius: 3px;
     cursor: pointer;
     overflow: hidden;
     transition: transform 0.15s ease, border-color 0.15s ease;
@@ -461,8 +481,8 @@ const madhhabs = [
   }
 
   .scan-thumb-img {
-    width: 90px;
-    height: 110px;
+    width: 95px;
+    height: 120px;
     object-fit: cover;
     display: block;
   }
@@ -470,55 +490,80 @@ const madhhabs = [
   .scan-zoom-badge {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3rem;
     font-size: 0.65rem;
+    font-weight: 600;
     color: var(--hc-gold, #c8a755);
-    padding: 0.2rem 0.4rem;
+    padding: 0.25rem 0.5rem;
     background: var(--hc-surface-2, #18181b);
     width: 100%;
     justify-content: center;
     font-family: var(--font-ui, sans-serif);
   }
 
-  .ledger-row__actions {
+  /* Footer Actions */
+  .ledger-row__footer {
     margin-top: 1.25rem;
     display: flex;
     justify-content: flex-end;
   }
 
   .read-dossier-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     font-size: 0.82rem;
     color: var(--hc-gold, #c8a755);
     text-decoration: none;
     font-family: var(--font-ui, sans-serif);
     font-weight: 600;
-    transition: gap 0.15s ease;
+    transition: all 0.15s ease;
   }
 
   .read-dossier-link:hover {
-    text-decoration: underline;
+    color: var(--hc-gold-bright, #e8c878);
   }
 
+  .dossier-arrow {
+    transition: transform 0.15s ease;
+  }
+
+  .read-dossier-link:hover .dossier-arrow {
+    transform: translateX(3px);
+  }
+
+  /* No results */
   .no-results {
     text-align: center;
-    padding: 3rem 1.5rem;
+    padding: 3.5rem 1.5rem;
     background: var(--hc-surface-1, #141416);
     border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
     border-radius: 4px;
     margin-top: 2rem;
+  }
+
+  .no-results-text {
+    font-family: var(--font-body, serif);
+    font-size: 1.05rem;
     color: var(--hc-text-secondary, #b5b0a5);
+    margin: 0 0 1rem;
   }
 
   .reset-btn {
-    margin-top: 1rem;
-    padding: 0.5rem 1.2rem;
-    background: rgba(200, 167, 85, 0.15);
+    padding: 0.6rem 1.3rem;
+    background: rgba(200, 167, 85, 0.12);
     border: 1px solid var(--hc-gold, #c8a755);
     color: var(--hc-gold, #c8a755);
     font-family: var(--font-ui, sans-serif);
+    font-size: 0.82rem;
     font-weight: 600;
     border-radius: 3px;
     cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .reset-btn:hover {
+    background: rgba(200, 167, 85, 0.22);
   }
 </style>
 
@@ -537,6 +582,20 @@ const madhhabs = [
     let activeCentury = 'all';
     let searchQuery = '';
 
+    function normalize(t) {
+      return (t || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f\u02be\u02bf]/g, '')
+        .replace(/[ʿʾāīūḍṣṭẓḥ]/gi, function(c) {
+          const map = {
+            'ʿ': '', 'ʾ': '', 'ā': 'a', 'ī': 'i', 'ū': 'u', 'ḍ': 'd', 'ṣ': 's', 'ṭ': 't', 'ẓ': 'z', 'ḥ': 'h',
+            'Ā': 'a', 'Ī': 'i', 'Ū': 'u', 'Ḍ': 'd', 'Ṣ': 's', 'Ṭ': 't', 'Ẓ': 'z', 'Ḥ': 'h'
+          };
+          return map[c] || c;
+        })
+        .toLowerCase();
+    }
+
     function filterRows() {
       let visibleCount = 0;
 
@@ -548,7 +607,7 @@ const madhhabs = [
         // Check madhhab
         let matchesMadhhab = true;
         if (activeMadhhab !== 'all') {
-          matchesMadhhab = rowMadhhab.includes(activeMadhhab.toLowerCase());
+          matchesMadhhab = rowMadhhab.includes(normalize(activeMadhhab));
         }
 
         // Check century
@@ -560,7 +619,7 @@ const madhhabs = [
         // Check search query
         let matchesSearch = true;
         if (searchQuery.trim()) {
-          const query = searchQuery.toLowerCase().trim();
+          const query = normalize(searchQuery.trim());
           matchesSearch = rowSearch.includes(query);
         }
 

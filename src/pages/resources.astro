@@ -105,28 +105,17 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
 >
   <div class="resources-page">
     <header class="resources-hero" aria-labelledby="resources-hero-title" data-motion="hero">
-      <div class="hc-container resources-hero__inner">
-        <p class="hc-eyebrow resources-hero__label">The Library</p>
-        <h1 id="resources-hero-title" class="resources-hero__title">
-          A working <em>catalogue.</em>
-        </h1>
-        <div class="resources-hero__meta" aria-label="Catalogue statistics">
-          <span>{totalItems} holdings</span>
-          <span class="resources-hero__diamond" aria-hidden="true"></span>
-          <span>{categories.length} shelves</span>
+      <div class="hc-container">
+        <div class="hero-content">
+          <h1 id="resources-hero-title" class="resources-hero__title">
+            A working <span class="resources-hero__title-accent">catalogue.</span>
+          </h1>
+          <p class="resources-hero__lead">
+            Curated bibliographies, open-source datasets, study materials, and digital tools for Quranic research and hadith criticism.
+          </p>
         </div>
-        <p class="resources-hero__lead">
-          Curated bibliographies, open-source datasets, study materials, and digital tools
-          for Quranic research and hadith criticism.
-        </p>
       </div>
     </header>
-
-    <div class="resource-filters hc-container" role="search" aria-label="Filter the catalogue">
-      <label><span>Search holdings</span><input id="resource-query" type="search" placeholder="Title or description" autocomplete="off" /></label>
-      <label><span>Format</span><select id="resource-format"><option value="">All formats</option>{[...new Set(categories.flatMap((category) => category.items.map((item) => item.tag)))].sort().map((tag) => <option value={tag}>{tag}</option>)}</select></label>
-      <p id="resource-count" role="status" aria-live="polite">{totalItems} holdings</p>
-    </div>
 
     <div class="catalog hc-container">
       <nav class="catalog-index" aria-label="Catalogue sections">
@@ -146,6 +135,27 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
       </nav>
 
       <div class="catalog-sections">
+        <!-- Minimalist In-Page Search Toolbar -->
+        <div class="resource-filter-toolbar">
+          <div class="resource-search-pill">
+            <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input
+              id="resource-query"
+              type="search"
+              placeholder="Search holdings by title, description, topic..."
+              autocomplete="off"
+              class="resource-search-input"
+            />
+          </div>
+          <select id="resource-format" class="resource-format-select" aria-label="Filter by format">
+            <option value="">All Formats</option>
+            {[...new Set(categories.flatMap((category) => category.items.map((item) => item.tag)))].sort().map((tag) => <option value={tag}>{tag}</option>)}
+          </select>
+          <span id="resource-count" class="resource-count-tag">{totalItems} Holdings</span>
+        </div>
         {categories.map((category) => (
           <section id={category.id} class="catalog-section" aria-labelledby={`heading-${category.id}`} data-motion="reveal">
             <header class="catalog-section__head">
@@ -280,11 +290,6 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
 </script>
 
 <style>
-  .resource-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(11rem, .35fr) auto; gap: 1rem; align-items: end; padding-block: 1.4rem; border-bottom: 1px solid var(--hc-rule); }
-  .resource-filters label { display: grid; gap: .4rem; color: var(--hc-text-secondary); font: 700 .7rem/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; }
-  .resource-filters input, .resource-filters select { min-height: 44px; border: 1px solid var(--hc-rule); padding: .6rem .7rem; color: var(--hc-text-primary); background: var(--hc-surface-1); font: 1rem var(--font-body); }
-  .resource-filters p { margin: 0 0 .75rem; color: var(--hc-gold-soft); font: .78rem var(--font-ui); white-space: nowrap; }
-  @media (max-width: 640px) { .resource-filters { grid-template-columns: 1fr; gap: .75rem; }.resource-filters p { margin: 0; } }
   .resources-page {
     min-height: 100vh;
     background:
@@ -308,89 +313,118 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
     transform: translateY(0);
   }
 
-  /* Hero */
+  /* Compact Hero (WikiSubmission Style) */
 
   .resources-hero {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(6rem, 9vw, 8.5rem) 0 clamp(2.75rem, 5vw, 4rem);
-    border-bottom: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    background: radial-gradient(ellipse 700px 350px at 20% 30%, rgba(200, 167, 85, 0.04) 0%, transparent 70%);
+    padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(2rem, 3.5vw, 2.75rem);
   }
 
-  .resources-hero::before {
-    content: "";
-    position: absolute;
-    inset: 18px;
-    border: 1px solid rgba(216, 177, 102, 0.12);
-    pointer-events: none;
-  }
-
-  .resources-hero__inner {
-    position: relative;
-    z-index: 1;
-    max-width: 900px;
-  }
-
-  .resources-hero__label {
-    margin: 0 0 1rem;
-    animation: heroRise 0.7s var(--ease) both;
+  .hero-content {
+    max-width: 680px;
   }
 
   .resources-hero__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(3.2rem, 7.5vw, 7rem);
-    letter-spacing: -0.04em;
-    line-height: 0.92;
-    color: var(--hc-parchment);
-    animation: heroRise 0.8s var(--ease) 70ms both;
+    margin: 0 0 0.85rem;
+    font-family: var(--font-display, serif);
+    font-size: clamp(2.6rem, 5.5vw, 4.5rem);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    color: var(--hc-text-primary, #f5f2eb);
   }
 
-  .resources-hero__title em {
+  .resources-hero__title-accent {
     font-style: italic;
-    color: var(--hc-gold);
-  }
-
-  .resources-hero__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.85rem;
-    margin-top: 1.5rem;
-    color: var(--hc-ash);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    animation: heroRise 0.8s var(--ease) 140ms both;
-  }
-
-  .resources-hero__diamond {
-    width: 5px;
-    height: 5px;
-    border: 1px solid var(--hc-gold-dim);
-    transform: rotate(45deg);
+    color: var(--hc-gold, #c8a755);
   }
 
   .resources-hero__lead {
-    max-width: 620px;
-    margin: 1.2rem 0 0;
-    color: var(--hc-muted);
-    font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
-    line-height: 1.72;
-    animation: heroRise 0.8s var(--ease) 200ms both;
+    margin: 0;
+    font-family: var(--font-body, serif);
+    font-size: clamp(1rem, 1.25vw, 1.15rem);
+    line-height: 1.65;
+    color: var(--hc-text-secondary, #b5b0a5);
+    max-width: 56ch;
   }
 
-  @keyframes heroRise {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* In-Page Minimalist Filter Toolbar */
+  .resource-filter-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  }
+
+  .resource-search-pill {
+    flex: 1;
+    min-width: 240px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--hc-surface-1, #141416);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.2s ease;
+  }
+
+  .resource-search-pill:focus-within {
+    border-color: var(--hc-gold, #c8a755);
+  }
+
+  .search-icon {
+    color: var(--hc-text-tertiary, #858077);
+    flex-shrink: 0;
+  }
+
+  .resource-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.82rem;
+    min-width: 0;
+  }
+
+  .resource-search-input::placeholder {
+    color: var(--hc-text-tertiary, #858077);
+  }
+
+  .resource-format-select {
+    background: var(--hc-surface-1, #141416);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    border-radius: 6px;
+    color: var(--hc-text-secondary, #b5b0a5);
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .resource-format-select:hover, .resource-format-select:focus {
+    border-color: var(--hc-gold, #c8a755);
+    color: var(--hc-text-primary, #f5f2eb);
+  }
+
+  .resource-count-tag {
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--hc-gold, #c8a755);
+    background: rgba(200, 167, 85, 0.08);
+    border: 1px solid rgba(200, 167, 85, 0.2);
+    padding: 0.35rem 0.65rem;
+    border-radius: 4px;
+    white-space: nowrap;
   }
 
   /* Catalog layout */
