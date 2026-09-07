@@ -67,6 +67,7 @@ const videoIds = [
 <BaseLayout title="HadithCritic | Verification Over Reputation">
   <link slot="head" rel="preload" as="image" href="/images/asset1.webp" />
   <section class="hero-section" data-motion="hero">
+    <div class="hero-media" aria-hidden="true"></div>
     <div class="hc-container">
       <div class="hero-content">
         <h1 class="hero-title">
@@ -454,57 +455,102 @@ const videoIds = [
 <style>
   /* Hero */
 
+  /* The hero ground is a single flat surface colour. The illustration sits on
+     its own masked layer (.hero-media) rather than as a background layer here,
+     because a background image cannot be masked independently of the gradients
+     stacked with it — which is what produced the visible vertical seam where
+     `background-size: contain` ended.
+
+     The two grounds also did not match: asset1.webp letterboxes to a warm
+     rgb(12,12,10) while --hc-surface-0 is a cool rgb(15,15,16), so the join
+     shifted hue as well as value. Masking the illustration's edges to nothing
+     makes the exact black irrelevant in both themes. */
   .hero-section {
     position: relative;
     border-bottom: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(
-        90deg,
-        rgba(15, 15, 16, 0.98) 0%,
-        rgba(15, 15, 16, 0.96) 28%,
-        rgba(15, 15, 16, 0.68) 46%,
-        rgba(15, 15, 16, 0.18) 72%,
-        rgba(15, 15, 16, 0.08) 100%
-      ),
-      radial-gradient(
-        circle at 18% 44%,
-        rgba(216, 177, 102, 0.08),
-        transparent 28%
-      ),
-      url("/images/asset1.webp");
-    background-size: cover, cover, contain;
-    background-position:
-      center,
-      center,
-      right center;
-    background-repeat: no-repeat;
+    background-color: var(--hc-surface-0);
+    background-image: radial-gradient(
+      circle at 18% 44%,
+      rgba(216, 177, 102, 0.08),
+      transparent 28%
+    );
     overflow: hidden;
     padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(2rem, 3.5vw, 2.75rem);
   }
 
-  :global([data-theme="light"]) .hero-section {
-    background-color: var(--hc-surface-0);
-    background-image:
+  .hero-media {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image: url("/images/asset1.webp");
+    background-size: contain;
+    background-position: right center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    /* Dissolve every edge into the ground. The horizontal stops reproduce the
+       weighting of the scrim this replaced (2% / 4% / 32% / 82% / 92% visible),
+       so the illustration keeps its original prominence behind the headline —
+       the difference is that it now fades to nothing on the left instead of
+       ending on a vertical line, and the vertical mask does the same top and
+       bottom. */
+    --hero-fade-y: 10%;
+    -webkit-mask-image:
       linear-gradient(
         90deg,
-        rgba(251, 249, 244, 0.98) 0%,
-        rgba(251, 249, 244, 0.94) 30%,
-        rgba(251, 249, 244, 0.65) 55%,
-        rgba(251, 249, 244, 0.25) 80%,
-        rgba(251, 249, 244, 0.12) 100%
+        transparent 0%,
+        rgba(0, 0, 0, 0.04) 28%,
+        rgba(0, 0, 0, 0.32) 46%,
+        rgba(0, 0, 0, 0.82) 72%,
+        rgba(0, 0, 0, 0.92) 100%
       ),
-      radial-gradient(
-        circle at 18% 44%,
-        rgba(176, 126, 44, 0.08),
-        transparent 28%
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 var(--hero-fade-y),
+        #000 calc(100% - var(--hero-fade-y)),
+        transparent 100%
+      );
+    mask-image:
+      linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(0, 0, 0, 0.04) 28%,
+        rgba(0, 0, 0, 0.32) 46%,
+        rgba(0, 0, 0, 0.82) 72%,
+        rgba(0, 0, 0, 0.92) 100%
       ),
-      url("/images/asset1-light.webp");
-    background-size: cover, cover, contain;
-    background-position:
-      center,
-      center,
-      right center;
-    background-repeat: no-repeat;
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 var(--hero-fade-y),
+        #000 calc(100% - var(--hero-fade-y)),
+        transparent 100%
+      );
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  :global([data-theme="light"]) .hero-media {
+    background-image: url("/images/asset1-light.webp");
+  }
+
+  /* Without mask support the illustration would render at full strength across
+     the whole hero and swamp the headline, so it is withheld entirely. The
+     layer is decorative and aria-hidden, so nothing is lost but the picture. */
+  @supports not ((mask-image: linear-gradient(#000, #000)) or
+                 (-webkit-mask-image: linear-gradient(#000, #000))) {
+    .hero-media {
+      display: none;
+    }
+  }
+
+  :global([data-theme="light"]) .hero-section {
+    background-color: var(--hc-surface-0);
+    background-image: radial-gradient(
+      circle at 18% 44%,
+      rgba(176, 126, 44, 0.08),
+      transparent 28%
+    );
   }
 
   .hero-section::before {
@@ -568,7 +614,7 @@ const videoIds = [
   .hero-title {
     margin: 0 0 0.85rem;
     font-family: var(--font-display, serif);
-    font-size: clamp(2.6rem, 5.5vw, 4.5rem);
+    font-size: clamp(2.21rem, 5.5vw, 3.82rem);
     font-weight: 400;
     line-height: 0.98;
     letter-spacing: -0.03em;
@@ -719,7 +765,7 @@ const videoIds = [
     -webkit-backdrop-filter: blur(8px);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -758,7 +804,7 @@ const videoIds = [
     color: var(--cat-color, var(--hc-gold-soft));
     background: var(--cat-bg, rgba(216, 177, 102, 0.08));
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 700;
@@ -766,7 +812,7 @@ const videoIds = [
 
   .journal-feature-date {
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.85rem;
     color: var(--hc-text-tertiary);
   }
 
@@ -779,7 +825,7 @@ const videoIds = [
     border: 1px solid rgba(224, 90, 71, 0.4);
     color: #e05a47;
     font-family: var(--font-ui);
-    font-size: 0.66rem;
+    font-size: 0.79rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -791,7 +837,7 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.65rem, 2.4vw, 2.25rem);
+    font-size: clamp(1.4rem, 2.4vw, 1.91rem);
     line-height: 1.15;
     text-wrap: balance;
     transition: color 250ms ease;
@@ -804,7 +850,7 @@ const videoIds = [
   .journal-feature-copy > p {
     color: var(--hc-text-secondary);
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 1.06rem;
     line-height: 1.62;
     display: -webkit-box;
     -webkit-line-clamp: 4;
@@ -820,7 +866,7 @@ const videoIds = [
 
   .journal-tag {
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-2);
     padding: 0.12rem 0.5rem;
@@ -839,7 +885,7 @@ const videoIds = [
     gap: 0.5rem;
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -916,7 +962,7 @@ const videoIds = [
     border: 1px solid var(--cat-border, var(--hc-rule));
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -953,7 +999,7 @@ const videoIds = [
     color: var(--hc-text-primary);
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.25rem, 1.6vw, 1.55rem);
+    font-size: clamp(1.25rem, 1.6vw, 1.32rem);
     line-height: 1.18;
     letter-spacing: -0.01em;
     transition: color 220ms ease;
@@ -966,7 +1012,7 @@ const videoIds = [
   .journal-category-desc {
     margin: 0 0 1.25rem;
     color: var(--hc-text-secondary);
-    font-size: 0.88rem;
+    font-size: 0.99rem;
     line-height: 1.55;
     flex-grow: 1;
   }
@@ -979,7 +1025,7 @@ const videoIds = [
     border-top: 1px solid var(--hc-rule-soft);
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.83rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -1013,14 +1059,14 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
+    font-size: clamp(1.36rem, 2.4vw, 1.78rem);
     color: var(--hc-text-primary);
   }
 
   .home-ledger-subtitle {
     margin: 0.35rem 0 0;
     color: var(--hc-text-secondary);
-    font-size: 0.92rem;
+    font-size: 1.03rem;
   }
 
   .home-ledger-filters {
@@ -1084,7 +1130,7 @@ const videoIds = [
     background: var(--hc-surface-1);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     cursor: pointer;
@@ -1163,7 +1209,7 @@ const videoIds = [
 
   .home-ledger-no {
     color: var(--hc-gold-dim);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -1171,7 +1217,7 @@ const videoIds = [
 
   .home-ledger-folio time {
     color: var(--hc-text-tertiary);
-    font-size: 0.78rem;
+    font-size: 0.87rem;
   }
 
   .home-ledger-body {
@@ -1197,7 +1243,7 @@ const videoIds = [
     color: var(--hc-gold-soft);
     background: rgba(216, 177, 102, 0.06);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -1231,7 +1277,7 @@ const videoIds = [
   .home-ledger-heading {
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.35rem, 1.9vw, 1.8rem);
+    font-size: clamp(1.35rem, 1.9vw, 1.53rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
     color: var(--hc-text-primary);
@@ -1248,7 +1294,7 @@ const videoIds = [
     -webkit-box-orient: vertical;
     overflow: hidden;
     color: var(--hc-text-secondary);
-    font-size: 0.93rem;
+    font-size: 1.04rem;
     line-height: 1.6;
   }
 
@@ -1261,7 +1307,7 @@ const videoIds = [
 
   .home-tag {
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-2);
     padding: 0.1rem 0.45rem;
@@ -1385,7 +1431,7 @@ const videoIds = [
 
   .yt-lite:hover .yt-play {
     background: var(--hc-gold);
-    color: var(--hc-fixed-black);
+    color: var(--hc-text-inverse);
     border-color: var(--hc-gold);
     transform: translate(-50%, -50%) scale(1.12);
     box-shadow: 0 0 25px rgba(216, 177, 102, 0.35);
@@ -1402,7 +1448,7 @@ const videoIds = [
     border-radius: var(--radius-pill);
     padding: 0.25rem 0.65rem;
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -1477,12 +1523,12 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.9rem, 2.6vw, 2.6rem);
+    font-size: clamp(1.61rem, 2.6vw, 2.21rem);
     line-height: 1.02;
   }
 
   .project-card .hc-copy {
-    font-size: 0.98rem;
+    font-size: 1.1rem;
     max-width: 38ch;
   }
 
@@ -1513,7 +1559,7 @@ const videoIds = [
     margin-top: 0.4rem;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.87rem;
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -1612,13 +1658,13 @@ const videoIds = [
 
   .closing-copy .hc-title {
     color: var(--hc-text-primary);
-    font-size: clamp(1.9rem, 3.2vw, 3rem);
+    font-size: clamp(1.61rem, 3.2vw, 2.55rem);
   }
 
   .closing-lead {
     margin: 1rem 0 1.6rem;
     color: var(--hc-parchment-deep);
-    font-size: 1.02rem;
+    font-size: 1.14rem;
     line-height: 1.65;
     max-width: 44ch;
   }
@@ -1692,50 +1738,38 @@ const videoIds = [
       min-height: auto;
       /* Add safe area compensation for notched devices */
       padding-top: max(4rem, calc(2rem + var(--sat, 0px)));
-      background:
-        linear-gradient(
-          90deg,
-          rgba(15, 15, 16, 0.98) 0%,
-          rgba(15, 15, 16, 0.94) 54%,
-          rgba(15, 15, 16, 0.58) 100%
-        ),
-        linear-gradient(
-          180deg,
-          rgba(15, 15, 16, 0.16),
-          rgba(15, 15, 16, 0.72) 78%,
-          rgba(15, 15, 16, 0.95)
-        ),
-        url("/images/asset1.webp");
-      background-size: cover, cover, contain;
-      background-position:
-        center,
-        center,
-        center top;
-      background-repeat: no-repeat;
     }
 
-    :global([data-theme="light"]) .hero-section {
-      background-color: var(--hc-surface-0);
-      background-image:
-        linear-gradient(
-          90deg,
-          rgba(251, 249, 244, 0.98) 0%,
-          rgba(251, 249, 244, 0.94) 54%,
-          rgba(251, 249, 244, 0.68) 100%
-        ),
-        linear-gradient(
-          180deg,
-          rgba(251, 249, 244, 0.2),
-          rgba(251, 249, 244, 0.75) 78%,
-          rgba(251, 249, 244, 0.98)
-        ),
-        url("/images/asset1-light.webp");
-      background-size: cover, cover, contain;
-      background-position:
-        center,
-        center,
-        center top;
-      background-repeat: no-repeat;
+    /* On narrow screens the illustration sits behind the copy rather than
+       beside it, so the fade runs vertically instead of horizontally.
+
+       The layer is pinned to the illustration's own box (asset1.webp is
+       1916x821, so at full width it occupies 100/2.334 = 42.9vw) rather than
+       to the full hero. Masking the hero height instead would spread the
+       fade-in across the whole image and never reach full opacity. */
+    .hero-media {
+      inset: 0 0 auto 0;
+      height: 42.9vw;
+      background-position: center top;
+      opacity: 0.55;
+      -webkit-mask-image: linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 26%,
+        #000 58%,
+        rgba(0, 0, 0, 0.4) 82%,
+        transparent 100%
+      );
+      mask-image: linear-gradient(
+        180deg,
+        transparent 0%,
+        #000 26%,
+        #000 58%,
+        rgba(0, 0, 0, 0.4) 82%,
+        transparent 100%
+      );
+      -webkit-mask-composite: source-over;
+      mask-composite: add;
     }
 
     .hero-section::before {
@@ -1747,7 +1781,7 @@ const videoIds = [
     }
 
     .hero-content .hc-title--xl {
-      font-size: clamp(2.7rem, 14vw, 3.65rem);
+      font-size: clamp(2.29rem, 14vw, 3.1rem);
       line-height: 1.03;
     }
 
@@ -1758,7 +1792,7 @@ const videoIds = [
     .hero-subtitle {
       max-width: 100%;
       margin-bottom: 1.5rem;
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.65;
     }
 
@@ -1795,7 +1829,7 @@ const videoIds = [
     }
 
     .journal-feature-copy h3 {
-      font-size: clamp(1.45rem, 6vw, 1.95rem);
+      font-size: clamp(1.45rem, 6vw, 1.66rem);
       line-height: 1.15;
     }
 
@@ -1832,7 +1866,7 @@ const videoIds = [
     }
 
     .home-ledger-title {
-      font-size: clamp(1.45rem, 8vw, 1.85rem);
+      font-size: clamp(1.45rem, 8vw, 1.57rem);
       overflow-wrap: break-word;
       word-break: break-word;
     }
@@ -1869,7 +1903,7 @@ const videoIds = [
     }
 
     .project-card h3 {
-      font-size: clamp(1.7rem, 9vw, 2.35rem);
+      font-size: clamp(1.44rem, 9vw, 2.0rem);
     }
 
     .project-card--large::after,

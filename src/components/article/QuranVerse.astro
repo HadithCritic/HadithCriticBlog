@@ -170,6 +170,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
 </div>
 
 <script>
+  import { copyText, flashCopied, buildCitation } from "../../lib/clipboard";
   function initQuranCopy() {
     for (const card of document.querySelectorAll<HTMLElement>(
       "[data-quran-verse]",
@@ -188,30 +189,14 @@ const hasData = Boolean(arabicSegments.length || english.length);
           .querySelector("[data-ref-text]")
           ?.getAttribute("data-ref-text");
 
-        let textParts: string[] = [];
-        const arabicCopyText =
-          arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent;
-        if (arabicCopyText) textParts.push(arabicCopyText.trim());
-        if (englishEl?.textContent)
-          textParts.push(`"${englishEl.textContent.trim()}"`);
-        if (refVal) textParts.push(`— ${refVal.trim()}`);
-
-        const textToCopy = textParts.join("\n\n");
+        const textToCopy = buildCitation({
+          primary: arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent,
+          quoted: englishEl?.textContent,
+          reference: refVal
+        });
         if (!textToCopy) return;
-
-        try {
-          await navigator.clipboard.writeText(textToCopy);
-          copyBtn.classList.add("is-copied");
-          const labelSpan = copyBtn.querySelector(".quran-verse__copy-text");
-          if (labelSpan) labelSpan.textContent = "Copied!";
-
-          setTimeout(() => {
-            copyBtn.classList.remove("is-copied");
-            if (labelSpan) labelSpan.textContent = "Copy";
-          }, 2200);
-        } catch (err) {
-          console.warn("Failed to copy verse:", err);
-        }
+        if (!(await copyText(textToCopy, "verse"))) return;
+        flashCopied(copyBtn, { labelSelector: ".quran-verse__copy-text" });
       });
     }
   }
@@ -266,14 +251,14 @@ const hasData = Boolean(arabicSegments.length || english.length);
     border-right: 1px solid var(--hc-rule);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
   .quran-verse__badge-icon {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
   }
 
   /* Copy Button */
@@ -288,7 +273,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     background: rgba(15, 15, 16, 0.6);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -332,8 +317,9 @@ const hasData = Boolean(arabicSegments.length || english.length);
   }
 
   .quran-verse__arabic {
-    font-family: var(--font-arabic);
-    font-size: clamp(1.5rem, 1.2vw + 1.25rem, 1.85rem);
+    /* Amiri Quran: carries the U+06D6-06ED Qur'anic mark set. */
+    font-family: var(--font-quran);
+    font-size: clamp(1.27rem, 1.2vw + 1.25rem, 1.57rem);
     line-height: 2.35;
     color: var(--hc-text-primary);
     text-align: right;
@@ -371,7 +357,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     border-radius: 50%;
     background: rgba(216, 177, 102, 0.08);
     font-family: var(--font-arabic);
-    font-size: 0.5em;
+    font-size: 0.62em;
     line-height: 1;
     color: var(--hc-gold);
     vertical-align: 0.02em;
@@ -431,7 +417,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     align-items: center;
     gap: 0.45rem;
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-gold);
@@ -441,7 +427,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
   }
 
   .quran-verse__ref-icon {
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     color: var(--hc-gold-bright);
   }
 
@@ -484,7 +470,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
 
     .quran-verse__badge {
       padding: 0.4rem 0.85rem;
-      font-size: 0.64rem;
+      font-size: 0.78rem;
     }
 
     .quran-verse__content {
@@ -492,7 +478,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     }
 
     .quran-verse__arabic {
-      font-size: clamp(1.3rem, 6.8vw, 1.6rem);
+      font-size: clamp(1.3rem, 6.8vw, 1.36rem);
       line-height: 2.1;
     }
 
@@ -502,7 +488,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
 
     .quran-verse__english {
       padding-left: 0.85rem;
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.68;
     }
 

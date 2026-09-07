@@ -8,42 +8,38 @@ import { marked } from 'marked';
 export async function getStaticPaths() {
   const paths: any[] = [];
 
-  // 1. Core Chapters (13 items)
   for (let i = 0; i < chaptersData.length; i++) {
     const chap = chaptersData[i];
-    const prev = i > 0 ? { title: chaptersData[i - 1].title, href: `/research/shirk-endorsed/${chaptersData[i - 1].id}` } : null;
-    const next = i < chaptersData.length - 1 ? { title: chaptersData[i + 1].title, href: `/research/shirk-endorsed/${chaptersData[i + 1].id}` } : (
-      scholarsData.length > 0 ? { title: scholarsData[0].title, href: `/research/shirk-endorsed/${scholarsData[0].id}` } : null
-    );
+    const prev = i > 0
+      ? { title: chaptersData[i - 1].title, href: `/research/shirk-endorsed/${chaptersData[i - 1].id}` }
+      : null;
+    const next = i < chaptersData.length - 1
+      ? { title: chaptersData[i + 1].title, href: `/research/shirk-endorsed/${chaptersData[i + 1].id}` }
+      : (scholarsData.length > 0
+        ? { title: scholarsData[0].title, href: `/research/shirk-endorsed/${scholarsData[0].id}` }
+        : null);
 
     paths.push({
       params: { slug: chap.id },
-      props: {
-        item: chap,
-        isScholar: false,
-        prevPage: prev,
-        nextPage: next
-      }
+      props: { item: chap, isScholar: false, prevPage: prev, nextPage: next }
     });
   }
 
-  // 2. Scholar Dossiers (99 items)
   for (let i = 0; i < scholarsData.length; i++) {
     const sch = scholarsData[i];
-    const prev = i > 0 ? { title: scholarsData[i - 1].title, href: `/research/shirk-endorsed/${scholarsData[i - 1].id}` } : {
-      title: 'Scholars Worth Mentioning',
-      href: '/research/shirk-endorsed/scholars-worth-mentioning'
-    };
-    const next = i < scholarsData.length - 1 ? { title: scholarsData[i + 1].title, href: `/research/shirk-endorsed/${scholarsData[i + 1].id}` } : null;
+    const prev = i > 0
+      ? { title: scholarsData[i - 1].title, href: `/research/shirk-endorsed/${scholarsData[i - 1].id}` }
+      : {
+          title: 'Scholars Worth Mentioning',
+          href: '/research/shirk-endorsed/scholars-worth-mentioning'
+        };
+    const next = i < scholarsData.length - 1
+      ? { title: scholarsData[i + 1].title, href: `/research/shirk-endorsed/${scholarsData[i + 1].id}` }
+      : null;
 
     paths.push({
       params: { slug: sch.id },
-      props: {
-        item: sch,
-        isScholar: true,
-        prevPage: prev,
-        nextPage: next
-      }
+      props: { item: sch, isScholar: true, prevPage: prev, nextPage: next }
     });
   }
 
@@ -53,15 +49,15 @@ export async function getStaticPaths() {
 const { item, isScholar, prevPage, nextPage } = Astro.props;
 
 const verses = quranData as Record<string, { ar: string; en: string }>;
+const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
 
-const ARABIC_INDIC_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
 function toArabicIndicDigits(input: string): string {
   return input.replace(/\d/g, (d) => ARABIC_INDIC_DIGITS[Number(d)]);
 }
 
 function expandVerseRef(ref: string): string[] {
   const out: string[] = [];
-  for (const part of ref.split(",").map((s) => s.trim()).filter(Boolean)) {
+  for (const part of ref.split(',').map((s) => s.trim()).filter(Boolean)) {
     const m = part.match(/^(\d+):(\d+)-(\d+)$/);
     if (m) {
       const ch = m[1];
@@ -76,8 +72,10 @@ function expandVerseRef(ref: string): string[] {
 function renderQuranVerseHtml(verseRef: string, label?: string): string {
   const refs = expandVerseRef(verseRef);
   const found = refs.map((r) => ({ ref: r, ...(verses[r] || {}) }));
-  const arabicSegments = found.filter((f) => f.ar).map((f) => ({ text: f.ar, num: f.ref.split(":")[1] ?? "" }));
-  const arabicPlain = arabicSegments.map((s) => s.text).join(" \u06DD ");
+  const arabicSegments = found
+    .filter((f) => f.ar)
+    .map((f) => ({ text: f.ar, num: f.ref.split(':')[1] ?? '' }));
+  const arabicPlain = arabicSegments.map((s) => s.text).join(' ۝ ');
   const verseEntries = found.filter((f) => f.en);
   const ref = label || `Quran ${verseRef}`;
   const hasData = Boolean(arabicSegments.length || verseEntries.length);
@@ -101,7 +99,7 @@ function renderQuranVerseHtml(verseRef: string, label?: string): string {
     <div class="quran-verse__english" data-english-text>
       ${verseEntries.map((f) => `
         <p class="qv-verse">
-          ${f.ref.includes(":") ? `<span class="qv-verse-num" aria-hidden="true">${f.ref.split(":")[1]}</span>` : ''}
+          ${f.ref.includes(':') ? `<span class="qv-verse-num" aria-hidden="true">${f.ref.split(':')[1]}</span>` : ''}
           ${f.en}
         </p>
       `).join('')}
@@ -142,29 +140,21 @@ function renderQuranVerseHtml(verseRef: string, label?: string): string {
   `;
 }
 
-// Helper to sanitize GitBook artifacts & normalize dividers
 function cleanContent(raw: string): string {
   if (!raw) return '';
   let content = raw;
-  // Strip top GitBook metadata remnants
   content = content.replace(/^For the complete documentation index, see \[llms\.txt\].*?\n\nCopy\n\nOn this page\n\n/is, '');
   content = content.replace(/^.*?\bllms\.txt\b.*?\n\nCopy\n\nOn this page\n\n/is, '');
-  // Strip bottom GitBook nav remnants
   content = content.replace(/\n*\[Previous.*?\]\(.*?\)\s*\[Next.*?\]\(.*?\)\s*Last updated.*$/is, '');
   content = content.replace(/\n*Last updated.*$/is, '');
-  // Normalize markdown dividers and remove long underscore sequences
   content = content.replace(/(\\_)+/g, '\n\n---\n\n');
   content = content.replace(/_{4,}/g, '\n\n---\n\n');
-  // Strip duplicate consecutive horizontal rules
   content = content.replace(/(\n\s*---\s*\n)+/g, '\n\n---\n\n');
-  // Strip awkward standalone backslashes before lines
   content = content.replace(/\\\s*\n/g, '\n');
-  // Strip raw GitBook mark tags into clean text
   content = content.replace(/<mark[^>]*>(.*?)<\/mark>/gis, '$1');
   return content.trim();
 }
 
-// Render markdown content and embed blog-style components
 marked.setOptions({
   gfm: true,
   breaks: false
@@ -175,7 +165,6 @@ function renderTreatiseContent(raw: string): string {
   const tokens: Record<string, string> = {};
   let counter = 0;
 
-  // 1. Process <ClaimBox>
   content = content.replace(/<ClaimBox(?:\s+title="([^"]*)")?>([\s\S]*?)<\/ClaimBox>/gi, (_, title, inner) => {
     const key = `%%CLAIMBOX_TOKEN_${counter++}%%`;
     const innerHtml = marked.parse(inner.trim());
@@ -183,7 +172,6 @@ function renderTreatiseContent(raw: string): string {
     return key;
   });
 
-  // 2. Process <ContextNote>
   content = content.replace(/<ContextNote(?:\s+title="([^"]*)")?>([\s\S]*?)<\/ContextNote>/gi, (_, title, inner) => {
     const key = `%%CONTEXTNOTE_TOKEN_${counter++}%%`;
     const innerHtml = marked.parse(inner.trim());
@@ -191,7 +179,6 @@ function renderTreatiseContent(raw: string): string {
     return key;
   });
 
-  // 3. Process <VerdictBox>
   content = content.replace(/<VerdictBox(?:\s+title="([^"]*)")?>([\s\S]*?)<\/VerdictBox>/gi, (_, title, inner) => {
     const key = `%%VERDICTBOX_TOKEN_${counter++}%%`;
     const innerHtml = marked.parse(inner.trim());
@@ -199,25 +186,19 @@ function renderTreatiseContent(raw: string): string {
     return key;
   });
 
-  // 4. Process <QuranVerse>
   content = content.replace(/<QuranVerse\s+verse="([^"]+)"(?:\s+label="([^"]+)")?\s*(?:\/>|>\s*<\/QuranVerse>)/gi, (_, verseRef, label) => {
     const key = `%%QURAN_TOKEN_${counter++}%%`;
     tokens[key] = renderQuranVerseHtml(verseRef, label);
     return key;
   });
 
-  // Parse markdown
   let parsedHtml = marked.parse(content) as string;
 
-  // Substitute all tokens back
   for (const [k, val] of Object.entries(tokens)) {
     parsedHtml = parsedHtml.replace(new RegExp(`<p>\\s*${k}\\s*<\\/p>`, 'g'), val);
     parsedHtml = parsedHtml.replace(new RegExp(k, 'g'), val);
   }
 
-  // Run last, so it reaches the Arabic inside ClaimBox, ContextNote and
-  // VerdictBox too. Those are parsed separately and only exist in the output
-  // once their tokens have been substituted back above.
   return bindArabicPassages(parsedHtml);
 }
 
@@ -230,24 +211,16 @@ function arabicRatio(html: string) {
 }
 
 function bindArabicPassages(html: string): string {
-  // 1. Mark direction. Nothing upstream does this, so a block that is mostly
-  //    Arabic would otherwise render left aligned in the Latin body face.
   let out = html.replace(/<(p|blockquote|li)>([\s\S]*?)<\/\1>/g, (whole, tag, inner) => {
     const { arabic, latin } = arabicRatio(inner);
     if (arabic < 12 || arabic <= latin) return whole;
     return `<${tag} dir="rtl" lang="ar" class="treatise-arabic">${inner}</${tag}>`;
   });
 
-  // 2. Tie each translation to the Arabic it renders. A quoted Arabic passage
-  //    is always followed by its English, so the pair is wrapped into one
-  //    figure and the translation is labelled, rather than leaving two loose
-  //    blocks whose relationship the reader has to infer.
   out = out.replace(
     /<blockquote dir="rtl" lang="ar" class="treatise-arabic">([\s\S]*?)<\/blockquote>\s*<p>((?:(?!<\/p>)[\s\S])*?)<\/p>/g,
     (whole, arabicInner, translation) => {
       const { arabic, latin } = arabicRatio(translation);
-      // Only pair when what follows really is the rendering, not more Arabic
-      // and not a stray one-word line.
       if (latin < 20 || arabic > latin) return whole;
       return `<figure class="passage">
   <blockquote dir="rtl" lang="ar" class="treatise-arabic passage__source">${arabicInner}</blockquote>
@@ -259,9 +232,6 @@ function bindArabicPassages(html: string): string {
     }
   );
 
-  // 3. Give every table its own scroll container. The source registers are
-  //    wide, and without this they push the article column sideways on narrow
-  //    viewports instead of scrolling inside their own box.
   out = out.replace(/<table>([\s\S]*?)<\/table>/g, (_, inner) =>
     `<div class="table-scroll"><table>${inner}</table></div>`
   );
@@ -270,7 +240,6 @@ function bindArabicPassages(html: string): string {
 }
 
 const htmlContent = renderTreatiseContent(item.content);
-
 const categoryLabel = item.category === 'core'
   ? 'PART I · FOUNDATIONAL STUDY'
   : (item.category === 'four-imams'
@@ -285,18 +254,21 @@ const categoryLabel = item.category === 'core'
   prevPage={prevPage}
   nextPage={nextPage}
 >
-  <!-- Unified Header Banner for Both Scholars and Chapters -->
-  <header class="article-header-banner">
+  <header class="article-header">
     {isScholar ? (
-      <div class="article-meta-group">
-        <span class="era-pill">{item.deathYear ? `Died ${item.deathYear} AH` : 'Classical Period'}</span>
-        {item.century && <span class="century-pill">{item.century}th Century Hijri</span>}
-        <span class="madhhab-pill">{item.madhhab}</span>
+      <div class="article-utility-line">
+        <span class="article-kicker">Classical Authority</span>
+        <span class="utility-separator">·</span>
+        <span>{item.madhhab}</span>
+        <span class="utility-separator">·</span>
+        <span>{item.deathYear ? `d. ${item.deathYear} AH` : 'Classical Period'}</span>
+        {item.century && <span class="utility-separator">·</span>}
+        {item.century && <span>{item.century}th Century Hijri</span>}
       </div>
     ) : (
       categoryLabel && (
-        <div class="article-meta-group">
-          <span class="category-pill">{categoryLabel}</span>
+        <div class="article-utility-line">
+          <span class="article-kicker">{categoryLabel}</span>
         </div>
       )
     )}
@@ -304,15 +276,13 @@ const categoryLabel = item.category === 'core'
     <h1 class="article-heading">{item.title}</h1>
   </header>
 
-  <!-- Rendered Content with Advanced Typography -->
   <div class="treatise-rendered-content" set:html={htmlContent} />
 
-  <!-- Primary Manuscript Evidence Gallery -->
   {item.scans && item.scans.length > 0 && (
     <section class="manuscript-evidence-section" aria-label="Manuscript Evidence">
       <div class="evidence-header">
         <span class="evidence-eyebrow">Primary Source Archival Evidence</span>
-        <h3 class="evidence-title">Manuscript & Reference Edition Scans</h3>
+        <h2 class="evidence-title">Manuscript &amp; Reference Edition Scans</h2>
         <p class="evidence-desc">
           Click any scan below to open in high resolution and verify the original Arabic text, marginal notes, and printed edition chains.
         </p>
@@ -329,10 +299,20 @@ const categoryLabel = item.category === 'core'
               data-lightbox-caption={`Original printed edition citation proof for ${item.title}`}
               aria-label={`Open scan ${idx + 1} for ${item.title}`}
             >
-              <img src={scanUrl} alt={`${item.title} scan proof ${idx + 1}`} loading="lazy" class="scan-img" />
+              <img
+                src={scanUrl}
+                alt={`${item.title} scan proof ${idx + 1}`}
+                loading="lazy"
+                class="scan-img"
+              />
               <span class="scan-overlay">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
                 <span>Inspect Scan {idx + 1}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  <line x1="11" y1="8" x2="11" y2="14"></line>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                </svg>
               </span>
             </button>
             <figcaption class="scan-caption">Proof Page {idx + 1}</figcaption>
@@ -344,690 +324,209 @@ const categoryLabel = item.category === 'core'
 </TreatiseLayout>
 
 <style>
-  /* ── Header Banner ── */
-  .article-header-banner {
-    margin-bottom: 2.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+  .article-header {
+    margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule);
   }
 
-  .article-meta-group {
+  .article-utility-line {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
-    margin-bottom: 0.85rem;
     flex-wrap: wrap;
-  }
-
-  .era-pill, .century-pill, .madhhab-pill, .category-pill {
-    font-size: 0.72rem;
-    padding: 0.22rem 0.65rem;
-    border-radius: 3px;
-    font-family: var(--font-ui, sans-serif);
+    gap: 0.42rem;
+    margin-bottom: 0.8rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
     font-weight: 600;
-    line-height: 1.2;
-  }
-
-  .era-pill {
-    background: rgba(200, 167, 85, 0.14);
-    color: var(--hc-gold, #c8a755);
-    border: 1px solid rgba(200, 167, 85, 0.35);
-  }
-
-  .century-pill {
-    background: var(--hc-surface-2, #1b1b1e);
-    color: var(--hc-text-secondary, #b5b0a5);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-  }
-
-  .madhhab-pill {
-    background: rgba(200, 167, 85, 0.07);
-    color: var(--hc-text-primary, #f5f2eb);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
-    text-transform: uppercase;
     letter-spacing: 0.06em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
   }
 
-  .category-pill {
-    background: rgba(200, 167, 85, 0.1);
-    color: var(--hc-gold, #c8a755);
-    border: 1px solid rgba(200, 167, 85, 0.25);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .article-kicker {
+    color: var(--hc-gold);
+  }
+
+  .utility-separator {
+    color: var(--hc-text-tertiary);
   }
 
   .article-heading {
-    font-size: clamp(2.1rem, 3.8vw, 2.9rem);
-    font-family: var(--font-display, serif);
-    color: var(--hc-text-primary, #f5f2eb);
+    max-width: 24ch;
     margin: 0;
-    line-height: 1.18;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: clamp(2.0rem, 4.6vw, 3.1rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    color: var(--hc-text-primary);
+    text-wrap: balance;
   }
 
-  /* ── Rendered Content ── */
   .treatise-rendered-content {
-    color: var(--hc-text-secondary, #dcd8cf);
-    font-family: var(--font-body, serif);
-    font-size: 1.08rem;
-    line-height: 1.82;
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 1.17rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
   }
 
-  /* Hide markdown H1 because the banner already renders it */
   .treatise-rendered-content :global(h1:first-child) {
     display: none;
   }
 
-  .treatise-rendered-content :global(hr) {
-    border: 0;
-    height: 1px;
-    background: var(--hc-rule, rgba(255, 255, 255, 0.08));
-    margin: 2.75rem 0;
+  .treatise-rendered-content :global(.quran-verse__missing) {
+    margin: 0;
   }
 
-  /* Video Embeds */
-  .treatise-rendered-content :global(.treatise-video-embed) {
-    position: relative;
-    padding-bottom: 56.25%;
-    height: 0;
-    overflow: hidden;
-    max-width: 100%;
-    margin: 2.25rem 0;
-    border-radius: 4px;
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    background: #000;
-  }
-
-  .treatise-rendered-content :global(.treatise-video-embed iframe) {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
-
-  /* ── Manuscript Evidence Section ── */
   .manuscript-evidence-section {
-    margin-top: 4rem;
-    padding: 2rem 1.75rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-top: 2px solid var(--hc-gold, #c8a755);
-    border-radius: 4px;
+    margin-top: clamp(3.75rem, 7vw, 5.5rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .evidence-header {
+    max-width: 62ch;
   }
 
   .evidence-eyebrow {
     display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
     font-weight: 700;
-    margin-bottom: 0.35rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
   }
 
   .evidence-title {
-    font-size: 1.4rem;
-    font-family: var(--font-display, serif);
-    color: var(--hc-text-primary, #f5f2eb);
-    margin: 0 0 0.45rem;
-    font-weight: 600;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.45rem, 2vw, 1.53rem);
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--hc-text-primary);
   }
 
   .evidence-desc {
-    font-family: var(--font-body, serif);
-    font-size: 0.92rem;
-    color: var(--hc-text-secondary, #a8a5a0);
-    margin: 0 0 1.75rem;
-    line-height: 1.5;
+    margin: 0.7rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.04rem;
+    line-height: 1.68;
+    color: var(--hc-text-secondary);
   }
 
   .scans-gallery {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.65rem;
   }
 
   .scan-figure {
+    min-width: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
   }
 
   .scan-interactive-btn {
     position: relative;
+    display: block;
+    width: 100%;
     padding: 0;
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.15));
-    background: #09090a;
-    border-radius: 3px;
-    cursor: pointer;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
     overflow: hidden;
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .scan-interactive-btn:hover {
-    transform: translateY(-3px);
-    border-color: var(--hc-gold, #c8a755);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 
   .scan-img {
-    width: 220px;
-    height: 300px;
-    object-fit: cover;
     display: block;
+    width: 100%;
+    height: auto;
+    max-height: 470px;
+    object-fit: cover;
+    border: 1px solid var(--hc-rule-soft);
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-img {
+    opacity: 0.9;
+    transform: scale(1.008);
   }
 
   .scan-overlay {
     position: absolute;
-    inset: 0;
-    background: rgba(12, 12, 13, 0.75);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-size: 0.82rem;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 600;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-  }
-
-  .scan-interactive-btn:hover .scan-overlay {
-    opacity: 1;
-  }
-
-  .scan-caption {
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    margin-top: 0.5rem;
-  }
-
-  /* ── Rich Blog Components (Panels, QuranVerse, ClaimBox, TermGrid, ParadoxMap) ── */
-  .treatise-rendered-content :global(.hc-article-panel) {
-    position: relative;
-    margin: 2.75rem 0;
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-top: 3px solid var(--hc-gold, #c8a755);
-    border-radius: var(--radius-sm, 4px);
-    background:
-      radial-gradient(circle at 85% 10%, rgba(216, 177, 102, 0.06), transparent 45%),
-      linear-gradient(140deg, color-mix(in srgb, var(--hc-surface-2, #1b1b1e) 88%, transparent), color-mix(in srgb, var(--hc-surface-1, #141416) 96%, transparent));
-    box-shadow: 0 1px 0 rgba(216, 177, 102, 0.08) inset, 0 16px 45px rgba(0, 0, 0, 0.16);
-    overflow: hidden;
-  }
-
-  /* Quran Verse Panel */
-  .treatise-rendered-content :global(.quran-verse__header) {
+    inset: auto 0 0 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.85rem 1.4rem;
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    background: rgba(0, 0, 0, 0.15);
-  }
-
-  .treatise-rendered-content :global(.quran-verse__badge) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .treatise-rendered-content :global(.quran-verse__copy) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.35rem 0.75rem;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(to top, rgba(15, 15, 16, 0.88), rgba(15, 15, 16, 0));
+    opacity: 0;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    color: var(--hc-text-tertiary, #858077);
-    background: color-mix(in srgb, var(--hc-surface-0, #0d0d0e) 70%, transparent);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    color: var(--hc-text-primary);
+    transition: opacity 180ms ease;
   }
 
-  .treatise-rendered-content :global(.quran-verse__copy:hover) {
-    color: var(--hc-text-primary, #f5f2eb);
-    border-color: var(--hc-gold, #c8a755);
-    background: var(--hc-surface-3, #25252a);
+  .scan-interactive-btn:hover .scan-overlay,
+  .scan-interactive-btn:focus-visible .scan-overlay {
+    opacity: 1;
   }
 
-  .treatise-rendered-content :global(.quran-verse__copy-check) {
-    display: none;
-    color: #4ade80;
-  }
-
-  .treatise-rendered-content :global(.quran-verse__copy.is-copied .quran-verse__copy-icon) {
-    display: none;
-  }
-
-  .treatise-rendered-content :global(.quran-verse__copy.is-copied .quran-verse__copy-check) {
-    display: inline-flex;
-  }
-
-  .treatise-rendered-content :global(.quran-verse__copy.is-copied) {
-    color: #4ade80;
-    border-color: rgba(74, 222, 128, 0.4);
-  }
-
-  .treatise-rendered-content :global(.quran-verse__content) {
-    padding: clamp(1.4rem, 3vw, 2.2rem);
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .treatise-rendered-content :global(.treatise-arabic) {
-    font-family: var(--font-arabic, "Noto Naskh Arabic", "Amiri", serif);
-    font-size: 1.15rem;
-    line-height: 2.05;
-    text-align: right;
-  }
-
-  .treatise-rendered-content :global(blockquote.treatise-arabic) {
-    margin-inline: 0;
-  }
-
-  /* A quoted passage and its translation read as one unit. */
-  .treatise-rendered-content :global(.passage) {
-    margin: 1.6rem 0;
-    border: 1px solid var(--hc-rule);
-    border-radius: 4px;
-    overflow: hidden;
-    background: var(--hc-surface-2);
-  }
-
-  .treatise-rendered-content :global(.passage__source) {
-    margin: 0;
-    padding: 1.1rem 1.25rem;
-    border: 0;
-    background: transparent;
-  }
-
-  .treatise-rendered-content :global(.passage__translation) {
-    padding: 0.95rem 1.25rem 1.1rem;
-    border-top: 1px solid var(--hc-rule);
-    background: color-mix(in oklch, var(--hc-surface-1, #14110d) 55%, transparent);
-  }
-
-  .treatise-rendered-content :global(.passage__label) {
-    display: block;
-    margin-bottom: 0.4rem;
+  .scan-caption {
+    margin-top: 0.45rem;
     font-family: var(--font-ui);
-    font-size: 0.66rem;
-    font-weight: 600;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .treatise-rendered-content :global(.passage__translation p) {
-    margin: 0;
-  }
-
-  /* Verse reference marker. Reads as a citation rather than as emphasis,
-     since the verse text itself often carries the author's bold. */
-  .treatise-rendered-content :global(.verse-ref) {
-    display: inline-block;
-    margin-right: 0.3rem;
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-gold);
-  }
-
-  /* Source registers. These were rendering as unruled text, so every cell
-     boundary is drawn explicitly and wide tables scroll rather than
-     overflowing the column. */
-  .treatise-rendered-content :global(.table-scroll) {
-    margin: 1.6rem 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border: 1px solid var(--hc-rule);
-    border-radius: 4px;
-  }
-
-  .treatise-rendered-content :global(.table-scroll table) {
-    width: 100%;
-    margin: 0;
-    border-collapse: collapse;
-    font-size: 0.86rem;
-  }
-
-  .treatise-rendered-content :global(.table-scroll th),
-  .treatise-rendered-content :global(.table-scroll td) {
-    padding: 0.6rem 0.85rem;
-    text-align: left;
-    vertical-align: top;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    border-right: 1px solid var(--hc-rule-soft);
-  }
-
-  .treatise-rendered-content :global(.table-scroll th:last-child),
-  .treatise-rendered-content :global(.table-scroll td:last-child) {
-    border-right: 0;
-  }
-
-  .treatise-rendered-content :global(.table-scroll tbody tr:last-child td) {
-    border-bottom: 0;
-  }
-
-  .treatise-rendered-content :global(.table-scroll thead th) {
-    background: var(--hc-surface-2);
-    border-bottom: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
-    white-space: nowrap;
   }
 
-  .treatise-rendered-content :global(.table-scroll tbody tr:nth-child(even)) {
-    background: color-mix(in oklch, var(--hc-surface-2) 45%, transparent);
-  }
-
-  .treatise-rendered-content :global(.table-scroll td:first-child) {
-    color: var(--hc-text-secondary);
-  }
-
-  .treatise-rendered-content :global(.quran-verse__arabic) {
-    font-family: var(--font-arabic, "Noto Naskh Arabic", "Amiri", serif);
-    font-size: clamp(1.45rem, 1.8vw + 0.9rem, 1.95rem);
-    line-height: 2.1;
-    color: var(--hc-text-primary, #f5f2eb);
-    text-align: right;
-    direction: rtl;
-  }
-
-  .treatise-rendered-content :global(.qv-ayah) {
-    display: inline;
-  }
-
-  .treatise-rendered-content :global(.qv-ayah-end) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.45em;
-    height: 1.45em;
-    padding: 0 0.25em;
-    margin: 0 0.35em;
-    font-size: 0.6em;
-    font-weight: 700;
-    color: var(--hc-gold, #c8a755);
-    background: rgba(216, 177, 102, 0.12);
-    border: 1px solid rgba(216, 177, 102, 0.35);
-    border-radius: 999px;
-    vertical-align: middle;
-  }
-
-  .treatise-rendered-content :global(.quran-verse__english) {
-    font-family: var(--font-body, serif);
-    font-size: clamp(1.05rem, 0.4vw + 0.95rem, 1.16rem);
-    line-height: 1.8;
-    color: var(--hc-text-secondary, #dcd8cf);
-  }
-
-  .treatise-rendered-content :global(.qv-verse) {
-    margin: 0 0 0.65rem 0;
-  }
-
-  .treatise-rendered-content :global(.qv-verse-num) {
-    display: inline-block;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--hc-gold, #c8a755);
-    margin-right: 0.5rem;
-    opacity: 0.85;
-  }
-
-  .treatise-rendered-content :global(.quran-verse__ref) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--hc-gold, #c8a755);
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    align-self: flex-start;
-  }
-
-  /* Claim Box */
-  .treatise-rendered-content :global(.claim-box) {
-    padding: clamp(1.4rem, 3vw, 2.2rem);
-  }
-
-  .treatise-rendered-content :global(.claim-badge) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.1);
-    border: 1px solid rgba(216, 177, 102, 0.28);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold, #c8a755);
-    margin-bottom: 1.1rem;
-  }
-
-  .treatise-rendered-content :global(.claim-content p) {
-    margin: 0;
-    font-size: clamp(1.05rem, 1.2vw, 1.15rem);
-    line-height: 1.8;
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  /* Context Note */
-  .treatise-rendered-content :global(.context-note) {
-    padding: clamp(1.4rem, 3vw, 2.2rem);
-  }
-
-  .treatise-rendered-content :global(.note-badge) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.1);
-    border: 1px solid rgba(216, 177, 102, 0.28);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold, #c8a755);
-    margin-bottom: 1.1rem;
-  }
-
-  .treatise-rendered-content :global(.note-content p) {
-    margin: 0;
-    font-size: clamp(1.02rem, 1.15vw, 1.12rem);
-    line-height: 1.8;
-    color: var(--hc-text-secondary, #dcd8cf);
-  }
-
-  /* Term Grid & Cards */
-  .treatise-rendered-content :global(.term-grid) {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: 1.25rem;
-    margin: 2.2rem 0 2.8rem;
-  }
-
-  @media (min-width: 768px) {
-    .treatise-rendered-content :global(.term-grid) {
-      grid-template-columns: repeat(3, 1fr);
+  @media (max-width: 780px) {
+    .scans-gallery {
+      grid-template-columns: 1fr;
     }
-  }
-
-  .treatise-rendered-content :global(.term-card) {
-    padding: 1.4rem 1.35rem;
-    border: 1px solid rgba(216, 177, 102, 0.24);
-    border-radius: var(--radius-sm, 4px);
-    background:
-      radial-gradient(circle at 90% 5%, rgba(216, 177, 102, 0.1), transparent 35%),
-      rgba(20, 20, 22, 0.6);
-    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .treatise-rendered-content :global(.term-card span) {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-family: var(--font-ui, sans-serif);
-    color: var(--hc-gold, #c8a755);
-    font-size: 0.72rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-
-  .treatise-rendered-content :global(.term-card h3) {
-    margin: 0 0 0.65rem;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-display, serif);
-    font-size: 1.35rem;
-    line-height: 1.2;
-    font-weight: 500;
-  }
-
-  .treatise-rendered-content :global(.term-card p) {
-    margin: 0;
-    color: var(--hc-text-secondary, #dcd8cf);
-    font-size: 0.95rem;
-    line-height: 1.65;
-  }
-
-  /* Paradox Map */
-  .treatise-rendered-content :global(.paradox-map) {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
-    align-items: stretch;
-    margin: 2.4rem 0 2.8rem;
-  }
-
-  @media (min-width: 768px) {
-    .treatise-rendered-content :global(.paradox-map) {
-      grid-template-columns: 1fr auto 1fr auto 1.1fr;
-      align-items: center;
-    }
-  }
-
-  .treatise-rendered-content :global(.paradox-node) {
-    padding: 1.2rem;
-    border: 1px solid rgba(216, 177, 102, 0.25);
-    border-radius: var(--radius-sm, 4px);
-    background: rgba(216, 177, 102, 0.05);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .treatise-rendered-content :global(.paradox-node--final) {
-    border-color: var(--hc-gold, #c8a755);
-    background: rgba(200, 167, 85, 0.12);
-  }
-
-  .treatise-rendered-content :global(.paradox-node span) {
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold, #c8a755);
-    margin-bottom: 0.45rem;
-  }
-
-  .treatise-rendered-content :global(.paradox-node p) {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.6;
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  .treatise-rendered-content :global(.paradox-arrow) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--hc-gold, #c8a755);
-    font-size: 1.25rem;
-    opacity: 0.75;
   }
 </style>
 
 <script>
+  import { copyText, flashCopied, buildCitation } from '../../../lib/clipboard';
   function initQuranCopy() {
-    for (const card of document.querySelectorAll<HTMLElement>("[data-quran-verse]")) {
+    for (const card of document.querySelectorAll<HTMLElement>('[data-quran-verse]')) {
       if (card.dataset.copyInitialized) continue;
-      card.dataset.copyInitialized = "true";
-
-      const copyBtn = card.querySelector<HTMLButtonElement>("[data-quran-copy]");
+      card.dataset.copyInitialized = 'true';
+      const copyBtn = card.querySelector<HTMLButtonElement>('[data-quran-copy]');
       if (!copyBtn) continue;
 
-      copyBtn.addEventListener("click", async () => {
-        const arabicEl = card.querySelector("[data-arabic-text]");
-        const englishEl = card.querySelector("[data-english-text]");
-        const refVal = card.querySelector("[data-ref-text]")?.getAttribute("data-ref-text");
-
-        let textParts: string[] = [];
-        const arabicCopyText = arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent;
-        if (arabicCopyText) textParts.push(arabicCopyText.trim());
-        if (englishEl?.textContent) textParts.push(`"${englishEl.textContent.trim()}"`);
-        if (refVal) textParts.push(`— ${refVal.trim()}`);
-
-        const textToCopy = textParts.join("\n\n");
+      copyBtn.addEventListener('click', async () => {
+        const arabicEl = card.querySelector('[data-arabic-text]');
+        const englishEl = card.querySelector('[data-english-text]');
+        const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
+        const textToCopy = buildCitation({
+          primary: arabicEl?.getAttribute('data-copy-text') || arabicEl?.textContent,
+          quoted: englishEl?.textContent,
+          reference: refVal
+        });
         if (!textToCopy) return;
-
-        try {
-          await navigator.clipboard.writeText(textToCopy);
-          copyBtn.classList.add("is-copied");
-          const labelSpan = copyBtn.querySelector(".quran-verse__copy-text");
-          if (labelSpan) labelSpan.textContent = "Copied!";
-
-          setTimeout(() => {
-            copyBtn.classList.remove("is-copied");
-            if (labelSpan) labelSpan.textContent = "Copy";
-          }, 2200);
-        } catch (err) {
-          console.warn("Failed to copy verse:", err);
-        }
+        if (!(await copyText(textToCopy, 'verse'))) return;
+        flashCopied(copyBtn, { labelSelector: '.quran-verse__copy-text' });
       });
     }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initQuranCopy);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQuranCopy);
   } else {
     initQuranCopy();
   }
-  document.addEventListener("astro:page-load", initQuranCopy);
+
+  document.addEventListener('astro:page-load', initQuranCopy);
 </script>

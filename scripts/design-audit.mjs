@@ -6,7 +6,7 @@ const sourceRoot = join(root, 'src');
 const files = [];
 const walk = (directory) => readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
   const file = join(directory, entry.name);
-  entry.isDirectory() ? walk(file) : /\.(astro|css|ts|tsx|js|mjs)$/.test(file) && files.push(file);
+  entry.isDirectory() ? walk(file) : /\.(astro|css|ts|tsx|js|mjs|mdx)$/.test(file) && files.push(file);
 });
 walk(sourceRoot);
 
@@ -59,7 +59,36 @@ for (const file of files) {
     if (/backdrop-filter/.test(line)) report(warnings, file, number, 'backdrop filter should remain exceptional');
     if (/border-radius:\s*(?:2[1-9]|[3-9]\d)px/.test(line)) report(warnings, file, number, 'large radius outside allowed components');
     if (/\b(unlock|supercharge|seamless|revolutionize)\b/i.test(line)) report(warnings, file, number, 'generic UI phrase');
+
+    // Type floor: nothing renders below 12px (0.75rem). Enforced rather than
+    // conventional because three separate passes reintroduced sub-12px
+    // labels, most of them inside per-article MDX <style> blocks. `em` is
+    // skipped: it compounds against a parent this check cannot resolve.
+    for (const m of line.matchAll(/font-size:\s*(?:clamp\(\s*)?(\d*\.?\d+)(rem|px)\b/g)) {
+      const size = m[2] === 'rem' ? parseFloat(m[1]) * 16 : parseFloat(m[1]);
+      if (size < 12) report(failures, file, number, `font-size ${m[1]}${m[2]} below the 12px floor`);
+    }
+    // The `font:` shorthand hides a size from the check above.
+    for (const m of line.matchAll(/font:\s*(?:[\w-]+\s+)*?(\d*\.?\d+)(rem|px)\b/g)) {
+      const size = m[2] === 'rem' ? parseFloat(m[1]) * 16 : parseFloat(m[1]);
+      if (size < 12) report(failures, file, number, `font shorthand ${m[1]}${m[2]} below the 12px floor`);
+    }
   });
+
+  // Role split between the two geometric sans faces. Glacial (--font-ui) is
+  // apparatus only: uppercase, letterspaced, 12-13px. Used sentence-case at
+  // reading sizes it is indistinguishable from Poppins and the page reads
+  // flat. See DESIGN.md > Typography.
+  for (const block of content.matchAll(/\{([^{}]*)\}/g)) {
+    const body = block[1];
+    if (!/font-family:\s*var\(--font-ui/.test(body)) continue;
+    if (/text-transform:\s*uppercase/.test(body)) continue;
+    const size = body.match(/font-size:\s*(?:clamp\(\s*)?(\d*\.?\d+)rem/);
+    if (size && parseFloat(size[1]) >= 0.95) {
+      const line = content.slice(0, block.index).split(/\r?\n/).length;
+      report(warnings, file, line, `--font-ui at ${size[1]}rem without uppercase (apparatus face at reading size)`);
+    }
+  }
 }
 for (const warning of warnings) console.warn(`warning: ${warning}`);
 for (const failure of failures) console.error(`error: ${failure}`);

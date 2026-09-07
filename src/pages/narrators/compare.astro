@@ -1,0 +1,226 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+
+/**
+ * Side-by-side comparison of selected transmitters.
+ *
+ * The previous register had this as a modal workspace, which meant a comparison
+ * could not be linked, shared or cited. Here the selection lives in the URL
+ * (?ids=3,2779,2472), so a comparison is a real address a researcher can put in
+ * a footnote or send to someone.
+ */
+
+const MAX = 6;
+
+const ids = (Astro.url.searchParams.get('ids') || '')
+  .split(',')
+  .map((s) => parseInt(s.trim(), 10))
+  .filter((n) => Number.isFinite(n) && n >= 0)
+  .slice(0, MAX);
+
+interface Row {
+  id: number;
+  name_en: string;
+  name_ar: string;
+  generation: string;
+  grade: string;
+  tabaqa_number: number | null;
+  death_hijri: number | null;
+  death_gregorian: number | null;
+  death_place: string;
+  places_en: string;
+  hadith_count: number;
+  teacher_count: number;
+  student_count: number;
+  critic_count: number;
+  statement_count: number;
+  jarh_count: number;
+  tadil_count: number;
+}
+
+let rows: Row[] = [];
+let failed = false;
+
+if (ids.length) {
+  try {
+    const res = await env.DB.prepare(
+      `SELECT id,name_en,name_ar,generation,grade,tabaqa_number,death_hijri,death_gregorian,
+              death_place,places_en,hadith_count,teacher_count,student_count,
+              critic_count,statement_count,jarh_count,tadil_count
+         FROM narrator WHERE id IN (${ids.map(() => '?').join(',')})`
+    )
+      .bind(...ids)
+      .all();
+    // Preserve the order the researcher selected them in.
+    const byId = new Map((res.results as unknown as Row[]).map((r) => [r.id, r]));
+    rows = ids.map((i) => byId.get(i)).filter(Boolean) as Row[];
+  } catch (error) {
+    console.error('Comparison query failed', error);
+    failed = true;
+  }
+}
+
+const fields: { label: string; get: (r: Row) => string }[] = [
+  { label: 'Arabic', get: (r) => r.name_ar || '—' },
+  { label: 'Generation', get: (r) => r.generation || '—' },
+  { label: 'Verdict', get: (r) => r.grade || 'Unrated' },
+  { label: 'Tabaqa', get: (r) => (r.tabaqa_number ? String(r.tabaqa_number) : '—') },
+  {
+    label: 'Died',
+    get: (r) => (r.death_hijri ? `${r.death_hijri} AH / ${r.death_gregorian} CE` : 'not recorded')
+  },
+  { label: 'Place', get: (r) => r.death_place || (JSON.parse(r.places_en || '[]')[0] ?? '—') },
+  { label: 'Hadith', get: (r) => r.hadith_count.toLocaleString() },
+  { label: 'Teachers', get: (r) => String(r.teacher_count) },
+  { label: 'Students', get: (r) => String(r.student_count) },
+  { label: 'Critics', get: (r) => String(r.critic_count) },
+  { label: 'Statements', get: (r) => String(r.statement_count) },
+  { label: "Jarh / Ta'dil", get: (r) => `${r.jarh_count} / ${r.tadil_count}` }
+];
+---
+
+<BaseLayout
+  title="Compare Transmitters | Rijāl Archive | HadithCritic"
+  description="Side-by-side comparison of classical hadith transmitters from the rijāl register."
+  noindex={true}
+>
+  <div class="compare-page">
+    <div class="wrap">
+      <nav class="compare-crumb" aria-label="Breadcrumb">
+        <a href="/narrators">← Rijāl register</a>
+      </nav>
+
+      <h1 class="compare-title">Compare Transmitters</h1>
+
+      {failed && <p class="compare-empty">The comparison could not be loaded. Please try again.</p>}
+
+      {!failed && rows.length === 0 && (
+        <p class="compare-empty">
+          No transmitters selected. Open the <a href="/narrators">register</a> and add up to {MAX} with
+          the <strong>+</strong> control on each row.
+        </p>
+      )}
+
+      {rows.length > 0 && (
+        <div class="compare-scroll">
+          <table class="compare-table">
+            <caption class="sr-only">Comparison of {rows.length} transmitters</caption>
+            <thead>
+              <tr>
+                <th scope="col">Field</th>
+                {rows.map((r) => (
+                  <th scope="col">
+                    <a href={`/narrators/${r.id}`}>{r.name_en || r.name_ar}</a>
+                    <span class="compare-id">#{r.id}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {fields.map((f) => (
+                <tr>
+                  <th scope="row">{f.label}</th>
+                  {rows.map((r) => (
+                    <td lang={f.label === 'Arabic' ? 'ar' : undefined} dir={f.label === 'Arabic' ? 'rtl' : undefined}>
+                      {f.get(r)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <style>
+    .compare-page {
+      background: var(--hc-surface-0);
+      padding: clamp(2rem, 4vw, 3.5rem) 0 clamp(4rem, 8vw, 7rem);
+    }
+
+    .compare-crumb {
+      margin-bottom: 1.25rem;
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+    }
+
+    .compare-crumb a { color: var(--hc-text-tertiary); text-decoration: none; }
+    .compare-crumb a:hover { color: var(--hc-gold); }
+
+    .compare-title {
+      margin: 0 0 1.75rem;
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 2.9rem);
+      font-weight: 500;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      color: var(--hc-text-primary);
+    }
+
+    .compare-empty {
+      max-width: 60ch;
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.7;
+      color: var(--hc-text-secondary);
+    }
+
+    .compare-empty a { color: var(--hc-gold); }
+
+    /* Wide comparisons scroll inside their own container so the page never does. */
+    .compare-scroll { overflow-x: auto; }
+
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-ui);
+      font-size: 0.88rem;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: 0.7rem 0.9rem 0.7rem 0;
+      text-align: left;
+      vertical-align: baseline;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .compare-table thead th {
+      padding-bottom: 0.9rem;
+      border-bottom: 1px solid var(--hc-rule);
+      font-family: var(--font-display);
+      font-size: 1.06rem;
+      font-weight: 500;
+      color: var(--hc-text-primary);
+    }
+
+    .compare-table thead th a { color: inherit; text-decoration: none; }
+    .compare-table thead th a:hover { color: var(--hc-gold); }
+
+    .compare-id {
+      display: block;
+      margin-top: 0.2rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .compare-table tbody th {
+      width: 9rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .compare-table td { color: var(--hc-text-secondary); }
+    .compare-table td[lang='ar'] { font-family: var(--font-arabic); font-size: 1.05rem; line-height: 1.9; }
+  </style>
+</BaseLayout>

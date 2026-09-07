@@ -1,85 +1,23 @@
 ---
-import fs from 'node:fs';
-import path from 'node:path';
+export const prerender = false;
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
 
-// Astro evaluates getStaticPaths in an isolated scope, so everything it needs
-// is declared inside it rather than shared with the rest of the frontmatter.
-export async function getStaticPaths() {
-  const dataDir = path.resolve(process.cwd(), 'public', 'data', 'narrators');
-
-  // Read the generated dossiers once per build rather than once per page.
-  const readAll = (dir: string): Record<string, any> => {
-    const merged: Record<string, any> = {};
-    const full = path.join(dataDir, dir);
-    if (!fs.existsSync(full)) return merged;
-    for (const file of fs.readdirSync(full)) {
-      if (!file.endsWith('.json')) continue;
-      Object.assign(merged, JSON.parse(fs.readFileSync(path.join(full, file), 'utf8')));
-    }
-    return merged;
-  };
-
-  const details = readAll('chunks');
-
-  // Criticism is read from the build input directory, not from public/. The
-  // served shards deliberately hold only the narrators without a page, so
-  // reading those here would leave every dossier page missing its statements.
-  const criticismDir = path.resolve(process.cwd(), 'data', 'generated', 'criticism');
-  const criticism: Record<string, any> = {};
-  if (fs.existsSync(criticismDir)) {
-    for (const file of fs.readdirSync(criticismDir)) {
-      if (!file.endsWith('.json')) continue;
-      Object.assign(criticism, JSON.parse(fs.readFileSync(path.join(criticismDir, file), 'utf8')));
-    }
-  }
-
-  // Which narrators get a page is decided in scripts/build-narrators.mjs, which
-  // also marks them in index.json so the explorer only links where a page
-  // exists. Cloudflare Workers static assets cap a deployment at 20,000 files
-  // and the register holds more narrators than that once the rest of the site
-  // and the Pagefind index are counted.
-  const listPath = path.join(dataDir, 'prerendered.json');
-  const ids = fs.existsSync(listPath)
-    ? JSON.parse(fs.readFileSync(listPath, 'utf8')).map(String)
-    : Object.keys(details);
-
-  const hasPage = new Set(ids);
-
-  return ids.map((id: string) => {
-    const detail = details[id];
-
-    // Sample chains are stored as ids to keep the dossier payload small. A
-    // static page has no client side index to resolve them against, so the
-    // names each page needs are resolved here and passed with it.
-    const chainNames: Record<string, string> = {};
-    for (const chain of detail.sampleChains || []) {
-      for (const nid of chain.path) {
-        const other = details[String(nid)];
-        if (other) chainNames[nid] = other.nameEn || other.nameAr;
-      }
-    }
-
-    // Only the ids this page actually links to, so no page carries the whole
-    // 12,000-entry set just to decide whether a link is safe.
-    const referenced = [
-      ...(detail.sampleChains || []).flatMap((c: { path: number[] }) => c.path),
-      ...(detail.teachers || []).map((t: { id: number }) => t.id),
-      ...(detail.students || []).map((t: { id: number }) => t.id)
-    ];
-    const linkable = referenced.filter((nid: number) => hasPage.has(String(nid)));
-
-    return {
-      params: { id },
-      props: {
-        detail,
-        criticism: criticism[id] || null,
-        chainNames,
-        linkable: [...new Set(linkable)]
-      }
-    };
-  });
-}
+/**
+ * Rijal dossier, rendered on demand from D1.
+ *
+ * This page used to be prerendered via getStaticPaths, which meant it existed
+ * for only 8,000 of the 20,950 narrators: Cloudflare Workers cap a deployment
+ * at 20,000 files and the build was already at 17,818. Reading from D1 removes
+ * both limits at once — every narrator now has a URL, and 8,000 HTML files
+ * leave the build.
+ *
+ * It also fixes a data split. The criticism shards under public/ deliberately
+ * carried only the narrators *without* a page, so the apparatus had to be
+ * inlined at build time here and fetched client-side there. D1 holds the whole
+ * 54 MB set, so both paths read the same rows.
+ */
 
 type Verdict = 'jarh' | 'tadil' | 'mixed' | 'unclassified';
 
@@ -141,14 +79,109 @@ interface Criticism {
   phenomena: { key: string; label: string; statements: Statement[] }[];
 }
 
-const { detail, criticism, chainNames, linkable } = Astro.props as {
-  detail: Detail;
-  criticism: Criticism | null;
-  chainNames: Record<string, string>;
-  linkable: number[];
-};
+const id = Number(Astro.params.id);
+if (!Number.isFinite(id) || id < 0) return Astro.redirect('/narrators', 302);
 
-const linkableIds = new Set(linkable);
+interface StatementRow {
+  critic: string;
+  text: string;
+  citation: string;
+  page_id: number | null;
+  verdict: Verdict;
+  phenomenon_key: string | null;
+  phenomenon_label: string | null;
+}
+
+const [detailRow, statementRows] = await env.DB.batch([
+  env.DB.prepare('SELECT payload FROM narrator_detail WHERE id = ?').bind(id),
+  env.DB.prepare(
+    `SELECT critic, text, citation, page_id, verdict, phenomenon_key, phenomenon_label
+       FROM criticism_statement WHERE narrator_id = ? ORDER BY ord`
+  ).bind(id)
+]);
+
+const detailPayload = detailRow.results?.[0] as { payload?: string } | undefined;
+if (!detailPayload?.payload) {
+  return new Response('Narrator not found', { status: 404 });
+}
+
+const detail = JSON.parse(detailPayload.payload) as Detail;
+
+/**
+ * Rebuild the shape the template already expects from the normalised rows.
+ * Criticism is stored one statement per row so it stays queryable and so no
+ * single narrator's apparatus exceeds D1's statement ceiling; grouping it back
+ * into critics happens here rather than changing the whole template.
+ */
+const rows = (statementRows.results || []) as unknown as StatementRow[];
+let criticism: Criticism | null = null;
+
+if (rows.length) {
+  const byCritic = new Map<string, Statement[]>();
+  const byPhenomenon = new Map<string, { key: string; label: string; statements: Statement[] }>();
+  const tally: Record<Verdict, number> = { jarh: 0, tadil: 0, mixed: 0, unclassified: 0 };
+
+  for (const r of rows) {
+    const statement: Statement = {
+      text: r.text,
+      citation: r.citation,
+      pageId: r.page_id,
+      verdict: r.verdict
+    };
+    if (!byCritic.has(r.critic)) byCritic.set(r.critic, []);
+    byCritic.get(r.critic)!.push(statement);
+
+    if (tally[r.verdict] !== undefined) tally[r.verdict] += 1;
+
+    if (r.phenomenon_key) {
+      if (!byPhenomenon.has(r.phenomenon_key)) {
+        byPhenomenon.set(r.phenomenon_key, {
+          key: r.phenomenon_key,
+          label: r.phenomenon_label || r.phenomenon_key,
+          statements: []
+        });
+      }
+      byPhenomenon.get(r.phenomenon_key)!.statements.push(statement);
+    }
+  }
+
+  criticism = {
+    criticCount: byCritic.size,
+    statementCount: rows.length,
+    tally,
+    critics: [...byCritic].map(([critic, statements]) => ({ critic, statements })),
+    phenomena: [...byPhenomenon.values()]
+  };
+}
+
+/**
+ * Sample chains store narrator ids, not names, to keep the dossier payload
+ * small. Resolve just the ids this page links to in one query rather than
+ * carrying a 20,950-entry name map.
+ */
+const referenced = [
+  ...(detail.sampleChains || []).flatMap((c) => c.path),
+  ...(detail.teachers || []).map((t) => t.id),
+  ...(detail.students || []).map((t) => t.id)
+];
+const uniqueIds = [...new Set(referenced)].filter((n) => Number.isFinite(n));
+
+const chainNames: Record<string, string> = {};
+if (uniqueIds.length) {
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const named = await env.DB.prepare(
+    `SELECT id, name_en, name_ar FROM narrator WHERE id IN (${placeholders})`
+  )
+    .bind(...uniqueIds)
+    .all<{ id: number; name_en: string; name_ar: string }>();
+  for (const row of named.results || []) {
+    chainNames[row.id] = row.name_en || row.name_ar;
+  }
+}
+
+// Every narrator in D1 now has a page, so anything we resolved a name for is
+// safe to link. The old build had to gate this on the prerendered subset.
+const linkableIds = new Set(Object.keys(chainNames).map(Number));
 
 const VERDICT_LABELS: Record<Verdict, string> = {
   jarh: 'Jarh',
@@ -415,7 +448,7 @@ const description = [
 
   .rijal-back {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.87rem;
     color: var(--hc-text-tertiary);
     text-decoration: none;
   }
@@ -425,7 +458,7 @@ const description = [
   .rijal-id {
     margin-left: 0.7rem;
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.83rem;
     color: var(--hc-text-tertiary);
     font-variant-numeric: tabular-nums;
   }
@@ -433,7 +466,7 @@ const description = [
   .rijal-name-en {
     margin: 0.8rem 0 0;
     font-family: var(--font-display, serif);
-    font-size: clamp(1.9rem, 4vw, 2.9rem);
+    font-size: clamp(1.61rem, 4vw, 2.46rem);
     line-height: 1.1;
     letter-spacing: -0.02em;
     text-wrap: balance;
@@ -442,7 +475,7 @@ const description = [
   .rijal-name-ar {
     margin: 0.4rem 0 0;
     font-family: var(--font-arabic);
-    font-size: 1.6rem;
+    font-size: 1.36rem;
     color: var(--hc-gold);
     direction: rtl;
     line-height: 1.7;
@@ -461,7 +494,7 @@ const description = [
     border-radius: var(--radius-pill);
     background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     color: var(--hc-text-secondary);
   }
 
@@ -478,7 +511,7 @@ const description = [
 
   .rijal-facts dt {
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
@@ -486,7 +519,7 @@ const description = [
 
   .rijal-facts dd {
     margin: 0.25rem 0 0;
-    font-size: 0.95rem;
+    font-size: 1.06rem;
     color: var(--hc-text-secondary);
   }
 
@@ -506,7 +539,7 @@ const description = [
   .rijal-subhead {
     margin: 1.4rem 0 0.3rem;
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
@@ -515,7 +548,7 @@ const description = [
   .rijal-note {
     margin: 0 0 1rem;
     max-width: 68ch;
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     line-height: 1.6;
     color: var(--hc-text-tertiary);
   }
@@ -523,7 +556,7 @@ const description = [
   .rijal-arabic {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: 1.05rem;
+    font-size: 1.18rem;
     line-height: 2;
     color: var(--hc-text-secondary);
     direction: rtl;
@@ -540,18 +573,18 @@ const description = [
 
   .rijal-verdict__who {
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .rijal-verdict__en { margin: 0.35rem 0 0; font-size: 0.95rem; line-height: 1.6; max-width: 68ch; }
+  .rijal-verdict__en { margin: 0.35rem 0 0; font-size: 1.06rem; line-height: 1.6; max-width: 68ch; }
 
   .rijal-verdict__ar {
     margin: 0.4rem 0 0;
     font-family: var(--font-arabic);
-    font-size: 1.05rem;
+    font-size: 1.18rem;
     line-height: 1.95;
     color: var(--hc-gold);
     direction: rtl;
@@ -564,7 +597,7 @@ const description = [
     grid-template-columns: minmax(8rem, 15rem) 1fr auto;
     align-items: center;
     gap: 0.7rem;
-    font-size: 0.84rem;
+    font-size: 0.94rem;
   }
 
   .rijal-bar__label { color: var(--hc-text-secondary); }
@@ -578,7 +611,7 @@ const description = [
 
   .rijal-bar__fill { display: block; height: 100%; background: var(--hc-gold); opacity: 0.75; }
 
-  .rijal-bar__value { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.78rem; }
+  .rijal-bar__value { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.87rem; }
 
   .rijal-chain {
     margin-bottom: 0.9rem;
@@ -592,7 +625,7 @@ const description = [
   .rijal-chain__src {
     display: block;
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--hc-text-tertiary);
@@ -610,7 +643,7 @@ const description = [
     counter-reset: none;
   }
 
-  .rijal-node { font-size: 0.82rem; }
+  .rijal-node { font-size: 0.92rem; }
   .rijal-node:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
   .rijal-node a { color: var(--hc-text-secondary); text-decoration: none; }
   .rijal-node a:hover { color: var(--hc-gold); }
@@ -623,7 +656,7 @@ const description = [
     border: 1px solid var(--hc-rule-soft);
     border-radius: var(--radius-pill);
     font-family: var(--font-ui);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-secondary);
   }
@@ -647,11 +680,11 @@ const description = [
     padding: 0.55rem 0.75rem;
     cursor: pointer;
     font-family: var(--font-arabic);
-    font-size: 1rem;
+    font-size: 1.12rem;
     color: var(--hc-text-secondary);
   }
 
-  .rijal-critic__count { font-family: var(--font-ui); font-size: 0.7rem; color: var(--hc-text-tertiary); }
+  .rijal-critic__count { font-family: var(--font-ui); font-size: 0.8rem; color: var(--hc-text-tertiary); }
 
   .rijal-statements { list-style: none; margin: 0; padding: 0 0.75rem 0.7rem; display: flex; flex-direction: column; gap: 0.6rem; }
 
@@ -660,7 +693,7 @@ const description = [
   .rijal-statement p {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: 1rem;
+    font-size: 1.12rem;
     line-height: 1.95;
     color: var(--hc-text-secondary);
     direction: rtl;
@@ -670,7 +703,7 @@ const description = [
 
   .rijal-statement__verdict {
     font-family: var(--font-ui);
-    font-size: 0.66rem;
+    font-size: 0.79rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
@@ -681,7 +714,7 @@ const description = [
 
   .rijal-statement cite {
     font-family: var(--font-arabic);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     font-style: normal;
     color: var(--hc-text-tertiary);
   }
@@ -690,13 +723,13 @@ const description = [
 
   .rijal-names dt {
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .rijal-names dd { margin: 0.15rem 0 0; font-size: 0.95rem; color: var(--hc-text-secondary); }
+  .rijal-names dd { margin: 0.15rem 0 0; font-size: 1.06rem; color: var(--hc-text-secondary); }
 
   .rijal-aliases { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 
@@ -709,25 +742,25 @@ const description = [
     border-radius: 4px;
     background: var(--hc-surface-2);
     font-family: var(--font-arabic);
-    font-size: 0.95rem;
+    font-size: 1.06rem;
     color: var(--hc-text-secondary);
     direction: rtl;
   }
 
-  .rijal-alias__count { font-family: var(--font-ui); font-size: 0.66rem; color: var(--hc-text-tertiary); }
+  .rijal-alias__count { font-family: var(--font-ui); font-size: 0.79rem; color: var(--hc-text-tertiary); }
 
   .rijal-journey { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin: 0; }
-  .rijal-place { font-size: 0.9rem; color: var(--hc-text-secondary); }
+  .rijal-place { font-size: 1.01rem; color: var(--hc-text-secondary); }
   .rijal-place:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
 
   .rijal-network { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.4rem; }
 
   .rijal-relations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
 
-  .rijal-relations li { display: flex; justify-content: space-between; gap: 0.7rem; font-size: 0.86rem; }
+  .rijal-relations li { display: flex; justify-content: space-between; gap: 0.7rem; font-size: 0.96rem; }
   .rijal-relations a { color: var(--hc-text-secondary); text-decoration: none; }
   .rijal-relations a:hover { color: var(--hc-gold); }
-  .rijal-relations span { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.76rem; }
+  .rijal-relations span { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
   /* A narrator with no page of their own still shows, just not as a link. */
-  .rijal-relations .rijal-plain { color: var(--hc-text-secondary); font-size: 0.86rem; font-variant-numeric: normal; }
+  .rijal-relations .rijal-plain { color: var(--hc-text-secondary); font-size: 0.96rem; font-variant-numeric: normal; }
 </style>

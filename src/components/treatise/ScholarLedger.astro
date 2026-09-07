@@ -37,131 +37,110 @@ function toAscii(text: string): string {
 ---
 
 <section class="scholar-ledger" id="scholar-ledger">
-  <!-- Ledger Controls & Filters -->
-  <div class="ledger-controls-panel">
+  <div class="ledger-controls">
     <div class="controls-top">
-      <div class="search-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <label class="search-box" for="scholarSearch">
+        <span class="sr-only">Search the scholar ledger</span>
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
         <input
-          type="text"
+          type="search"
           id="scholarSearch"
           class="search-input"
-          placeholder="Filter by scholar name, book title, or keywords..."
+          placeholder="Search scholar, book, or keyword"
           aria-label="Filter scholars by name or citation"
         />
         <button type="button" id="clearSearch" class="clear-btn" aria-label="Clear search input" hidden>×</button>
-      </div>
+      </label>
 
-      <div class="ledger-status-pill">
-        <span id="ledgerCount" class="ledger-count">Showing 99 of 99 scholars</span>
-      </div>
+      <span id="ledgerCount" class="ledger-count" aria-live="polite">
+        Showing {scholarsData.length} of {scholarsData.length} scholars
+      </span>
     </div>
 
-    <!-- Madhhab Filter Chips -->
-    <div class="filter-row">
-      <span class="filter-label">School:</span>
-      <div class="filter-chips" role="radiogroup" aria-label="Filter by school of jurisprudence">
-        {madhhabs.map((m) => (
-          <button
-            type="button"
-            class={`filter-chip ${m.id === 'all' ? 'is-active' : ''}`}
-            data-filter-madhhab={m.id}
-          >
-            {m.label}
-          </button>
-        ))}
+    <div class="filter-register">
+      <div class="filter-row">
+        <span class="filter-label">School</span>
+        <div class="filter-tabs" role="group" aria-label="Filter by school of jurisprudence">
+          {madhhabs.map((m) => (
+            <button
+              type="button"
+              class={`filter-tab ${m.id === 'all' ? 'is-active' : ''}`}
+              data-filter-madhhab={m.id}
+              aria-pressed={m.id === 'all' ? 'true' : 'false'}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
 
-    <!-- Century Filter Chips -->
-    <div class="filter-row">
-      <span class="filter-label">Era:</span>
-      <div class="filter-chips filter-chips--centuries" role="radiogroup" aria-label="Filter by century">
-        {centuries.map((c) => (
-          <button
-            type="button"
-            class={`filter-chip ${c.id === 'all' ? 'is-active' : ''}`}
-            data-filter-century={c.id}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div class="filter-row">
+        <span class="filter-label">Era</span>
+        <div class="filter-tabs filter-tabs--centuries" role="group" aria-label="Filter by century">
+          {centuries.map((c) => (
+            <button
+              type="button"
+              class={`filter-tab ${c.id === 'all' ? 'is-active' : ''}`}
+              data-filter-century={c.id}
+              aria-pressed={c.id === 'all' ? 'true' : 'false'}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Scholar Ledger Rows -->
   <div class="ledger-list" id="ledgerList">
     {scholarsData.map((s, idx) => {
       const rawSearch = `${s.title} ${s.name} ${s.madhhab} ${s.deathYear || ''} ${s.arabicExcerpt || ''}`;
       const normalizedSearch = `${rawSearch} ${toAscii(rawSearch)}`.toLowerCase();
       const normalizedMadhhab = toAscii(s.madhhab);
-
       return (
         <article
-          class="ledger-row"
+          class="ledger-entry"
           data-scholar-id={s.id}
           data-century={s.century || ''}
           data-madhhab={normalizedMadhhab}
           data-search-text={normalizedSearch}
         >
-          <div class="ledger-row__header">
-            <div class="ledger-row__meta">
-              <span class="era-badge">{s.deathYear ? `d. ${s.deathYear} AH` : 'Classical'}</span>
-              <span class="meta-dot" aria-hidden="true">·</span>
-              <span class="century-tag">{s.century ? `${s.century}th Century Hijri` : ''}</span>
-              <span class="meta-dot" aria-hidden="true">·</span>
-              <span class={`madhhab-tag madhhab-tag--${normalizedMadhhab.replace(/[^a-z]/g, '')}`}>
-                {s.madhhab}
-              </span>
+          <div class="ledger-entry__head">
+            <span class="ledger-entry__index">{String(idx + 1).padStart(2, '0')}</span>
+
+            <div class="ledger-entry__identity">
+              <div class="ledger-entry__meta">
+                <span class="ledger-entry__school">{s.madhhab}</span>
+                <span class="ledger-entry__separator" aria-hidden="true">·</span>
+                <span>{s.deathYear ? `d. ${s.deathYear} AH` : 'Classical'}</span>
+                {s.century && <><span class="ledger-entry__separator" aria-hidden="true">·</span><span>{s.century}th Century Hijri</span></>}
+              </div>
+
+              <h3 class="scholar-name">
+                <a href={`/research/shirk-endorsed/${s.id}`} class="scholar-link">
+                  {s.title}
+                </a>
+              </h3>
             </div>
 
-            <h3 class="scholar-name">
-              <a href={`/research/shirk-endorsed/${s.id}`} class="scholar-link">
-                <span class="scholar-num">{String(idx + 1).padStart(2, '0')}.</span>
-                <span class="scholar-title-text">{s.title}</span>
-              </a>
-            </h3>
+            <a href={`/research/shirk-endorsed/${s.id}`} class="ledger-entry__open" aria-label={`Open ${s.title}`}>
+              <span>Open</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </a>
           </div>
 
           {s.arabicExcerpt && (
-            <div class="arabic-quote-box" dir="rtl" lang="ar">
-              <p class="arabic-text">{s.arabicExcerpt}</p>
+            <div class="arabic-excerpt" dir="rtl" lang="ar">
+              <p>{s.arabicExcerpt}</p>
             </div>
           )}
 
-          {s.scans && s.scans.length > 0 && (
-            <div class="scans-preview">
-              <div class="scans-header">
-                <span class="scans-label">Verified Archival Scans ({s.scans.length})</span>
-              </div>
-              <div class="scans-thumbnails">
-                {s.scans.map((scanUrl, sIdx) => (
-                  <button
-                    type="button"
-                    class="scan-thumb-btn"
-                    data-lightbox-src={scanUrl}
-                    data-lightbox-title={`${s.title} — Archival Scan ${sIdx + 1}`}
-                    data-lightbox-caption={`Primary source citation and page scan for ${s.name}`}
-                    aria-label={`View manuscript scan ${sIdx + 1} for ${s.name}`}
-                  >
-                    <img src={scanUrl} alt={`${s.name} scan ${sIdx + 1}`} loading="lazy" class="scan-thumb-img" />
-                    <span class="scan-zoom-badge">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                      Scan {sIdx + 1}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div class="ledger-row__footer">
-            <a href={`/research/shirk-endorsed/${s.id}`} class="read-dossier-link">
-              <span>Read Complete Citation & Analysis</span>
-              <svg class="dossier-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-            </a>
-          </div>
         </article>
       );
     })}
@@ -175,395 +154,332 @@ function toAscii(text: string): string {
 
 <style>
   .scholar-ledger {
-    margin: 2rem 0;
+    margin: 2rem 0 0;
   }
 
-  /* ── Controls Panel ── */
-  .ledger-controls-panel {
-    padding: 1.5rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    margin-bottom: 2rem;
+  /* The register runs to 99 entries, so search and filters follow the reader
+     down the page instead of scrolling away at the top. */
+  .ledger-controls {
+    margin-bottom: 3rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  @media (min-width: 1024px) {
+    .ledger-controls {
+      position: sticky;
+      top: 72px;
+      z-index: 20;
+      padding-top: 1.1rem;
+      background: var(--hc-surface-0);
+    }
   }
 
   .controls-top {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 2rem;
   }
 
   .search-box {
     position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1;
-    min-width: 260px;
+    display: block;
+    min-width: 0;
   }
 
   .search-icon {
     position: absolute;
-    left: 1rem;
-    color: var(--hc-text-tertiary, #75716b);
+    left: 0;
+    bottom: 0.82rem;
+    color: var(--hc-text-tertiary);
     pointer-events: none;
   }
 
   .search-input {
     width: 100%;
-    padding: 0.8rem 2.75rem 0.8rem 2.6rem;
-    background: var(--hc-surface-0, #0c0c0d);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
-    border-radius: 4px;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-ui, sans-serif);
+    min-height: 2.7rem;
+    padding: 0.55rem 2rem 0.58rem 1.8rem;
+    border: 0;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
     font-size: 0.92rem;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .search-input::placeholder {
+    color: var(--hc-text-tertiary);
   }
 
   .search-input:focus {
-    outline: none;
-    border-color: var(--hc-gold, #c8a755);
-    box-shadow: 0 0 0 1px var(--hc-gold, #c8a755);
+    border-bottom-color: var(--hc-gold);
   }
 
   .clear-btn {
     position: absolute;
-    right: 0.75rem;
+    right: 0;
+    bottom: 0.52rem;
+    padding: 0.1rem 0.2rem;
+    border: 0;
     background: transparent;
-    border: none;
-    color: var(--hc-text-secondary, #a8a5a0);
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0.2rem 0.5rem;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 1.12rem;
     line-height: 1;
   }
 
   .clear-btn:hover {
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  .ledger-status-pill {
-    padding: 0.5rem 0.9rem;
-    background: var(--hc-surface-2, #1b1b1e);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-radius: 4px;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.78rem;
-    white-space: nowrap;
+    color: var(--hc-text-primary);
   }
 
   .ledger-count {
-    color: var(--hc-gold, #c8a755);
+    white-space: nowrap;
+    padding-bottom: 0.52rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
     font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filter-register {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
   }
 
   .filter-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 4.3rem minmax(0, 1fr);
+    gap: 0.8rem;
+    align-items: start;
   }
 
   .filter-label {
-    font-size: 0.7rem;
-    text-transform: uppercase;
+    padding-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
     letter-spacing: 0.1em;
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    min-width: 3.8rem;
-  }
-
-  .filter-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .filter-chip {
-    padding: 0.32rem 0.75rem;
-    background: var(--hc-surface-0, #0c0c0d);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    color: var(--hc-text-secondary, #b5b0a5);
-    font-size: 0.78rem;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 500;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .filter-chip:hover {
-    color: var(--hc-text-primary, #f5f2eb);
-    border-color: var(--hc-rule-strong, rgba(200, 167, 85, 0.4));
-  }
-
-  .filter-chip.is-active {
-    background: rgba(200, 167, 85, 0.12);
-    border-color: var(--hc-gold, #c8a755);
-    color: var(--hc-gold, #c8a755);
-    font-weight: 600;
-  }
-
-  /* ── Ledger List ── */
-  .ledger-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-
-  .ledger-row {
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-radius: 4px;
-    padding: 1.6rem 1.6rem 1.4rem;
-    transition: border-color 0.2s ease, background 0.2s ease;
-  }
-
-  .ledger-row:hover {
-    border-color: var(--hc-rule-strong, rgba(200, 167, 85, 0.35));
-    background: var(--hc-surface-2, #18181b);
-  }
-
-  .ledger-row__header {
-    margin-bottom: 0.85rem;
-  }
-
-  .ledger-row__meta {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.45rem;
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-  }
-
-  .era-badge {
-    font-weight: 700;
-    color: var(--hc-gold, #c8a755);
-    letter-spacing: 0.05em;
-  }
-
-  .meta-dot {
-    color: var(--hc-text-tertiary, #858077);
-    opacity: 0.5;
-  }
-
-  .century-tag {
-    color: var(--hc-text-secondary, #b5b0a5);
-  }
-
-  .madhhab-tag {
-    font-size: 0.68rem;
-    padding: 0.12rem 0.5rem;
-    border-radius: 3px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 1rem;
+  }
+
+  .filter-tab {
+    padding: 0.35rem 0 0.4rem;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
     font-weight: 600;
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--hc-text-primary, #f5f2eb);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    line-height: 1.2;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease;
   }
 
-  .madhhab-tag--shafii {
-    border-color: rgba(138, 76, 39, 0.35);
-    background: rgba(138, 76, 39, 0.12);
+  .filter-tab:hover {
+    color: var(--hc-text-primary);
   }
 
-  .madhhab-tag--hanafi {
-    border-color: rgba(78, 92, 120, 0.35);
-    background: rgba(78, 92, 120, 0.12);
+  .filter-tab.is-active {
+    color: var(--hc-gold);
+    border-bottom-color: var(--hc-gold);
   }
 
-  .madhhab-tag--hanbali {
-    border-color: rgba(168, 75, 62, 0.35);
-    background: rgba(168, 75, 62, 0.12);
+  .ledger-list {
+    border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .madhhab-tag--maliki {
-    border-color: rgba(74, 107, 82, 0.35);
-    background: rgba(74, 107, 82, 0.12);
+  .ledger-entry {
+    padding: 1.6rem 0 1.7rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .ledger-entry__head {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 0.9rem;
+    align-items: start;
+  }
+
+  .ledger-entry__index {
+    padding-top: 0.12rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .ledger-entry__identity {
+    min-width: 0;
+  }
+
+  .ledger-entry__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.38rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .ledger-entry__school {
+    color: var(--hc-gold);
+  }
+
+  .ledger-entry__separator {
+    color: var(--hc-text-tertiary);
   }
 
   .scholar-name {
-    font-size: 1.32rem;
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-weight: 600;
-    line-height: 1.25;
+    margin: 0.42rem 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.5vw, 1.27rem);
+    font-weight: 500;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
   }
 
   .scholar-link {
-    color: var(--hc-text-primary, #f5f2eb);
+    color: var(--hc-text-primary);
     text-decoration: none;
-    transition: color 0.15s ease;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
+    transition: color 160ms ease;
   }
 
   .scholar-link:hover {
-    color: var(--hc-gold, #c8a755);
+    color: var(--hc-gold);
   }
 
-  .scholar-num {
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.88rem;
-    font-weight: 600;
-  }
-
-  /* Arabic Quote Block */
-  .arabic-quote-box {
-    margin: 1.1rem 0;
-    padding: 1.1rem 1.4rem;
-    background: rgba(200, 167, 85, 0.03);
-    border-right: 3px solid var(--hc-gold, #c8a755);
-    border-radius: 3px;
-  }
-
-  .arabic-text {
-    font-family: var(--font-arabic, 'Amiri', serif);
-    font-size: 1.28rem;
-    line-height: 2.1;
-    color: var(--hc-text-primary, #f5f2eb);
-    margin: 0;
-  }
-
-  /* Scans Section */
-  .scans-preview {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px dashed var(--hc-rule, rgba(255, 255, 255, 0.08));
-  }
-
-  .scans-header {
-    margin-bottom: 0.75rem;
-  }
-
-  .scans-label {
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-text-tertiary, #858077);
-  }
-
-  .scans-thumbnails {
-    display: flex;
-    gap: 0.85rem;
-    flex-wrap: wrap;
-  }
-
-  .scan-thumb-btn {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0;
-    background: #0a0a0c;
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.12));
-    border-radius: 3px;
-    cursor: pointer;
-    overflow: hidden;
-    transition: transform 0.15s ease, border-color 0.15s ease;
-  }
-
-  .scan-thumb-btn:hover {
-    transform: translateY(-2px);
-    border-color: var(--hc-gold, #c8a755);
-  }
-
-  .scan-thumb-img {
-    width: 95px;
-    height: 120px;
-    object-fit: cover;
-    display: block;
-  }
-
-  .scan-zoom-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: var(--hc-gold, #c8a755);
-    padding: 0.25rem 0.5rem;
-    background: var(--hc-surface-2, #18181b);
-    width: 100%;
-    justify-content: center;
-    font-family: var(--font-ui, sans-serif);
-  }
-
-  /* Footer Actions */
-  .ledger-row__footer {
-    margin-top: 1.25rem;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .read-dossier-link {
+  .ledger-entry__open {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.82rem;
-    color: var(--hc-gold, #c8a755);
-    text-decoration: none;
-    font-family: var(--font-ui, sans-serif);
+    padding-top: 0.12rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
     font-weight: 600;
-    transition: all 0.15s ease;
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms ease, gap 160ms ease;
   }
 
-  .read-dossier-link:hover {
-    color: var(--hc-gold-bright, #e8c878);
+  .ledger-entry__open:hover {
+    gap: 0.55rem;
+    color: var(--hc-gold);
   }
 
-  .dossier-arrow {
-    transition: transform 0.15s ease;
+  .arabic-excerpt {
+    max-width: 62ch;
+    margin: 1.15rem 0 0 2.9rem;
+    padding: 0.95rem 0 1rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
-  .read-dossier-link:hover .dossier-arrow {
-    transform: translateX(3px);
+  .arabic-excerpt p {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.3rem;
+    line-height: 2;
+    color: var(--hc-text-primary);
   }
 
-  /* No results */
   .no-results {
-    text-align: center;
-    padding: 3.5rem 1.5rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    border-radius: 4px;
     margin-top: 2rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    text-align: center;
   }
 
   .no-results-text {
-    font-family: var(--font-body, serif);
-    font-size: 1.05rem;
-    color: var(--hc-text-secondary, #b5b0a5);
     margin: 0 0 1rem;
+    font-family: var(--font-body);
+    font-size: 1.12rem;
+    color: var(--hc-text-secondary);
   }
 
   .reset-btn {
-    padding: 0.6rem 1.3rem;
-    background: rgba(200, 167, 85, 0.12);
-    border: 1px solid var(--hc-gold, #c8a755);
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.82rem;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--hc-gold);
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
     font-weight: 600;
-    border-radius: 3px;
     cursor: pointer;
-    transition: all 0.15s ease;
   }
 
-  .reset-btn:hover {
-    background: rgba(200, 167, 85, 0.22);
+  @media (max-width: 720px) {
+    .controls-top {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    .ledger-count {
+      padding-bottom: 0;
+    }
+
+    .filter-row {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+
+    .filter-tabs {
+      gap: 0.08rem 0.85rem;
+    }
+
+    .ledger-entry__head {
+      grid-template-columns: 1.8rem minmax(0, 1fr);
+    }
+
+    .ledger-entry__open {
+      grid-column: 2;
+      justify-self: start;
+      margin-top: 0.45rem;
+    }
+
+    .arabic-excerpt {
+      margin-left: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .filter-tab,
+    .scholar-link,
+    .ledger-entry__open {
+      transition: none;
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 </style>
 
@@ -571,9 +487,9 @@ function toAscii(text: string): string {
   document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('scholarSearch');
     const clearBtn = document.getElementById('clearSearch');
-    const madhhabChips = document.querySelectorAll('[data-filter-madhhab]');
-    const centuryChips = document.querySelectorAll('[data-filter-century]');
-    const rows = document.querySelectorAll('.ledger-row');
+    const madhhabTabs = document.querySelectorAll('[data-filter-madhhab]');
+    const centuryTabs = document.querySelectorAll('[data-filter-century]');
+    const rows = document.querySelectorAll('.ledger-entry');
     const countDisplay = document.getElementById('ledgerCount');
     const noResults = document.getElementById('noResults');
     const resetBtn = document.getElementById('resetFilters');
@@ -596,6 +512,14 @@ function toAscii(text: string): string {
         .toLowerCase();
     }
 
+    function syncButtons(buttons, activeId, attribute) {
+      buttons.forEach((button) => {
+        const active = button.getAttribute(attribute) === activeId;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    }
+
     function filterRows() {
       let visibleCount = 0;
 
@@ -604,31 +528,13 @@ function toAscii(text: string): string {
         const rowMadhhab = row.getAttribute('data-madhhab') || '';
         const rowSearch = row.getAttribute('data-search-text') || '';
 
-        // Check madhhab
-        let matchesMadhhab = true;
-        if (activeMadhhab !== 'all') {
-          matchesMadhhab = rowMadhhab.includes(normalize(activeMadhhab));
-        }
+        const matchesMadhhab = activeMadhhab === 'all' || rowMadhhab.includes(normalize(activeMadhhab));
+        const matchesCentury = activeCentury === 'all' || rowCentury === activeCentury;
+        const matchesSearch = !searchQuery.trim() || rowSearch.includes(normalize(searchQuery.trim()));
 
-        // Check century
-        let matchesCentury = true;
-        if (activeCentury !== 'all') {
-          matchesCentury = rowCentury === activeCentury;
-        }
-
-        // Check search query
-        let matchesSearch = true;
-        if (searchQuery.trim()) {
-          const query = normalize(searchQuery.trim());
-          matchesSearch = rowSearch.includes(query);
-        }
-
-        if (matchesMadhhab && matchesCentury && matchesSearch) {
-          row.style.display = '';
-          visibleCount++;
-        } else {
-          row.style.display = 'none';
-        }
+        const visible = matchesMadhhab && matchesCentury && matchesSearch;
+        row.toggleAttribute('hidden', !visible);
+        if (visible) visibleCount++;
       });
 
       if (countDisplay) {
@@ -640,64 +546,46 @@ function toAscii(text: string): string {
       }
     }
 
-    // Madhhab selection
-    madhhabChips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        madhhabChips.forEach((c) => c.classList.remove('is-active'));
-        chip.classList.add('is-active');
-        activeMadhhab = chip.getAttribute('data-filter-madhhab') || 'all';
+    madhhabTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeMadhhab = tab.getAttribute('data-filter-madhhab') || 'all';
+        syncButtons(madhhabTabs, activeMadhhab, 'data-filter-madhhab');
         filterRows();
       });
     });
 
-    // Century selection
-    centuryChips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        centuryChips.forEach((c) => c.classList.remove('is-active'));
-        chip.classList.add('is-active');
-        activeCentury = chip.getAttribute('data-filter-century') || 'all';
+    centuryTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeCentury = tab.getAttribute('data-filter-century') || 'all';
+        syncButtons(centuryTabs, activeCentury, 'data-filter-century');
         filterRows();
       });
     });
 
-    // Search input
-    if (searchInput) {
-      searchInput.addEventListener('input', (e) => {
-        searchQuery = e.target.value;
-        if (clearBtn) {
-          clearBtn.hidden = !searchQuery;
-        }
-        filterRows();
-      });
-    }
+    searchInput?.addEventListener('input', (event) => {
+      searchQuery = event.target.value;
+      if (clearBtn) clearBtn.hidden = !searchQuery;
+      filterRows();
+    });
 
-    if (clearBtn && searchInput) {
-      clearBtn.addEventListener('click', () => {
-        searchInput.value = '';
-        searchQuery = '';
-        clearBtn.hidden = true;
-        searchInput.focus();
-        filterRows();
-      });
-    }
+    clearBtn?.addEventListener('click', () => {
+      if (!searchInput) return;
+      searchInput.value = '';
+      searchQuery = '';
+      clearBtn.hidden = true;
+      searchInput.focus();
+      filterRows();
+    });
 
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
-        activeMadhhab = 'all';
-        activeCentury = 'all';
-        searchQuery = '';
-        if (searchInput) searchInput.value = '';
-        if (clearBtn) clearBtn.hidden = true;
-
-        madhhabChips.forEach((c) => c.classList.remove('is-active'));
-        centuryChips.forEach((c) => c.classList.remove('is-active'));
-        const defaultM = document.querySelector('[data-filter-madhhab="all"]');
-        const defaultC = document.querySelector('[data-filter-century="all"]');
-        if (defaultM) defaultM.classList.add('is-active');
-        if (defaultC) defaultC.classList.add('is-active');
-
-        filterRows();
-      });
-    }
+    resetBtn?.addEventListener('click', () => {
+      activeMadhhab = 'all';
+      activeCentury = 'all';
+      searchQuery = '';
+      if (searchInput) searchInput.value = '';
+      if (clearBtn) clearBtn.hidden = true;
+      syncButtons(madhhabTabs, 'all', 'data-filter-madhhab');
+      syncButtons(centuryTabs, 'all', 'data-filter-century');
+      filterRows();
+    });
   });
 </script>

@@ -1,3863 +1,808 @@
 ---
+export const prerender = false;
+
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+
+/**
+ * The narrator register.
+ *
+ * Replaces a 3,864-line page that mixed markup, ~2,000 lines of CSS and a large
+ * client script, downloaded a 5.2 MB index to filter 20,950 records in the
+ * browser, and opened every transmitter in a modal — so none of the dossier
+ * pages were linkable, shareable or crawlable.
+ *
+ * Now: the first page of results and the filter facets are rendered here from
+ * D1, so the register works with JavaScript off and search engines see real
+ * rows; the client module takes over for filtering and paging. Each row is a
+ * link to /narrators/{id}, which since the D1 move exists for every narrator
+ * rather than the 8,000 the file cap allowed.
+ */
+
+const p = Astro.url.searchParams;
+const q = (p.get('q') || '').trim().toLowerCase();
+const generation = p.get('generation') || 'all';
+const grade = p.get('grade') || 'all';
+const century = parseInt(p.get('century') || '', 10);
+const sortKey = p.get('sort') || 'id';
+const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
+const size = 50;
+
+const SORTS: Record<string, string> = {
+  id: 'id ASC',
+  'id-desc': 'id DESC',
+  name: 'name_en ASC, id ASC',
+  death: 'death_hijri IS NULL, death_hijri ASC, id ASC',
+  'death-desc': 'death_hijri IS NULL, death_hijri DESC, id ASC',
+  hadith: 'hadith_count DESC, id ASC',
+  criticism: 'statement_count DESC, id ASC'
+};
+
+const where: string[] = ['unnamed = 0'];
+const binds: unknown[] = [];
+if (q) {
+  where.push('search_text LIKE ?');
+  binds.push(`%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`);
+}
+if (generation !== 'all') {
+  where.push('generation = ?');
+  binds.push(generation);
+}
+if (grade !== 'all') {
+  where.push('grade = ?');
+  binds.push(grade);
+}
+if (Number.isFinite(century) && century > 0) {
+  where.push('death_hijri BETWEEN ? AND ?');
+  binds.push((century - 1) * 100 + 1, century * 100);
+}
+const sql = `WHERE ${where.join(' AND ')}`;
+const order = SORTS[sortKey] || SORTS.id;
+
+interface Row {
+  id: number;
+  name_en: string;
+  name_ar: string;
+  generation: string;
+  grade: string;
+  death_hijri: number | null;
+  death_place: string;
+  places_en: string;
+  hadith_count: number;
+  teacher_count: number;
+  student_count: number;
+  statement_count: number;
+}
+
+let rows: Row[] = [];
+let total = 0;
+let generations: { value: string; n: number }[] = [];
+let grades: { value: string; n: number }[] = [];
+let centuries: { value: number; n: number }[] = [];
+let stats = { all_narrators: 0, graded: 0, dated: 0 };
+let failed = false;
+
+try {
+  const [listed, counted, gen, grd, cen, tot] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT id,name_en,name_ar,generation,grade,death_hijri,death_place,places_en,
+              hadith_count,teacher_count,student_count,statement_count
+         FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
+    ).bind(...binds, size, (page - 1) * size),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
+    env.DB.prepare(
+      `SELECT generation AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
+    ),
+    env.DB.prepare(
+      `SELECT grade AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC LIMIT 8`
+    ),
+    env.DB.prepare(
+      `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
+    ),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS all_narrators,
+              SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
+              SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated
+         FROM narrator WHERE unnamed = 0`
+    )
+  ]);
+  rows = (listed.results || []) as unknown as Row[];
+  total = ((counted.results?.[0] as { n?: number })?.n) ?? 0;
+  generations = (gen.results || []) as unknown as typeof generations;
+  grades = (grd.results || []) as unknown as typeof grades;
+  centuries = (cen.results || []) as unknown as typeof centuries;
+  stats = { ...stats, ...((tot.results?.[0] as typeof stats) || {}) };
+} catch (error) {
+  console.error('Narrator register failed to load', error);
+  failed = true;
+}
+
+const pages = Math.max(1, Math.ceil(total / size));
+const firstIndex = (page - 1) * size + 1;
+
+const gradeTone = (g: string) => {
+  const s = (g || '').toLowerCase();
+  if (s.startsWith('thiqa') || s.startsWith('saduq')) return 'is-trusted';
+  if (s.startsWith("da'if") || s.startsWith('daif') || s.startsWith('matruk')) return 'is-weak';
+  if (s.startsWith('majhul') || s.startsWith('maqbul') || s.startsWith('unrated')) return 'is-unknown';
+  return '';
+};
+
+const heroStats = [
+  { num: stats.all_narrators.toLocaleString(), label: 'Transmitters' },
+  { num: stats.graded.toLocaleString(), label: 'With Verdicts' },
+  { num: stats.dated.toLocaleString(), label: 'Dated' },
+  { num: '33', label: 'Collections' }
+];
 ---
 
 <BaseLayout
   title="Narrator Biographies & Rijāl Archive | HadithCritic"
-  description="A scholarly register of 20,950 classical hadith transmitters with biographical dossiers, attributed reliability verdicts from Ibn Hajar and al-Dhahabi, isnad transmission networks, and side-by-side comparison."
+  description={`A critical register of ${stats.all_narrators.toLocaleString()} classical hadith transmitters drawn from 33 collections. Every reliability grade is an attributed verdict from a named authority.`}
 >
-  <div class="narrators-page" id="narrators-app">
-    <!-- Hero Section -->
-    <section class="narrators-hero" aria-labelledby="narrators-hero-title">
-      <div class="hc-container">
-        <div class="hero-content">
-          <h1 id="narrators-hero-title" class="narrators-hero__title">
-            The Transmitters of <span class="narrators-hero__title-accent">Hadith.</span>
-          </h1>
-          <p class="narrators-hero__lead">
-            A critical register of <strong>20,950 classical hadith transmitters</strong> drawn from 33 collections, including all six canonical books. Every reliability grade is an attributed verdict from a named authority, not an editorial summary.
-          </p>
-        </div>
-      </div>
-    </section>
+  <div class="register-page" data-register>
+    <header class="register-head">
+      <div class="wrap">
+        <h1 class="register-title">The Transmitters of <span class="register-title-accent">Hadith.</span></h1>
+        <p class="register-lead">
+          A critical register of {stats.all_narrators.toLocaleString()} classical hadith transmitters drawn
+          from 33 collections, including all six canonical books. Every reliability grade is an
+          attributed verdict from a named authority, not an editorial summary.
+        </p>
 
-    <!-- Main Explorer Section -->
-    <section class="narrators-explorer hc-container" aria-label="Narrator Explorer">
-      <!-- Research Presets Bar -->
-      <div class="presets-bar" aria-label="Research Presets">
-        <span class="presets-bar__label">Research Presets:</span>
-        <div class="presets-bar__scroll">
-          <button class="preset-btn is-active" data-preset="all">All Transmitters</button>
-          <button class="preset-btn" data-preset="sahaba">Companions (Sahaba)</button>
-          <button class="preset-btn" data-preset="tabiun">Senior Tabi'un</button>
-          <button class="preset-btn" data-preset="medina">Medinan Hub</button>
-          <button class="preset-btn" data-preset="kufa">Kufan Hub</button>
-          <button class="preset-btn" data-preset="basra">Basran Hub</button>
-          <button class="preset-btn" data-preset="thiqah">Thiqa (Trustworthy)</button>
-          <button class="preset-btn" data-preset="criticised">Da'if (Weak)</button>
-        </div>
-      </div>
-
-      <!-- Search & Filters Toolbar -->
-      <div class="explorer-toolbar">
-        <div class="search-box">
-          <span class="search-box__icon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </span>
-          <input
-            type="text"
-            id="search-input"
-            class="search-box__input"
-            placeholder="Search English transliteration, Arabic script (e.g. الزهري), ID (#10511), or city..."
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button id="search-clear" class="search-box__clear" aria-label="Clear search" style="display: none;">
-            &times;
-          </button>
-          <span class="search-box__kbd" aria-hidden="true">/</span>
-        </div>
-
-        <div class="filter-row">
-          <!-- Generation Filter -->
-          <div class="filter-group">
-            <label for="filter-gen" class="filter-label">Generation</label>
-            <select id="filter-gen" class="filter-select">
-              <option value="">All Generations</option>
-              <option value="Companion (Sahabi)">Companions (Sahaba)</option>
-              <option value="Follower (Tabi'i)">Followers (Tabi'un)</option>
-              <option value="Successor (Taba' Tabi'i)">Successors (Taba' Tabi'in)</option>
-              <option value="Later (3rd Century AH onward)">Later (3rd Century AH onward)</option>
-              <option value="Unclassified">Unclassified</option>
-            </select>
-          </div>
-
-          <!-- Reliability Grade Filter. Values follow Ibn Hajar's Taqrib scale as
-               recorded in the source, ordered from strongest to weakest. -->
-          <div class="filter-group">
-            <label for="filter-grade" class="filter-label">Reliability</label>
-            <select id="filter-grade" class="filter-select">
-              <option value="">All Evaluations</option>
-              <option value="Companion (Sahabi)">Companion (Sahabi)</option>
-              <option value="Thiqa (Trustworthy)">Thiqa (Trustworthy)</option>
-              <option value="Saduq (Truthful)">Saduq (Truthful)</option>
-              <option value="Saduq with Errors">Saduq with Errors</option>
-              <option value="La ba'sa bihi">La ba'sa bihi</option>
-              <option value="Maqbul (Acceptable)">Maqbul (Acceptable)</option>
-              <option value="Mastur (Concealed)">Mastur (Concealed)</option>
-              <option value="Majhul (Unknown)">Majhul (Unknown)</option>
-              <option value="Layyin (Soft)">Layyin (Soft)</option>
-              <option value="Poor Memory">Poor Memory</option>
-              <option value="Da'if (Weak)">Da'if (Weak)</option>
-              <option value="Matruk (Abandoned)">Matruk (Abandoned)</option>
-              <option value="Accused of Lying">Accused of Lying</option>
-              <option value="Unrated">Unrated</option>
-            </select>
-          </div>
-
-          <!-- Hub / City Filter. Place names use the transliteration of the source. -->
-          <div class="filter-group">
-            <label for="filter-city" class="filter-label">Transmission Hub</label>
-            <select id="filter-city" class="filter-select">
-              <option value="">All Hubs</option>
-              <option value="Madina">Madina</option>
-              <option value="Makka">Makka</option>
-              <option value="Kufa">Kufa</option>
-              <option value="Basra">Basra</option>
-              <option value="Dimashq">Dimashq / Sham</option>
-              <option value="Baghdad">Baghdad</option>
-              <option value="Misr">Misr / Egypt</option>
-              <option value="Naysabur">Naysabur</option>
-              <option value="Rayy">Rayy</option>
-            </select>
-          </div>
-
-          <!-- Sort Order -->
-          <div class="filter-group">
-            <label for="filter-sort" class="filter-label">Sort</label>
-            <select id="filter-sort" class="filter-select">
-              <option value="id-asc">Narrator ID (ascending)</option>
-              <option value="id-desc">Narrator ID (descending)</option>
-              <option value="name-asc">Name (A → Z)</option>
-              <option value="death-asc">Death Date (Earliest)</option>
-              <option value="death-desc">Death Date (Latest)</option>
-              <option value="students-desc">Most Students</option>
-              <option value="teachers-desc">Most Teachers</option>
-              <option value="hadith-desc">Most Hadith Transmitted</option>
-              <option value="criticism-desc">Most Discussed by Critics</option>
-              <option value="jarh-desc">Most Criticised (Jarh)</option>
-            </select>
-          </div>
-
-          <!-- View Mode Toggle -->
-          <div class="view-toggle" role="group" aria-label="View Mode">
-            <button id="view-table-btn" class="view-toggle__btn is-active" title="Registry Table View" aria-pressed="true">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-            </button>
-            <button id="view-grid-btn" class="view-toggle__btn" title="Biographical Cards View" aria-pressed="false">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            </button>
-          </div>
-        </div>
-
-        <!-- Active Filters & Reset Bar -->
-        <div class="active-bar" id="active-bar" style="display: none;">
-          <span class="active-bar__label">Active filters:</span>
-          <div class="active-bar__chips" id="active-chips"></div>
-          <button id="reset-filters-btn" class="active-bar__reset">Clear all</button>
-        </div>
-      </div>
-
-      <!-- Results Header -->
-      <div class="results-head">
-        <div class="results-head__count">
-          <span id="results-count-text">Loading transmitters index...</span>
-        </div>
-        <div class="results-head__actions">
-          <button id="open-compare-btn-head" class="compare-trigger-btn" style="display: none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"></path></svg>
-            Compare Selected (<span class="compare-count-val">0</span>)
-          </button>
-          <div class="results-head__per-page">
-            <label for="per-page-select">Per page:</label>
-            <select id="per-page-select" class="filter-select filter-select--sm">
-              <option value="25">25</option>
-              <option value="50" selected>50</option>
-              <option value="100">100</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div id="loading-spinner" class="explorer-loading">
-        <div class="spinner"></div>
-        <p>Loading 20,950 transmitter records...</p>
-      </div>
-
-      <!-- Table View Container -->
-      <div id="table-view" class="table-container" style="display: none;">
-        <table class="narrators-table">
-          <thead>
-            <tr>
-              <th class="col-check" title="Select for comparison">Compare</th>
-              <th class="col-id">ID</th>
-              <th class="col-name">Transmitter Name</th>
-              <th class="col-gen">Generation</th>
-              <th class="col-grade">Reliability</th>
-              <th class="col-death">Death / Era</th>
-              <th class="col-stay">Places of Stay</th>
-              <th class="col-network">Network</th>
-              <th class="col-action">Dossier</th>
-            </tr>
-          </thead>
-          <tbody id="table-body">
-            <!-- Populated via JavaScript -->
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Grid / Cards View Container -->
-      <div id="grid-view" class="grid-container" style="display: none;">
-        <div class="narrators-grid" id="grid-body">
-          <!-- Populated via JavaScript -->
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div id="empty-state" class="empty-state" style="display: none;">
-        <div class="empty-state__icon">🔍</div>
-        <h3 class="empty-state__title">No transmitters found</h3>
-        <p class="empty-state__desc">Try adjusting your search terms, changing the generation filter, or clearing active filters.</p>
-        <button class="hc-btn hc-btn--ghost" id="empty-reset-btn">Reset All Filters</button>
-      </div>
-
-      <!-- Pagination Container -->
-      <div id="pagination-container" class="pagination-bar" style="display: none;">
-        <button id="prev-page-btn" class="pagination-btn" disabled>&larr; Previous</button>
-        <div class="pagination-info">
-          <span id="page-info-text">Page 1 of 1</span>
-        </div>
-        <button id="next-page-btn" class="pagination-btn">Next &rarr;</button>
-      </div>
-    </section>
-
-    <!-- Persistent Bottom Comparison Dock -->
-    <aside id="comparison-dock" class="comparison-dock" aria-label="Narrator Comparison Queue" style="display: none;">
-      <div class="comparison-dock__inner">
-        <div class="comparison-dock__info">
-          <span class="comparison-dock__title">Compare Narrators</span>
-          <span class="comparison-dock__slots">(<span id="dock-count">0</span>/3 selected)</span>
-        </div>
-        <div class="comparison-dock__chips" id="dock-chips"></div>
-        <div class="comparison-dock__actions">
-          <button id="dock-clear-btn" class="dock-btn dock-btn--ghost">Clear</button>
-          <button id="dock-compare-btn" class="dock-btn dock-btn--primary">
-            Compare Side-by-Side &rarr;
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Side-over Transmitter Dossier Modal -->
-    <div id="dossier-modal" class="dossier-modal" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="dossier-backdrop" id="dossier-backdrop"></div>
-      <div class="dossier-panel">
-        <div class="dossier-header">
-          <div class="dossier-header__top">
-            <span class="dossier-id-badge" id="modal-id">#0</span>
-            <div class="dossier-header__actions">
-              <a id="modal-full-link" class="dossier-btn-text dossier-btn-text--primary" href="/narrators" title="Open the full dossier page">
-                Full dossier &rarr;
-              </a>
-              <button id="modal-compare-toggle-btn" class="dossier-btn-text" title="Add to comparison workspace">
-                + Compare
-              </button>
-              <button id="modal-cite-btn" class="dossier-btn-icon" title="Cite this transmitter">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-              </button>
-              <button id="modal-copy-btn" class="dossier-btn-icon" title="Copy direct link to transmitter">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                <span class="copy-tooltip" id="copy-tooltip">Copied!</span>
-              </button>
-              <button id="modal-close-btn" class="dossier-btn-icon" aria-label="Close dossier">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
+        <div class="register-stat-band">
+          {heroStats.map((s) => (
+            <div class="register-stat">
+              <span class="register-stat__num">{s.num}</span>
+              <span class="register-stat__label">{s.label}</span>
             </div>
-          </div>
-
-          <h2 class="dossier-name-en" id="modal-name-en">Transmitter Name</h2>
-          <p class="dossier-name-ar" id="modal-name-ar" dir="rtl" lang="ar">الاسم بالعربية</p>
-
-          <div class="dossier-badges" id="modal-badges">
-            <span class="dossier-badge dossier-badge--gen" id="modal-gen">Generation</span>
-            <span class="dossier-badge dossier-badge--grade" id="modal-grade">Grade</span>
-          </div>
-        </div>
-
-        <div class="dossier-content" id="modal-content">
-          <!-- Loading placeholder -->
-          <div class="dossier-loading" id="modal-loading">
-            <div class="spinner"></div>
-            <p>Fetching biographical dossier...</p>
-          </div>
-
-          <!-- Dossier Body -->
-          <div class="dossier-body" id="modal-body" style="display: none;">
-            <!-- Vital Statistics Section -->
-            <section class="dossier-section">
-              <h3 class="dossier-section__title">Vital Chronology & Places</h3>
-              <div class="vital-grid">
-                <div class="vital-card">
-                  <span class="vital-card__label">Birth Date & Place</span>
-                  <span class="vital-card__value" id="modal-birth">—</span>
-                </div>
-                <div class="vital-card">
-                  <span class="vital-card__label">Death Date & Place</span>
-                  <span class="vital-card__value" id="modal-death">—</span>
-                </div>
-                <div class="vital-card" id="modal-hadith-card">
-                  <span class="vital-card__label">Hadith Transmitted</span>
-                  <span class="vital-card__value" id="modal-hadith-count">—</span>
-                </div>
-                <div class="vital-card vital-card--full">
-                  <span class="vital-card__label">Places of Stay / Travel</span>
-                  <div class="stay-path" id="modal-places-path"></div>
-                </div>
-              </div>
-            </section>
-
-            <!-- Attributed verdicts. Each is the named authority's own wording,
-                 shown in translation with the Arabic alongside it. -->
-            <section class="dossier-section" id="modal-verdicts-section">
-              <h3 class="dossier-section__title">Scholarly Verdicts</h3>
-              <div class="dossier-verdicts" id="modal-verdicts"></div>
-              <div class="dossier-tags" id="modal-flags"></div>
-            </section>
-
-            <!-- Jarh and ta'dil apparatus: every statement attributed to the
-                 critic who made it, with the work and page it is cited from. -->
-            <section class="dossier-section" id="modal-criticism-section" style="display: none;">
-              <div class="network-header">
-                <h3 class="dossier-section__title">Jarh &amp; Ta'dil</h3>
-                <div class="criticism-tally" id="modal-criticism-tally"></div>
-              </div>
-              <div class="dossier-tags" id="modal-phenomena"></div>
-              <div class="criticism-list" id="modal-criticism-list"></div>
-            </section>
-
-            <!-- Names, kunya, lineage and the surface forms this narrator
-                 appears under across the corpus. -->
-            <section class="dossier-section" id="modal-names-section">
-              <h3 class="dossier-section__title">Names & Attested Forms</h3>
-              <div class="family-groups" id="modal-names"></div>
-              <div class="dossier-aliases" id="modal-aliases"></div>
-            </section>
-
-            <!-- Transmission Networks (Teachers & Students) -->
-            <section class="dossier-section">
-              <div class="network-header">
-                <h3 class="dossier-section__title">Transmission Networks</h3>
-                <div class="network-tabs" role="tablist">
-                  <button class="network-tab is-active" id="tab-teachers-btn" role="tab" aria-selected="true">
-                    Teachers (<span id="modal-teachers-count">0</span>)
-                  </button>
-                  <button class="network-tab" id="tab-students-btn" role="tab" aria-selected="false">
-                    Students (<span id="modal-students-count">0</span>)
-                  </button>
-                </div>
-              </div>
-
-              <!-- Teachers Pane -->
-              <div class="network-pane is-active" id="pane-teachers" role="tabpanel">
-                <div class="relation-chips" id="modal-teachers-list"></div>
-              </div>
-
-              <!-- Students Pane -->
-              <div class="network-pane" id="pane-students" role="tabpanel" style="display: none;">
-                <div class="relation-chips" id="modal-students-list"></div>
-              </div>
-            </section>
-          </div>
+          ))}
         </div>
       </div>
+    </header>
+
+    <div class="wrap register-body">
+      {failed ? (
+        <p class="register-error">The register is temporarily unavailable. Please try again shortly.</p>
+      ) : (
+        <>
+          <form class="register-controls" method="get" action="/narrators">
+            <div class="register-search">
+              <label class="sr-only" for="register-q">Search transmitters</label>
+              <input
+                id="register-q"
+                class="register-search__input"
+                type="search"
+                name="q"
+                value={q}
+                placeholder="Search name, Arabic script, kunya, or place…"
+                data-register-search
+                autocomplete="off"
+              />
+              <button type="button" class="register-search__clear" data-register-clear aria-label="Clear search">×</button>
+            </div>
+
+            <div class="register-filters">
+              <div class="register-filter">
+                <span class="register-filter__label">Generation</span>
+                <div class="register-tabs" data-filter-group="generation">
+                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  {generations.map((g) => (
+                    <button type="button" class="register-tab" data-value={g.value}>
+                      {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div class="register-filter">
+                <span class="register-filter__label">Verdict</span>
+                <div class="register-tabs" data-filter-group="grade">
+                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  {grades.map((g) => (
+                    <button type="button" class="register-tab" data-value={g.value}>
+                      {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div class="register-filter">
+                <span class="register-filter__label">Century</span>
+                <div class="register-tabs" data-filter-group="century">
+                  <button type="button" class="register-tab is-active" data-value="">All</button>
+                  {centuries.map((c) => (
+                    <button type="button" class="register-tab" data-value={String(c.value)}>
+                      {c.value} AH <span class="register-tab__n">{c.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div class="register-toolbar">
+              <span class="register-status" data-register-status aria-live="polite">
+                {total.toLocaleString()} transmitter{total === 1 ? '' : 's'}
+              </span>
+              <label class="register-sort">
+                <span>Sort</span>
+                <select data-register-sort name="sort">
+                  <option value="id">Narrator ID</option>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="death">Death year (earliest)</option>
+                  <option value="death-desc">Death year (latest)</option>
+                  <option value="hadith">Hadith transmitted</option>
+                  <option value="criticism">Most discussed</option>
+                </select>
+              </label>
+            </div>
+          </form>
+
+          <ol class="register-list" data-register-list start={firstIndex}>
+            {rows.map((r, i) => {
+              const places = JSON.parse(r.places_en || '[]') as string[];
+              const meta = [r.generation, r.death_hijri ? `d. ${r.death_hijri} AH` : null, places[0] || r.death_place || null].filter(Boolean);
+              const counts = [
+                r.hadith_count ? `${r.hadith_count.toLocaleString()} hadith` : null,
+                r.teacher_count || r.student_count ? `${r.teacher_count}T / ${r.student_count}S` : null,
+                r.statement_count ? `${r.statement_count} verdicts` : null
+              ].filter(Boolean);
+              return (
+                <li class="reg-row">
+                  <button
+                    type="button"
+                    class="reg-pick"
+                    data-pick={r.id}
+                    data-name={r.name_en || r.name_ar}
+                    aria-pressed="false"
+                    aria-label={`Add to comparison: ${r.name_en || r.name_ar}`}
+                  ><span aria-hidden="true">+</span></button>
+                  <span class="reg-index">{firstIndex + i}</span>
+                  <a class="reg-main" href={`/narrators/${r.id}`}>
+                    <span class="reg-names">
+                      <span class="reg-name">{r.name_en || r.name_ar}</span>
+                      {r.name_ar && <span class="reg-name-ar" lang="ar" dir="rtl">{r.name_ar}</span>}
+                    </span>
+                    <span class="reg-meta">
+                      {meta.map((m, k) => (
+                        <>
+                          {k > 0 && <span class="reg-sep" aria-hidden="true">·</span>}
+                          <span>{m}</span>
+                        </>
+                      ))}
+                    </span>
+                  </a>
+                  <span class={`reg-grade ${gradeTone(r.grade)}`}>{r.grade || 'Unrated'}</span>
+                  <span class="reg-counts">
+                    {counts.map((m, k) => (
+                      <>
+                        {k > 0 && <span class="reg-sep" aria-hidden="true">·</span>}
+                        <span>{m}</span>
+                      </>
+                    ))}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+
+          <nav class="register-pager" data-register-pager aria-label="Register pages">
+            {pages > 1 && (
+              <>
+                <a class="reg-page" href={`?${new URLSearchParams({ ...Object.fromEntries(p), page: String(page - 1) })}`} aria-disabled={page <= 1}>← Previous</a>
+                <span class="reg-page-of">Page {page.toLocaleString()} of {pages.toLocaleString()}</span>
+                <a class="reg-page" href={`?${new URLSearchParams({ ...Object.fromEntries(p), page: String(page + 1) })}`} aria-disabled={page >= pages}>Next →</a>
+              </>
+            )}
+          </nav>
+        </>
+      )}
     </div>
 
-    <!-- Side-by-Side Comparison Workspace Modal -->
-    <div id="compare-modal" class="compare-modal" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="compare-backdrop" id="compare-backdrop"></div>
-      <div class="compare-panel">
-        <header class="compare-header">
-          <div class="compare-header__title-box">
-            <h2 class="compare-header__title">Narrator Comparison Workspace</h2>
-            <p class="compare-header__subtitle">Comparative biographical analysis, transmission overlap, and isnād intersections.</p>
-          </div>
-          <div class="compare-header__actions">
-            <button id="compare-export-btn" class="hc-btn hc-btn--ghost" title="Copy structured markdown comparison notes">
-              Export Notes
-            </button>
-            <button id="compare-close-btn" class="dossier-btn-icon" aria-label="Close comparison">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-          </div>
-        </header>
-
-        <!-- Overlap Analytics Banner -->
-        <section class="overlap-banner" id="overlap-banner">
-          <div class="overlap-card">
-            <span class="overlap-card__title">Shared Authorities (Teachers)</span>
-            <div class="overlap-card__body" id="shared-teachers-container">
-              <span class="overlap-empty">None detected</span>
-            </div>
-          </div>
-          <div class="overlap-card">
-            <span class="overlap-card__title">Shared Transmitters (Students)</span>
-            <div class="overlap-card__body" id="shared-students-container">
-              <span class="overlap-empty">None detected</span>
-            </div>
-          </div>
-          <div class="overlap-card">
-            <span class="overlap-card__title">Chronology & Geographic Overlap</span>
-            <div class="overlap-card__body" id="overlap-coexistence-container">
-              <span class="overlap-text" id="coexistence-text">—</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- Multi-Column Comparison Grid -->
-        <div class="compare-grid" id="compare-grid">
-          <!-- Populated via JavaScript for 2-3 narrators -->
-        </div>
-      </div>
-    </div>
-
-    <!-- Academic Citation Modal -->
-    <div id="citation-modal" class="citation-modal" aria-hidden="true" role="dialog" aria-modal="true">
-      <div class="citation-backdrop" id="citation-backdrop"></div>
-      <div class="citation-box">
-        <div class="citation-box__header">
-          <h3 class="citation-box__title">Academic Citation</h3>
-          <button id="citation-close-btn" class="dossier-btn-icon" aria-label="Close citation dialog">&times;</button>
-        </div>
-        <p class="citation-box__copy">Standard scholarly format for footnote or bibliographic reference:</p>
-        <div class="citation-text-card">
-          <p id="citation-text" class="citation-text">Generating citation...</p>
-        </div>
-        <div class="citation-box__actions">
-          <button id="citation-copy-btn" class="hc-btn">Copy Citation</button>
+    <div class="compare-dock" data-compare-dock hidden>
+      <div class="wrap compare-dock__inner">
+        <span class="compare-dock__count"><strong data-compare-count>0</strong> selected</span>
+        <div class="compare-dock__chips" data-compare-chips></div>
+        <div class="compare-dock__actions">
+          <button type="button" class="compare-dock__clear" data-compare-clear>Clear</button>
+          <button type="button" class="hc-btn compare-dock__open" data-compare-open>Compare</button>
         </div>
       </div>
     </div>
   </div>
-</BaseLayout>
 
-<script>
-  interface RawiIndexItem {
-    i: number;      // ID
-    e: string;      // English Name
-    a: string;      // Arabic Name
-    g: string;      // Generation
-    r: string;      // Reliability Grade
-    dh: string;     // Death Hijri
-    dg: string;     // Death Gregorian
-    dp: string;     // Death Place
-    ps: string;     // Places of Stay
-    tc: number;     // Teachers count
-    sc: number;     // Students count
-    hc: number;     // Hadith transmitted, counted across the isnad chains
-    tb: number | null; // Ibn Hajar tabaqa number, 1 to 12
-    p?: 1;          // Present when a static dossier page was generated for them
-    cs: number;     // Criticism statements recorded against this narrator
-    cc: number;     // Distinct critics who spoke about them
-    cj: number;     // Statements read as jarh
-    ct: number;     // Statements read as ta'dil
-    t: string[];    // Flags (tadlis, accusations, confusion in later life)
-  }
+  <script>
+    import { initNarratorRegister } from '../../lib/narrator-register';
+    initNarratorRegister();
+  </script>
 
-  interface RelationItem {
-    id: number | null;
-    name: string;
-    count?: number; // Times this pairing occurs across the corpus
-  }
-
-  interface AliasForm {
-    form: string;
-    count: number;
-  }
-
-  interface RawiDetail {
-    id: number;
-    nameEn: string;
-    nameAr: string;
-    fullName: string;
-    kunya: string;
-    nickname: string;
-    lineage: string;
-    relation: string;
-    generation: string;
-    grade: string;
-    tabaqa: string;
-    tabaqaEn: string;
-    tabaqaNumber: number | null;
-    rankIbnHajar: string;
-    rankIbnHajarEn: string;
-    rankDhahabi: string;
-    rankDhahabiEn: string;
-    madhhab: string;
-    madhhabEn: string;
-    flags: string[];
-    unnamed: boolean;
-    birthPlace: string;
-    residence: string;
-    travelPlace: string;
-    deathPlace: string;
-    placesEn: string[];
-    placesAr: string[];
-    birthDate: string;
-    // Verbatim from the source: it preserves the disagreement between
-    // authorities over the death year, which is itself evidence.
-    deathDate: string;
-    deathAhMin: number | null;
-    deathAhMax: number | null;
-    deathHijri: string;
-    deathGregorian: string;
-    hadithCount: number;
-    aliasCount: number;
-    aliases: AliasForm[];
-    teachers: RelationItem[];
-    students: RelationItem[];
-    criticism: CriticismSummary | null;
-  }
-
-  interface CriticismSummary {
-    criticCount: number;
-    statementCount: number;
-    tally: { jarh: number; tadil: number; mixed: number; unclassified: number };
-    phenomena: { label: string; count: number }[];
-    shard: number;
-  }
-
-  interface CriticStatement {
-    text: string;
-    citation: string;
-    pageId: number | null;
-    verdict: 'jarh' | 'tadil' | 'mixed' | 'unclassified';
-  }
-
-  interface CriticGroup {
-    critic: string;
-    statements: CriticStatement[];
-  }
-
-  interface CriticismRecord {
-    id: number;
-    criticCount: number;
-    statementCount: number;
-    tally: { jarh: number; tadil: number; mixed: number; unclassified: number };
-    critics: CriticGroup[];
-    phenomena: { key: string; label: string; statements: CriticStatement[] }[];
-  }
-
-  let allTransmitters: RawiIndexItem[] = [];
-  let filteredTransmitters: RawiIndexItem[] = [];
-  let currentPage = 1;
-  let itemsPerPage = 50;
-  let currentView: 'table' | 'grid' = 'table';
-  let comparisonQueue: number[] = [];
-  let activeDossierId: number | null = null;
-  const chunkCache = new Map<number, Record<string, RawiDetail>>();
-
-  // DOM Elements
-  const searchInput = document.querySelector('#search-input') as any as HTMLInputElement;
-  const searchClear = document.querySelector('#search-clear') as any as HTMLButtonElement;
-  const filterGen = document.querySelector('#filter-gen') as any as HTMLSelectElement;
-  const filterGrade = document.querySelector('#filter-grade') as any as HTMLSelectElement;
-  const filterCity = document.querySelector('#filter-city') as any as HTMLSelectElement;
-  const filterSort = document.querySelector('#filter-sort') as any as HTMLSelectElement;
-  const perPageSelect = document.querySelector('#per-page-select') as any as HTMLSelectElement;
-
-  const viewTableBtn = document.querySelector('#view-table-btn') as any as HTMLButtonElement;
-  const viewGridBtn = document.querySelector('#view-grid-btn') as any as HTMLButtonElement;
-
-  const tableView = document.querySelector('#table-view') as any as HTMLElement;
-  const gridView = document.querySelector('#grid-view') as any as HTMLElement;
-  const tableBody = document.querySelector('#table-body') as any as HTMLElement;
-  const gridBody = document.querySelector('#grid-body') as any as HTMLElement;
-  const loadingSpinner = document.querySelector('#loading-spinner') as any as HTMLElement;
-  const emptyState = document.querySelector('#empty-state') as any as HTMLElement;
-
-  const activeBar = document.querySelector('#active-bar') as any as HTMLElement;
-  const activeChips = document.querySelector('#active-chips') as any as HTMLElement;
-  const resetFiltersBtn = document.querySelector('#reset-filters-btn') as any as HTMLButtonElement;
-  const emptyResetBtn = document.querySelector('#empty-reset-btn') as any as HTMLButtonElement;
-
-  const resultsCountText = document.querySelector('#results-count-text') as any as HTMLElement;
-  const paginationContainer = document.querySelector('#pagination-container') as any as HTMLElement;
-  const prevPageBtn = document.querySelector('#prev-page-btn') as any as HTMLButtonElement;
-  const nextPageBtn = document.querySelector('#next-page-btn') as any as HTMLButtonElement;
-  const pageInfoText = document.querySelector('#page-info-text') as any as HTMLElement;
-  const openCompareBtnHead = document.querySelector('#open-compare-btn-head') as any as HTMLButtonElement;
-
-  // Comparison Dock
-  const comparisonDock = document.querySelector('#comparison-dock') as any as HTMLElement;
-  const dockChips = document.querySelector('#dock-chips') as any as HTMLElement;
-  const dockCount = document.querySelector('#dock-count') as any as HTMLElement;
-  const dockClearBtn = document.querySelector('#dock-clear-btn') as any as HTMLButtonElement;
-  const dockCompareBtn = document.querySelector('#dock-compare-btn') as any as HTMLButtonElement;
-
-  // Comparison Workspace Modal
-  const compareModal = document.querySelector('#compare-modal') as any as HTMLElement;
-  const compareBackdrop = document.querySelector('#compare-backdrop') as any as HTMLElement;
-  const compareCloseBtn = document.querySelector('#compare-close-btn') as any as HTMLButtonElement;
-  const compareExportBtn = document.querySelector('#compare-export-btn') as any as HTMLButtonElement;
-  const compareGrid = document.querySelector('#compare-grid') as any as HTMLElement;
-  const sharedTeachersContainer = document.querySelector('#shared-teachers-container') as any as HTMLElement;
-  const sharedStudentsContainer = document.querySelector('#shared-students-container') as any as HTMLElement;
-  const coexistenceText = document.querySelector('#coexistence-text') as any as HTMLElement;
-
-  // Dossier Elements
-  const modal = document.querySelector('#dossier-modal') as any as HTMLElement;
-  const modalBackdrop = document.querySelector('#dossier-backdrop') as any as HTMLElement;
-  const modalCloseBtn = document.querySelector('#modal-close-btn') as any as HTMLButtonElement;
-  const modalCopyBtn = document.querySelector('#modal-copy-btn') as any as HTMLButtonElement;
-  const modalCiteBtn = document.querySelector('#modal-cite-btn') as any as HTMLButtonElement;
-  const modalCompareToggleBtn = document.querySelector('#modal-compare-toggle-btn') as any as HTMLButtonElement;
-  const copyTooltip = document.querySelector('#copy-tooltip') as any as HTMLElement;
-
-  const modalId = document.querySelector('#modal-id') as any as HTMLElement;
-  const modalNameEn = document.querySelector('#modal-name-en') as any as HTMLElement;
-  const modalNameAr = document.querySelector('#modal-name-ar') as any as HTMLElement;
-  const modalGen = document.querySelector('#modal-gen') as any as HTMLElement;
-  const modalGrade = document.querySelector('#modal-grade') as any as HTMLElement;
-
-  const modalLoading = document.querySelector('#modal-loading') as any as HTMLElement;
-  const modalBody = document.querySelector('#modal-body') as any as HTMLElement;
-
-  const modalBirth = document.querySelector('#modal-birth') as any as HTMLElement;
-  const modalDeath = document.querySelector('#modal-death') as any as HTMLElement;
-  const modalHadithCount = document.querySelector('#modal-hadith-count') as any as HTMLElement;
-  const modalPlacesPath = document.querySelector('#modal-places-path') as any as HTMLElement;
-
-  const modalVerdicts = document.querySelector('#modal-verdicts') as any as HTMLElement;
-  const modalFlags = document.querySelector('#modal-flags') as any as HTMLElement;
-  const modalNames = document.querySelector('#modal-names') as any as HTMLElement;
-  const modalAliases = document.querySelector('#modal-aliases') as any as HTMLElement;
-
-  const tabTeachersBtn = document.querySelector('#tab-teachers-btn') as any as HTMLButtonElement;
-  const tabStudentsBtn = document.querySelector('#tab-students-btn') as any as HTMLButtonElement;
-  const paneTeachers = document.querySelector('#pane-teachers') as any as HTMLElement;
-  const paneStudents = document.querySelector('#pane-students') as any as HTMLElement;
-  const modalTeachersCount = document.querySelector('#modal-teachers-count') as any as HTMLElement;
-  const modalStudentsCount = document.querySelector('#modal-students-count') as any as HTMLElement;
-  const modalTeachersList = document.querySelector('#modal-teachers-list') as any as HTMLElement;
-  const modalStudentsList = document.querySelector('#modal-students-list') as any as HTMLElement;
-
-  // Citation Elements
-  const citationModal = document.querySelector('#citation-modal') as any as HTMLElement;
-  const citationBackdrop = document.querySelector('#citation-backdrop') as any as HTMLElement;
-  const citationCloseBtn = document.querySelector('#citation-close-btn') as any as HTMLButtonElement;
-  const citationCopyBtn = document.querySelector('#citation-copy-btn') as any as HTMLButtonElement;
-  const citationText = document.querySelector('#citation-text') as any as HTMLElement;
-
-  // Every dossier field is interpolated into innerHTML, so escape before insertion.
-  function escapeHtml(value: string): string {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
-  const criticismCache = new Map<number, Record<string, CriticismRecord>>();
-
-  async function fetchCriticism(id: number, shard: number): Promise<CriticismRecord | null> {
-    if (!criticismCache.has(shard)) {
-      try {
-        const res = await fetch(`/data/narrators/criticism/${shard}.json`);
-        if (!res.ok) throw new Error(`Failed to load criticism shard ${shard}`);
-        criticismCache.set(shard, await res.json());
-      } catch (err) {
-        console.error(err);
-        return null;
-      }
-    }
-    return criticismCache.get(shard)?.[id] || null;
-  }
-
-  const VERDICT_LABELS: Record<string, string> = {
-    jarh: 'Jarh',
-    tadil: "Ta'dil",
-    mixed: 'Mixed',
-    unclassified: 'Unclassified'
-  };
-
-  function renderCriticism(record: CriticismRecord | null, summary: CriticismSummary) {
-    const section = document.getElementById('modal-criticism-section')!;
-    const tallyEl = document.getElementById('modal-criticism-tally')!;
-    const phenomenaEl = document.getElementById('modal-phenomena')!;
-    const listEl = document.getElementById('modal-criticism-list')!;
-    section.style.display = 'block';
-
-    const t = summary.tally;
-    tallyEl.innerHTML = (['jarh', 'tadil', 'mixed', 'unclassified'] as const)
-      .filter((k) => t[k] > 0)
-      .map(
-        (k) =>
-          `<span class="tally-pill tally-pill--${k}">${VERDICT_LABELS[k]} ${t[k]}</span>`
-      )
-      .join('');
-
-    phenomenaEl.innerHTML = (summary.phenomena || [])
-      .map(
-        (p) =>
-          `<span class="canonical-tag">${escapeHtml(p.label)} <span class="alias-chip__count">${p.count}</span></span>`
-      )
-      .join('');
-
-    if (!record) {
-      listEl.innerHTML =
-        '<p class="alias-lead">Could not load the statements for this narrator.</p>';
-      return;
+  <style>
+    /* The register follows the same editorial rules-and-whitespace pattern as
+       the treatise ledger: numbered rows separated by hairlines, no card per
+       entry, one accent colour carrying state. */
+    .register-page {
+      background: var(--hc-surface-0);
+      padding-bottom: clamp(4rem, 8vw, 7rem);
     }
 
-    // Critics who said more are shown first. Every statement keeps the wording
-    // and the citation it was recorded with.
-    const groups = [...record.critics].sort(
-      (a, b) => b.statements.length - a.statements.length
-    );
-
-    listEl.innerHTML = groups
-      .map((g) => {
-        const statements = g.statements
-          .map(
-            (s) => `
-              <li class="statement statement--${s.verdict}">
-                <p class="statement__text" dir="rtl" lang="ar">${escapeHtml(s.text)}</p>
-                <div class="statement__meta">
-                  <span class="statement__verdict">${VERDICT_LABELS[s.verdict]}</span>
-                  ${s.citation ? `<cite class="statement__cite" dir="rtl" lang="ar">${escapeHtml(s.citation)}</cite>` : ''}
-                </div>
-              </li>`
-          )
-          .join('');
-        return `
-          <details class="critic-group">
-            <summary class="critic-group__head">
-              <span class="critic-group__name" dir="rtl" lang="ar">${escapeHtml(g.critic)}</span>
-              <span class="critic-group__count">${g.statements.length}</span>
-            </summary>
-            <ul class="statement-list">${statements}</ul>
-          </details>`;
-      })
-      .join('');
-  }
-
-  // The build step pre-splits the journey into one list per script, because only
-  // some place columns are translated. Prefer English, fall back to Arabic whole.
-  function placesFor(detail: RawiDetail): string[] {
-    if (detail.placesEn && detail.placesEn.length > 0) return detail.placesEn;
-    return detail.placesAr || [];
-  }
-
-  // Helper: Grade CSS Class
-  function getGradeClass(grade: string): string {
-    const g = grade.toLowerCase();
-    if (g.includes('companion') || g.includes('sahabi')) return 'badge-sahabi';
-    if (g.includes('thiqa') || g.includes('trustworthy')) return 'badge-thiqah';
-    if (g.includes('errors') || g.includes('poor memory')) return 'badge-maqbool';
-    if (g.includes('saduq') || g.includes('truthful')) return 'badge-sadooq';
-    if (g.includes("la ba'sa") || g.includes('maqbul') || g.includes('acceptable')) return 'badge-maqbool';
-    if (g.includes('layyin') || g.includes('soft') || g.includes("da'if") || g.includes('weak')) return 'badge-daif';
-    if (g.includes('matruk') || g.includes('abandoned') || g.includes('lying')) return 'badge-matrook';
-    return 'badge-default';
-  }
-
-  // Load Data
-  async function loadData() {
-    try {
-      const res = await fetch('/data/narrators/index.json');
-      if (!res.ok) throw new Error('Failed to load transmitters index');
-      allTransmitters = await res.json();
-      
-      const statTotal = document.getElementById('stat-total');
-      if (statTotal) statTotal.textContent = allTransmitters.length.toLocaleString();
-
-      loadingSpinner.style.display = 'none';
-      applyFilters();
-
-      // Check URL parameters: ?compare=3,7 or ?id=10511
-      const urlParams = new URLSearchParams(window.location.search);
-      const compareParam = urlParams.get('compare');
-      if (compareParam) {
-        const ids = compareParam.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-        if (ids.length >= 2) {
-          comparisonQueue = ids.slice(0, 3);
-          updateComparisonDock();
-          openComparisonWorkspace();
-        }
-      } else {
-        const initialId = urlParams.get('id');
-        if (initialId) {
-          openDossier(parseInt(initialId, 10));
-        }
-      }
-
-      const initialQuery = urlParams.get('q');
-      if (initialQuery) {
-        searchInput.value = initialQuery;
-        applyFilters();
-      }
-    } catch (err) {
-      console.error(err);
-      loadingSpinner.innerHTML = '<p class="error-msg">Failed to load narrator index. Please refresh the page.</p>';
-    }
-  }
-
-  function applyFilters() {
-    const q = searchInput.value.trim().toLowerCase();
-    const gen = filterGen.value;
-    const grade = filterGrade.value;
-    const city = filterCity.value.toLowerCase();
-    const sort = filterSort.value;
-
-    searchClear.style.display = q ? 'block' : 'none';
-
-    filteredTransmitters = allTransmitters.filter((item) => {
-      // Text search
-      if (q) {
-        const idMatch = `#${item.i}` === q || `${item.i}` === q;
-        const enMatch = item.e.toLowerCase().includes(q);
-        const arMatch = item.a.includes(q);
-        const cityMatch = (item.dp + ' ' + item.ps).toLowerCase().includes(q);
-        const tagMatch = item.t.some((tag) => tag.toLowerCase().includes(q));
-
-        if (!idMatch && !enMatch && !arMatch && !cityMatch && !tagMatch) {
-          return false;
-        }
-      }
-
-      // Generation
-      if (gen && item.g !== gen) return false;
-
-      // Reliability
-      if (grade && item.r !== grade) return false;
-
-      // Hub / City
-      if (city) {
-        const fullLocation = (item.dp + ' ' + item.ps).toLowerCase();
-        if (!fullLocation.includes(city)) return false;
-      }
-
-      return true;
-    });
-
-    // Sort
-    filteredTransmitters.sort((a, b) => {
-      if (sort === 'id-asc') return a.i - b.i;
-      if (sort === 'id-desc') return b.i - a.i;
-      if (sort === 'name-asc') return a.e.localeCompare(b.e);
-      if (sort === 'death-asc') {
-        const da = parseInt(a.dh, 10) || 9999;
-        const db = parseInt(b.dh, 10) || 9999;
-        return da - db;
-      }
-      if (sort === 'death-desc') {
-        const da = parseInt(a.dh, 10) || -1;
-        const db = parseInt(b.dh, 10) || -1;
-        return db - da;
-      }
-      if (sort === 'students-desc') return b.sc - a.sc;
-      if (sort === 'teachers-desc') return b.tc - a.tc;
-      if (sort === 'hadith-desc') return b.hc - a.hc;
-      if (sort === 'criticism-desc') return b.cs - a.cs;
-      if (sort === 'jarh-desc') return b.cj - a.cj;
-      return a.i - b.i;
-    });
-
-    currentPage = 1;
-    updateActiveChips();
-    renderResults();
-  }
-
-  function updateActiveChips() {
-    const chips: Array<{ label: string; clear: () => void }> = [];
-
-    if (searchInput.value.trim()) {
-      chips.push({
-        label: `"${searchInput.value.trim()}"`,
-        clear: () => {
-          searchInput.value = '';
-          applyFilters();
-        }
-      });
-    }
-    if (filterGen.value) {
-      chips.push({
-        label: filterGen.value,
-        clear: () => {
-          filterGen.value = '';
-          applyFilters();
-        }
-      });
-    }
-    if (filterGrade.value) {
-      chips.push({
-        label: filterGrade.value,
-        clear: () => {
-          filterGrade.value = '';
-          applyFilters();
-        }
-      });
-    }
-    if (filterCity.value) {
-      chips.push({
-        label: `Hub: ${filterCity.value}`,
-        clear: () => {
-          filterCity.value = '';
-          applyFilters();
-        }
-      });
+    .register-head {
+      padding: clamp(3rem, 6vw, 5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+      border-bottom: 1px solid var(--hc-rule);
     }
 
-    if (chips.length > 0) {
-      activeBar.style.display = 'flex';
-      activeChips.innerHTML = chips
-        .map((c, idx) => `
-          <button class="active-chip" data-chip-idx="${idx}">
-            <span>${c.label}</span>
-            <span class="active-chip__remove">&times;</span>
-          </button>
-        `)
-        .join('');
-
-      activeChips.querySelectorAll('.active-chip').forEach((el: any) => {
-        el.addEventListener('click', () => {
-          const idx = parseInt(el.getAttribute('data-chip-idx') || '0', 10);
-          chips[idx]?.clear();
-        });
-      });
-    } else {
-      activeBar.style.display = 'none';
-      activeChips.innerHTML = '';
-    }
-  }
-
-  function renderResults() {
-    const total = filteredTransmitters.length;
-    resultsCountText.textContent = `Showing ${total.toLocaleString()} transmitter${total === 1 ? '' : 's'}`;
-
-    if (total === 0) {
-      tableView.style.display = 'none';
-      gridView.style.display = 'none';
-      paginationContainer.style.display = 'none';
-      emptyState.style.display = 'block';
-      return;
+    .register-title {
+      max-width: 20ch;
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      color: var(--hc-text-primary);
     }
 
-    emptyState.style.display = 'none';
-    paginationContainer.style.display = 'flex';
-
-    const totalPages = Math.ceil(total / itemsPerPage);
-    if (currentPage > totalPages) currentPage = totalPages;
-
-    const startIdx = (currentPage - 1) * itemsPerPage;
-    const endIdx = Math.min(startIdx + itemsPerPage, total);
-    const pageItems = filteredTransmitters.slice(startIdx, endIdx);
-
-    pageInfoText.textContent = `Page ${currentPage} of ${totalPages || 1}`;
-    prevPageBtn.disabled = currentPage <= 1;
-    nextPageBtn.disabled = currentPage >= totalPages;
-
-    if (currentView === 'table') {
-      tableView.style.display = 'block';
-      gridView.style.display = 'none';
-      renderTable(pageItems);
-    } else {
-      tableView.style.display = 'none';
-      gridView.style.display = 'block';
-      renderGrid(pageItems);
-    }
-  }
-
-  function renderTable(items: RawiIndexItem[]) {
-    tableBody.innerHTML = items
-      .map((item) => {
-        const isQueued = comparisonQueue.includes(item.i);
-        const gradeBadge = `<span class="badge ${getGradeClass(item.r)}">${item.r}</span>`;
-        const deathInfo = item.dh
-          ? `${item.dh} AH ${item.dg ? `(${item.dg} CE)` : ''}`
-          : item.dg ? `${item.dg} CE` : '—';
-        const stayInfo = item.dp || item.ps || '—';
-
-        return `
-          <tr class="table-row ${isQueued ? 'is-in-compare' : ''}" data-rawi-id="${item.i}">
-            <td class="col-check">
-              <button class="compare-toggle-btn ${isQueued ? 'is-selected' : ''}" data-compare-id="${item.i}" title="${isQueued ? 'Remove from comparison' : 'Add to side-by-side comparison'}">
-                ${isQueued ? '✓' : '+'}
-              </button>
-            </td>
-            <td class="col-id"><span class="id-tag">#${item.i}</span></td>
-            <td class="col-name">
-              <div class="name-box">
-                <span class="name-en">${item.e || 'Unknown'}</span>
-                ${item.a ? `<span class="name-ar" dir="rtl" lang="ar">${item.a}</span>` : ''}
-              </div>
-            </td>
-            <td class="col-gen"><span class="gen-tag">${item.g}</span></td>
-            <td class="col-grade">${gradeBadge}</td>
-            <td class="col-death"><span class="meta-val">${deathInfo}</span></td>
-            <td class="col-stay"><span class="meta-val meta-val--truncate" title="${stayInfo}">${stayInfo}</span></td>
-            <td class="col-network">
-              <div class="network-counts">
-                <span title="Teachers: ${item.tc}" class="count-pill">T: ${item.tc}</span>
-                <span title="Students: ${item.sc}" class="count-pill">S: ${item.sc}</span>
-              </div>
-            </td>
-            <td class="col-action">
-              <button class="row-inspect-btn" data-inspect-id="${item.i}">
-                Inspect &rarr;
-              </button>
-            </td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    // Inspect buttons
-    tableBody.querySelectorAll('[data-inspect-id]').forEach((el: any) => {
-      el.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation();
-        const id = parseInt(el.getAttribute('data-inspect-id') || '0', 10);
-        if (id) openDossier(id);
-      });
-    });
-
-    // Compare toggle buttons
-    tableBody.querySelectorAll('[data-compare-id]').forEach((el: any) => {
-      el.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation();
-        const id = parseInt(el.getAttribute('data-compare-id') || '0', 10);
-        toggleComparison(id);
-      });
-    });
-
-    // Whole row click opens dossier
-    tableBody.querySelectorAll('.table-row').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const id = parseInt(el.getAttribute('data-rawi-id') || '0', 10);
-        if (id) openDossier(id);
-      });
-    });
-  }
-
-  function renderGrid(items: RawiIndexItem[]) {
-    gridBody.innerHTML = items
-      .map((item) => {
-        const isQueued = comparisonQueue.includes(item.i);
-        const gradeBadge = `<span class="badge ${getGradeClass(item.r)}">${item.r}</span>`;
-        const deathInfo = item.dh
-          ? `${item.dh} AH ${item.dg ? `(${item.dg} CE)` : ''}`
-          : item.dg ? `${item.dg} CE` : '—';
-        const placeInfo = item.dp || item.ps || '—';
-
-        return `
-          <article class="rawi-card ${isQueued ? 'is-in-compare' : ''}" data-rawi-id="${item.i}">
-            <div class="rawi-card__header">
-              <span class="id-tag">#${item.i}</span>
-              <div class="card-header-actions">
-                ${gradeBadge}
-                <button class="compare-toggle-btn ${isQueued ? 'is-selected' : ''}" data-compare-id="${item.i}" title="Add to comparison">
-                  ${isQueued ? '✓ Compare' : '+ Compare'}
-                </button>
-              </div>
-            </div>
-
-            <div class="rawi-card__names">
-              <h3 class="card-name-en">${item.e || 'Unknown'}</h3>
-              ${item.a ? `<p class="card-name-ar" dir="rtl" lang="ar">${item.a}</p>` : ''}
-            </div>
-
-            <div class="rawi-card__meta">
-              <div class="meta-item">
-                <span class="meta-label">Generation</span>
-                <span class="meta-text">${item.g}</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Death / Era</span>
-                <span class="meta-text">${deathInfo}</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Location</span>
-                <span class="meta-text meta-val--truncate">${placeInfo}</span>
-              </div>
-            </div>
-
-            <div class="rawi-card__footer">
-              <div class="network-counts">
-                <span class="count-pill">Teachers: ${item.tc}</span>
-                <span class="count-pill">Students: ${item.sc}</span>
-              </div>
-              <span class="card-link" data-inspect-id="${item.i}">Dossier &rarr;</span>
-            </div>
-          </article>
-        `;
-      })
-      .join('');
-
-    gridBody.querySelectorAll('[data-inspect-id]').forEach((el: any) => {
-      el.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation();
-        const id = parseInt(el.getAttribute('data-inspect-id') || '0', 10);
-        if (id) openDossier(id);
-      });
-    });
-
-    gridBody.querySelectorAll('[data-compare-id]').forEach((el: any) => {
-      el.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation();
-        const id = parseInt(el.getAttribute('data-compare-id') || '0', 10);
-        toggleComparison(id);
-      });
-    });
-
-    gridBody.querySelectorAll('.rawi-card').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const id = parseInt(el.getAttribute('data-rawi-id') || '0', 10);
-        if (id) openDossier(id);
-      });
-    });
-  }
-
-  // Comparison Management
-  function toggleComparison(id: number) {
-    const idx = comparisonQueue.indexOf(id);
-    if (idx !== -1) {
-      comparisonQueue.splice(idx, 1);
-    } else {
-      if (comparisonQueue.length >= 3) {
-        alert('You can compare a maximum of 3 narrators at a time. Please remove one first.');
-        return;
-      }
-      comparisonQueue.push(id);
+    .register-title-accent {
+      color: var(--hc-gold);
+      font-style: italic;
     }
 
-    updateComparisonDock();
-    renderResults();
-    updateModalCompareBtn();
-  }
-
-  function updateComparisonDock() {
-    const count = comparisonQueue.length;
-    dockCount.textContent = count.toString();
-    document.querySelectorAll('.compare-count-val').forEach((el: any) => {
-      el.textContent = count.toString();
-    });
-
-    if (count > 0) {
-      comparisonDock.style.display = 'block';
-      openCompareBtnHead.style.display = 'inline-flex';
-
-      dockChips.innerHTML = comparisonQueue
-        .map((id) => {
-          const item = allTransmitters.find((t) => t.i === id);
-          const name = item ? item.e : `#${id}`;
-          return `
-            <span class="dock-chip">
-              <span class="dock-chip__id">#${id}</span>
-              <span class="dock-chip__name">${name}</span>
-              <button class="dock-chip__remove" data-remove-id="${id}">&times;</button>
-            </span>
-          `;
-        })
-        .join('');
-
-      dockChips.querySelectorAll('[data-remove-id]').forEach((btn: any) => {
-        btn.addEventListener('click', (e: MouseEvent) => {
-          e.stopPropagation();
-          const id = parseInt(btn.getAttribute('data-remove-id') || '0', 10);
-          toggleComparison(id);
-        });
-      });
-    } else {
-      comparisonDock.style.display = 'none';
-      openCompareBtnHead.style.display = 'none';
-      dockChips.innerHTML = '';
-    }
-  }
-
-  function updateModalCompareBtn() {
-    if (!activeDossierId) return;
-    const isQueued = comparisonQueue.includes(activeDossierId);
-    modalCompareToggleBtn.textContent = isQueued ? '✓ In Compare' : '+ Compare';
-    modalCompareToggleBtn.classList.toggle('is-selected', isQueued);
-  }
-
-  // Fetch Full Transmitter Profile
-  async function fetchTransmitterDetail(id: number): Promise<RawiDetail | null> {
-    const chunkIdx = Math.floor((id - 1) / 1000);
-    if (!chunkCache.has(chunkIdx)) {
-      try {
-        const res = await fetch(`/data/narrators/chunks/chunk_${chunkIdx}.json`);
-        if (!res.ok) throw new Error(`Failed to load chunk ${chunkIdx}`);
-        const chunkData = (await res.json()) as Record<string, RawiDetail>;
-        chunkCache.set(chunkIdx, chunkData);
-      } catch (e) {
-        console.error(e);
-        return null;
-      }
-    }
-    const chunk = chunkCache.get(chunkIdx);
-    return chunk ? chunk[id] || null : null;
-  }
-
-  // Open Comparison Workspace
-  async function openComparisonWorkspace() {
-    if (comparisonQueue.length < 2) {
-      alert('Please select at least 2 narrators to compare side-by-side.');
-      return;
+    .register-lead {
+      max-width: 68ch;
+      margin: 1.25rem 0 0;
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.72;
+      color: var(--hc-text-secondary);
     }
 
-    compareModal.classList.add('is-open');
-    compareModal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-
-    // Update URL parameter
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('compare', comparisonQueue.join(','));
-    newUrl.searchParams.delete('id');
-    window.history.pushState({}, '', newUrl.toString());
-
-    compareGrid.innerHTML = `
-      <div class="compare-loading">
-        <div class="spinner"></div>
-        <p>Loading comparative dossiers & isnād overlap analysis...</p>
-      </div>
-    `;
-
-    // Fetch details for all queued narrators
-    const details = await Promise.all(comparisonQueue.map((id) => fetchTransmitterDetail(id)));
-    const validDetails = details.filter((d): d is RawiDetail => d !== null);
-
-    if (validDetails.length < 2) {
-      compareGrid.innerHTML = '<p class="error-msg">Could not load comparative data.</p>';
-      return;
+    .register-stat-band {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: clamp(2rem, 4vw, 3rem);
+      border-top: 1px solid var(--hc-rule);
+      border-bottom: 1px solid var(--hc-rule);
     }
 
-    renderComparisonMatrix(validDetails);
-  }
-
-  function renderComparisonMatrix(profiles: RawiDetail[]) {
-    // 1. Identify Shared Authorities (Teachers)
-    const teacherIdMaps = profiles.map((p) => new Set((p.teachers || []).map((t) => t.id).filter(Boolean)));
-    const sharedTeacherIds: number[] = [];
-
-    if (teacherIdMaps.length >= 2) {
-      const firstSet = teacherIdMaps[0];
-      for (const tid of firstSet) {
-        if (teacherIdMaps.every((s) => s.has(tid))) {
-          sharedTeacherIds.push(tid as number);
-        }
-      }
+    .register-stat {
+      position: relative;
+      min-width: 0;
+      padding: 1rem 1.2rem 1.05rem 0;
     }
 
-    const sharedTeachers = sharedTeacherIds
-      .map((tid) => {
-        for (const p of profiles) {
-          const found = (p.teachers || []).find((t) => t.id === tid);
-          if (found) return found;
-        }
-        return null;
-      })
-      .filter((t): t is RelationItem => t !== null);
+    .register-stat + .register-stat { padding-left: 1.2rem; }
 
-    if (sharedTeachers.length > 0) {
-      sharedTeachersContainer.innerHTML = sharedTeachers
-        .map((t) => `
-          <button class="relation-chip relation-chip--shared" data-pivot-id="${t.id}">
-            <span>${t.name}</span>
-            <span class="chip-id">#${t.id}</span>
-            <span class="shared-tag">Shared</span>
-          </button>
-        `)
-        .join('');
-    } else {
-      sharedTeachersContainer.innerHTML = '<span class="overlap-empty">No direct common teachers recorded in this corpus.</span>';
+    .register-stat + .register-stat::before {
+      content: "";
+      position: absolute;
+      inset-block: 0;
+      left: 0;
+      width: 1px;
+      background: var(--hc-rule-soft);
     }
 
-    // 2. Identify Shared Transmitters (Students)
-    const studentIdMaps = profiles.map((p) => new Set((p.students || []).map((s) => s.id).filter(Boolean)));
-    const sharedStudentIds: number[] = [];
-
-    if (studentIdMaps.length >= 2) {
-      const firstSet = studentIdMaps[0];
-      for (const sid of firstSet) {
-        if (studentIdMaps.every((s) => s.has(sid))) {
-          sharedStudentIds.push(sid as number);
-        }
-      }
+    .register-stat__num {
+      display: block;
+      font-family: var(--font-body);
+      font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.025em;
+      font-variant-numeric: lining-nums tabular-nums;
+      color: var(--hc-text-primary);
     }
 
-    const sharedStudents = sharedStudentIds
-      .map((sid) => {
-        for (const p of profiles) {
-          const found = (p.students || []).find((s) => s.id === sid);
-          if (found) return found;
-        }
-        return null;
-      })
-      .filter((s): s is RelationItem => s !== null);
-
-    if (sharedStudents.length > 0) {
-      sharedStudentsContainer.innerHTML = sharedStudents
-        .map((s) => `
-          <button class="relation-chip relation-chip--shared" data-pivot-id="${s.id}">
-            <span>${s.name}</span>
-            <span class="chip-id">#${s.id}</span>
-            <span class="shared-tag">Shared</span>
-          </button>
-        `)
-        .join('');
-    } else {
-      sharedStudentsContainer.innerHTML = '<span class="overlap-empty">No direct common students recorded in this corpus.</span>';
+    .register-stat__label {
+      display: block;
+      margin-top: 0.4rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
     }
 
-    // 3. Chronological & Geographic Overlap
-    const deathYears = profiles.map((p) => parseInt(p.deathHijri, 10)).filter((y) => !isNaN(y));
-    let coexistenceMsg = '';
-    if (deathYears.length >= 2) {
-      const minD = Math.min(...deathYears);
-      const maxD = Math.max(...deathYears);
-      const diff = maxD - minD;
-      if (diff <= 35) {
-        coexistenceMsg = `Contemporary contemporaries (death gap of ${diff} years: ${minD} AH – ${maxD} AH). Potential physical meeting (muʿāṣarah) verified.`;
-      } else {
-        coexistenceMsg = `Separated by ${diff} years (${minD} AH vs ${maxD} AH). Direct transmission chronologically ${diff > 75 ? 'impossible' : 'unlikely'}.`;
-      }
-    } else {
-      coexistenceMsg = 'Chronological dates incomplete in classical register.';
+    .register-body { padding-top: clamp(1.75rem, 3vw, 2.5rem); }
+
+    .register-error {
+      padding: 3rem 0;
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      color: var(--hc-text-secondary);
     }
 
-    // Find common cities of stay
-    const citySets = profiles.map((p) => {
-      const str = placesFor(p).join(',');
-      return new Set(str.split(',').map((c) => c.trim().toLowerCase()).filter(Boolean));
-    });
-    const commonCities: string[] = [];
-    if (citySets.length >= 2) {
-      for (const city of citySets[0]) {
-        if (citySets.every((s) => s.has(city))) {
-          commonCities.push(city);
-        }
-      }
+    /* ---- controls ---- */
+    .register-controls {
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid var(--hc-rule);
     }
 
-    const cityMsg = commonCities.length > 0
-      ? ` Common regional hubs: ${commonCities.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')}.`
-      : '';
+    .register-search { position: relative; }
 
-    coexistenceText.textContent = coexistenceMsg + cityMsg;
-
-    // 4. Render Multi-Column Matrix
-    compareGrid.style.gridTemplateColumns = `repeat(${profiles.length}, 1fr)`;
-    compareGrid.innerHTML = profiles
-      .map((p) => {
-        const gradeBadge = `<span class="badge ${getGradeClass(p.grade)}">${p.grade}</span>`;
-        const deathText =
-          (p.deathHijri ? `${p.deathHijri} AH (${p.deathGregorian} CE)` : '') || p.deathPlace || '—';
-        const birthText = p.birthDate || p.birthPlace || '—';
-
-        const renderRelations = (items: RelationItem[], sharedIds: number[]) => {
-          if (!items || items.length === 0) return '<p class="network-empty">None recorded</p>';
-          return items
-            .map((item) => {
-              const isShared = item.id && sharedIds.includes(item.id);
-              return item.id
-                ? `<button class="relation-chip ${isShared ? 'relation-chip--shared' : ''}" data-pivot-id="${item.id}">
-                    <span>${item.name}</span>
-                    <span class="chip-id">#${item.id}</span>
-                    ${isShared ? '<span class="shared-indicator">★ Shared</span>' : ''}
-                  </button>`
-                : `<span class="relation-chip relation-chip--static">${item.name}</span>`;
-            })
-            .join('');
-        };
-
-        const stayPath =
-          placesFor(p)
-            .map((c) => `<span class="stay-node" dir="auto">${escapeHtml(c)}</span>`)
-            .join('<span class="stay-arrow">&rarr;</span>') || '—';
-
-        return `
-          <div class="compare-col">
-            <div class="compare-col__head">
-              <span class="id-tag">#${p.id}</span>
-              <h3 class="compare-col__name-en">${p.nameEn}</h3>
-              ${p.nameAr ? `<p class="compare-col__name-ar" dir="rtl" lang="ar">${p.nameAr}</p>` : ''}
-              <div class="compare-col__badges">
-                <span class="dossier-badge dossier-badge--gen">${p.generation}</span>
-                ${gradeBadge}
-              </div>
-            </div>
-
-            <div class="compare-col__section">
-              <h4 class="col-section-title">Vital Dates & Hubs</h4>
-              <div class="col-field">
-                <span class="col-field__label">Birth</span>
-                <span class="col-field__val">${birthText}</span>
-              </div>
-              <div class="col-field">
-                <span class="col-field__label">Death</span>
-                <span class="col-field__val">${deathText}</span>
-              </div>
-              <div class="col-field">
-                <span class="col-field__label">Places of Stay</span>
-                <div class="stay-path">${stayPath}</div>
-              </div>
-              <div class="col-field">
-                <span class="col-field__label">Hadith</span>
-                <span class="col-field__val">${p.hadithCount ? p.hadithCount.toLocaleString() : '—'}</span>
-              </div>
-            </div>
-
-            <div class="compare-col__section">
-              <h4 class="col-section-title">Verdicts</h4>
-              <div class="col-field">
-                <span class="col-field__label">Ibn Hajar</span>
-                <span class="col-field__val">${escapeHtml(p.rankIbnHajarEn || p.rankIbnHajar || '—')}</span>
-              </div>
-              <div class="col-field">
-                <span class="col-field__label">al-Dhahabi</span>
-                <span class="col-field__val">${escapeHtml(p.rankDhahabiEn || p.rankDhahabi || '—')}</span>
-              </div>
-            </div>
-
-            <div class="compare-col__section">
-              <h4 class="col-section-title">Teachers (${p.teachers?.length || 0})</h4>
-              <div class="col-chips-scroll">
-                ${renderRelations(p.teachers, sharedTeacherIds)}
-              </div>
-            </div>
-
-            <div class="compare-col__section">
-              <h4 class="col-section-title">Students (${p.students?.length || 0})</h4>
-              <div class="col-chips-scroll">
-                ${renderRelations(p.students, sharedStudentIds)}
-              </div>
-            </div>
-          </div>
-        `;
-      })
-      .join('');
-
-    // Attach pivot handlers inside compare grid
-    compareGrid.querySelectorAll('[data-pivot-id]').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const pivotId = parseInt(el.getAttribute('data-pivot-id') || '0', 10);
-        if (pivotId) {
-          closeComparisonWorkspace();
-          openDossier(pivotId);
-        }
-      });
-    });
-
-    sharedTeachersContainer.querySelectorAll('[data-pivot-id]').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const pivotId = parseInt(el.getAttribute('data-pivot-id') || '0', 10);
-        if (pivotId) {
-          closeComparisonWorkspace();
-          openDossier(pivotId);
-        }
-      });
-    });
-
-    sharedStudentsContainer.querySelectorAll('[data-pivot-id]').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const pivotId = parseInt(el.getAttribute('data-pivot-id') || '0', 10);
-        if (pivotId) {
-          closeComparisonWorkspace();
-          openDossier(pivotId);
-        }
-      });
-    });
-  }
-
-  function closeComparisonWorkspace() {
-    compareModal.classList.remove('is-open');
-    compareModal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.delete('compare');
-    window.history.pushState({}, '', newUrl.toString());
-  }
-
-  // Dossier Loading & Opening
-  async function openDossier(id: number) {
-    activeDossierId = id;
-    modal.classList.add('is-open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
-
-    modalId.textContent = `#${id}`;
-    modalLoading.style.display = 'flex';
-    modalBody.style.display = 'none';
-
-    updateModalCompareBtn();
-
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.set('id', id.toString());
-    newUrl.searchParams.delete('compare');
-    window.history.pushState({ id }, '', newUrl.toString());
-
-    switchNetworkTab('teachers');
-
-    // A static page exists only for the narrators the build prerendered, so the
-    // link is hidden rather than pointing at a 404.
-    const fullLink = document.getElementById('modal-full-link') as HTMLAnchorElement | null;
-    const hasPage = Boolean(allTransmitters.find((t) => t.i === id)?.p);
-    if (fullLink) {
-      if (hasPage) {
-        fullLink.href = `/narrators/${id}`;
-        fullLink.style.display = '';
-      } else {
-        fullLink.style.display = 'none';
-      }
-    }
-
-    const detail = await fetchTransmitterDetail(id);
-    if (!detail) {
-      modalLoading.innerHTML = '<p class="error-msg">Could not load details for this transmitter.</p>';
-      return;
-    }
-
-    modalNameEn.textContent = detail.nameEn || detail.nameAr;
-    modalNameAr.textContent = detail.nameAr || '';
-    modalNameAr.style.display = detail.nameAr ? 'block' : 'none';
-
-    modalGen.textContent = detail.tabaqaNumber
-      ? `${detail.generation} · Tabaqa ${detail.tabaqaNumber}`
-      : detail.generation;
-    modalGrade.textContent = detail.grade;
-    modalGrade.className = `dossier-badge dossier-badge--grade ${getGradeClass(detail.grade)}`;
-
-    modalBirth.textContent = detail.birthDate || detail.birthPlace || '—';
-    // Prefer the verbatim death notice: it carries the competing reports.
-    modalDeath.textContent =
-      detail.deathDate ||
-      (detail.deathHijri ? `${detail.deathHijri} AH (${detail.deathGregorian} CE)` : '') ||
-      detail.deathPlace ||
-      '—';
-
-    modalHadithCount.textContent = detail.hadithCount
-      ? `${detail.hadithCount.toLocaleString()} reports`
-      : 'None recorded in this corpus';
-
-    const journey = placesFor(detail);
-    if (journey.length > 0) {
-      modalPlacesPath.innerHTML = journey
-        .map((p) => `<span class="stay-node" dir="auto">${escapeHtml(p)}</span>`)
-        .join('<span class="stay-arrow">&rarr;</span>');
-    } else {
-      modalPlacesPath.innerHTML = '<span class="meta-val">No recorded journeys</span>';
-    }
-
-    // Verdicts, each attributed to the authority who issued it.
-    const verdicts: string[] = [];
-    const addVerdict = (authority: string, en: string, ar: string) => {
-      if (!en && !ar) return;
-      verdicts.push(`
-        <div class="verdict-card">
-          <span class="verdict-card__authority">${authority}</span>
-          ${en ? `<p class="verdict-card__en">${escapeHtml(en)}</p>` : ''}
-          ${ar ? `<p class="verdict-card__ar" dir="rtl" lang="ar">${escapeHtml(ar)}</p>` : ''}
-        </div>
-      `);
-    };
-    addVerdict('Ibn Hajar al-Asqalani', detail.rankIbnHajarEn, detail.rankIbnHajar);
-    addVerdict('al-Dhahabi', detail.rankDhahabiEn, detail.rankDhahabi);
-    addVerdict('Tabaqa (Taqrib al-Tahdhib)', detail.tabaqaEn, detail.tabaqa);
-    addVerdict('Creedal Attribution', detail.madhhabEn, detail.madhhab);
-
-    if (verdicts.length > 0) {
-      document.getElementById('modal-verdicts-section')!.style.display = 'block';
-      modalVerdicts.innerHTML = verdicts.join('');
-    } else {
-      document.getElementById('modal-verdicts-section')!.style.display = 'none';
-    }
-    modalFlags.innerHTML = (detail.flags || [])
-      .map((f) => `<span class="canonical-tag">${escapeHtml(f)}</span>`)
-      .join('');
-
-    // Names, then the surface forms the narrator actually appears under.
-    const nameRows: string[] = [];
-    const addNameRow = (label: string, value: string) => {
-      if (!value) return;
-      nameRows.push(`
-        <div class="family-group">
-          <span class="family-group__label">${label}:</span>
-          <div class="family-group__chips">
-            <span class="relation-chip relation-chip--static" dir="auto">${escapeHtml(value)}</span>
-          </div>
-        </div>
-      `);
-    };
-    addNameRow('Full name', detail.fullName);
-    addNameRow('Kunya', detail.kunya);
-    addNameRow('Nickname', detail.nickname);
-    addNameRow('Lineage', detail.lineage);
-    addNameRow('Relations', detail.relation);
-    modalNames.innerHTML = nameRows.join('');
-
-    if (detail.aliases && detail.aliases.length > 0) {
-      const shown = detail.aliases
-        .map(
-          (a) =>
-            `<span class="alias-chip" dir="rtl" lang="ar">${escapeHtml(a.form)}<span class="alias-chip__count">${a.count}</span></span>`
-        )
-        .join('');
-      const more =
-        detail.aliasCount > detail.aliases.length
-          ? `<span class="alias-more">+${detail.aliasCount - detail.aliases.length} more forms</span>`
-          : '';
-      modalAliases.innerHTML = `<p class="alias-lead">Appears in the isnads under ${detail.aliasCount} distinct form${detail.aliasCount === 1 ? '' : 's'}:</p><div class="alias-chips">${shown}${more}</div>`;
-    } else {
-      modalAliases.innerHTML = '';
-    }
-
-    document.getElementById('modal-names-section')!.style.display =
-      nameRows.length > 0 || (detail.aliases && detail.aliases.length > 0) ? 'block' : 'none';
-
-    // The statements are large, so the shard is fetched only once a dossier is
-    // actually opened. The summary renders immediately from the detail record.
-    const criticismSection = document.getElementById('modal-criticism-section')!;
-    if (detail.criticism) {
-      renderCriticism(null, detail.criticism);
-      const listEl = document.getElementById('modal-criticism-list')!;
-      if (hasPage) {
-        // The statements live in that narrator's dossier page, which is where
-        // they are also indexed for search, so they are not shipped twice.
-        listEl.innerHTML = `<p class="alias-lead">Read all ${detail.criticism.statementCount.toLocaleString()} statements on the <a href="/narrators/${detail.id}">full dossier</a>.</p>`;
-      } else {
-        listEl.innerHTML = '<p class="alias-lead">Loading statements...</p>';
-        const requestedId = detail.id;
-        fetchCriticism(detail.id, detail.criticism.shard).then((record) => {
-          // Guard against a slower fetch landing after the reader moved on.
-          if (activeDossierId !== requestedId) return;
-          renderCriticism(record, detail.criticism!);
-        });
-      }
-    } else {
-      criticismSection.style.display = 'none';
-    }
-
-    modalTeachersCount.textContent = (detail.teachers?.length || 0).toString();
-    modalStudentsCount.textContent = (detail.students?.length || 0).toString();
-
-    const renderNetworkList = (list: RelationItem[], container: HTMLElement) => {
-      if (!list || list.length === 0) {
-        container.innerHTML = '<p class="network-empty">No direct entries recorded in this corpus.</p>';
-        return;
-      }
-      container.innerHTML = list
-        .map((rel) =>
-          rel.id
-            ? `<button class="relation-chip" data-pivot-id="${rel.id}">
-                <span class="relation-chip__name">${rel.name}</span>
-                <span class="chip-id">#${rel.id}</span>
-              </button>`
-            : `<span class="relation-chip relation-chip--static">${rel.name}</span>`
-        )
-        .join('');
-    };
-
-    renderNetworkList(detail.teachers, modalTeachersList);
-    renderNetworkList(detail.students, modalStudentsList);
-
-    modal.querySelectorAll('[data-pivot-id]').forEach((el: any) => {
-      el.addEventListener('click', () => {
-        const pivotId = parseInt(el.getAttribute('data-pivot-id') || '0', 10);
-        if (pivotId) openDossier(pivotId);
-      });
-    });
-
-    modalLoading.style.display = 'none';
-    modalBody.style.display = 'block';
-  }
-
-  function closeDossier() {
-    activeDossierId = null;
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.delete('id');
-    window.history.pushState({}, '', newUrl.toString());
-  }
-
-  function switchNetworkTab(tab: 'teachers' | 'students') {
-    if (tab === 'teachers') {
-      tabTeachersBtn.classList.add('is-active');
-      tabTeachersBtn.setAttribute('aria-selected', 'true');
-      tabStudentsBtn.classList.remove('is-active');
-      tabStudentsBtn.setAttribute('aria-selected', 'false');
-
-      paneTeachers.style.display = 'block';
-      paneStudents.style.display = 'none';
-    } else {
-      tabStudentsBtn.classList.add('is-active');
-      tabStudentsBtn.setAttribute('aria-selected', 'true');
-      tabTeachersBtn.classList.remove('is-active');
-      tabTeachersBtn.setAttribute('aria-selected', 'false');
-
-      paneStudents.style.display = 'block';
-      paneTeachers.style.display = 'none';
-    }
-  }
-
-  // Academic Citation Generator
-  function openCitationDialog() {
-    if (!activeDossierId) return;
-    const item = allTransmitters.find((t) => t.i === activeDossierId);
-    if (!item) return;
-
-    const deathPart = item.dh ? `d. ${item.dh} AH / ${item.dg} CE` : 'n.d.';
-    const placePart = item.dp ? `, ${item.dp}` : '';
-    const cite = `HadithCritic Rijāl Register, s.v. "${item.e}" (Ar. ${item.a || item.e}, ${deathPart}${placePart}), Scholar Index #${item.i}, accessed ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}, https://hadithcriticblog.com/narrators/${item.i}.`;
-
-    citationText.textContent = cite;
-    citationModal.classList.add('is-open');
-    citationModal.setAttribute('aria-hidden', 'false');
-  }
-
-  function closeCitationDialog() {
-    citationModal.classList.remove('is-open');
-    citationModal.setAttribute('aria-hidden', 'true');
-  }
-
-  // Research Presets Handling
-  document.querySelectorAll('.preset-btn').forEach((btn: any) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.preset-btn').forEach((b: any) => b.classList.remove('is-active'));
-      btn.classList.add('is-active');
-
-      const preset = btn.getAttribute('data-preset');
-      // Reset standard filters
-      filterGen.value = '';
-      filterGrade.value = '';
-      filterCity.value = '';
-
-      if (preset === 'sahaba') {
-        filterGen.value = 'Companion (Sahabi)';
-      } else if (preset === 'tabiun') {
-        filterGen.value = 'Follower (Tabi\'i)';
-      } else if (preset === 'medina') {
-        filterCity.value = 'Madina';
-      } else if (preset === 'kufa') {
-        filterCity.value = 'Kufa';
-      } else if (preset === 'basra') {
-        filterCity.value = 'Basra';
-      } else if (preset === 'thiqah') {
-        filterGrade.value = 'Thiqa (Trustworthy)';
-      } else if (preset === 'criticised') {
-        filterGrade.value = "Da'if (Weak)";
-      }
-
-      applyFilters();
-    });
-  });
-
-  // Event Listeners
-  searchInput.addEventListener('input', applyFilters);
-  searchClear.addEventListener('click', () => {
-    searchInput.value = '';
-    applyFilters();
-    searchInput.focus();
-  });
-
-  filterGen.addEventListener('change', applyFilters);
-  filterGrade.addEventListener('change', applyFilters);
-  filterCity.addEventListener('change', applyFilters);
-  filterSort.addEventListener('change', applyFilters);
-
-  perPageSelect.addEventListener('change', () => {
-    itemsPerPage = parseInt(perPageSelect.value, 10) || 50;
-    currentPage = 1;
-    renderResults();
-  });
-
-  resetFiltersBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    filterGen.value = '';
-    filterGrade.value = '';
-    filterCity.value = '';
-    filterSort.value = 'id-asc';
-    document.querySelectorAll('.preset-btn').forEach((b: any) => b.classList.remove('is-active'));
-    document.querySelector('.preset-btn[data-preset="all"]')?.classList.add('is-active');
-    applyFilters();
-  });
-
-  emptyResetBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    filterGen.value = '';
-    filterGrade.value = '';
-    filterCity.value = '';
-    filterSort.value = 'id-asc';
-    document.querySelectorAll('.preset-btn').forEach((b: any) => b.classList.remove('is-active'));
-    document.querySelector('.preset-btn[data-preset="all"]')?.classList.add('is-active');
-    applyFilters();
-  });
-
-  viewTableBtn.addEventListener('click', () => {
-    currentView = 'table';
-    viewTableBtn.classList.add('is-active');
-    viewTableBtn.setAttribute('aria-pressed', 'true');
-    viewGridBtn.classList.remove('is-active');
-    viewGridBtn.setAttribute('aria-pressed', 'false');
-    renderResults();
-  });
-
-  viewGridBtn.addEventListener('click', () => {
-    currentView = 'grid';
-    viewGridBtn.classList.add('is-active');
-    viewGridBtn.setAttribute('aria-pressed', 'true');
-    viewTableBtn.classList.remove('is-active');
-    viewTableBtn.setAttribute('aria-pressed', 'false');
-    renderResults();
-  });
-
-  prevPageBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage--;
-      renderResults();
-      window.scrollTo({ top: document.querySelector('.explorer-toolbar')?.getBoundingClientRect().top ?? 0 + window.scrollY - 80, behavior: 'smooth' });
-    }
-  });
-
-  nextPageBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(filteredTransmitters.length / itemsPerPage);
-    if (currentPage < totalPages) {
-      currentPage++;
-      renderResults();
-      window.scrollTo({ top: document.querySelector('.explorer-toolbar')?.getBoundingClientRect().top ?? 0 + window.scrollY - 80, behavior: 'smooth' });
-    }
-  });
-
-  tabTeachersBtn.addEventListener('click', () => switchNetworkTab('teachers'));
-  tabStudentsBtn.addEventListener('click', () => switchNetworkTab('students'));
-
-  modalCloseBtn.addEventListener('click', closeDossier);
-  modalBackdrop.addEventListener('click', closeDossier);
-
-  modalCopyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(window.location.href);
-    copyTooltip.classList.add('is-visible');
-    setTimeout(() => {
-      copyTooltip.classList.remove('is-visible');
-    }, 1800);
-  });
-
-  modalCiteBtn.addEventListener('click', openCitationDialog);
-  modalCompareToggleBtn.addEventListener('click', () => {
-    if (activeDossierId) {
-      toggleComparison(activeDossierId);
-    }
-  });
-
-  // Dock Buttons
-  dockClearBtn.addEventListener('click', () => {
-    comparisonQueue = [];
-    updateComparisonDock();
-    renderResults();
-    updateModalCompareBtn();
-  });
-
-  dockCompareBtn.addEventListener('click', openComparisonWorkspace);
-  openCompareBtnHead.addEventListener('click', openComparisonWorkspace);
-
-  compareCloseBtn.addEventListener('click', closeComparisonWorkspace);
-  compareBackdrop.addEventListener('click', closeComparisonWorkspace);
-
-  compareExportBtn.addEventListener('click', async () => {
-    const details = await Promise.all(comparisonQueue.map((id) => fetchTransmitterDetail(id)));
-    const valid = details.filter((d): d is RawiDetail => d !== null);
-    if (valid.length === 0) return;
-
-    let md = `# Comparative Hadith Transmitter Analysis\n\n`;
-    md += `*Generated from HadithCritic Rijāl Register (${new Date().toLocaleDateString()})*\n\n`;
-    valid.forEach((p) => {
-      md += `## #${p.id} ${p.nameEn} (${p.nameAr || ''})\n`;
-      md += `- **Generation:** ${p.generation}\n`;
-      md += `- **Grade:** ${p.grade}\n`;
-      md += `- **Tabaqa:** ${p.tabaqaNumber ? `${p.tabaqaNumber} (${p.tabaqaEn || p.tabaqa})` : '—'}\n`;
-      md += `- **Death:** ${p.deathHijri ? `${p.deathHijri} AH / ${p.deathGregorian} CE` : 'n.d.'}${p.deathPlace ? `, ${p.deathPlace}` : ''}\n`;
-      md += `- **Ibn Hajar:** ${p.rankIbnHajarEn || p.rankIbnHajar || '—'}\n`;
-      md += `- **al-Dhahabi:** ${p.rankDhahabiEn || p.rankDhahabi || '—'}\n`;
-      md += `- **Places of Stay:** ${placesFor(p).join(', ') || '—'}\n`;
-      md += `- **Hadith Transmitted:** ${p.hadithCount || 0}\n`;
-      md += `- **Teachers (${p.teachers?.length || 0}):** ${p.teachers?.map(t => t.name).join(', ') || 'None'}\n`;
-      md += `- **Students (${p.students?.length || 0}):** ${p.students?.map(s => s.name).join(', ') || 'None'}\n\n`;
-    });
-
-    navigator.clipboard.writeText(md);
-    alert('Comparison research notes copied to clipboard in Markdown format!');
-  });
-
-  citationCloseBtn.addEventListener('click', closeCitationDialog);
-  citationBackdrop.addEventListener('click', closeCitationDialog);
-  citationCopyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(citationText.textContent || '');
-    citationCopyBtn.textContent = 'Copied!';
-    setTimeout(() => {
-      citationCopyBtn.textContent = 'Copy Citation';
-      closeCitationDialog();
-    }, 1200);
-  });
-
-  // Global Keyboard Shortcuts
-  window.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== searchInput) {
-      e.preventDefault();
-      searchInput.focus();
-    }
-    if ((e.key === 'c' || e.key === 'C') && document.activeElement !== searchInput) {
-      if (comparisonQueue.length >= 2 && !compareModal.classList.contains('is-open')) {
-        openComparisonWorkspace();
-      }
-    }
-    if (e.key === 'Escape') {
-      if (citationModal.classList.contains('is-open')) closeCitationDialog();
-      else if (compareModal.classList.contains('is-open')) closeComparisonWorkspace();
-      else if (modal.classList.contains('is-open')) closeDossier();
-    }
-  });
-
-  // Handle browser back/forward buttons
-  window.addEventListener('popstate', (e) => {
-    if (e.state && e.state.id) {
-      openDossier(e.state.id);
-    } else {
-      modal.classList.remove('is-open');
-      modal.setAttribute('aria-hidden', 'true');
-      compareModal.classList.remove('is-open');
-      compareModal.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-    }
-  });
-
-  // Init
-  loadData();
-</script>
-
-<style>
-  .narrators-page {
-    min-height: 100vh;
-    padding-bottom: 7rem;
-    background:
-      radial-gradient(circle at 85% 10%, rgba(216, 177, 102, 0.07), transparent 30%),
-      radial-gradient(circle at 15% 40%, rgba(164, 106, 63, 0.08), transparent 28%),
-      linear-gradient(180deg, var(--hc-surface-0) 0%, var(--hc-surface-2) 40%, var(--hc-surface-0) 100%);
-  }
-
-  /* Minimalist Hero */
-  .narrators-hero {
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    background: radial-gradient(ellipse 700px 350px at 20% 30%, rgba(200, 167, 85, 0.04) 0%, transparent 70%);
-    padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(2rem, 3.5vw, 2.75rem);
-  }
-
-  .hero-content {
-    max-width: 780px;
-  }
-
-  .narrators-hero__title {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display, serif);
-    font-size: clamp(2.6rem, 5.5vw, 4.5rem);
-    font-weight: 400;
-    line-height: 0.98;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  .narrators-hero__title-accent {
-    font-style: italic;
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .narrators-hero__lead {
-    margin: 0;
-    font-family: var(--font-body, serif);
-    font-size: clamp(1rem, 1.25vw, 1.15rem);
-    line-height: 1.65;
-    color: var(--hc-text-secondary, #b5b0a5);
-    max-width: 60ch;
-  }
-
-  /* Research Presets Bar */
-  .presets-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 1.2rem;
-    padding: 0.75rem 1rem;
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    overflow-x: auto;
-  }
-
-  .presets-bar__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-gold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    white-space: nowrap;
-  }
-
-  .presets-bar__scroll {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-  }
-
-  .preset-btn {
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all 180ms ease;
-  }
-
-  .preset-btn:hover {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold);
-  }
-
-  .preset-btn.is-active {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-    font-weight: 600;
-  }
-
-  /* Explorer Section */
-  .narrators-explorer {
-    padding-top: clamp(2rem, 4vw, 3rem);
-  }
-
-  /* Toolbar */
-  .explorer-toolbar {
-    background: linear-gradient(135deg, var(--hc-surface-1), var(--hc-surface-0));
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    padding: 1.5rem;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
-    margin-bottom: 2rem;
-  }
-
-  .search-box {
-    position: relative;
-    display: flex;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 1.25rem;
-  }
-
-  .search-box__icon {
-    position: absolute;
-    left: 1rem;
-    color: var(--hc-gold);
-    pointer-events: none;
-    display: flex;
-  }
-
-  .search-box__input {
-    width: 100%;
-    height: 52px;
-    padding: 0 3.2rem 0 3rem;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 1rem;
-    outline: none;
-    transition: all 200ms ease;
-  }
-
-  .search-box__input:focus {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.2);
-  }
-
-  .search-box__clear {
-    position: absolute;
-    right: 3.2rem;
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    font-size: 1.4rem;
-    cursor: pointer;
-    padding: 0 0.5rem;
-    line-height: 1;
-  }
-
-  .search-box__clear:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .search-box__kbd {
-    position: absolute;
-    right: 1rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    background: var(--hc-surface-3);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-tertiary);
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    pointer-events: none;
-  }
-
-  .filter-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 1rem;
-  }
-
-  .filter-group {
-    flex: 1;
-    min-width: 160px;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  .filter-label {
-    font-family: var(--font-ui);
-    font-size: 0.74rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .filter-select {
-    height: 40px;
-    padding: 0 0.85rem;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    outline: none;
-    cursor: pointer;
-    transition: border-color 200ms ease;
-  }
-
-  .filter-select:focus {
-    border-color: var(--hc-gold);
-  }
-
-  .filter-select--sm {
-    height: 32px;
-    font-size: 0.8rem;
-    padding: 0 0.5rem;
-  }
-
-  .view-toggle {
-    display: flex;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    overflow: hidden;
-    height: 40px;
-  }
-
-  .view-toggle__btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    cursor: pointer;
-    transition: all 200ms ease;
-  }
-
-  .view-toggle__btn:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .view-toggle__btn.is-active {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-  }
-
-  /* Active Filter Bar */
-  .active-bar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem;
-    margin-top: 1.2rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .active-bar__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .active-bar__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .active-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.2rem 0.65rem;
-    border-radius: var(--radius-pill);
-    background: rgba(216, 177, 102, 0.12);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .active-chip:hover {
-    background: rgba(216, 177, 102, 0.22);
-  }
-
-  .active-chip__remove {
-    font-size: 1rem;
-    line-height: 1;
-  }
-
-  .active-bar__reset {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  .active-bar__reset:hover {
-    color: var(--hc-gold);
-  }
-
-  /* Results Header */
-  .results-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.2rem;
-  }
-
-  .results-head__count {
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    font-weight: 500;
-  }
-
-  .results-head__actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-
-  .compare-trigger-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.85rem;
-    border-radius: var(--radius-xs);
-    background: rgba(216, 177, 102, 0.15);
-    border: 1px solid var(--hc-gold);
-    color: var(--hc-gold-bright);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .compare-trigger-btn:hover {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-  }
-
-  .results-head__per-page {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--hc-text-tertiary);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-  }
-
-  /* Loading State */
-  .explorer-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 5rem 1rem;
-    gap: 1rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid var(--hc-rule-soft);
-    border-top-color: var(--hc-gold);
-    border-radius: 50%;
-    animation: spin 800ms linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Table View */
-  .table-container {
-    overflow-x: auto;
-    background: linear-gradient(180deg, var(--hc-surface-1), var(--hc-surface-0));
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.15);
-  }
-
-  .narrators-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    text-align: left;
-  }
-
-  .narrators-table th {
-    padding: 0.95rem 1.1rem;
-    color: var(--hc-text-tertiary);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--hc-rule);
-    background: var(--hc-surface-2);
-    white-space: nowrap;
-  }
-
-  .narrators-table td {
-    padding: 1rem 1.1rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    vertical-align: middle;
-  }
-
-  .table-row {
-    transition: background 180ms ease;
-    cursor: pointer;
-  }
-
-  .table-row:hover {
-    background: rgba(216, 177, 102, 0.05);
-  }
-
-  .table-row.is-in-compare {
-    background: rgba(216, 177, 102, 0.09);
-  }
-
-  .col-check { width: 50px; text-align: center; }
-  .col-id { width: 70px; }
-  .col-name { min-width: 240px; }
-  .col-gen { width: 170px; }
-  .col-grade { width: 160px; }
-  .col-death { width: 140px; }
-  .col-stay { max-width: 180px; }
-  .col-network { width: 110px; }
-  .col-action { width: 90px; text-align: right; }
-
-  .compare-toggle-btn {
-    width: 26px;
-    height: 26px;
-    border-radius: 4px;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-surface-2);
-    color: var(--hc-text-secondary);
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 150ms ease;
-  }
-
-  .compare-toggle-btn:hover {
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
-  }
-
-  .compare-toggle-btn.is-selected {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-  }
-
-  .id-tag {
-    display: inline-block;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    background: var(--hc-surface-3);
-    color: var(--hc-gold-dim);
-    font-family: monospace;
-    font-size: 0.78rem;
-    font-weight: 600;
-  }
-
-  .name-box {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .name-en {
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    color: var(--hc-text-primary);
-    line-height: 1.25;
-  }
-
-  .name-ar {
-    font-family: var(--font-arabic);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--hc-parchment-deep);
-    line-height: 1.75;
-    direction: rtl;
-    font-feature-settings: "cv01" on, "calt" on;
-    text-rendering: optimizeLegibility;
-  }
-
-  .gen-tag {
-    color: var(--hc-text-secondary);
-    font-size: 0.82rem;
-  }
-
-  .meta-val {
-    color: var(--hc-text-secondary);
-    font-size: 0.82rem;
-  }
-
-  .meta-val--truncate {
-    display: inline-block;
-    max-width: 170px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .network-counts {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .count-pill {
-    padding: 0.15rem 0.4rem;
-    border-radius: 4px;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font-size: 0.72rem;
-  }
-
-  .row-inspect-btn {
-    background: none;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
-    color: var(--hc-gold);
-    padding: 0.3rem 0.6rem;
-    font-size: 0.78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 180ms ease;
-    white-space: nowrap;
-  }
-
-  .row-inspect-btn:hover {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-  }
-
-  /* Reliability Badges */
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-pill);
-    font-family: var(--font-ui);
-    font-size: 0.74rem;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .badge-thiqah {
-    background: rgba(59, 130, 84, 0.15);
-    color: #48bb78;
-    border: 1px solid rgba(72, 187, 120, 0.3);
-  }
-
-  .badge-sadooq {
-    background: rgba(66, 153, 225, 0.15);
-    color: #63b3ed;
-    border: 1px solid rgba(99, 179, 237, 0.3);
-  }
-
-  .badge-maqbool {
-    background: rgba(214, 158, 46, 0.15);
-    color: #ecc94b;
-    border: 1px solid rgba(236, 201, 75, 0.3);
-  }
-
-  .badge-daif {
-    background: rgba(229, 62, 62, 0.15);
-    color: #fc8181;
-    border: 1px solid rgba(252, 129, 129, 0.3);
-  }
-
-  .badge-matrook {
-    background: rgba(155, 44, 44, 0.2);
-    color: #feb2b2;
-    border: 1px solid rgba(254, 178, 178, 0.3);
-  }
-
-  .badge-sahabi {
-    background: rgba(216, 177, 102, 0.15);
-    color: var(--hc-gold-bright);
-    border: 1px solid rgba(216, 177, 102, 0.35);
-  }
-
-  .badge-default {
-    background: var(--hc-surface-2);
-    color: var(--hc-text-secondary);
-    border: 1px solid var(--hc-rule-soft);
-  }
-
-  /* Grid View */
-  .narrators-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.25rem;
-  }
-
-  .rawi-card {
-    background: linear-gradient(180deg, var(--hc-surface-1), var(--hc-surface-0));
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    padding: 1.4rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    cursor: pointer;
-    transition: transform 200ms ease, border-color 200ms ease;
-  }
-
-  .rawi-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--hc-gold);
-  }
-
-  .rawi-card.is-in-compare {
-    border-color: var(--hc-gold-bright);
-    background: linear-gradient(180deg, rgba(216, 177, 102, 0.1), var(--hc-surface-0));
-  }
-
-  .rawi-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .card-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .card-name-en {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.45rem;
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    color: var(--hc-text-primary);
-    line-height: 1.22;
-  }
-
-  .card-name-ar {
-    margin: 0.35rem 0 0;
-    font-family: var(--font-arabic);
-    font-size: 1.35rem;
-    font-weight: 500;
-    color: var(--hc-gold-soft);
-    line-height: 1.7;
-    direction: rtl;
-    font-feature-settings: "cv01" on, "calt" on;
-    text-rendering: optimizeLegibility;
-  }
-
-  .rawi-card__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.8rem 0;
-    border-top: 1px solid var(--hc-rule-soft);
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .meta-item {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.8rem;
-  }
-
-  .meta-label {
-    color: var(--hc-text-tertiary);
-  }
-
-  .meta-text {
-    color: var(--hc-text-secondary);
-    font-weight: 500;
-  }
-
-  .rawi-card__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: auto;
-  }
-
-  .card-link {
-    color: var(--hc-gold);
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-
-  /* Empty State */
-  .empty-state {
-    text-align: center;
-    padding: 4.5rem 1rem;
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-  }
-
-  .empty-state__icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .empty-state__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    color: var(--hc-text-primary);
-  }
-
-  .empty-state__desc {
-    max-width: 440px;
-    margin: 0.6rem auto 1.5rem;
-    font-family: var(--font-body);
-    color: var(--hc-text-secondary);
-    font-size: 0.98rem;
-    line-height: 1.65;
-  }
-
-  /* Pagination Bar */
-  .pagination-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 2rem;
-    padding: 1rem 0;
-  }
-
-  .pagination-btn {
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    color: var(--hc-text-primary);
-    padding: 0.55rem 1.1rem;
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .pagination-btn:hover:not(:disabled) {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-  }
-
-  .pagination-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .pagination-info {
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-  }
-
-  /* Persistent Bottom Comparison Dock */
-  .comparison-dock {
-    position: fixed;
-    bottom: 1.5rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 900;
-    width: min(920px, calc(100% - 2rem));
-    background: rgba(20, 20, 22, 0.94);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--hc-gold);
-    border-radius: var(--radius-xs);
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
-    animation: dockRise 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes dockRise {
-    from { opacity: 0; transform: translate(-50%, 20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
-  }
-
-  .comparison-dock__inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.85rem 1.25rem;
-    gap: 1rem;
-  }
-
-  .comparison-dock__info {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-  }
-
-  .comparison-dock__title {
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--hc-gold);
-  }
-
-  .comparison-dock__slots {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .comparison-dock__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .dock-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-primary);
-  }
-
-  .dock-chip__id {
-    color: var(--hc-gold);
-    font-family: monospace;
-    font-size: 0.72rem;
-  }
-
-  .dock-chip__remove {
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-  }
-
-  .dock-chip__remove:hover {
-    color: #fc8181;
-  }
-
-  .comparison-dock__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
-  .dock-btn {
-    padding: 0.45rem 0.95rem;
-    border-radius: var(--radius-xs);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .dock-btn--primary {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border: 1px solid var(--hc-gold);
-  }
-
-  .dock-btn--primary:hover {
-    background: var(--hc-gold-bright);
-  }
-
-  .dock-btn--ghost {
-    background: none;
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-tertiary);
-  }
-
-  .dock-btn--ghost:hover {
-    color: var(--hc-text-primary);
-    border-color: var(--hc-rule);
-  }
-
-  /* Side-by-Side Comparison Workspace Modal */
-  .compare-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 250ms ease;
-  }
-
-  .compare-modal.is-open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .compare-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(6px);
-  }
-
-  .compare-panel {
-    position: relative;
-    z-index: 1;
-    width: min(1380px, calc(100% - 2.5rem));
-    height: calc(100% - 3rem);
-    background: var(--hc-surface-0);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .compare-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.4rem 1.8rem;
-    background: linear-gradient(180deg, var(--hc-surface-1), var(--hc-surface-0));
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .compare-header__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.8rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-  }
-
-  .compare-header__subtitle {
-    margin: 0.25rem 0 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-  }
-
-  .compare-header__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-  }
-
-  /* Overlap Analytics Banner */
-  .overlap-banner {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    padding: 1rem 1.8rem;
-    background: var(--hc-surface-1);
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .overlap-card {
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    padding: 0.75rem 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .overlap-card__title {
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .overlap-card__body {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    max-height: 80px;
-    overflow-y: auto;
-  }
-
-  .overlap-empty {
-    color: var(--hc-text-tertiary);
-    font-size: 0.78rem;
-    font-style: italic;
-  }
-
-  .overlap-text {
-    color: var(--hc-text-secondary);
-    font-size: 0.8rem;
-    line-height: 1.45;
-  }
-
-  /* Multi-Column Comparison Grid */
-  .compare-grid {
-    flex: 1;
-    display: grid;
-    gap: 1px;
-    background: var(--hc-rule-soft);
-    overflow-y: auto;
-  }
-
-  .compare-col {
-    background: var(--hc-surface-0);
-    padding: 1.5rem 1.8rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    overflow-y: auto;
-  }
-
-  .compare-col__head {
-    border-bottom: 1px solid var(--hc-rule-soft);
-    padding-bottom: 1rem;
-  }
-
-  .compare-col__name-en {
-    margin: 0.4rem 0 0;
-    font-family: var(--font-display);
-    font-size: 1.75rem;
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    color: var(--hc-text-primary);
-    line-height: 1.2;
-  }
-
-  .compare-col__name-ar {
-    margin: 0.35rem 0 0;
-    font-family: var(--font-arabic);
-    font-size: 1.55rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-    line-height: 1.7;
-    direction: rtl;
-    font-feature-settings: "cv01" on, "calt" on;
-    text-rendering: optimizeLegibility;
-  }
-
-  .compare-col__badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.75rem;
-  }
-
-  .compare-col__section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .col-section-title {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    border-bottom: 1px solid var(--hc-rule-soft);
-    padding-bottom: 0.35rem;
-  }
-
-  .col-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .col-field__label {
-    color: var(--hc-text-tertiary);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-  }
-
-  .col-field__val {
-    color: var(--hc-text-primary);
-    font-size: 0.88rem;
-  }
-
-  .col-chips-scroll {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    max-height: 240px;
-    overflow-y: auto;
-    padding-right: 0.3rem;
-  }
-
-  .relation-chip--shared {
-    background: rgba(216, 177, 102, 0.2) !important;
-    border-color: var(--hc-gold) !important;
-    color: var(--hc-gold-bright) !important;
-    font-weight: 600;
-  }
-
-  .shared-tag {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    padding: 0.1rem 0.35rem;
-    border-radius: 3px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-left: 0.2rem;
-  }
-
-  .shared-indicator {
-    color: var(--hc-gold-bright);
-    font-size: 0.7rem;
-    margin-left: 0.2rem;
-  }
-
-  .compare-loading {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 6rem 1rem;
-    gap: 1rem;
-    color: var(--hc-text-secondary);
-  }
-
-  /* Academic Citation Modal */
-  .citation-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 1050;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 200ms ease;
-  }
-
-  .citation-modal.is-open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .citation-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(4px);
-  }
-
-  .citation-box {
-    position: relative;
-    z-index: 1;
-    width: min(560px, calc(100% - 2rem));
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-    padding: 1.8rem;
-  }
-
-  .citation-box__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.8rem;
-  }
-
-  .citation-box__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    color: var(--hc-gold);
-  }
-
-  .citation-box__copy {
-    margin: 0 0 1rem;
-    color: var(--hc-text-secondary);
-    font-size: 0.85rem;
-  }
-
-  .citation-text-card {
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    padding: 1rem;
-    margin-bottom: 1.4rem;
-  }
-
-  .citation-text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.75;
-    color: var(--hc-text-primary);
-  }
-
-  .citation-box__actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  /* Slide-over Dossier Modal */
-  .dossier-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-    display: flex;
-    justify-content: flex-end;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 250ms ease;
-  }
-
-  .dossier-modal.is-open {
-    pointer-events: auto;
-    opacity: 1;
-  }
-
-  .dossier-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(4px);
-  }
-
-  .dossier-panel {
-    position: relative;
-    width: 100%;
-    max-width: 680px;
-    height: 100%;
-    background: var(--hc-surface-0);
-    border-left: 1px solid var(--hc-rule);
-    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .dossier-modal.is-open .dossier-panel {
-    transform: translateX(0);
-  }
-
-  .dossier-header {
-    padding: 1.8rem 2rem 1.4rem;
-    background: linear-gradient(180deg, var(--hc-surface-1), var(--hc-surface-0));
-    border-bottom: 1px solid var(--hc-rule);
-    position: relative;
-  }
-
-  .dossier-header__top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.8rem;
-  }
-
-  .dossier-id-badge {
-    padding: 0.2rem 0.6rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-gold);
-    font-family: monospace;
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-
-  .dossier-header__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .dossier-btn-text {
-    padding: 0.3rem 0.75rem;
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .dossier-btn-text:hover {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-  }
-
-  .dossier-btn-text.is-selected {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-  }
-
-  .dossier-btn-icon {
-    position: relative;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .dossier-btn-icon:hover {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold);
-  }
-
-  .copy-tooltip {
-    position: absolute;
-    bottom: -28px;
-    right: 0;
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    pointer-events: none;
-    opacity: 0;
-    transform: translateY(-4px);
-    transition: all 180ms ease;
-  }
-
-  .copy-tooltip.is-visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .dossier-name-en {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    font-weight: 500;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-    line-height: 1.12;
-  }
-
-  .dossier-name-ar {
-    margin: 0.5rem 0 0;
-    font-family: var(--font-arabic);
-    font-size: 1.85rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-    line-height: 1.75;
-    direction: rtl;
-    font-feature-settings: "cv01" on, "calt" on;
-    text-rendering: optimizeLegibility;
-  }
-
-  .dossier-badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .dossier-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--radius-pill);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-  }
-
-  .dossier-badge--gen {
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-  }
-
-  .dossier-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1.8rem 2rem;
-  }
-
-  .dossier-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem 1rem;
-    gap: 1rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .dossier-section {
-    margin-bottom: 2rem;
-  }
-
-  .dossier-section__title {
-    margin: 0 0 1rem;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-    border-bottom: 1px solid var(--hc-rule-soft);
-    padding-bottom: 0.4rem;
-  }
-
-  .vital-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.8rem;
-  }
-
-  .vital-card {
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    padding: 0.8rem 1rem;
-  }
-
-  .vital-card--full {
-    grid-column: span 2;
-  }
-
-  .vital-card__label {
-    display: block;
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    margin-bottom: 0.25rem;
-  }
-
-  .vital-card__value {
-    color: var(--hc-text-primary);
-    font-size: 0.92rem;
-    line-height: 1.4;
-  }
-
-  .stay-path {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.4rem;
-    margin-top: 0.25rem;
-  }
-
-  .stay-node {
-    padding: 0.2rem 0.55rem;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
-    color: var(--hc-text-secondary);
-    font-size: 0.8rem;
-  }
-
-  .stay-arrow {
-    color: var(--hc-gold-dim);
-    font-size: 0.85rem;
-  }
-
-  .dossier-interests {
-    margin-bottom: 0.6rem;
-  }
-
-  .dossier-verdicts {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .verdict-card {
-    padding: 0.7rem 0.85rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 6px;
-    background: var(--hc-surface-2);
-  }
-
-  .verdict-card__authority {
-    display: block;
-    font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .verdict-card__en {
-    margin: 0.35rem 0 0;
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: var(--hc-text-primary, var(--hc-text-secondary));
-    max-width: 68ch;
-  }
-
-  .verdict-card__ar {
-    margin: 0.4rem 0 0;
-    font-family: var(--font-arabic);
-    font-size: 1.05rem;
-    line-height: 1.9;
-    color: var(--hc-gold);
-    direction: rtl;
-  }
-
-  .dossier-btn-text--primary {
-    color: var(--hc-gold);
-    text-decoration: none;
-  }
-
-  .criticism-tally {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-
-  .tally-pill {
-    padding: 0.18rem 0.5rem;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-secondary);
-  }
-
-  .tally-pill--jarh {
-    border-color: color-mix(in oklch, var(--hc-danger, #b4472e) 45%, transparent);
-    color: var(--hc-danger, #c2593c);
-  }
-
-  .tally-pill--tadil {
-    border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent);
-    color: var(--hc-gold);
-  }
-
-  .criticism-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    margin-top: 0.8rem;
-  }
-
-  .critic-group {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 6px;
-    background: var(--hc-surface-2);
-  }
-
-  .critic-group__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    padding: 0.55rem 0.75rem;
-    cursor: pointer;
-    list-style: none;
-  }
-
-  .critic-group__head::-webkit-details-marker {
-    display: none;
-  }
-
-  .critic-group__name {
-    font-family: var(--font-arabic);
-    font-size: 1rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .critic-group__count {
-    font-family: var(--font-ui);
-    font-size: 0.7rem;
-    color: var(--hc-text-tertiary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .statement-list {
-    margin: 0;
-    padding: 0 0.75rem 0.7rem;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
-
-  .statement {
-    padding-top: 0.6rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .statement__text {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1rem;
-    line-height: 1.95;
-    color: var(--hc-text-secondary);
-  }
-
-  .statement__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin-top: 0.3rem;
-  }
-
-  .statement__verdict {
-    font-family: var(--font-ui);
-    font-size: 0.66rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .statement--jarh .statement__verdict {
-    color: var(--hc-danger, #c2593c);
-  }
-
-  .statement--tadil .statement__verdict {
-    color: var(--hc-gold);
-  }
-
-  .statement__cite {
-    font-family: var(--font-arabic);
-    font-size: 0.82rem;
-    font-style: normal;
-    color: var(--hc-text-tertiary);
-  }
-
-  .dossier-aliases {
-    margin-top: 0.9rem;
-  }
-
-  .alias-lead {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .alias-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .alias-chip {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    padding: 0.25rem 0.6rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
-    background: var(--hc-surface-2);
-    font-family: var(--font-arabic);
-    font-size: 0.95rem;
-    color: var(--hc-text-secondary);
-    direction: rtl;
-  }
-
-  .alias-chip__count {
-    font-family: var(--font-ui);
-    font-size: 0.68rem;
-    color: var(--hc-text-tertiary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .alias-more {
-    align-self: center;
-    font-family: var(--font-ui);
-    font-size: 0.74rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .dossier-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .canonical-tag {
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font-size: 0.76rem;
-  }
-
-  .family-groups {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7rem;
-  }
-
-  .family-group {
-    display: flex;
-    align-items: baseline;
-    gap: 0.8rem;
-  }
-
-  .family-group__label {
-    min-width: 70px;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-text-tertiary);
-    text-transform: uppercase;
-  }
-
-  .family-group__chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .network-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    padding-bottom: 0.4rem;
-  }
-
-  .network-header .dossier-section__title {
-    margin: 0;
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .network-tabs {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .network-tab {
-    padding: 0.3rem 0.8rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .network-tab.is-active {
-    background: var(--hc-gold);
-    color: var(--hc-fixed-black);
-    border-color: var(--hc-gold);
-  }
-
-  .relation-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    max-height: 380px;
-    overflow-y: auto;
-    padding: 0.4rem 0.2rem;
-  }
-
-  .relation-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    cursor: pointer;
-    transition: all 180ms ease;
-    text-align: left;
-  }
-
-  .relation-chip:hover {
-    background: rgba(216, 177, 102, 0.15);
-    border-color: var(--hc-gold);
-    color: var(--hc-gold-bright);
-  }
-
-  .relation-chip--static {
-    cursor: default;
-    background: var(--hc-surface-2);
-    color: var(--hc-text-secondary);
-  }
-
-  .chip-id {
-    font-family: monospace;
-    font-size: 0.72rem;
-    color: var(--hc-gold-dim);
-  }
-
-  .network-empty {
-    color: var(--hc-text-tertiary);
-    font-size: 0.88rem;
-    font-style: italic;
-    padding: 1rem 0;
-  }
-
-  /* Responsive Adjustments */
-  @media (max-width: 1024px) {
-    .overlap-banner {
-      grid-template-columns: 1fr;
-    }
-
-    .compare-grid {
-      grid-template-columns: 1fr !important;
-    }
-
-    .narrators-stats {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 768px) {
-    .filter-row {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .filter-group {
+    .register-search__input {
       width: 100%;
+      padding: 0.7rem 2rem 0.75rem 0;
+      border: 0;
+      border-bottom: 1px solid var(--hc-rule-strong);
+      background: transparent;
+      color: var(--hc-text-primary);
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      transition: border-color 160ms ease;
     }
 
-    .view-toggle {
-      align-self: flex-start;
+    .register-search__input::placeholder { color: var(--hc-text-tertiary); }
+    .register-search__input:focus { border-bottom-color: var(--hc-gold); }
+
+    .register-search__clear {
+      position: absolute;
+      right: 0;
+      bottom: 0.45rem;
+      min-width: 24px;
+      min-height: 24px;
+      border: 0;
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-size: 1.1rem;
+      cursor: pointer;
     }
 
-    .dossier-panel {
-      max-width: 100%;
+    .register-search__clear:hover { color: var(--hc-text-primary); }
+
+    .register-filters {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 1.35rem;
     }
 
-    .vital-grid {
-      grid-template-columns: 1fr;
+    .register-filter {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0.9rem;
+      align-items: start;
     }
 
-    .vital-card--full {
-      grid-column: span 1;
+    .register-filter__label {
+      padding-top: 0.42rem;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
     }
 
-    .comparison-dock__inner {
-      flex-direction: column;
-      align-items: stretch;
+    /* Filters wrap instead of scrolling sideways; the old preset bar put a raw
+       horizontal scrollbar under the controls. */
+    .register-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.15rem 1.1rem;
     }
 
-    .comparison-dock__actions {
-      justify-content: flex-end;
-    }
-  }
-
-  @media (max-width: 600px) {
-    .narrators-stats {
-      grid-template-columns: 1fr;
-    }
-
-    .narrators-hero__title {
-      font-size: clamp(2.3rem, 11vw, 3.2rem);
-    }
-
-    .dossier-header {
-      padding: 1.2rem;
+    .register-tab {
+      padding: 0.35rem 0 0.4rem;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+      color: var(--hc-text-secondary);
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease;
     }
 
-    .dossier-content {
-      padding: 1.2rem;
+    .register-tab:hover { color: var(--hc-text-primary); }
+
+    .register-tab.is-active {
+      color: var(--hc-gold);
+      border-bottom-color: var(--hc-gold);
     }
 
-    .family-group {
-      flex-direction: column;
-      gap: 0.3rem;
+    .register-tab__n {
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
     }
-  }
-</style>
+
+    .register-toolbar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-top: 1.35rem;
+    }
+
+    .register-status {
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-sort {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-sort select {
+      padding: 0.3rem 0.2rem;
+      border: 0;
+      border-bottom: 1px solid var(--hc-rule-strong);
+      background: transparent;
+      color: var(--hc-text-primary);
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    /* ---- comparison dock ---- */
+    .compare-dock {
+      position: sticky;
+      bottom: 0;
+      z-index: 40;
+      border-top: 1px solid var(--hc-rule-strong);
+      background: var(--hc-surface-1);
+    }
+
+    .compare-dock__inner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 0;
+    }
+
+    .compare-dock__count {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+      white-space: nowrap;
+    }
+
+    .compare-dock__count strong { color: var(--hc-gold); }
+
+    .compare-dock__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .compare-dock__actions {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .compare-dock__clear {
+      border: 0;
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .compare-dock__clear:hover { color: var(--hc-text-primary); }
+
+    @media (max-width: 700px) {
+      .register-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .register-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+      .register-filter { grid-template-columns: 1fr; gap: 0.3rem; }
+      .register-filter__label { padding-top: 0; }
+      .register-toolbar { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+      .compare-dock__chips { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .register-tab, .register-search__input { transition: none; }
+    }
+  </style>
+
+  <!-- Rows are re-rendered client side after every filter change, so they can
+       never carry Astro's scoping attribute. These rules are global by
+       necessity; the class names are prefixed to keep them contained. -->
+  <style is:global>
+    /* ---- register rows ---- */
+    .register-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid var(--hc-rule-soft);
+    }
+
+    .register-list[aria-busy='true'] { opacity: 0.45; }
+
+    .reg-row {
+      display: grid;
+      grid-template-columns: 1.9rem 3.1rem minmax(0, 1fr) 11rem auto;
+      align-items: baseline;
+      gap: 0.9rem;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--hc-rule-soft);
+      transition: background 160ms ease;
+    }
+
+    .reg-row:hover {
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+    }
+
+    .reg-pick {
+      min-width: 24px;
+      min-height: 24px;
+      border: 1px solid var(--hc-rule);
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease;
+    }
+
+    .reg-pick:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
+
+    .reg-pick.is-picked {
+      color: var(--hc-text-inverse);
+      background: var(--hc-gold);
+      border-color: var(--hc-gold);
+    }
+
+    .reg-index {
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-main {
+      min-width: 0;
+      text-decoration: none;
+      display: block;
+    }
+
+    .reg-names {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .reg-name {
+      font-family: var(--font-display);
+      font-size: 1.12rem;
+      font-weight: 500;
+      line-height: 1.25;
+      color: var(--hc-text-primary);
+    }
+
+    .reg-main:hover .reg-name { color: var(--hc-gold); }
+
+    .reg-name-ar {
+      font-family: var(--font-arabic);
+      font-size: 1.02rem;
+      line-height: 1.8;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-meta,
+    .reg-counts {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-meta { margin-top: 0.22rem; }
+    .reg-counts { justify-content: flex-end; text-align: right; }
+    .reg-sep { color: var(--hc-rule-strong); }
+
+    .reg-grade {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--hc-text-secondary);
+    }
+
+    /* Verdict tone is the one place a second colour earns its place. */
+    .reg-grade.is-trusted { color: var(--cat-theology-text); }
+    .reg-grade.is-weak    { color: var(--cat-prophecies-text); }
+    .reg-grade.is-unknown { color: var(--hc-text-tertiary); }
+
+    /* ---- pagination ---- */
+    .register-pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-top: 1.75rem;
+    }
+
+    .reg-page {
+      min-height: 24px;
+      padding: 0.35rem 0;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+      color: var(--hc-gold);
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .reg-page:hover:not([disabled]):not([aria-disabled='true']) { border-bottom-color: var(--hc-gold); }
+
+    .reg-page[disabled],
+    .reg-page[aria-disabled='true'] {
+      color: var(--hc-text-tertiary);
+      pointer-events: none;
+    }
+
+    .reg-page-of {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-chip {
+      min-height: 24px;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid var(--hc-rule);
+      background: transparent;
+      color: var(--hc-text-secondary);
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      cursor: pointer;
+    }
+
+    .reg-chip:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
+
+    /* The row grid collapses in stages. These live in the global block because
+       they target rows the client re-renders, which carry no scoping id. */
+    @media (max-width: 1024px) {
+      .reg-row { grid-template-columns: 1.9rem 2.6rem minmax(0, 1fr) 9rem; }
+      .reg-counts { grid-column: 3 / -1; justify-content: flex-start; text-align: left; margin-top: 0.25rem; }
+    }
+
+    @media (max-width: 700px) {
+      .reg-row { grid-template-columns: 1.9rem minmax(0, 1fr); row-gap: 0.3rem; }
+      .reg-index { display: none; }
+      .reg-grade, .reg-counts { grid-column: 2; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reg-row, .reg-pick { transition: none; }
+    }
+
+  </style>
+
+</BaseLayout>

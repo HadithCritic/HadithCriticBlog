@@ -1,7 +1,9 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import ManuscriptLightbox from '../components/treatise/ManuscriptLightbox.astro';
-import chaptersData from '../data/shirk-endorsed/chapters.json';
+import EditionNav from '../components/treatise/EditionNav.astro';
+import EditionBreadcrumb from '../components/treatise/EditionBreadcrumb.astro';
+import BackToTop from '../components/treatise/BackToTop.astro';
 
 interface Props {
   title: string;
@@ -9,6 +11,13 @@ interface Props {
   currentSlug?: string;
   prevPage?: { title: string; href: string } | null;
   nextPage?: { title: string; href: string } | null;
+  /**
+   * `prose` holds a single reading measure for chapter text.
+   * `wide` opens the column up for the tabular register.
+   */
+  variant?: 'prose' | 'wide';
+  /** Breadcrumb leaf label, when it should read differently from the title. */
+  crumb?: string;
 }
 
 const {
@@ -16,181 +25,131 @@ const {
   description = "A 10-century evidentiary critical edition documenting the classical Sunni scholarly consensus on Tawassul, Tashaffuʿ, and Istighāthah.",
   currentSlug = 'index',
   prevPage = null,
-  nextPage = null
+  nextPage = null,
+  variant = 'prose',
+  crumb
 } = Astro.props;
 
-// Group chapters into sections
-const coreChapters = chaptersData.filter((c) => c.category === 'core');
-const imamsChapters = chaptersData.filter((c) => c.category === 'four-imams');
+const trail = [
+  { label: 'HadithCritic', href: '/' },
+  { label: 'Shirk: Endorsed By The Scholars', href: '/research/shirk-endorsed' },
+  { label: crumb ?? title }
+];
 ---
 
 <BaseLayout title={`${title} | HadithCritic`} description={description}>
   <div class="treatise-page">
-    <!-- Top Reading Progress Indicator -->
     <div id="readingProgress" class="reading-progress-bar" aria-hidden="true"></div>
 
-    <div class="wrap treatise-container">
-      <!-- Sticky Sidebar Table of Contents -->
-      <aside class="treatise-sidebar" id="treatiseSidebar">
+    <div class={`wrap treatise-container treatise-container--${variant}`}>
+      <aside class="treatise-sidebar" id="treatiseSidebar" aria-label="Treatise navigation">
         <div class="sidebar-sticky">
-          <div class="sidebar-header">
-            <a href="/research/shirk-endorsed" class="treatise-back-link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-              <span>Archival Overview & Register</span>
-            </a>
-            <span class="sidebar-eyebrow">Critical Research Edition</span>
-            <h2 class="sidebar-title">Shirk: Endorsed By The Scholars of Islam</h2>
-          </div>
-
-          <nav class="sidebar-nav" aria-label="Treatise Table of Contents">
-            <!-- Part 1: Core Treatises -->
-            <div class="nav-section">
-              <span class="nav-section-title">Part I: Foundational Studies</span>
-              <ul class="nav-list">
-                {coreChapters.map((c, i) => {
-                  const href = `/research/shirk-endorsed/${c.id}`;
-                  const isActive = currentSlug === c.id;
-                  return (
-                    <li>
-                      <a href={href} class={`nav-item ${isActive ? 'is-active' : ''}`}>
-                        <span class="nav-item__num">{String(i + 1).padStart(2, '0')}</span>
-                        <span class="nav-item__text">{c.title}</span>
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <!-- Part 2: The 4 Imams -->
-            <div class="nav-section">
-              <span class="nav-section-title">Part II: The Four Sunni Imams</span>
-              <ul class="nav-list">
-                {imamsChapters.map((c, i) => {
-                  const href = `/research/shirk-endorsed/${c.id}`;
-                  const isActive = currentSlug === c.id;
-                  return (
-                    <li>
-                      <a href={href} class={`nav-item ${isActive ? 'is-active' : ''}`}>
-                        <span class="nav-item__num nav-item__num--gold">{String(i + 1).padStart(2, '0')}</span>
-                        <span class="nav-item__text">{c.title}</span>
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-
-            <!-- Part 3: The Major Scholars -->
-            <div class="nav-section">
-              <span class="nav-section-title">Part III: The 99 Major Scholars</span>
-              <ul class="nav-list">
-                <li>
-                  <a
-                    href="/research/shirk-endorsed/scholars-worth-mentioning"
-                    class={`nav-item ${currentSlug === 'scholars-worth-mentioning' ? 'is-active' : ''}`}
-                  >
-                    <span class="nav-item__num">★</span>
-                    <span class="nav-item__text">Scholars Worth Mentioning</span>
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="/research/shirk-endorsed/ledger"
-                    class="nav-item nav-item--highlight"
-                  >
-                    <span class="nav-item__num">↗</span>
-                    <span class="nav-item__text">Interactive 99-Scholar Ledger</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </nav>
+          <EditionNav currentSlug={currentSlug} />
         </div>
       </aside>
 
-      <!-- Main Reading Column -->
       <div class="treatise-main" id="mainContent">
-        <!-- Breadcrumbs -->
-        <nav class="treatise-breadcrumbs" aria-label="Breadcrumb">
-          <a href="/" class="crumb-link">HadithCritic</a>
-          <span class="crumb-sep" aria-hidden="true">/</span>
-          <a href="/research/shirk-endorsed" class="crumb-link">Shirk: Endorsed By Scholars</a>
-          <span class="crumb-sep" aria-hidden="true">/</span>
-          <span class="crumb-current" aria-current="page">{title}</span>
-        </nav>
+        <div class="treatise-breadcrumbs">
+          <EditionBreadcrumb trail={trail} />
+        </div>
 
-        <article class="treatise-prose">
-          <slot />
-        </article>
+        {variant === 'wide' ? (
+          <div class="treatise-wide">
+            <slot />
+          </div>
+        ) : (
+          <article class="treatise-prose">
+            <slot />
+          </article>
+        )}
 
-        <!-- Previous / Next Navigation Footer -->
         {(prevPage || nextPage) && (
-          <footer class="treatise-pagination">
+          <footer class="treatise-pagination" aria-label="Chapter pagination">
             {prevPage ? (
               <a href={prevPage.href} class="pagination-btn pagination-btn--prev">
                 <span class="pagination-label">← Previous Chapter</span>
                 <span class="pagination-title">{prevPage.title}</span>
               </a>
-            ) : <div />}
+            ) : <span aria-hidden="true"></span>}
 
             {nextPage ? (
               <a href={nextPage.href} class="pagination-btn pagination-btn--next">
                 <span class="pagination-label">Next Chapter →</span>
                 <span class="pagination-title">{nextPage.title}</span>
               </a>
-            ) : <div />}
+            ) : <span aria-hidden="true"></span>}
           </footer>
         )}
       </div>
     </div>
 
-    <!-- Mobile Drawer Trigger -->
     <div class="mobile-toc-bar">
-      <button type="button" class="mobile-toc-toggle" id="mobileTocToggle" aria-label="Toggle Chapter Navigation">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        <span>Chapter Index & Navigation</span>
+      <button
+        type="button"
+        class="mobile-toc-toggle"
+        id="mobileTocToggle"
+        aria-expanded="false"
+        aria-controls="treatiseSidebar"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+        <span>Chapter Index</span>
       </button>
     </div>
   </div>
 
+  <BackToTop />
   <ManuscriptLightbox />
 </BaseLayout>
 
 <style>
   .treatise-page {
     position: relative;
-    background: var(--hc-surface-0, #0c0c0d);
     min-height: 100vh;
+    background: var(--hc-surface-0);
   }
 
   .reading-progress-bar {
     position: fixed;
-    top: 0;
-    left: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--hc-gold, #c8a755), var(--hc-gold-bright, #e8c878));
+    inset: 0 auto auto 0;
+    width: 0;
+    height: 1px;
     z-index: 100;
-    width: 0%;
-    transition: width 0.08s ease;
+    background: var(--hc-gold);
+    transform-origin: left center;
   }
 
   .treatise-container {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2.5rem;
-    padding-top: 1.5rem;
-    padding-bottom: 5rem;
+    gap: 3rem;
+    padding-top: clamp(1.75rem, 4vw, 3rem);
+    padding-bottom: clamp(4rem, 7vw, 7rem);
   }
 
-  @media (min-width: 1024px) {
+  @media (min-width: 1040px) {
     .treatise-container {
-      grid-template-columns: 290px minmax(0, 1fr);
-      gap: 3.5rem;
+      justify-content: center;
+      column-gap: clamp(3rem, 5vw, 5rem);
+    }
+
+    /* Chapter text keeps a single 68-75 character measure. */
+    .treatise-container--prose {
+      grid-template-columns: 245px minmax(0, 810px);
+    }
+
+    /* The register is tabular rather than prose, so it takes the remaining
+       width and a tighter gutter instead of a fixed reading measure. */
+    .treatise-container--wide {
+      grid-template-columns: 245px minmax(0, 1fr);
+      column-gap: clamp(2.5rem, 3.5vw, 3.5rem);
+      justify-content: stretch;
     }
   }
 
-  /* ── Sidebar ── */
   .treatise-sidebar {
     position: relative;
   }
@@ -198,454 +157,832 @@ const imamsChapters = chaptersData.filter((c) => c.category === 'four-imams');
   @media (min-width: 1024px) {
     .treatise-sidebar {
       position: sticky;
-      top: 90px;
+      top: 88px;
       align-self: start;
       max-height: calc(100vh - 110px);
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: var(--hc-rule, rgba(255, 255, 255, 0.1)) transparent;
+      scrollbar-color: var(--hc-rule-soft) transparent;
     }
   }
 
   .sidebar-sticky {
-    padding-right: 1.25rem;
+    padding-right: 1rem;
   }
 
-  .sidebar-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-  }
-
-  .treatise-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
-    color: var(--hc-gold, #c8a755);
-    text-decoration: none;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 600;
-    margin-bottom: 0.85rem;
-    transition: color 0.15s ease;
-  }
-
-  .treatise-back-link:hover {
-    color: var(--hc-gold-bright, #e8c878);
-  }
-
-  .sidebar-eyebrow {
-    display: block;
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-  }
-
-  .sidebar-title {
-    font-size: 1.1rem;
-    line-height: 1.35;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-display, serif);
-    font-weight: 600;
-    margin: 0.35rem 0 0;
-  }
-
-  .nav-section {
-    margin-bottom: 1.5rem;
-  }
-
-  .nav-section-title {
-    display: block;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    margin-bottom: 0.6rem;
-  }
-
-  .nav-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.45rem 0.65rem;
-    font-size: 0.82rem;
-    color: var(--hc-text-secondary, #b5b0a5);
-    text-decoration: none;
-    font-family: var(--font-ui, sans-serif);
-    border-radius: 3px;
-    line-height: 1.35;
-    transition: all 0.15s ease;
-  }
-
-  .nav-item__num {
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--hc-text-tertiary, #858077);
-    flex-shrink: 0;
-  }
-
-  .nav-item__num--gold {
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .nav-item__text {
-    flex: 1;
-  }
-
-  .nav-item:hover {
-    color: var(--hc-text-primary, #f5f2eb);
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .nav-item.is-active {
-    color: var(--hc-gold, #c8a755);
-    background: rgba(200, 167, 85, 0.12);
-    font-weight: 600;
-    border-left: 2px solid var(--hc-gold, #c8a755);
-  }
-
-  .nav-item.is-active .nav-item__num {
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .nav-item--highlight {
-    color: var(--hc-gold, #c8a755);
-    font-weight: 600;
-  }
-
-  /* ── Main Reading Area ── */
   .treatise-main {
-    max-width: 800px;
+    min-width: 0;
     width: 100%;
   }
 
   .treatise-breadcrumbs {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary, #858077);
-    font-family: var(--font-ui, sans-serif);
-    margin-bottom: 2rem;
-    flex-wrap: wrap;
+    margin-bottom: clamp(1.75rem, 3.5vw, 2.5rem);
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
-  .crumb-link {
-    color: var(--hc-text-secondary, #b5b0a5);
-    text-decoration: none;
-    transition: color 0.15s ease;
+  .treatise-wide {
+    min-width: 0;
   }
 
-  .crumb-link:hover {
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .crumb-sep {
-    color: var(--hc-rule-strong, rgba(255, 255, 255, 0.15));
-  }
-
-  .crumb-current {
-    color: var(--hc-text-primary, #f5f2eb);
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* ── Typography & Prose ── */
+  /* Reading typography — deliberately quiet and publication-like. */
   .treatise-prose :global(h2) {
-    font-size: clamp(1.6rem, 2.4vw, 2.1rem);
-    font-family: var(--font-display, serif);
-    color: var(--hc-text-primary, #f5f2eb);
-    margin-top: 3.5rem;
-    margin-bottom: 1.25rem;
-    line-height: 1.2;
+    margin: clamp(3.2rem, 6vw, 4.6rem) 0 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-display);
+    font-size: clamp(1.32rem, 2.55vw, 1.83rem);
     font-weight: 500;
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-    padding-bottom: 0.65rem;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
   }
 
   .treatise-prose :global(h3) {
-    font-size: clamp(1.22rem, 1.7vw, 1.45rem);
-    font-family: var(--font-display, serif);
-    color: var(--hc-gold, #c8a755);
-    margin-top: 2.5rem;
-    margin-bottom: 0.85rem;
+    margin: 2.7rem 0 0.8rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.8vw, 1.27rem);
     font-weight: 500;
-    line-height: 1.3;
+    line-height: 1.2;
+    color: var(--hc-text-primary);
   }
 
   .treatise-prose :global(h4) {
-    font-size: 0.92rem;
-    font-family: var(--font-ui, sans-serif);
+    margin: 2rem 0 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
     font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.35;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-gold, #c8a755);
-    margin-top: 2rem;
-    margin-bottom: 0.6rem;
+    color: var(--hc-gold);
   }
 
   .treatise-prose :global(p) {
-    font-size: clamp(1.05rem, 1.2vw, 1.12rem);
-    line-height: 1.85;
-    color: var(--hc-text-secondary, #dcd8cf);
-    margin-bottom: 1.5rem;
+    margin: 0 0 1.45rem;
+    font-family: var(--font-body);
+    font-size: clamp(1.06rem, 0.3vw + 1rem, 1.17rem);
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
   }
 
   .treatise-prose :global(p strong),
   .treatise-prose :global(li strong) {
-    color: var(--hc-text-primary, #f5f2eb);
+    color: var(--hc-text-primary);
     font-weight: 600;
   }
 
   .treatise-prose :global(p em),
   .treatise-prose :global(li em) {
-    font-style: italic;
-    color: var(--hc-gold, #c8a755);
+    color: var(--hc-text-primary);
   }
 
-  /* ── Bilingual / Arabic source text ── */
-  .treatise-prose :global(.arabic-text) {
+  .treatise-prose :global(ul),
+  .treatise-prose :global(ol) {
+    margin: 0 0 1.6rem;
+    padding-left: 1.35rem;
+    color: var(--hc-text-secondary);
+    font-size: 1.15rem;
+    line-height: 1.72;
+  }
+
+  .treatise-prose :global(li) {
+    margin-bottom: 0.6rem;
+  }
+
+  .treatise-prose :global(li::marker) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(blockquote) {
+    margin: 2.6rem 0;
+    padding: 1.35rem 0 1.45rem;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-display);
+    font-size: clamp(1.18rem, 1.45vw, 1.38rem);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.65;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(blockquote strong) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(hr) {
+    height: 1px;
+    margin: 3.3rem 0;
+    border: 0;
+    background: var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(a) {
+    color: var(--hc-gold);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+  }
+
+  .treatise-prose :global(a:hover) {
+    color: var(--hc-gold-bright);
+  }
+
+  .treatise-prose :global(.treatise-arabic) {
     direction: rtl;
     text-align: right;
-    margin: 1.25rem 0 1.75rem;
-    padding: 1.35rem 1.5rem;
-    background: rgba(242, 235, 220, 0.035);
-    border: 1px solid rgba(200, 167, 85, 0.18);
-    border-right: 3px solid var(--hc-gold, #c8a755);
-    border-radius: 4px 0 0 4px;
+    font-family: var(--font-arabic);
+    /* Amiri sits small on the em and its harakat need vertical room, so
+       Arabic runs larger and looser than the surrounding Latin prose. */
+    font-size: 1.32rem;
+    line-height: 2.05;
+  }
+
+  .treatise-prose :global(.arabic-text) {
+    margin: 2rem 0 2.1rem;
   }
 
   .treatise-prose :global(.arabic-text p) {
     margin: 0;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-arabic, var(--font-display, serif));
-    font-size: clamp(1.22rem, 1.65vw, 1.48rem);
-    line-height: 2.15;
-    letter-spacing: 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.32rem, 1.3vw + 0.8rem, 1.49rem);
+    line-height: 2.1;
+    color: var(--hc-text-primary);
   }
 
-  .treatise-prose :global(ul), .treatise-prose :global(ol) {
-    margin-bottom: 1.75rem;
-    padding-left: 1.5rem;
-    color: var(--hc-text-secondary, #dcd8cf);
-    font-size: 1.05rem;
-    line-height: 1.8;
+  .treatise-prose :global(.treatise-video-embed) {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 2.4rem 0;
+    overflow: hidden;
+    border-top: 1px solid var(--hc-rule-soft);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: #09090a;
   }
 
-  .treatise-prose :global(ul ul),
-  .treatise-prose :global(ol ol) {
-    margin-top: 0.5rem;
-    margin-bottom: 0.75rem;
-    padding-left: 1.25rem;
+  .treatise-prose :global(.treatise-video-embed iframe) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
   }
 
-  .treatise-prose :global(li) {
-    margin-bottom: 0.65rem;
+  /* Bilingual source / translation pair. */
+  .treatise-prose :global(.passage) {
+    margin: 2.3rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
-  .treatise-prose :global(li::marker) {
-    color: var(--hc-gold, #c8a755);
+  .treatise-prose :global(.passage__source) {
+    margin: 0;
+    padding: 1.25rem 0 1.45rem;
+    border: 0;
   }
 
-  .treatise-prose :global(blockquote) {
-    margin: 2rem 0;
-    padding: 1.35rem 1.75rem;
-    background: linear-gradient(135deg, rgba(200, 167, 85, 0.06) 0%, rgba(20, 20, 22, 0.5) 100%);
-    border-left: 3px solid var(--hc-gold, #c8a755);
-    border-radius: 0 4px 4px 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.1rem, 1.35vw, 1.25rem);
-    font-style: italic;
+  .treatise-prose :global(.passage__source p) {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.4rem, 1.55vw + 0.7rem, 1.57rem);
+    line-height: 2.2;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.passage__translation) {
+    display: block;
+    padding: 1rem 0 1.15rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(.passage__label) {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .treatise-prose :global(.passage__translation p) {
+    margin: 0;
+    font-size: 1.08rem;
     line-height: 1.65;
-    color: var(--hc-text-primary, #f5f2eb);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    color: var(--hc-text-secondary);
   }
 
-  .treatise-prose :global(blockquote strong) {
-    color: #fff;
+  /* Quran quotations: editorial evidence, not a UI card. */
+  .treatise-prose :global(.hc-article-panel) {
+    margin: 2.7rem 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .treatise-prose :global(.quran-verse__header) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(.quran-verse__badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__badge-icon),
+  .treatise-prose :global(.quran-verse__ref-icon) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__copy) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
     font-weight: 600;
   }
 
-  .treatise-prose :global(hr) {
+  .treatise-prose :global(.quran-verse__copy:hover) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__copy.is-copied) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__content) {
+    padding: 1.55rem 0 1.35rem;
+  }
+
+  .treatise-prose :global(.quran-verse__arabic) {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    /* Amiri Quran: carries the U+06D6-06ED Qur'anic mark set. */
+    font-family: var(--font-quran);
+    font-size: clamp(1.27rem, 1.65vw + 0.8rem, 1.7rem);
+    line-height: 2.15;
+    text-align: right;
+    direction: rtl;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.qv-ayah) {
+    display: inline;
+  }
+
+  .treatise-prose :global(.qv-ayah-end) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.55em;
+    margin: 0 0.25em;
+    font-family: var(--font-ui);
+    font-size: 0.62em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+    vertical-align: middle;
+  }
+
+  .treatise-prose :global(.quran-verse__english) {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-prose :global(.qv-verse) {
+    margin: 0 0 0.65rem;
+  }
+
+  .treatise-prose :global(.qv-verse-num) {
+    display: inline-block;
+    margin-right: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__ref) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.claim-box),
+  .treatise-prose :global(.context-note),
+  .treatise-prose :global(.verdict-box) {
+    padding: 1.15rem 0 1.25rem;
+  }
+
+  .treatise-prose :global(.claim-header),
+  .treatise-prose :global(.note-header),
+  .treatise-prose :global(.verdict-header) {
+    margin-bottom: 0.65rem;
+  }
+
+  .treatise-prose :global(.claim-badge),
+  .treatise-prose :global(.note-badge),
+  .treatise-prose :global(.verdict-badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.claim-content p),
+  .treatise-prose :global(.note-content p),
+  .treatise-prose :global(.verdict-content p) {
+    margin: 0;
+  }
+
+  .treatise-prose :global(.claim-content p) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.term-grid) {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 2.3rem 0;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  @media (min-width: 720px) {
+    .treatise-prose :global(.term-grid) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .treatise-prose :global(.term-card) {
+    min-width: 0;
+    padding: 1.1rem 1.1rem 1.15rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  @media (min-width: 720px) {
+    .treatise-prose :global(.term-card) + .term-card {
+      padding-left: 1.1rem;
+      border-left: 1px solid var(--hc-rule-soft);
+    }
+  }
+
+  .treatise-prose :global(.term-card span) {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.term-card h3) {
+    margin: 0 0 0.45rem;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.term-card p) {
+    margin: 0;
+    font-size: 1.03rem;
+    line-height: 1.65;
+  }
+
+  .treatise-prose :global(.paradox-map) {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 2.5rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  @media (min-width: 780px) {
+    .treatise-prose :global(.paradox-map) {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.1fr);
+      align-items: stretch;
+    }
+  }
+
+  .treatise-prose :global(.paradox-node) {
+    min-width: 0;
+    padding: 1.15rem 0;
+  }
+
+  @media (min-width: 780px) {
+    .treatise-prose :global(.paradox-node + .paradox-arrow + .paradox-node) {
+      padding-left: 1.1rem;
+    }
+  }
+
+  .treatise-prose :global(.paradox-node--final) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.paradox-node span) {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.paradox-node p) {
+    margin: 0;
+    font-size: 1.03rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-prose :global(.paradox-arrow) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.8rem;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.table-scroll) {
+    margin: 2.25rem 0;
+    overflow-x: auto;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    scrollbar-width: thin;
+  }
+
+  .treatise-prose :global(.table-scroll table) {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+    font-size: 0.99rem;
+  }
+
+  .treatise-prose :global(.table-scroll th),
+  .treatise-prose :global(.table-scroll td) {
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .treatise-prose :global(.table-scroll th) {
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .treatise-prose :global(.table-scroll td) {
+    color: var(--hc-text-secondary);
+  }
+
+  /* Evidence gallery */
+  .manuscript-evidence-section {
+    margin-top: clamp(3.75rem, 7vw, 5.5rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .evidence-header {
+    max-width: 60ch;
+  }
+
+  .evidence-eyebrow {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .evidence-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2vw, 1.49rem);
+    font-weight: 500;
+    line-height: 1.18;
+    color: var(--hc-text-primary);
+  }
+
+  .evidence-desc {
+    max-width: 62ch;
+    margin: 0.7rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.03rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .scans-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.65rem;
+  }
+
+  .scan-figure {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .scan-interactive-btn {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
     border: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 0%, var(--hc-rule, rgba(255, 255, 255, 0.12)) 20%, var(--hc-rule, rgba(255, 255, 255, 0.12)) 80%, transparent 100%);
-    margin: 3.5rem 0;
+    background: transparent;
+    cursor: zoom-in;
+    overflow: hidden;
   }
 
-  .treatise-prose :global(a) {
-    color: var(--hc-gold, #c8a755);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    transition: color 0.15s ease;
+  .scan-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 430px;
+    object-fit: cover;
+    border: 1px solid var(--hc-rule-soft);
+    transition: opacity 180ms ease, transform 220ms ease;
   }
 
-  .treatise-prose :global(a:hover) {
-    color: var(--hc-gold-bright, #e8c878);
+  .scan-interactive-btn:hover .scan-img {
+    opacity: 0.88;
+    transform: scale(1.008);
   }
 
-  /* ── Pagination ── */
+  .scan-overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(to top, rgba(15, 15, 16, 0.9), rgba(15, 15, 16, 0));
+    opacity: 0;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-primary);
+    transition: opacity 180ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-overlay,
+  .scan-interactive-btn:focus-visible .scan-overlay {
+    opacity: 1;
+  }
+
+  .scan-caption {
+    margin-top: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* Pagination */
   .treatise-pagination {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-top: 4rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    gap: clamp(2rem, 5vw, 4rem);
+    margin-top: 4.5rem;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--hc-rule);
   }
 
   .pagination-btn {
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    padding: 1.25rem 1.4rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 4px;
+    gap: 0.32rem;
+    padding: 0.45rem 0;
+    color: var(--hc-text-primary);
     text-decoration: none;
-    transition: all 0.2s ease;
+    transition: color 160ms ease, padding 160ms ease;
   }
 
   .pagination-btn:hover {
-    border-color: var(--hc-gold, #c8a755);
-    background: var(--hc-surface-2, #18181b);
-    transform: translateY(-2px);
+    color: var(--hc-gold);
+    padding-left: 0.18rem;
   }
 
   .pagination-btn--next {
+    align-items: flex-end;
     text-align: right;
   }
 
   .pagination-label {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
     font-weight: 700;
-    margin-bottom: 0.35rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
   }
 
   .pagination-title {
-    font-size: 1.05rem;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-display, serif);
-    font-weight: 600;
+    max-width: 32ch;
+    font-family: var(--font-display);
+    font-size: 1.21rem;
+    font-weight: 500;
     line-height: 1.3;
   }
 
-  /* ── Mobile TOC Bar ── */
+  /* Mobile index */
   .mobile-toc-bar {
     display: none;
-    position: fixed;
-    bottom: 1.25rem;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 50;
   }
 
-  .mobile-toc-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.7rem 1.25rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-gold, #c8a755);
-    border-radius: 4px;
-    color: var(--hc-gold, #c8a755);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.8rem;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-    cursor: pointer;
-  }
+  @media (max-width: 1039px) {
+    .mobile-toc-bar {
+      display: block;
+      position: fixed;
+      left: 50%;
+      bottom: max(1rem, var(--safe-bottom));
+      z-index: 80;
+      transform: translateX(-50%);
+    }
 
-  @media (max-width: 1023px) {
+    .mobile-toc-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 40px;
+      padding: 0.55rem 0.8rem;
+      border: 1px solid var(--hc-rule-strong);
+      background: color-mix(in srgb, var(--hc-surface-0) 94%, transparent);
+      color: var(--hc-gold);
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
     .treatise-sidebar {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(12, 12, 13, 0.95);
-      z-index: 90;
-      padding: 2rem 1.5rem;
+      z-index: 70;
+      width: 100%;
+      padding: 5rem 1.5rem 6rem;
       overflow-y: auto;
+      background: color-mix(in srgb, var(--hc-surface-0) 97%, transparent);
+      border: 0;
+      backdrop-filter: blur(10px);
     }
 
     .treatise-sidebar.is-open {
       display: block;
     }
 
-    .mobile-toc-bar {
-      display: block;
+    .sidebar-sticky {
+      width: min(100%, 680px);
+      margin: 0 auto;
+      padding-right: 0;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .scans-gallery {
+      grid-template-columns: 1fr;
     }
   }
 
   @media (max-width: 640px) {
+    .treatise-container {
+      padding-top: 1.4rem;
+    }
+
     .treatise-pagination {
       grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+
+    .pagination-btn--next {
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .treatise-prose :global(p) {
+      font-size: 1.14rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .treatise-back-link,
+    .nav-item,
+    .treatise-prose :global(a),
+    .scan-img,
+    .scan-overlay,
+    .pagination-btn {
+      transition: none;
     }
   }
 </style>
 
 <script is:inline>
   document.addEventListener('DOMContentLoaded', () => {
-    // Reading progress
     const progressBar = document.getElementById('readingProgress');
-    if (progressBar) {
-      window.addEventListener('scroll', () => {
-        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-        const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
-        progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
-      }, { passive: true });
-    }
-
-    // Mobile TOC Toggle
     const mobileBtn = document.getElementById('mobileTocToggle');
     const sidebar = document.getElementById('treatiseSidebar');
-    if (mobileBtn && sidebar) {
-      mobileBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('is-open');
-        if (sidebar.classList.contains('is-open')) {
-          mobileBtn.querySelector('span').textContent = 'Close Chapter Index ✕';
-        } else {
-          mobileBtn.querySelector('span').textContent = 'Chapter Index & Navigation';
-        }
-      });
-    }
 
-    // Auto-bind click on manuscript scans inside prose to trigger lightbox
-    document.querySelectorAll('.manuscript-scan').forEach((img) => {
-      img.addEventListener('click', () => {
-        const trigger = document.querySelector(`[data-lightbox-src="${img.getAttribute('src')}"]`);
-        if (trigger) {
-          trigger.click();
-        } else {
-          const lightbox = document.getElementById('manuscriptLightbox');
-          const lightboxImg = document.getElementById('lightboxImg');
-          if (lightbox && lightboxImg) {
-            lightboxImg.src = img.getAttribute('src');
-            lightbox.hidden = false;
-            requestAnimationFrame(() => lightbox.classList.add('is-open'));
-            document.body.style.overflow = 'hidden';
-          }
-        }
-      });
+    const updateProgress = () => {
+      if (!progressBar) return;
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
+      progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    };
+
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    if (!mobileBtn || !sidebar) return;
+
+    const btnLabel = mobileBtn.querySelector('span');
+
+    const setDrawer = (open) => {
+      sidebar.classList.toggle('is-open', open);
+      mobileBtn.setAttribute('aria-expanded', String(open));
+      if (btnLabel) btnLabel.textContent = open ? 'Close Chapter Index' : 'Chapter Index';
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+
+    mobileBtn.addEventListener('click', () => {
+      const open = !sidebar.classList.contains('is-open');
+      setDrawer(open);
+      // Move focus into the drawer on open so keyboard and screen reader
+      // users land on the navigation rather than behind it.
+      if (open) sidebar.querySelector('a')?.focus();
+      else mobileBtn.focus();
+    });
+
+    sidebar.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => setDrawer(false));
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !sidebar.classList.contains('is-open')) return;
+      setDrawer(false);
+      mobileBtn.focus();
     });
   });
 </script>

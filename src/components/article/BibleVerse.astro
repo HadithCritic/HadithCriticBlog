@@ -49,6 +49,7 @@ const { reference, eyebrow = "Bible" } = Astro.props;
 </div>
 
 <script>
+  import { copyText, flashCopied, buildCitation } from '../../lib/clipboard';
   function initBibleCopy() {
     for (const card of document.querySelectorAll<HTMLElement>('[data-bible-verse]')) {
       if (card.dataset.copyInitialized) continue;
@@ -61,26 +62,13 @@ const { reference, eyebrow = "Bible" } = Astro.props;
         const textEl = card.querySelector('[data-bible-text]');
         const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
 
-        let textParts: string[] = [];
-        if (textEl?.textContent) textParts.push(`"${textEl.textContent.trim()}"`);
-        if (refVal) textParts.push(`— ${refVal.trim()}`);
-
-        const textToCopy = textParts.join('\n\n');
+        const textToCopy = buildCitation({
+          quoted: textEl?.textContent,
+          reference: refVal
+        });
         if (!textToCopy) return;
-
-        try {
-          await navigator.clipboard.writeText(textToCopy);
-          copyBtn.classList.add('is-copied');
-          const labelSpan = copyBtn.querySelector('.bible-verse__copy-text');
-          if (labelSpan) labelSpan.textContent = 'Copied!';
-
-          setTimeout(() => {
-            copyBtn.classList.remove('is-copied');
-            if (labelSpan) labelSpan.textContent = 'Copy';
-          }, 2200);
-        } catch (err) {
-          console.warn('Failed to copy Bible verse:', err);
-        }
+        if (!(await copyText(textToCopy, 'Bible verse'))) return;
+        flashCopied(copyBtn, { labelSelector: '.bible-verse__copy-text' });
       });
     }
   }
@@ -131,14 +119,14 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     border-right: 1px solid var(--hc-rule);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
   .bible-verse__badge-icon {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
   }
 
   /* Copy Button */
@@ -153,7 +141,7 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     background: rgba(15, 15, 16, 0.6);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -219,7 +207,7 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     gap: 0.45rem;
     padding: 0.85rem clamp(1.4rem, 3vw, 2.2rem);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-gold);
@@ -229,7 +217,7 @@ const { reference, eyebrow = "Bible" } = Astro.props;
   }
 
   .bible-verse__ref-icon {
-    font-size: 0.75rem;
+    font-size: 0.84rem;
     color: var(--hc-gold-bright);
   }
 
@@ -268,13 +256,13 @@ const { reference, eyebrow = "Bible" } = Astro.props;
 
     .bible-verse__badge {
       padding: 0.4rem 0.85rem;
-      font-size: 0.64rem;
+      font-size: 0.78rem;
     }
 
     .bible-verse__content {
       padding: 0.85rem;
       margin: 1rem;
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.68;
     }
 
