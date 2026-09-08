@@ -1,0 +1,286 @@
+---
+interface Props {
+  headings?: { depth: number; text: string; slug: string }[];
+  targetId?: string;
+}
+
+const {
+  headings = [],
+  targetId = 'main-article'
+} = Astro.props;
+
+const tickCount = 38;
+---
+
+<aside class="editorial-right-ruler" data-editorial-ruler aria-hidden="true" data-target-id={targetId}>
+  <!-- Real-time Numeric Fractional Scroll Ratio (e.g. 0.00 to 1.00) -->
+  <div class="ruler-ratio" data-ruler-ratio>0.00</div>
+
+  <!-- Interactive Calibration Track -->
+  <div class="ruler-track" data-ruler-track title="Click to jump to position">
+    <div class="ruler-ticks">
+      {Array.from({ length: tickCount }).map((_, i) => {
+        const isMajor = i % 5 === 0;
+        return (
+          <div class={`ruler-tick ${isMajor ? 'ruler-tick--major' : ''}`} data-tick-index={i}>
+            <span class="ruler-tick__line"></span>
+          </div>
+        );
+      })}
+    </div>
+
+    <!-- Active Indicator Needle -->
+    <div class="ruler-needle" data-ruler-needle></div>
+
+    <!-- Headings Markers on the Ruler -->
+    <div class="ruler-markers" data-ruler-markers>
+      {headings.map((h) => (
+        <div class="ruler-marker" data-marker-slug={h.slug} data-marker-title={h.text}>
+          <span class="ruler-marker__tooltip">{h.text}</span>
+          <span class="ruler-marker__line"></span>
+        </div>
+      ))}
+    </div>
+  </div>
+</aside>
+
+<script>
+  function initEditorialRuler() {
+    const rulerEl = document.querySelector<HTMLElement>('[data-editorial-ruler], .editorial-right-ruler');
+    if (!rulerEl) return;
+
+    const ratioEl = rulerEl.querySelector<HTMLElement>('[data-ruler-ratio]');
+    const trackEl = rulerEl.querySelector<HTMLElement>('[data-ruler-track]');
+    const needleEl = rulerEl.querySelector<HTMLElement>('[data-ruler-needle]');
+    const markers = [...rulerEl.querySelectorAll<HTMLElement>('.ruler-marker')];
+    const ticks = [...rulerEl.querySelectorAll<HTMLElement>('.ruler-tick')];
+
+    if (!ratioEl || !trackEl || !needleEl) return;
+
+    const ratioNode = ratioEl;
+    const needleNode = needleEl;
+    const target = document.getElementById('main-article') || document.querySelector<HTMLElement>('[data-reading-progress-source]') || document.documentElement;
+
+    function updateRuler() {
+      const rect = target.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const targetTop = rect.top + scrollTop;
+      const targetHeight = target.offsetHeight;
+      const windowHeight = window.innerHeight;
+
+      const start = targetTop - 80;
+      const end = Math.max(start + 1, targetTop + targetHeight - windowHeight);
+      const ratio = Math.min(1, Math.max(0, (scrollTop - start) / (end - start)));
+
+      ratioNode.textContent = ratio.toFixed(2);
+      needleNode.style.top = `${ratio * 100}%`;
+
+      // Color ticks
+      const totalTicks = ticks.length;
+      ticks.forEach((tick, i) => {
+        const tickRatio = i / Math.max(1, totalTicks - 1);
+        tick.classList.toggle('is-passed', tickRatio <= ratio);
+      });
+
+      // Position markers
+      markers.forEach((marker) => {
+        const slug = marker.dataset.markerSlug;
+        if (!slug) return;
+        const targetHeading = document.getElementById(slug);
+        if (!targetHeading) return;
+        const headingRect = targetHeading.getBoundingClientRect();
+        const headingTop = headingRect.top + scrollTop;
+        const markerRatio = Math.min(1, Math.max(0, (headingTop - targetTop) / Math.max(1, targetHeight)));
+        marker.style.top = `${markerRatio * 100}%`;
+      });
+    }
+
+    let frame = 0;
+    const requestUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        updateRuler();
+      });
+    };
+
+    updateRuler();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate, { passive: true });
+    window.addEventListener('load', requestUpdate, { passive: true });
+
+    // Track click to jump
+    trackEl.addEventListener('click', (e) => {
+      const rect = trackEl.getBoundingClientRect();
+      const clickY = e.clientY - rect.top;
+      const clickRatio = Math.min(1, Math.max(0, clickY / rect.height));
+      const targetRect = target.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const targetTop = targetRect.top + scrollTop;
+      const targetHeight = target.offsetHeight;
+      const windowHeight = window.innerHeight;
+      const start = targetTop - 80;
+      const end = Math.max(start + 1, targetTop + targetHeight - windowHeight);
+
+      window.scrollTo({
+        top: start + clickRatio * (end - start),
+        behavior: 'smooth'
+      });
+    });
+
+    // Marker click
+    markers.forEach((marker) => {
+      marker.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const slug = marker.dataset.markerSlug;
+        if (!slug) return;
+        const targetHeading = document.getElementById(slug);
+        if (targetHeading) {
+          targetHeading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEditorialRuler);
+  } else {
+    initEditorialRuler();
+  }
+  document.addEventListener('astro:page-load', initEditorialRuler);
+</script>
+
+<style>
+  .editorial-right-ruler {
+    position: sticky;
+    top: 6rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    user-select: none;
+    padding-top: 0.5rem;
+  }
+
+  .ruler-ratio {
+    margin-bottom: 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .ruler-track {
+    position: relative;
+    width: 24px;
+    height: 380px;
+    cursor: pointer;
+    padding: 4px 0;
+  }
+
+  .ruler-ticks {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+  }
+
+  .ruler-tick {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .ruler-tick__line {
+    display: block;
+    width: 6px;
+    height: 1px;
+    background: var(--hc-rule);
+    transition: background 120ms ease;
+  }
+
+  .ruler-tick--major .ruler-tick__line {
+    width: 11px;
+    height: 1.5px;
+  }
+
+  .ruler-tick.is-passed .ruler-tick__line {
+    background: var(--hc-gold);
+  }
+
+  /* Active Needle */
+  .ruler-needle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 16px;
+    height: 2px;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px var(--hc-gold);
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Headings Markers */
+  .ruler-markers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .ruler-marker {
+    position: absolute;
+    right: 0;
+    top: 0;
+    display: flex;
+    align-items: center;
+    transform: translateY(-50%);
+    pointer-events: auto;
+    z-index: 20;
+    cursor: pointer;
+  }
+
+  .ruler-marker__line {
+    display: block;
+    width: 14px;
+    height: 2px;
+    background: var(--hc-gold-dim);
+    transition: width 150ms ease, background 150ms ease;
+  }
+
+  .ruler-marker:hover .ruler-marker__line {
+    width: 18px;
+    background: var(--hc-gold-bright);
+  }
+
+  .ruler-marker__tooltip {
+    display: none;
+    position: absolute;
+    right: 22px;
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.25rem 0.6rem;
+    border-radius: 3px;
+    border: 1px solid var(--hc-rule);
+    background: var(--hc-surface-2);
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+  }
+
+  .ruler-marker:hover .ruler-marker__tooltip {
+    display: block;
+  }
+</style>
