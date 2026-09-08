@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { isNewPost } from '../../lib/new-badge';
+import { CATEGORIES } from '../../lib/categories';
 
 const allPosts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -158,8 +159,92 @@ const entries = posts.map((post, index) => ({
           Clear Filters &amp; View All
         </button>
       </div>
+
+      <nav class="subject-index" aria-labelledby="subject-index-title">
+        <h2 id="subject-index-title" class="subject-index__title">Browse by subject</h2>
+        <ul class="subject-index__list">
+          {CATEGORIES.map((category) => (
+            <li class="subject-index__item">
+              <a href={`/blogs/category/${category.slug}`}>{category.name}</a>
+              <span class="subject-index__count">
+                {categoryCounts.get(category.name) ?? 0}
+              </span>
+              <p class="subject-index__blurb">{category.blurb.split('.')[0]}.</p>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </section>
   </div>
+
+  <style>
+    /* The category filter above is client-side and produces no crawlable URL.
+       These are the real addresses for each subject. */
+    .subject-index {
+      margin-top: clamp(3rem, 6vw, 5rem);
+      padding-top: 2rem;
+      border-top: 1px solid var(--hc-rule);
+    }
+
+    .subject-index__title {
+      margin: 0 0 1.75rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .subject-index__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 1.6rem;
+    }
+
+    .subject-index__item {
+      max-width: 64ch;
+      padding-bottom: 1.4rem;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .subject-index__item:last-child { border-bottom: 0; }
+
+    .subject-index__item a {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--hc-text-primary);
+      text-decoration: none;
+    }
+
+    .subject-index__item a:hover { color: var(--hc-gold); }
+
+    .subject-index__count {
+      margin-left: 0.6rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .subject-index__blurb {
+      margin: 0.35rem 0 0;
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--hc-text-tertiary);
+    }
+
+    @media (min-width: 900px) {
+      .subject-index__list {
+        grid-template-columns: 1fr 1fr;
+        gap: 1.6rem 3rem;
+      }
+    }
+  </style>
 </BaseLayout>
 
 <script>

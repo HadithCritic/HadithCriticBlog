@@ -10,6 +10,8 @@ import PreviousNext from '../../components/article/PreviousNext.astro';
 import BackToTop from '../../components/treatise/BackToTop.astro';
 import SubscribeForm from '../../components/SubscribeForm.astro';
 import { getCollection, render } from 'astro:content';
+import { scholarlyArticle, author } from '../../lib/seo';
+import { categoryByName } from '../../lib/categories';
 
 const includeBlogMakerPreview = process.env.BLOG_MAKER_PREVIEW === 'true';
 
@@ -62,6 +64,34 @@ const tocHeadings = headings
   })
   .map((h) => ({ depth: h.depth, text: h.text, slug: h.slug }));
 const showToc = tocHeadings.length >= 2;
+
+// --- structured data -------------------------------------------------------
+const articleUrl = new URL(`/blogs/${post.id}`, Astro.site).href;
+const category = categoryByName(post.data.category);
+
+const articleSchema = [
+  author(post.data.author),
+  scholarlyArticle({
+    url: articleUrl,
+    title: post.data.title,
+    description: post.data.description,
+    authorName: post.data.author,
+    datePublished: post.data.date.toISOString(),
+    dateModified: post.data.updated?.toISOString(),
+    image: post.data.thumbnail,
+    section: post.data.category,
+    keywords: post.data.tags,
+    wordCount,
+    about: category?.about
+  })
+];
+
+const crumbs = [
+  { name: 'Home', url: '/' },
+  { name: 'Studies', url: '/blogs' },
+  ...(category ? [{ name: category.name, url: `/blogs/category/${category.slug}` }] : []),
+  { name: post.data.title, url: `/blogs/${post.id}` }
+];
 ---
 
 <BaseLayout
@@ -70,21 +100,13 @@ const showToc = tocHeadings.length >= 2;
   image={post.data.thumbnail}
   canonical={`/blogs/${post.id}`}
   type="article"
+  schema={articleSchema}
+  crumbs={crumbs}
+  publishedTime={post.data.date.toISOString()}
+  modifiedTime={post.data.updated?.toISOString()}
+  section={post.data.category}
+  tags={post.data.tags}
 >
-  <Fragment slot="head">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'ScholarlyArticle',
-      headline: post.data.title,
-      description: post.data.description,
-      author: { '@type': 'Person', name: post.data.author },
-      datePublished: post.data.date.toISOString(),
-      ...(post.data.updated ? { dateModified: post.data.updated.toISOString() } : {}),
-      ...(post.data.thumbnail ? { image: new URL(post.data.thumbnail, Astro.site).href } : {}),
-      mainEntityOfPage: new URL(`/blogs/${post.id}`, Astro.site).href,
-      publisher: { '@type': 'Organization', name: 'HadithCritic' }
-    })} />
-  </Fragment>
 
   <!-- Top Slim Reading Progress Bar -->
   <div class="reading-progress" aria-hidden="true">

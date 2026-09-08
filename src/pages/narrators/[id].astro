@@ -2,6 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { person, entityPage } from '../../lib/seo';
 import { env } from 'cloudflare:workers';
 
 /**
@@ -228,9 +229,47 @@ const description = [
   .filter(Boolean)
   .join(' ')
   .slice(0, 300);
+
+// --- structured data -------------------------------------------------------
+const dossierUrl = new URL(`/narrators/${detail.id}`, Astro.site).href;
+const personNode = person({
+  url: dossierUrl,
+  nameEn: detail.nameEn,
+  nameAr: detail.nameAr,
+  fullName: detail.fullName,
+  kunya: detail.kunya,
+  description,
+  deathYearCE: detail.deathGregorian,
+  deathPlace: detail.deathPlace,
+  places: detail.placesEn,
+  generation: detail.generation,
+  id: detail.id
+});
+
+const narratorSchema = [
+  entityPage({
+    url: dossierUrl,
+    title,
+    description,
+    entityId: personNode['@id'] as string
+  }),
+  personNode
+];
+
+const narratorCrumbs = [
+  { name: 'Home', url: '/' },
+  { name: 'Rijāl Register', url: '/narrators' },
+  { name: detail.nameEn || detail.nameAr, url: `/narrators/${detail.id}` }
+];
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={`/narrators/${detail.id}`}
+  schema={narratorSchema}
+  crumbs={narratorCrumbs}
+>
   <article class="rijal-page">
     <header class="rijal-head">
       <a class="rijal-back" href="/narrators">&larr; Rijāl register</a>

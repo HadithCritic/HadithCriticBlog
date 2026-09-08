@@ -21,7 +21,18 @@ export default defineConfig({
     remoteBindings: useRemoteBindings,
     prerenderEnvironment: 'node'
   }),
-  integrations: [mdx({ remarkPlugins: [remarkGfm] }), sitemap()],
+  integrations: [
+    mdx({ remarkPlugins: [remarkGfm] }),
+    // Only prerendered routes reach this sitemap. The on-demand rijal register
+    // is published separately via /sitemap-narrators.xml, which both are
+    // declared in robots.txt.
+    sitemap({
+      filter: (page) =>
+        !page.includes('/admin') &&
+        !page.includes('/narrators/compare') &&
+        !page.includes('/api/')
+    })
+  ],
   markdown: {
     remarkPlugins: [remarkGfm]
   }
