@@ -464,6 +464,43 @@ main {
   border: 0;
 }
 
+/* Skip link — WCAG 2.4.1 (Bypass Blocks, Level A). `main#main-content` has
+   always been the target; this is the link that reaches it. Hidden until
+   focused, then rendered as apparatus per DESIGN.md > Typography. */
+.hc-skip-link {
+  position: absolute;
+  z-index: 200;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -110%);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--hc-gold);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--hc-surface-1);
+  color: var(--hc-text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: transform 160ms var(--ease, ease);
+}
+
+.hc-skip-link:focus-visible {
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-skip-link {
+    transition: none;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    TYPE SYSTEM — Uses adaptive text tokens
    ═══════════════════════════════════════════════════════════════ */
@@ -776,21 +813,12 @@ span.arabic {
   padding: 0 12px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   HEADER LINKS
-   ═══════════════════════════════════════════════════════════════ */
-
-.hc-header-link {
-  font-family: var(--font-ui);
-  font-size: 0.94rem;
-  letter-spacing: 0.035em;
-  text-decoration: none;
-  color: var(--hc-header-link);
-}
-
-.hc-header-link:hover {
-  color: var(--hc-gold);
-}
+/* HEADER LINKS — `.hc-header-link` is defined in SiteHeader.astro, its only
+   consumer. It used to be declared here as well, at 0.94rem/0.035em and no
+   uppercase: values that lost to the component's scoped `[data-astro-cid-*]`
+   rule on every page, and that would have broken the DESIGN.md apparatus role
+   had they ever won. The `--hc-header-link` token above is still live and is
+   read by the header's icon buttons. */
 
 /* ═══════════════════════════════════════════════════════════════
    DIRECTORY CARDS — adaptive
@@ -1164,11 +1192,14 @@ body { min-height: 100vh; min-height: 100dvh; }
 }
 
 /* Ensure tables don't cause overflow */
-.hc-article-body table {
-  display: block;
+.hc-article-body table,
+.hc-table-wrap,
+.variant-table-wrap,
+.b46-table-container,
+.hc-source-table-wrapper {
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
 }
 
 /* Fix grid layouts that might overflow */

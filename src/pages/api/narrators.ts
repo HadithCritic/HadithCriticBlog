@@ -31,6 +31,11 @@ const SORTS: Record<string, string> = {
   criticism: 'statement_count DESC, id ASC'
 };
 
+// Neutralise the LIKE metacharacters in reader-supplied text. Only meaningful
+// alongside `ESCAPE '\'` on the clause itself — SQLite gives `\` no special
+// meaning in LIKE otherwise.
+const likeEscape = (value: string) => value.replace(/[\\%_]/g, (m) => `\\${m}`);
+
 const json = (body: unknown, status = 200, cache = 'public, max-age=300') =>
   new Response(JSON.stringify(body), {
     status,
@@ -48,8 +53,8 @@ export const GET: APIRoute = async ({ url }) => {
     // search_text is a prebuilt lowercase haystack holding the
     // transliteration, an ASCII-folded copy of it, the Arabic, the kunya and
     // the places — so one LIKE covers what used to be a multi-field client scan.
-    where.push('search_text LIKE ?');
-    binds.push(`%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`);
+    where.push("search_text LIKE ? ESCAPE '\\'");
+    binds.push(`%${likeEscape(q)}%`);
   }
 
   const generation = p.get('generation');
@@ -66,8 +71,8 @@ export const GET: APIRoute = async ({ url }) => {
 
   const place = p.get('place');
   if (place && place !== 'all') {
-    where.push('places_en LIKE ?');
-    binds.push(`%"${place}"%`);
+    where.push("places_en LIKE ? ESCAPE '\\'");
+    binds.push(`%"${likeEscape(place)}"%`);
   }
 
   // Century of death, in hijri centuries (1 = years 1-100).
@@ -90,21 +95,21 @@ export const GET: APIRoute = async ({ url }) => {
   const offset = (page - 1) * size;
 
   try {
-    const rows = await env.DB.prepare(
-      `SELECT id, name_en, name_ar, generation, grade, tabaqa_number,
-              death_hijri, death_gregorian, death_place, places_en,
-              hadith_count, teacher_count, student_count,
-              critic_count, statement_count, jarh_count, tadil_count, flags
-         FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
-    )
-      .bind(...binds, size, offset)
-      .all();
+    // The page and its total are independent, so they go over the wire together.
+    // Awaiting them in sequence cost two round-trips to D1 on every keystroke of
+    // the register's search box; `batch` is what the facets endpoint already does.
+    const [rows, counted] = await env.DB.batch<Record<string, unknown>>([
+      env.DB.prepare(
+        `SELECT id, name_en, name_ar, generation, grade, tabaqa_number,
+                death_hijri, death_gregorian, death_place, places_en,
+                hadith_count, teacher_count, student_count,
+                critic_count, statement_count, jarh_count, tadil_count, flags
+           FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
+      ).bind(...binds, size, offset),
+      env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds)
+    ]);
 
-    const counted = await env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`)
-      .bind(...binds)
-      .first<{ n: number }>();
-
-    const total = counted?.n ?? 0;
+    const total = Number(counted.results?.[0]?.n ?? 0);
 
     return json({
       total,

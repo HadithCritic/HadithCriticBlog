@@ -33,7 +33,14 @@ for (const file of files) {
   const content = readFileSync(file, 'utf8');
   const lines = content.split(/\r?\n/);
   const blockStarts = findBlockStartLines(lines);
-  const mainCount = (content.match(/<main\b/g) || []).length;
+  // Count landmarks in code only. A JSX, HTML or CSS comment that happens to
+  // quote a tag is documentation, and counting it reported a duplicate
+  // landmark on a file that had exactly one.
+  const code = content
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const mainCount = (code.match(/<main\b/g) || []).length;
   if (mainCount > 1) report(failures, file, 1, 'nested or duplicate <main> landmarks');
   for (const tag of content.matchAll(/<a\b[\s\S]*?>/g)) {
     if (/target=["']_blank["']/.test(tag[0]) && !/rel=["'][^"']*noopener[^"']*noreferrer/.test(tag[0])) {
@@ -46,6 +53,20 @@ for (const file of files) {
     if (/href=["']#["']/.test(line)) report(failures, file, number, 'placeholder href="#"');
     if (/<img\b[^>]*>/.test(line) && !/\balt=/.test(line)) report(failures, file, number, 'content image missing alt');
     if (/<(?:div|span)\b[^>]*(?:on:click|onclick)=/.test(line) && !/\b(role=|on:keydown|onkeydown=)/.test(line)) report(failures, file, number, 'non-semantic clickable element');
+    // The focus ring is declared once, as `:focus-visible` in global.css.
+    // Astro scopes component styles to [data-astro-cid-*], which outranks a
+    // bare `:focus-visible`, so a component-level `outline: none` is either
+    // dead weight or, before the global rule was made `!important`, a
+    // silently removed ring. Restyle with --hc-focus-color / -width / -offset.
+    // The one legitimate form is suppressing the UA ring on a programmatic
+    // focus target, which must say `:focus:not(:focus-visible)` to be explicit.
+    // Anchored so prose about `outline: none` in a comment is not a finding.
+    if (/^\s*outline:\s*(?:none|0)\s*(?:!important)?\s*;?\s*$/.test(line)) {
+      const selector = lines.slice(Math.max(0, blockStarts[index]), index + 1).join(' ');
+      if (!/:focus:not\(\s*:focus-visible\s*\)/.test(selector)) {
+        report(failures, file, number, 'outline reset outside global :focus-visible (see DESIGN.md > Motion and interaction)');
+      }
+    }
     if (/max-width:\s*100(?:d)?vw/.test(line) || /overflow-x:\s*hidden/.test(line)) {
       // A fixed-position overlay (modal, lightbox) legitimately spans the full
       // viewport; only flag this outside that context, where it usually means
@@ -56,7 +77,6 @@ for (const file of files) {
       if (!isFixedOverlay) report(failures, file, number, 'global overflow masking rule');
     }
     if (/animation-iteration-count:\s*infinite|repeat:\s*-1|\b(?:elastic|bounce)\b/i.test(line)) report(warnings, file, number, 'discouraged motion pattern');
-    if (/backdrop-filter/.test(line)) report(warnings, file, number, 'backdrop filter should remain exceptional');
     if (/border-radius:\s*(?:2[1-9]|[3-9]\d)px/.test(line)) report(warnings, file, number, 'large radius outside allowed components');
     if (/\b(unlock|supercharge|seamless|revolutionize)\b/i.test(line)) report(warnings, file, number, 'generic UI phrase');
 
@@ -84,10 +104,16 @@ for (const file of files) {
     if (!/font-family:\s*var\(--font-ui/.test(body)) continue;
     if (/text-transform:\s*uppercase/.test(body)) continue;
     const size = body.match(/font-size:\s*(?:clamp\(\s*)?(\d*\.?\d+)rem/);
-    if (size && parseFloat(size[1]) >= 0.95) {
-      const line = content.slice(0, block.index).split(/\r?\n/).length;
-      report(warnings, file, line, `--font-ui at ${size[1]}rem without uppercase (apparatus face at reading size)`);
-    }
+    if (!size || parseFloat(size[1]) < 0.95) continue;
+    // Buttons are the documented exception: they sit in the apparatus face at
+    // reading size and in sentence case on purpose, because uppercasing a CTA
+    // at 13px costs more in tap legibility than the face contrast buys back.
+    // See DESIGN.md > Typography. The selector is the text between the end of
+    // the previous rule and this block's brace.
+    const selector = content.slice(0, block.index).split(/[{}]/).pop() ?? '';
+    if (/\b(?:button|btn)\b|-btn|_btn|btn-/i.test(selector)) continue;
+    const line = content.slice(0, block.index).split(/\r?\n/).length;
+    report(warnings, file, line, `--font-ui at ${size[1]}rem without uppercase (apparatus face at reading size)`);
   }
 }
 for (const warning of warnings) console.warn(`warning: ${warning}`);

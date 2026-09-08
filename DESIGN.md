@@ -56,10 +56,21 @@ Arabic, which is where this material needs it.
   blocks. Uppercase micro-labels sit at 12–13px.
 - Metadata is compact and restrained, never a monospace costume.
 
+**Buttons are the one exception to the apparatus rule.** `.hc-btn` and the
+secondary button variants sit in Glacial at roughly 15px, weight 500, light
+tracking and sentence case rather than the 12-13px uppercase treatment above.
+This is deliberate: a call to action is a tap target before it is apparatus,
+and uppercasing it at 13px costs more in legibility on a phone than the face
+contrast buys back. Buttons keep the apparatus *face*, not its size and case.
+Nothing else may borrow this exception.
+
 The type floor and the Poppins/Glacial role split are both enforced by
 `scripts/design-audit.mjs`, which fails the build on any `font-size` below
 12px anywhere under `src/` (MDX `<style>` blocks included) and warns when
-`--font-ui` is used at ≥0.95rem without `text-transform: uppercase`.
+`--font-ui` is used at ≥0.95rem without `text-transform: uppercase`,
+skipping selectors that name a button. It also fails the build on any
+component-level `outline: none`, because the focus ring is owned globally
+(see Motion and interaction below).
 
 ## Shape and layout
 
