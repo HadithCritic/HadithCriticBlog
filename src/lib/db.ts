@@ -30,20 +30,33 @@ import { env } from 'cloudflare:workers';
  */
 
 /**
- * Built once per isolate and reused. The connection is an HTTP caller holding
- * no socket, so this caches configuration rather than a live handle.
+ * A connection per operation, deliberately not one cached per isolate.
  *
- * Lazy because `env` resolves per request. Reading it at module scope would
- * run during prerendering, where these values do not exist.
+ * Caching one looks obviously right — the connection holds no socket, it is an
+ * HTTP caller — and it is wrong. `Connection` owns an `AsyncLock` that
+ * serializes operations on it, and module scope is shared by every request an
+ * isolate handles. So a promise queued by one request gets resolved inside a
+ * later one, and the Workers runtime cancels the continuation:
+ *
+ *   A promise was resolved or rejected from a different request context than
+ *   the one it was created in ... Continuations for that request are unlikely
+ *   to run safely and have been canceled.
+ *
+ * The request waiting on that lock then never gets a response — it hangs until
+ * the runtime kills it. Sequential requests never show it, which is exactly
+ * what makes it worth a comment: it appears under concurrency, as an
+ * intermittent hang rather than an error.
+ *
+ * `connect()` performs no I/O, so a fresh one costs an object. With one
+ * operation per connection the lock has nothing to queue, and nothing crosses
+ * a request boundary. Interactive transactions would need a persistent
+ * connection; nothing here uses them — `batch()` is one request that is
+ * already atomic.
  */
-let connection: Connection | undefined;
-
 const getConnection = (): Connection => {
-  if (connection) return connection;
   const url = env.TURSO_DATABASE_URL;
   if (!url) throw new Error('TURSO_DATABASE_URL is not set');
-  connection = connect({ url, authToken: env.TURSO_AUTH_TOKEN });
-  return connection;
+  return connect({ url, authToken: env.TURSO_AUTH_TOKEN });
 };
 
 /** D1's `all()` envelope, so callers keep reading `.results`. */
