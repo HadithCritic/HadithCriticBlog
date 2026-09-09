@@ -36,6 +36,23 @@ function findBlockStartLines(lines) {
   return starts;
 }
 
+// Strip JSX, HTML and CSS comments. Removing one comment can splice its
+// neighbors into a fresh opener -- `<<!-- -->!-- -->` collapses to a live
+// `<!-- -->` -- so repeat until the text stops changing rather than trusting a
+// single pass. CodeQL flags the single-pass form as incomplete multi-character
+// sanitization, and it is right to: the audit counts landmarks in whatever
+// survives this, so a comment that reassembles itself is a miscount.
+const COMMENT_PATTERNS = [/\{\/\*[\s\S]*?\*\/\}/g, /<!--[\s\S]*?-->/g, /\/\*[\s\S]*?\*\//g];
+function stripComments(text) {
+  let previous;
+  let current = text;
+  do {
+    previous = current;
+    for (const pattern of COMMENT_PATTERNS) current = current.replace(pattern, '');
+  } while (current !== previous);
+  return current;
+}
+
 for (const file of files) {
   const content = readFileSync(file, 'utf8');
   const lines = content.split(/\r?\n/);
@@ -43,10 +60,7 @@ for (const file of files) {
   // Count landmarks in code only. A JSX, HTML or CSS comment that happens to
   // quote a tag is documentation, and counting it reported a duplicate
   // landmark on a file that had exactly one.
-  const code = content
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const code = stripComments(content);
   const mainCount = (code.match(/<main\b/g) || []).length;
   if (mainCount > 1) report(failures, file, 1, 'nested or duplicate <main> landmarks');
   for (const tag of content.matchAll(/<a\b[\s\S]*?>/g)) {
