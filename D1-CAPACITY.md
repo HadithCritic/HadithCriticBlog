@@ -28,6 +28,41 @@ limit was reached. The data is intact and correct. The database is simply past
 what the plan permits, and enforcement is applied at query time rather than at
 write time, which is why the import was allowed to finish.
 
+## Serving cost, which was a separate bug
+
+Import cost is one-off. What kept the corpus down day after day was the cost of
+*serving* it, and that part was a defect rather than a plan limit.
+
+`/hadith` ran `SELECT COUNT(*) FROM hadith` on every view to fill in the
+"Narrations" figure in the hero. That is 276,347 rows read to produce one
+integer. With the narrator count beside it, a single page view cost about
+297,000 reads, so **sixteen views exhausted the 5 million daily allowance for
+the whole account** — after which every other query was refused, including the
+26-row read behind a collection page. That is why collection pages showed "This
+collection is temporarily unavailable" while costing almost nothing themselves:
+they were not the thing spending the budget.
+
+Three changes, in `src/lib/corpus-count.ts` and `src/lib/edge-cache.ts`:
+
+| what | before | after |
+| ---- | -----: | ----: |
+| `/hadith` hero totals | 297,000 | 21,000 |
+| `/hadith?book=N` total | whole collection | 0 |
+| unfiltered `/api/hadith` total | 276,347 | 10,001 |
+
+Narrations and collections are now summed off the 33 rows of `hadith_book`,
+whose `hadith_count` the collection pager already trusted. Counts that cannot
+be read from stored data are counted to a 10,000-row ceiling and reported as
+"10,000+". The corpus routes also opt into Cloudflare's cache for ten minutes,
+which is what stops a crawler walking 33 collections from paying for any of it
+twice; the cache is only ever offered a successful page, so an outage is never
+what gets stored.
+
+The remaining 21,000 is `COUNT(*) FROM narrator WHERE unnamed = 0`, on a cache
+miss only. It rides `idx_narrator_unnamed` and could be removed too, but only
+by storing the figure, and the database is past its size limit so it cannot
+take a new table. That is the next thing to fix after the plan question below.
+
 ## Why trimming does not fix it
 
 The payload alone, before any index, is about 832 MB:

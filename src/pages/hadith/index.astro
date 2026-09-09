@@ -6,6 +6,15 @@ import { env } from 'cloudflare:workers';
 import { buildMatch, type SearchScope } from '../../lib/arabic-normalize';
 import { makeSnippet } from '../../lib/snippet';
 import { toPlainText } from '../../lib/format-text';
+import {
+  boundedCountSql,
+  exactCount,
+  formatCount,
+  pageCount,
+  readCount,
+  type CountResult
+} from '../../lib/corpus-count';
+import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
  * The corpus: browse or search.
@@ -110,7 +119,7 @@ interface Book {
 }
 
 let results: Row[] = [];
-let total = 0;
+let count: CountResult = exactCount(0);
 let books: Book[] = [];
 let activeNarrator: { id: number; name_en: string } | undefined;
 let stats = { narrations: 0, collections: 0, transmitters: 0 };
@@ -127,10 +136,17 @@ try {
     env.DB.prepare(
       'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book ORDER BY hadith_count DESC'
     ),
+    // Narrations and collections are summed off the 33 rows of `hadith_book`
+    // rather than counted over `hadith`. The figures are identical — the
+    // import writes `hadith_count` from the same rows — and the scan this
+    // avoids was 276,347 reads per view, which is what drained the daily
+    // allowance and took the rest of the corpus down with it. See
+    // src/lib/corpus-count.ts.
     env.DB.prepare(
-      `SELECT (SELECT COUNT(*) FROM hadith) AS narrations,
-              (SELECT COUNT(*) FROM hadith_book) AS collections,
-              (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS transmitters`
+      `SELECT COUNT(*) AS collections,
+              COALESCE(SUM(hadith_count), 0) AS narrations,
+              (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS transmitters
+         FROM hadith_book`
     ),
     narratorFilter
       ? env.DB.prepare('SELECT id, name_en FROM narrator WHERE id = ?').bind(narratorFilter)
@@ -144,6 +160,14 @@ try {
   failed = true;
 }
 
+// The collection whose stored total answers this request on its own: set only
+// when a book filter is the single thing narrowing the result set, since any
+// other clause makes `hadith_count` the wrong number.
+const bookOnly =
+  !q && !subjectFilter && !(Number.isFinite(narratorFilter) && narratorFilter > 0)
+    ? books.find((b) => b.id === bookFilter)
+    : undefined;
+
 // Result rows are only fetched when something was actually asked for. An
 // unfiltered browse would otherwise pay for a scan nobody reads.
 if (!failed && hasFilter && !queryError) {
@@ -155,17 +179,31 @@ if (!failed && hasFilter && !queryError) {
                 b.id AS book_id, b.title_en AS book_en, b.slug AS book_slug
            ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
       ).bind(...binds, size, offset),
-      env.DB.prepare(`SELECT COUNT(*) AS n ${from} ${clause}`).bind(...binds)
+      // Browsing one collection has its total already stored, so nothing is
+      // counted at all; anything else is counted to the cap. Before this,
+      // "?book=N" with no query scanned every row of the collection on each
+      // page view, and a bare query scanned the corpus.
+      bookOnly
+        ? env.DB.prepare('SELECT 0 AS n WHERE 0')
+        : env.DB.prepare(boundedCountSql(from, clause)).bind(...binds)
     ]);
     results = (res[0].results || []) as unknown as Row[];
-    total = Number((res[1].results?.[0] as { n?: number } | undefined)?.n ?? 0);
+    count = bookOnly
+      ? exactCount(bookOnly.hadith_count)
+      : readCount((res[1].results?.[0] as { n?: number } | undefined)?.n);
   } catch (error) {
     console.error('Corpus search failed', error);
     searchFailed = true;
   }
 }
 
-const pages = Math.max(1, Math.ceil(total / size));
+const pages = pageCount(count, size);
+
+// Cacheable only when both reads landed. An outage page must not be stored:
+// see src/lib/edge-cache.ts.
+if (!failed && !searchFailed) {
+  Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
+}
 const activeBook = books.find((b) => b.id === bookFilter);
 
 const pageUrl = (n: number) => {
@@ -295,7 +333,7 @@ const heroStats = [
                 <span class="corpus-status" aria-live="polite">
                   {queryError
                     ? 'That query has no searchable terms.'
-                    : `${total.toLocaleString()} ${total === 1 ? 'narration' : 'narrations'}`}
+                    : `${formatCount(count)} ${count.total === 1 ? 'narration' : 'narrations'}`}
                   {q && !queryError && <span class="corpus-status__for"> for “{q}”</span>}
                 </span>
               </div>

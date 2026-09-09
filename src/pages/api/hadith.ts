@@ -5,6 +5,7 @@ import { env } from 'cloudflare:workers';
 import { buildMatch, type SearchScope } from '../../lib/arabic-normalize';
 import { makeSnippet } from '../../lib/snippet';
 import { toPlainText } from '../../lib/format-text';
+import { boundedCountSql, pageCount, readCount } from '../../lib/corpus-count';
 
 /**
  * Hadith search endpoint.
@@ -124,15 +125,19 @@ export const GET: APIRoute = async ({ url }) => {
                 b.id AS book_id, b.title_en AS book_en, b.title_ar AS book_ar
            ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
       ).bind(...binds, size, offset),
-      env.DB.prepare(`SELECT COUNT(*) AS n ${from} ${clause}`).bind(...binds)
+      env.DB.prepare(boundedCountSql(from, clause)).bind(...binds)
     ]);
 
-    const total = Number(counted.results?.[0]?.n ?? 0);
+    // Counted to a ceiling. Unbounded, this was a 276,347-row scan on every
+    // call — and with no filter required, a bare GET /api/hadith paid it.
+    // `total_approximate` says when the figure is a floor rather than exact.
+    const count = readCount(counted.results?.[0]?.n);
     return json({
-      total,
+      total: count.total,
+      total_approximate: count.approximate,
       page,
       size,
-      pages: Math.max(1, Math.ceil(total / size)),
+      pages: pageCount(count, size),
       scope,
       // Snippets are cut here rather than by FTS5: a contentless index has no
       // text to excerpt from. Output is escaped, with only <mark> reintroduced.

@@ -4,6 +4,7 @@ export const prerender = false;
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { env } from 'cloudflare:workers';
 import { toPlainText, renderArabic } from '../../../lib/format-text';
+import { CORPUS_CACHE_CONTROL } from '../../../lib/edge-cache';
 
 /**
  * One collection, read in its own order.
@@ -92,8 +93,18 @@ if (!book && !failed) {
   return new Response('Collection not found', { status: 404 });
 }
 
+// Already stored per collection, so sequence never costs a count. Pages are
+// not capped here as they are on search: reading a collection through is the
+// point of the page, and `ORDER BY id` rides the (book_id, id) index instead
+// of walking discarded rows the way a filtered OFFSET does.
 const total = book?.hadith_count ?? 0;
 const pages = Math.max(1, Math.ceil(total / size));
+
+// Only a page that actually read the collection is cacheable, never the
+// "temporarily unavailable" fallback. See src/lib/edge-cache.ts.
+if (!failed && book) {
+  Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
+}
 
 const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
 

@@ -5,6 +5,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { entityPage } from '../../lib/seo';
 import { env } from 'cloudflare:workers';
 import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
+import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
  * A single narration, rendered on demand from D1.
@@ -61,6 +62,10 @@ const hadith = hadithRow.results?.[0] as Record<string, any> | undefined;
 if (!hadith) {
   return new Response('Hadith not found', { status: 404 });
 }
+
+// Past both failure exits, so only a page with its narration on it is stored.
+// See src/lib/edge-cache.ts.
+Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 
 interface ChainNode {
   path_idx: number;

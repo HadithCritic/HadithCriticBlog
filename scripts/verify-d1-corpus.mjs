@@ -8,6 +8,10 @@
  *
  *   counts        three imports failed partway; a table that is merely present
  *                 proves nothing about whether it finished.
+ *   stored totals the pages report and paginate by `hadith_book.hadith_count`
+ *                 instead of counting `hadith`, because the count cost the
+ *                 whole daily D1 read allowance. Nothing enforces that the
+ *                 stored figures match the rows.
  *   no truncation the first working import trimmed the tail off 67 narrations
  *                 to fit D1's statement limit. This asserts the stored text
  *                 length matches the source exactly.
@@ -109,6 +113,25 @@ const counts = sql(`SELECT ${countQuery}`)[0] || {};
 for (const [table, expected] of Object.entries(EXPECTED)) {
   check(table, Number(counts[table] ?? -1), expected);
 }
+
+// ---- 1b. stored totals agree with the rows ---------------------------
+// `hadith_book.hadith_count` is what the pages report and paginate by, in
+// place of counting `hadith`: at 276,347 rows a COUNT(*) per request cost the
+// account's whole daily D1 read allowance in sixteen page views, which took
+// every other corpus query down with it. The substitution is only sound while
+// the stored figures match the rows, and nothing in the schema enforces that,
+// so it is asserted here rather than assumed. See src/lib/corpus-count.ts.
+console.log('\nstored totals');
+const stored = sql(`
+  SELECT (SELECT COALESCE(SUM(hadith_count), 0) FROM hadith_book) AS summed,
+         (SELECT COUNT(*) FROM hadith) AS rows_present,
+         (SELECT COUNT(*) FROM hadith_book WHERE hadith_count <> (
+            SELECT COUNT(*) FROM hadith h WHERE h.book_id = hadith_book.id
+          )) AS disagreeing
+`)[0] || {};
+check('SUM(hadith_book.hadith_count)', Number(stored.summed ?? -1), EXPECTED.hadith);
+check('matches COUNT(*) FROM hadith', Number(stored.summed ?? -1), Number(stored.rows_present ?? -2));
+check('collections with a wrong count', Number(stored.disagreeing ?? -1), 0);
 
 // ---- 2. search index -------------------------------------------------
 console.log('\nsearch index');
