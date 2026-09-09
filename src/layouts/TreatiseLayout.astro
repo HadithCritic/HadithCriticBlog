@@ -1,0 +1,988 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import ManuscriptLightbox from '../components/treatise/ManuscriptLightbox.astro';
+import EditionNav from '../components/treatise/EditionNav.astro';
+import EditionBreadcrumb from '../components/treatise/EditionBreadcrumb.astro';
+import BackToTop from '../components/treatise/BackToTop.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  currentSlug?: string;
+  prevPage?: { title: string; href: string } | null;
+  nextPage?: { title: string; href: string } | null;
+  /**
+   * `prose` holds a single reading measure for chapter text.
+   * `wide` opens the column up for the tabular register.
+   */
+  variant?: 'prose' | 'wide';
+  /** Breadcrumb leaf label, when it should read differently from the title. */
+  crumb?: string;
+}
+
+const {
+  title,
+  description = "A 10-century evidentiary critical edition documenting the classical Sunni scholarly consensus on Tawassul, Tashaffuʿ, and Istighāthah.",
+  currentSlug = 'index',
+  prevPage = null,
+  nextPage = null,
+  variant = 'prose',
+  crumb
+} = Astro.props;
+
+const trail = [
+  { label: 'HadithCritic', href: '/' },
+  { label: 'Shirk: Endorsed By The Scholars', href: '/research/shirk-endorsed' },
+  { label: crumb ?? title }
+];
+---
+
+<BaseLayout title={`${title} | HadithCritic`} description={description}>
+  <div class="treatise-page">
+    <div id="readingProgress" class="reading-progress-bar" aria-hidden="true"></div>
+
+    <div class={`wrap treatise-container treatise-container--${variant}`}>
+      <aside class="treatise-sidebar" id="treatiseSidebar" aria-label="Treatise navigation">
+        <div class="sidebar-sticky">
+          <EditionNav currentSlug={currentSlug} />
+        </div>
+      </aside>
+
+      <div class="treatise-main" id="mainContent">
+        <div class="treatise-breadcrumbs">
+          <EditionBreadcrumb trail={trail} />
+        </div>
+
+        {variant === 'wide' ? (
+          <div class="treatise-wide">
+            <slot />
+          </div>
+        ) : (
+          <article class="treatise-prose">
+            <slot />
+          </article>
+        )}
+
+        {(prevPage || nextPage) && (
+          <footer class="treatise-pagination" aria-label="Chapter pagination">
+            {prevPage ? (
+              <a href={prevPage.href} class="pagination-btn pagination-btn--prev">
+                <span class="pagination-label">← Previous Chapter</span>
+                <span class="pagination-title">{prevPage.title}</span>
+              </a>
+            ) : <span aria-hidden="true"></span>}
+
+            {nextPage ? (
+              <a href={nextPage.href} class="pagination-btn pagination-btn--next">
+                <span class="pagination-label">Next Chapter →</span>
+                <span class="pagination-title">{nextPage.title}</span>
+              </a>
+            ) : <span aria-hidden="true"></span>}
+          </footer>
+        )}
+      </div>
+    </div>
+
+    <div class="mobile-toc-bar">
+      <button
+        type="button"
+        class="mobile-toc-toggle"
+        id="mobileTocToggle"
+        aria-expanded="false"
+        aria-controls="treatiseSidebar"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="4" y1="6" x2="20" y2="6"></line>
+          <line x1="4" y1="12" x2="20" y2="12"></line>
+          <line x1="4" y1="18" x2="20" y2="18"></line>
+        </svg>
+        <span>Chapter Index</span>
+      </button>
+    </div>
+  </div>
+
+  <BackToTop />
+  <ManuscriptLightbox />
+</BaseLayout>
+
+<style>
+  .treatise-page {
+    position: relative;
+    min-height: 100vh;
+    background: var(--hc-surface-0);
+  }
+
+  .reading-progress-bar {
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: 0;
+    height: 1px;
+    z-index: 100;
+    background: var(--hc-gold);
+    transform-origin: left center;
+  }
+
+  .treatise-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    padding-top: clamp(1.75rem, 4vw, 3rem);
+    padding-bottom: clamp(4rem, 7vw, 7rem);
+  }
+
+  @media (min-width: 1040px) {
+    .treatise-container {
+      justify-content: center;
+      column-gap: clamp(3rem, 5vw, 5rem);
+    }
+
+    /* Chapter text keeps a single 68-75 character measure. */
+    .treatise-container--prose {
+      grid-template-columns: 245px minmax(0, 810px);
+    }
+
+    /* The register is tabular rather than prose, so it takes the remaining
+       width and a tighter gutter instead of a fixed reading measure. */
+    .treatise-container--wide {
+      grid-template-columns: 245px minmax(0, 1fr);
+      column-gap: clamp(2.5rem, 3.5vw, 3.5rem);
+      justify-content: stretch;
+    }
+  }
+
+  .treatise-sidebar {
+    position: relative;
+  }
+
+  @media (min-width: 1024px) {
+    .treatise-sidebar {
+      position: sticky;
+      top: 88px;
+      align-self: start;
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--hc-rule-soft) transparent;
+    }
+  }
+
+  .sidebar-sticky {
+    padding-right: 1rem;
+  }
+
+  .treatise-main {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .treatise-breadcrumbs {
+    margin-bottom: clamp(1.75rem, 3.5vw, 2.5rem);
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-wide {
+    min-width: 0;
+  }
+
+  /* Reading typography — deliberately quiet and publication-like. */
+  .treatise-prose :global(h2) {
+    margin: clamp(3.2rem, 6vw, 4.6rem) 0 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-display);
+    font-size: clamp(1.32rem, 2.55vw, 1.83rem);
+    font-weight: 500;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(h3) {
+    margin: 2.7rem 0 0.8rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.8vw, 1.27rem);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(h4) {
+    margin: 2rem 0 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(p) {
+    margin: 0 0 1.45rem;
+    font-family: var(--font-body);
+    font-size: clamp(1.06rem, 0.3vw + 1rem, 1.17rem);
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-prose :global(p strong),
+  .treatise-prose :global(li strong) {
+    color: var(--hc-text-primary);
+    font-weight: 600;
+  }
+
+  .treatise-prose :global(p em),
+  .treatise-prose :global(li em) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(ul),
+  .treatise-prose :global(ol) {
+    margin: 0 0 1.6rem;
+    padding-left: 1.35rem;
+    color: var(--hc-text-secondary);
+    font-size: 1.15rem;
+    line-height: 1.72;
+  }
+
+  .treatise-prose :global(li) {
+    margin-bottom: 0.6rem;
+  }
+
+  .treatise-prose :global(li::marker) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(blockquote) {
+    margin: 2.6rem 0;
+    padding: 1.35rem 0 1.45rem;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-display);
+    font-size: clamp(1.18rem, 1.45vw, 1.38rem);
+    font-style: italic;
+    font-weight: 500;
+    line-height: 1.65;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(blockquote strong) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(hr) {
+    height: 1px;
+    margin: 3.3rem 0;
+    border: 0;
+    background: var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(a) {
+    color: var(--hc-gold);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.22em;
+  }
+
+  .treatise-prose :global(a:hover) {
+    color: var(--hc-gold-bright);
+  }
+
+  .treatise-prose :global(.treatise-arabic) {
+    direction: rtl;
+    text-align: right;
+    font-family: var(--font-arabic);
+    /* Amiri sits small on the em and its harakat need vertical room, so
+       Arabic runs larger and looser than the surrounding Latin prose. */
+    font-size: 1.32rem;
+    line-height: 2.05;
+  }
+
+  .treatise-prose :global(.arabic-text) {
+    margin: 2rem 0 2.1rem;
+  }
+
+  .treatise-prose :global(.arabic-text p) {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.32rem, 1.3vw + 0.8rem, 1.49rem);
+    line-height: 2.1;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.treatise-video-embed) {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 2.4rem 0;
+    overflow: hidden;
+    border-top: 1px solid var(--hc-rule-soft);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: #09090a;
+  }
+
+  .treatise-prose :global(.treatise-video-embed iframe) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+
+  /* Bilingual source / translation pair. */
+  .treatise-prose :global(.passage) {
+    margin: 2.3rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(.passage__source) {
+    margin: 0;
+    padding: 1.25rem 0 1.45rem;
+    border: 0;
+  }
+
+  .treatise-prose :global(.passage__source p) {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.4rem, 1.55vw + 0.7rem, 1.57rem);
+    line-height: 2.2;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.passage__translation) {
+    display: block;
+    padding: 1rem 0 1.15rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(.passage__label) {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .treatise-prose :global(.passage__translation p) {
+    margin: 0;
+    font-size: 1.08rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Quran quotations: editorial evidence, not a UI card. */
+  .treatise-prose :global(.hc-article-panel) {
+    margin: 2.7rem 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .treatise-prose :global(.quran-verse__header) {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .treatise-prose :global(.quran-verse__badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__badge-icon),
+  .treatise-prose :global(.quran-verse__ref-icon) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__copy) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+  }
+
+  .treatise-prose :global(.quran-verse__copy:hover) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__copy.is-copied) {
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__content) {
+    padding: 1.55rem 0 1.35rem;
+  }
+
+  .treatise-prose :global(.quran-verse__arabic) {
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    /* Amiri Quran: carries the U+06D6-06ED Qur'anic mark set. */
+    font-family: var(--font-quran);
+    font-size: clamp(1.27rem, 1.65vw + 0.8rem, 1.7rem);
+    line-height: 2.15;
+    text-align: right;
+    direction: rtl;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.qv-ayah) {
+    display: inline;
+  }
+
+  .treatise-prose :global(.qv-ayah-end) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.55em;
+    margin: 0 0.25em;
+    font-family: var(--font-ui);
+    font-size: 0.62em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+    vertical-align: middle;
+  }
+
+  .treatise-prose :global(.quran-verse__english) {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-prose :global(.qv-verse) {
+    margin: 0 0 0.65rem;
+  }
+
+  .treatise-prose :global(.qv-verse-num) {
+    display: inline-block;
+    margin-right: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.quran-verse__ref) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.claim-box),
+  .treatise-prose :global(.context-note),
+  .treatise-prose :global(.verdict-box) {
+    padding: 1.15rem 0 1.25rem;
+  }
+
+  .treatise-prose :global(.claim-header),
+  .treatise-prose :global(.note-header),
+  .treatise-prose :global(.verdict-header) {
+    margin-bottom: 0.65rem;
+  }
+
+  .treatise-prose :global(.claim-badge),
+  .treatise-prose :global(.note-badge),
+  .treatise-prose :global(.verdict-badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.claim-content p),
+  .treatise-prose :global(.note-content p),
+  .treatise-prose :global(.verdict-content p) {
+    margin: 0;
+  }
+
+  .treatise-prose :global(.claim-content p) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.term-grid) {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 2.3rem 0;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  @media (min-width: 720px) {
+    .treatise-prose :global(.term-grid) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .treatise-prose :global(.term-card) {
+    min-width: 0;
+    padding: 1.1rem 1.1rem 1.15rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  @media (min-width: 720px) {
+    .treatise-prose :global(.term-card) + .term-card {
+      padding-left: 1.1rem;
+      border-left: 1px solid var(--hc-rule-soft);
+    }
+  }
+
+  .treatise-prose :global(.term-card span) {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.term-card h3) {
+    margin: 0 0 0.45rem;
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.term-card p) {
+    margin: 0;
+    font-size: 1.03rem;
+    line-height: 1.65;
+  }
+
+  .treatise-prose :global(.paradox-map) {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 2.5rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  @media (min-width: 780px) {
+    .treatise-prose :global(.paradox-map) {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.1fr);
+      align-items: stretch;
+    }
+  }
+
+  .treatise-prose :global(.paradox-node) {
+    min-width: 0;
+    padding: 1.15rem 0;
+  }
+
+  @media (min-width: 780px) {
+    .treatise-prose :global(.paradox-node + .paradox-arrow + .paradox-node) {
+      padding-left: 1.1rem;
+    }
+  }
+
+  .treatise-prose :global(.paradox-node--final) {
+    color: var(--hc-text-primary);
+  }
+
+  .treatise-prose :global(.paradox-node span) {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.paradox-node p) {
+    margin: 0;
+    font-size: 1.03rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-prose :global(.paradox-arrow) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.8rem;
+    color: var(--hc-gold);
+  }
+
+  .treatise-prose :global(.table-scroll) {
+    margin: 2.25rem 0;
+    overflow-x: auto;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    scrollbar-width: thin;
+  }
+
+  .treatise-prose :global(.table-scroll table) {
+    width: 100%;
+    min-width: 600px;
+    border-collapse: collapse;
+    font-size: 0.99rem;
+  }
+
+  .treatise-prose :global(.table-scroll th),
+  .treatise-prose :global(.table-scroll td) {
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .treatise-prose :global(.table-scroll th) {
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .treatise-prose :global(.table-scroll td) {
+    color: var(--hc-text-secondary);
+  }
+
+  /* Evidence gallery */
+  .manuscript-evidence-section {
+    margin-top: clamp(3.75rem, 7vw, 5.5rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .evidence-header {
+    max-width: 60ch;
+  }
+
+  .evidence-eyebrow {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .evidence-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 2vw, 1.49rem);
+    font-weight: 500;
+    line-height: 1.18;
+    color: var(--hc-text-primary);
+  }
+
+  .evidence-desc {
+    max-width: 62ch;
+    margin: 0.7rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.03rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .scans-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.65rem;
+  }
+
+  .scan-figure {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .scan-interactive-btn {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+    overflow: hidden;
+  }
+
+  .scan-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 430px;
+    object-fit: cover;
+    border: 1px solid var(--hc-rule-soft);
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-img {
+    opacity: 0.88;
+    transform: scale(1.008);
+  }
+
+  .scan-overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(to top, rgba(15, 15, 16, 0.9), rgba(15, 15, 16, 0));
+    opacity: 0;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-primary);
+    transition: opacity 180ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-overlay,
+  .scan-interactive-btn:focus-visible .scan-overlay {
+    opacity: 1;
+  }
+
+  .scan-caption {
+    margin-top: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* Pagination */
+  .treatise-pagination {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+    margin-top: 4.5rem;
+    padding-top: 1.3rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .pagination-btn {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.32rem;
+    padding: 0.45rem 0;
+    color: var(--hc-text-primary);
+    text-decoration: none;
+    transition: color 160ms ease, padding 160ms ease;
+  }
+
+  .pagination-btn:hover {
+    color: var(--hc-gold);
+    padding-left: 0.18rem;
+  }
+
+  .pagination-btn--next {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .pagination-label {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .pagination-title {
+    max-width: 32ch;
+    font-family: var(--font-display);
+    font-size: 1.21rem;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  /* Mobile index */
+  .mobile-toc-bar {
+    display: none;
+  }
+
+  @media (max-width: 1039px) {
+    .mobile-toc-bar {
+      display: block;
+      position: fixed;
+      left: 50%;
+      bottom: max(1rem, var(--safe-bottom));
+      z-index: 80;
+      transform: translateX(-50%);
+    }
+
+    .mobile-toc-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-height: 40px;
+      padding: 0.55rem 0.8rem;
+      border: 1px solid var(--hc-rule-strong);
+      background: color-mix(in srgb, var(--hc-surface-0) 94%, transparent);
+      color: var(--hc-gold);
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .treatise-sidebar {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      width: 100%;
+      padding: 5rem 1.5rem 6rem;
+      overflow-y: auto;
+      background: color-mix(in srgb, var(--hc-surface-0) 97%, transparent);
+      border: 0;
+      backdrop-filter: blur(10px);
+    }
+
+    .treatise-sidebar.is-open {
+      display: block;
+    }
+
+    .sidebar-sticky {
+      width: min(100%, 680px);
+      margin: 0 auto;
+      padding-right: 0;
+    }
+  }
+
+  @media (max-width: 780px) {
+    .scans-gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .treatise-container {
+      padding-top: 1.4rem;
+    }
+
+    .treatise-pagination {
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+
+    .pagination-btn--next {
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .treatise-prose :global(p) {
+      font-size: 1.14rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .treatise-back-link,
+    .nav-item,
+    .treatise-prose :global(a),
+    .scan-img,
+    .scan-overlay,
+    .pagination-btn {
+      transition: none;
+    }
+  }
+</style>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const progressBar = document.getElementById('readingProgress');
+    const mobileBtn = document.getElementById('mobileTocToggle');
+    const sidebar = document.getElementById('treatiseSidebar');
+
+    const updateProgress = () => {
+      if (!progressBar) return;
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = totalHeight > 0 ? (window.scrollY / totalHeight) * 100 : 0;
+      progressBar.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+    };
+
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+
+    if (!mobileBtn || !sidebar) return;
+
+    const btnLabel = mobileBtn.querySelector('span');
+
+    const setDrawer = (open) => {
+      sidebar.classList.toggle('is-open', open);
+      mobileBtn.setAttribute('aria-expanded', String(open));
+      if (btnLabel) btnLabel.textContent = open ? 'Close Chapter Index' : 'Chapter Index';
+      document.body.style.overflow = open ? 'hidden' : '';
+    };
+
+    mobileBtn.addEventListener('click', () => {
+      const open = !sidebar.classList.contains('is-open');
+      setDrawer(open);
+      // Move focus into the drawer on open so keyboard and screen reader
+      // users land on the navigation rather than behind it.
+      if (open) sidebar.querySelector('a')?.focus();
+      else mobileBtn.focus();
+    });
+
+    sidebar.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => setDrawer(false));
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !sidebar.classList.contains('is-open')) return;
+      setDrawer(false);
+      mobileBtn.focus();
+    });
+  });
+</script>

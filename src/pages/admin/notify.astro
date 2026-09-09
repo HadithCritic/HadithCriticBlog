@@ -3,9 +3,10 @@ export const prerender = false;
 
 import { getCollection } from 'astro:content';
 import { env } from 'cloudflare:workers';
+import { isValidAdminToken } from '../../lib/admin-auth';
 
 const token = Astro.url.searchParams.get('token');
-if (token !== env.ADMIN_NOTIFY_TOKEN) {
+if (!isValidAdminToken(token, env.ADMIN_NOTIFY_TOKEN)) {
   return new Response('Not found', { status: 404 });
 }
 
@@ -67,7 +68,8 @@ const sentBySlug = new Map(sentRows.map((row) => [row.slug, row.sent_at]));
       <p id="notify-status" role="status" aria-live="polite"></p>
     </main>
 
-    <script define:vars={{ token }}>
+    <!-- define:vars makes this inline regardless; saying so keeps `astro check` quiet. -->
+    <script is:inline define:vars={{ token }}>
       document.querySelectorAll('[data-notify-form]').forEach((form) => {
         if (!(form instanceof HTMLFormElement)) return;
         const slug = form.dataset.slug;

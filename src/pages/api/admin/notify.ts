@@ -6,6 +6,7 @@ import { env } from 'cloudflare:workers';
 import { getEntry } from 'astro:content';
 import { buildNewArticleEmail } from '../../../lib/email-templates/new-article.mjs';
 import { sendArticleBroadcast } from '../../../lib/resend.mjs';
+import { isValidAdminToken } from '../../../lib/admin-auth';
 
 const notifySchema = z.object({
   slug: z.string().min(1),
@@ -23,7 +24,7 @@ export const POST: APIRoute = async ({ request, site }) => {
     });
   }
 
-  if (parsed.data.token !== env.ADMIN_NOTIFY_TOKEN) {
+  if (!isValidAdminToken(parsed.data.token, env.ADMIN_NOTIFY_TOKEN)) {
     return new Response('Not found', { status: 404 });
   }
 

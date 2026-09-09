@@ -5,12 +5,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <BaseLayout title="Contact | HadithCritic">
   <div class="contact-page">
     <section class="contact-hero">
-      <div class="hc-container contact-hero__inner">
-        <h1 class="hc-title hc-title--xl">Contact</h1>
-        <p class="hc-copy contact-hero__lead">
-          Send questions, corrections, collaboration notes, or source submissions without
-          exposing a public inbox address to scraping bots.
-        </p>
+      <div class="hc-container">
+        <div class="hero-content">
+          <h1 class="contact-hero__title">
+            Contact <span class="contact-hero__title-accent">Us</span>
+          </h1>
+          <p class="contact-hero__lead">
+            We'd love to hear from you. Send questions, research inquiries, source submissions, or corrections directly to our editorial and research team.
+          </p>
+        </div>
       </div>
     </section>
 
@@ -103,6 +106,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 
 <script>
+  import { copyText } from '../lib/clipboard';
   const form = document.querySelector<HTMLFormElement>('#contact-form');
   const status = document.querySelector<HTMLParagraphElement>('#contact-form-status');
 
@@ -140,6 +144,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       if (submit) submit.disabled = false;
     }
   });
+
+  // Copy email logic for companion card
+  const copyBtn = document.querySelector<HTMLButtonElement>('#copy-email-btn');
+  const copyFeedback = document.querySelector<HTMLElement>('#copy-feedback');
+  copyBtn?.addEventListener('click', async () => {
+    if (!(await copyText('inquiries@hadithcritic.com', 'email address'))) return;
+    copyFeedback?.classList.add('is-visible');
+    setTimeout(() => copyFeedback?.classList.remove('is-visible'), 2000);
+  });
 </script>
 
 <style>
@@ -151,16 +164,37 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   }
 
   .contact-hero {
-    padding: clamp(6rem, 9vw, 8rem) 0 clamp(3rem, 5vw, 4.25rem);
-    border-bottom: 1px solid var(--hc-rule);
-    background: linear-gradient(180deg, var(--hc-surface-2), var(--hc-surface-0));
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    background: radial-gradient(ellipse 700px 350px at 20% 30%, rgba(200, 167, 85, 0.04) 0%, transparent 70%);
+    padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(2rem, 3.5vw, 2.75rem);
+  }
+
+  .hero-content {
+    max-width: 680px;
+  }
+
+  .contact-hero__title {
+    margin: 0 0 0.85rem;
+    font-family: var(--font-display, serif);
+    font-size: clamp(2.21rem, 5.5vw, 3.82rem);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.03em;
+    color: var(--hc-text-primary, #f5f2eb);
+  }
+
+  .contact-hero__title-accent {
+    font-style: italic;
+    color: var(--hc-gold, #c8a755);
   }
 
   .contact-hero__lead {
-    max-width: 680px;
-    margin: 1rem 0 0;
-    color: var(--hc-muted);
-    font-size: clamp(1.08rem, 0.55vw + 1rem, 1.25rem);
+    margin: 0;
+    font-family: var(--font-body, serif);
+    font-size: clamp(1rem, 1.25vw, 1.15rem);
+    line-height: 1.65;
+    color: var(--hc-text-secondary, #b5b0a5);
+    max-width: 56ch;
   }
 
   .contact-body {
@@ -193,14 +227,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   .contact-note strong {
     display: block;
     color: var(--hc-gold-soft);
-    font-family: var(--font-ui);
-    font-size: 0.9rem;
+    font-family: var(--font-body);
+    font-size: 1.01rem;
   }
 
   .contact-note p {
     margin: 0.45rem 0 0;
     color: var(--hc-muted);
-    font-size: 0.96rem;
+    font-size: 1.08rem;
     line-height: 1.65;
   }
 
@@ -212,7 +246,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     margin: 0 0 1rem;
     color: var(--hc-text-primary);
     font-family: var(--font-display);
-    font-size: 1.55rem;
+    font-size: 1.32rem;
     font-weight: 500;
   }
 
@@ -260,7 +294,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   .contact-field span {
     color: var(--hc-gold-soft);
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     font-weight: 600;
   }
 
@@ -273,8 +307,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     color: var(--hc-text-primary);
     background: var(--hc-surface-0);
     padding: 0.82rem 0.9rem;
-    font-family: var(--font-ui);
-    font-size: 0.94rem;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
   }
 
   .contact-field textarea {
@@ -287,7 +321,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   .contact-field select:focus,
   .contact-field textarea:focus {
     border-color: var(--hc-gold-dim);
-    outline: none;
   }
 
   .contact-trap {
@@ -313,8 +346,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     min-height: 1.4rem;
     margin: 0;
     color: var(--hc-muted);
-    font-family: var(--font-ui);
-    font-size: 0.9rem;
+    font-family: var(--font-body);
+    font-size: 1.01rem;
   }
 
   .contact-status.is-success {
@@ -337,12 +370,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     }
 
     .contact-hero .hc-title--xl {
-      font-size: clamp(2.7rem, 14vw, 3.6rem);
+      font-size: clamp(2.29rem, 14vw, 3.06rem);
       line-height: 1.03;
     }
 
     .contact-hero__lead {
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.65;
     }
 

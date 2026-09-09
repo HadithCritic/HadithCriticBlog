@@ -1,0 +1,589 @@
+---
+import scholarsData from '../../data/shirk-endorsed/scholars.json';
+
+const centuries = [
+  { id: 'all', label: 'All Centuries' },
+  { id: '4', label: '4th AH' },
+  { id: '5', label: '5th AH' },
+  { id: '6', label: '6th AH' },
+  { id: '7', label: '7th AH' },
+  { id: '8', label: '8th AH' },
+  { id: '9', label: '9th AH' },
+  { id: '10', label: '10th AH' },
+  { id: '11', label: '11th AH' },
+  { id: '12', label: '12th AH' },
+  { id: '13', label: '13th AH' },
+  { id: '14', label: '14th AH' }
+];
+
+const madhhabs = [
+  { id: 'all', label: 'All Schools' },
+  { id: 'shafii', label: 'Shāfiʿī' },
+  { id: 'hanafi', label: 'Ḥanafī' },
+  { id: 'hanbali', label: 'Ḥanbalī' },
+  { id: 'maliki', label: 'Mālikī' }
+];
+
+function toAscii(text: string): string {
+  return (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f\u02be\u02bf]/g, '')
+    .replace(/[ʿʾāīūḍṣṭẓḥ]/gi, (c) => ({
+      'ʿ': '', 'ʾ': '', 'ā': 'a', 'ī': 'i', 'ū': 'u', 'ḍ': 'd', 'ṣ': 's', 'ṭ': 't', 'ẓ': 'z', 'ḥ': 'h',
+      'Ā': 'a', 'Ī': 'i', 'Ū': 'u', 'Ḍ': 'd', 'Ṣ': 's', 'Ṭ': 't', 'Ẓ': 'z', 'Ḥ': 'h'
+    })[c] || c)
+    .toLowerCase();
+}
+---
+
+<section class="scholar-ledger" id="scholar-ledger">
+  <div class="ledger-controls">
+    <div class="controls-top">
+      <label class="search-box" for="scholarSearch">
+        <span class="sr-only">Search the scholar ledger</span>
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="search"
+          id="scholarSearch"
+          class="search-input"
+          placeholder="Search scholar, book, or keyword"
+          aria-label="Filter scholars by name or citation"
+        />
+        <button type="button" id="clearSearch" class="clear-btn" aria-label="Clear search input" hidden>×</button>
+      </label>
+
+      <span id="ledgerCount" class="ledger-count" aria-live="polite">
+        Showing {scholarsData.length} of {scholarsData.length} scholars
+      </span>
+    </div>
+
+    <div class="filter-register">
+      <div class="filter-row">
+        <span class="filter-label">School</span>
+        <div class="filter-tabs" role="group" aria-label="Filter by school of jurisprudence">
+          {madhhabs.map((m) => (
+            <button
+              type="button"
+              class={`filter-tab ${m.id === 'all' ? 'is-active' : ''}`}
+              data-filter-madhhab={m.id}
+              aria-pressed={m.id === 'all' ? 'true' : 'false'}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <span class="filter-label">Era</span>
+        <div class="filter-tabs filter-tabs--centuries" role="group" aria-label="Filter by century">
+          {centuries.map((c) => (
+            <button
+              type="button"
+              class={`filter-tab ${c.id === 'all' ? 'is-active' : ''}`}
+              data-filter-century={c.id}
+              aria-pressed={c.id === 'all' ? 'true' : 'false'}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ledger-list" id="ledgerList">
+    {scholarsData.map((s, idx) => {
+      const rawSearch = `${s.title} ${s.name} ${s.madhhab} ${s.deathYear || ''} ${s.arabicExcerpt || ''}`;
+      const normalizedSearch = `${rawSearch} ${toAscii(rawSearch)}`.toLowerCase();
+      const normalizedMadhhab = toAscii(s.madhhab);
+      return (
+        <article
+          class="ledger-entry"
+          data-scholar-id={s.id}
+          data-century={s.century || ''}
+          data-madhhab={normalizedMadhhab}
+          data-search-text={normalizedSearch}
+        >
+          <div class="ledger-entry__head">
+            <span class="ledger-entry__index">{String(idx + 1).padStart(2, '0')}</span>
+
+            <div class="ledger-entry__identity">
+              <div class="ledger-entry__meta">
+                <span class="ledger-entry__school">{s.madhhab}</span>
+                <span class="ledger-entry__separator" aria-hidden="true">·</span>
+                <span>{s.deathYear ? `d. ${s.deathYear} AH` : 'Classical'}</span>
+                {s.century && <><span class="ledger-entry__separator" aria-hidden="true">·</span><span>{s.century}th Century Hijri</span></>}
+              </div>
+
+              <h3 class="scholar-name">
+                <a href={`/research/shirk-endorsed/${s.id}`} class="scholar-link">
+                  {s.title}
+                </a>
+              </h3>
+            </div>
+
+            <a href={`/research/shirk-endorsed/${s.id}`} class="ledger-entry__open" aria-label={`Open ${s.title}`}>
+              <span>Open</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </a>
+          </div>
+
+          {s.arabicExcerpt && (
+            <div class="arabic-excerpt" dir="rtl" lang="ar">
+              <p>{s.arabicExcerpt}</p>
+            </div>
+          )}
+
+        </article>
+      );
+    })}
+  </div>
+
+  <div id="noResults" class="no-results" hidden>
+    <p class="no-results-text">No scholars match your current filter criteria.</p>
+    <button type="button" id="resetFilters" class="reset-btn">Reset All Filters</button>
+  </div>
+</section>
+
+<style>
+  .scholar-ledger {
+    margin: 2rem 0 0;
+  }
+
+  /* The register runs to 99 entries, so search and filters follow the reader
+     down the page instead of scrolling away at the top. */
+  .ledger-controls {
+    margin-bottom: 3rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  @media (min-width: 1024px) {
+    .ledger-controls {
+      position: sticky;
+      top: 72px;
+      z-index: 20;
+      padding-top: 1.1rem;
+      background: var(--hc-surface-0);
+    }
+  }
+
+  .controls-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 2rem;
+  }
+
+  .search-box {
+    position: relative;
+    display: block;
+    min-width: 0;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 0;
+    bottom: 0.82rem;
+    color: var(--hc-text-tertiary);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    min-height: 2.7rem;
+    padding: 0.55rem 2rem 0.58rem 1.8rem;
+    border: 0;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    border-radius: 0;
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.92rem;
+  }
+
+  .search-input::placeholder {
+    color: var(--hc-text-tertiary);
+  }
+
+  .search-input:focus {
+    border-bottom-color: var(--hc-gold);
+  }
+
+  .clear-btn {
+    position: absolute;
+    right: 0;
+    bottom: 0.52rem;
+    padding: 0.1rem 0.2rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-tertiary);
+    font-size: 1.12rem;
+    line-height: 1;
+  }
+
+  .clear-btn:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .ledger-count {
+    white-space: nowrap;
+    padding-bottom: 0.52rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filter-register {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .filter-row {
+    display: grid;
+    grid-template-columns: 4.3rem minmax(0, 1fr);
+    gap: 0.8rem;
+    align-items: start;
+  }
+
+  .filter-label {
+    padding-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 1rem;
+  }
+
+  .filter-tab {
+    padding: 0.35rem 0 0.4rem;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .filter-tab:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .filter-tab.is-active {
+    color: var(--hc-gold);
+    border-bottom-color: var(--hc-gold);
+  }
+
+  .ledger-list {
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .ledger-entry {
+    padding: 1.6rem 0 1.7rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .ledger-entry__head {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 0.9rem;
+    align-items: start;
+  }
+
+  .ledger-entry__index {
+    padding-top: 0.12rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .ledger-entry__identity {
+    min-width: 0;
+  }
+
+  .ledger-entry__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.38rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .ledger-entry__school {
+    color: var(--hc-gold);
+  }
+
+  .ledger-entry__separator {
+    color: var(--hc-text-tertiary);
+  }
+
+  .scholar-name {
+    margin: 0.42rem 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.5vw, 1.27rem);
+    font-weight: 500;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+  }
+
+  .scholar-link {
+    color: var(--hc-text-primary);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .scholar-link:hover {
+    color: var(--hc-gold);
+  }
+
+  .ledger-entry__open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding-top: 0.12rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms ease, gap 160ms ease;
+  }
+
+  .ledger-entry__open:hover {
+    gap: 0.55rem;
+    color: var(--hc-gold);
+  }
+
+  .arabic-excerpt {
+    max-width: 62ch;
+    margin: 1.15rem 0 0 2.9rem;
+    padding: 0.95rem 0 1rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .arabic-excerpt p {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.3rem;
+    line-height: 2;
+    color: var(--hc-text-primary);
+  }
+
+  .no-results {
+    margin-top: 2rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    text-align: center;
+  }
+
+  .no-results-text {
+    margin: 0 0 1rem;
+    font-family: var(--font-body);
+    font-size: 1.12rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .reset-btn {
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--hc-gold);
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  @media (max-width: 720px) {
+    .controls-top {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    .ledger-count {
+      padding-bottom: 0;
+    }
+
+    .filter-row {
+      grid-template-columns: 1fr;
+      gap: 0.35rem;
+    }
+
+    .filter-tabs {
+      gap: 0.08rem 0.85rem;
+    }
+
+    .ledger-entry__head {
+      grid-template-columns: 1.8rem minmax(0, 1fr);
+    }
+
+    .ledger-entry__open {
+      grid-column: 2;
+      justify-self: start;
+      margin-top: 0.45rem;
+    }
+
+    .arabic-excerpt {
+      margin-left: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .filter-tab,
+    .scholar-link,
+    .ledger-entry__open {
+      transition: none;
+    }
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('scholarSearch');
+    const clearBtn = document.getElementById('clearSearch');
+    const madhhabTabs = document.querySelectorAll('[data-filter-madhhab]');
+    const centuryTabs = document.querySelectorAll('[data-filter-century]');
+    const rows = document.querySelectorAll('.ledger-entry');
+    const countDisplay = document.getElementById('ledgerCount');
+    const noResults = document.getElementById('noResults');
+    const resetBtn = document.getElementById('resetFilters');
+
+    let activeMadhhab = 'all';
+    let activeCentury = 'all';
+    let searchQuery = '';
+
+    function normalize(t) {
+      return (t || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f\u02be\u02bf]/g, '')
+        .replace(/[ʿʾāīūḍṣṭẓḥ]/gi, function(c) {
+          const map = {
+            'ʿ': '', 'ʾ': '', 'ā': 'a', 'ī': 'i', 'ū': 'u', 'ḍ': 'd', 'ṣ': 's', 'ṭ': 't', 'ẓ': 'z', 'ḥ': 'h',
+            'Ā': 'a', 'Ī': 'i', 'Ū': 'u', 'Ḍ': 'd', 'Ṣ': 's', 'Ṭ': 't', 'Ẓ': 'z', 'Ḥ': 'h'
+          };
+          return map[c] || c;
+        })
+        .toLowerCase();
+    }
+
+    function syncButtons(buttons, activeId, attribute) {
+      buttons.forEach((button) => {
+        const active = button.getAttribute(attribute) === activeId;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    }
+
+    function filterRows() {
+      let visibleCount = 0;
+
+      rows.forEach((row) => {
+        const rowCentury = row.getAttribute('data-century');
+        const rowMadhhab = row.getAttribute('data-madhhab') || '';
+        const rowSearch = row.getAttribute('data-search-text') || '';
+
+        const matchesMadhhab = activeMadhhab === 'all' || rowMadhhab.includes(normalize(activeMadhhab));
+        const matchesCentury = activeCentury === 'all' || rowCentury === activeCentury;
+        const matchesSearch = !searchQuery.trim() || rowSearch.includes(normalize(searchQuery.trim()));
+
+        const visible = matchesMadhhab && matchesCentury && matchesSearch;
+        row.toggleAttribute('hidden', !visible);
+        if (visible) visibleCount++;
+      });
+
+      if (countDisplay) {
+        countDisplay.textContent = `Showing ${visibleCount} of ${rows.length} scholars`;
+      }
+
+      if (noResults) {
+        noResults.hidden = visibleCount > 0;
+      }
+    }
+
+    madhhabTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeMadhhab = tab.getAttribute('data-filter-madhhab') || 'all';
+        syncButtons(madhhabTabs, activeMadhhab, 'data-filter-madhhab');
+        filterRows();
+      });
+    });
+
+    centuryTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        activeCentury = tab.getAttribute('data-filter-century') || 'all';
+        syncButtons(centuryTabs, activeCentury, 'data-filter-century');
+        filterRows();
+      });
+    });
+
+    searchInput?.addEventListener('input', (event) => {
+      searchQuery = event.target.value;
+      if (clearBtn) clearBtn.hidden = !searchQuery;
+      filterRows();
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      if (!searchInput) return;
+      searchInput.value = '';
+      searchQuery = '';
+      clearBtn.hidden = true;
+      searchInput.focus();
+      filterRows();
+    });
+
+    resetBtn?.addEventListener('click', () => {
+      activeMadhhab = 'all';
+      activeCentury = 'all';
+      searchQuery = '';
+      if (searchInput) searchInput.value = '';
+      if (clearBtn) clearBtn.hidden = true;
+      syncButtons(madhhabTabs, 'all', 'data-filter-madhhab');
+      syncButtons(centuryTabs, 'all', 'data-filter-century');
+      filterRows();
+    });
+  });
+</script>

@@ -1,0 +1,302 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
+import { CATEGORIES } from '../../../lib/categories';
+import { collectionPage } from '../../../lib/seo';
+
+/**
+ * Topic hub for one of the four study categories.
+ *
+ * These exist for discovery rather than for navigation: the site already filters
+ * by category on /blogs, but a client-side filter is not a crawlable address and
+ * cannot accumulate topical authority. Each hub is a stable URL that states what
+ * the topic is and lists every study in it.
+ */
+
+export async function getStaticPaths() {
+  const posts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
+
+  return CATEGORIES.map((category) => ({
+    params: { slug: category.slug },
+    props: {
+      category,
+      posts: posts
+        .filter((p) => p.data.category === category.name)
+        .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+    }
+  }));
+}
+
+const { category, posts } = Astro.props;
+
+const pageUrl = new URL(`/blogs/category/${category.slug}`, Astro.site).href;
+const others = CATEGORIES.filter((c) => c.slug !== category.slug);
+
+const formatDate = (date: Date) =>
+  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const schema = [
+  collectionPage({
+    url: pageUrl,
+    title: `${category.name} | HadithCritic`,
+    description: category.blurb,
+    about: category.about,
+    items: posts.map((p) => ({ name: p.data.title, url: `/blogs/${p.id}` }))
+  })
+];
+
+const crumbs = [
+  { name: 'Home', url: '/' },
+  { name: 'Studies', url: '/blogs' },
+  { name: category.name, url: `/blogs/category/${category.slug}` }
+];
+---
+
+<BaseLayout
+  title={`${category.name} | HadithCritic`}
+  description={category.blurb}
+  canonical={`/blogs/category/${category.slug}`}
+  schema={schema}
+  crumbs={crumbs}
+>
+  <div class="hub">
+    <div class="hc-container">
+      <nav class="hub__crumb" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span aria-hidden="true">/</span>
+        <a href="/blogs">Studies</a>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{category.name}</span>
+      </nav>
+
+      <header class="hub__head">
+        <p class="hub__eyebrow">Subject Index</p>
+        <h1 class="hub__title">{category.name}</h1>
+        <p class="hub__lead">{category.blurb}</p>
+        <p class="hub__count">
+          {posts.length} {posts.length === 1 ? 'study' : 'studies'}
+        </p>
+      </header>
+
+      {posts.length > 0 ? (
+        <ol class="hub__list">
+          {posts.map((post, i) => (
+            <li class="hub__row">
+              <span class="hub__folio">{String(posts.length - i).padStart(3, '0')}</span>
+              <div class="hub__body">
+                <h2 class="hub__row-title">
+                  <a href={`/blogs/${post.id}`}>{post.data.title}</a>
+                </h2>
+                <p class="hub__desc">{post.data.description}</p>
+                <p class="hub__meta">
+                  <time datetime={post.data.date.toISOString().slice(0, 10)}>
+                    {formatDate(post.data.date)}
+                  </time>
+                  {post.data.tags?.length > 0 && (
+                    <Fragment>
+                      <span class="hub__sep" aria-hidden="true">·</span>
+                      <span>{post.data.tags.slice(0, 4).join(', ')}</span>
+                    </Fragment>
+                  )}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p class="hub__empty">No studies published in this subject yet.</p>
+      )}
+
+      <nav class="hub__related" aria-label="Other subjects">
+        <h2 class="hub__related-title">Other subjects</h2>
+        <ul>
+          {others.map((c) => (
+            <li>
+              <a href={`/blogs/category/${c.slug}`}>{c.name}</a>
+              <span class="hub__related-blurb">{c.blurb.split('.')[0]}.</span>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  </div>
+
+  <style>
+    .hub {
+      background: var(--hc-surface-0);
+      padding: clamp(2rem, 4vw, 3.5rem) 0 clamp(4rem, 8vw, 7rem);
+    }
+
+    .hub__crumb {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      color: var(--hc-text-tertiary);
+    }
+
+    .hub__crumb a { color: var(--hc-text-tertiary); text-decoration: none; }
+    .hub__crumb a:hover { color: var(--hc-gold); }
+    .hub__crumb [aria-current] { color: var(--hc-text-secondary); }
+
+    .hub__head {
+      max-width: 62ch;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid var(--hc-rule);
+    }
+
+    .hub__eyebrow {
+      margin: 0 0 0.85rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--hc-gold);
+    }
+
+    .hub__title {
+      margin: 0 0 1.1rem;
+      font-family: var(--font-display);
+      font-size: clamp(2.1rem, 5vw, 3.4rem);
+      font-weight: 500;
+      line-height: 1.03;
+      letter-spacing: -0.03em;
+      color: var(--hc-text-primary);
+    }
+
+    .hub__lead {
+      margin: 0 0 1.25rem;
+      font-family: var(--font-body);
+      font-size: clamp(1rem, 1.6vw, 1.14rem);
+      line-height: 1.68;
+      color: var(--hc-text-secondary);
+    }
+
+    .hub__count {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .hub__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .hub__row {
+      display: grid;
+      grid-template-columns: 3.25rem 1fr;
+      gap: 0 1.25rem;
+      padding: 1.75rem 0;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .hub__folio {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.9;
+      color: var(--hc-text-tertiary);
+    }
+
+    .hub__row-title {
+      margin: 0 0 0.5rem;
+      font-family: var(--font-display);
+      font-size: clamp(1.12rem, 2vw, 1.42rem);
+      font-weight: 500;
+      line-height: 1.28;
+      letter-spacing: -0.015em;
+    }
+
+    .hub__row-title a {
+      color: var(--hc-text-primary);
+      text-decoration: none;
+    }
+
+    .hub__row-title a:hover { color: var(--hc-gold); }
+
+    .hub__desc {
+      margin: 0 0 0.6rem;
+      max-width: 68ch;
+      font-family: var(--font-body);
+      font-size: 0.96rem;
+      line-height: 1.62;
+      color: var(--hc-text-secondary);
+    }
+
+    .hub__meta {
+      margin: 0;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--hc-text-tertiary);
+    }
+
+    .hub__sep { margin: 0 0.5rem; }
+
+    .hub__empty {
+      padding: 2rem 0;
+      font-family: var(--font-body);
+      color: var(--hc-text-secondary);
+    }
+
+    .hub__related {
+      margin-top: clamp(3rem, 6vw, 5rem);
+      padding-top: 2rem;
+      border-top: 1px solid var(--hc-rule);
+    }
+
+    .hub__related-title {
+      margin: 0 0 1.5rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .hub__related ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 1.4rem;
+    }
+
+    .hub__related li { max-width: 64ch; }
+
+    .hub__related a {
+      display: block;
+      margin-bottom: 0.3rem;
+      font-family: var(--font-display);
+      font-size: 1.08rem;
+      font-weight: 500;
+      color: var(--hc-text-primary);
+      text-decoration: none;
+    }
+
+    .hub__related a:hover { color: var(--hc-gold); }
+
+    .hub__related-blurb {
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--hc-text-tertiary);
+    }
+
+    @media (max-width: 600px) {
+      .hub__row {
+        grid-template-columns: 2.5rem 1fr;
+        gap: 0 0.9rem;
+      }
+    }
+  </style>
+</BaseLayout>

@@ -8,6 +8,30 @@
 @import url('./article.css');
 
 /* ═══════════════════════════════════════════════════════════════
+   SELF-HOSTED UI FACE — Glacial Indifference (SIL OFL, see
+   public/fonts/GlacialIndifference-OFL.txt). Only Regular and Bold
+   ship, so the weight ranges below map 400-500 onto Regular and
+   600-900 onto Bold. That keeps semibold UI labels on a real face
+   instead of a synthesized faux-bold.
+   ═══════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Glacial Indifference";
+  src: url("/fonts/glacial-indifference-regular.woff2") format("woff2");
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Glacial Indifference";
+  src: url("/fonts/glacial-indifference-bold.woff2") format("woff2");
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    THEME TOKENS — Semantic, not literal. Every component uses
    these tokens so light/dark mode switch is a single variable
    swap with zero hardcoded color leakage.
@@ -34,10 +58,10 @@
   --hc-fixed-ash:          #8c8a86;
 
   /* ── Adaptive surface tokens (swap per theme) ── */
-  --hc-surface-0:  var(--hc-black);       /* deepest bg */
-  --hc-surface-1:  var(--hc-black-soft);   /* panels */
-  --hc-surface-2:  var(--hc-charcoal);     /* elevated */
-  --hc-surface-3:  var(--hc-charcoal-2);   /* cards */
+  --hc-surface-0:  var(--hc-fixed-black);        /* deepest bg */
+  --hc-surface-1:  var(--hc-fixed-black-soft);   /* panels */
+  --hc-surface-2:  var(--hc-fixed-charcoal);     /* elevated */
+  --hc-surface-3:  var(--hc-fixed-charcoal-2);   /* cards */
 
   --hc-text-primary:   var(--hc-fixed-parchment);
   --hc-text-secondary: var(--hc-fixed-muted);
@@ -58,7 +82,6 @@
   --hc-ash:   var(--hc-fixed-ash);
 
   --hc-umber:       #a46a3f;
-  --hc-umber-dark:  #6e3b24;
   --hc-prophecy:    #7b2d24;
 
   /* ── Category tokens ── */
@@ -78,6 +101,16 @@
   --cat-philosophy-bg:    rgba(110, 126, 158, 0.12);
   --cat-philosophy-border:rgba(110, 126, 158, 0.30);
 
+  /* Text-safe category variants. The base --cat-* values are tuned for
+     12%-opacity fills and 30% borders; used directly as text on
+     --hc-surface-0 the red drops to 3.4:1. These lifted variants clear
+     4.5:1 on every surface level and are the only ones that may be used
+     as a `color`. */
+  --cat-history-text:    #c99a72;
+  --cat-prophecies-text: #c8705f;
+  --cat-theology-text:   #7fa389;
+  --cat-philosophy-text: #8595b5;
+
   /* ── Rules / dividers ── */
   --hc-rule:        rgba(216, 177, 102, 0.32);
   --hc-rule-soft:   rgba(242, 235, 220, 0.14);
@@ -86,21 +119,25 @@
   /* ── Shadows ── */
   --shadow:           0 30px 100px rgba(0, 0, 0, 0.42);
   --hc-header-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  --hc-popover-shadow:0 18px 50px rgba(0, 0, 0, 0.45);
-
   /* ── Header link colors ── */
   --hc-header-link:       color-mix(in srgb, var(--hc-parchment) 78%, transparent);
-  --hc-header-link-mobile:color-mix(in srgb, var(--hc-parchment) 82%, transparent);
-
   /* ── Noise texture ── */
   --hc-noise:     rgba(255,255,255,0.12);
   --hc-noise-dim: rgba(255,255,255,0.08);
 
   /* ── Typography ── */
-  --font-display: "Cormorant Garamond", "Noto Naskh Arabic", serif;
-  --font-body:    "Source Serif 4", "Noto Naskh Arabic", serif;
-  --font-ui:      "IBM Plex Sans", "Noto Naskh Arabic", sans-serif;
-  --font-arabic:  "Noto Naskh Arabic", "Amiri", serif;
+  /* Latin faces list Amiri after themselves so an Arabic run inside an
+     otherwise-Latin string still resolves to the Arabic face rather than
+     to a system fallback. Poppins and Glacial carry no Arabic glyphs. */
+  --font-display: "Poppins", "Amiri", "Segoe UI", sans-serif;
+  --font-body:    "Poppins", "Amiri", "Segoe UI", sans-serif;
+  --font-ui:      "Glacial Indifference", "Amiri", "Segoe UI", sans-serif;
+
+  /* Arabic script. Amiri is a Naskh face with full harakat support.
+     Qur'anic ayat use Amiri Quran, which carries the U+06D6-06ED mark set
+     (sajdah, waqf, small high seen) that general Arabic faces render poorly. */
+  --font-arabic:  "Amiri", "Noto Naskh Arabic", "Scheherazade New", serif;
+  --font-quran:   "Amiri Quran", "Amiri", "Noto Naskh Arabic", serif;
 
   /* ── Geometry ── */
   --radius-xs:   2px;
@@ -116,72 +153,19 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK THEME (default)
+   DARK THEME — this is the default, defined by :root above.
+   A separate dark block used to live here with 42 declarations, 38 of
+   them byte-identical to :root; the other four only re-aliased the
+   surfaces to the same warm values. [data-theme="light"] is the sole
+   theme override on the site.
    ═══════════════════════════════════════════════════════════════ */
-
-.hc-theme-dark,
-:root:not([data-theme="light"]) {
-  --hc-surface-0:  var(--hc-fixed-black);
-  --hc-surface-1:  var(--hc-fixed-black-soft);
-  --hc-surface-2:  var(--hc-fixed-charcoal);
-  --hc-surface-3:  var(--hc-fixed-charcoal-2);
-
-  --hc-text-primary:   var(--hc-fixed-parchment);
-  --hc-text-secondary: var(--hc-fixed-muted);
-  --hc-text-tertiary:  var(--hc-fixed-ash);
-  --hc-text-inverse:   var(--hc-fixed-black);
-
-  --hc-gold:       #d8b166;
-  --hc-gold-bright:#e8c878;
-  --hc-gold-soft:  #e2c783;
-  --hc-gold-dim:   #9d7a3c;
-
-  --hc-parchment:      var(--hc-fixed-parchment);
-  --hc-parchment-deep: var(--hc-fixed-parchment-deep);
-  --hc-parchment-ink:  var(--hc-fixed-parchment-ink);
-
-  --hc-muted: var(--hc-fixed-muted);
-  --hc-ash:   var(--hc-fixed-ash);
-
-  --hc-umber:       #a46a3f;
-  --hc-umber-dark:  #6e3b24;
-  --hc-prophecy:    #7b2d24;
-
-  --cat-history:       #b88a64;
-  --cat-history-bg:    rgba(184, 138, 100, 0.12);
-  --cat-history-border:rgba(184, 138, 100, 0.30);
-
-  --cat-prophecies:       #a84b3e;
-  --cat-prophecies-bg:    rgba(168, 75, 62, 0.12);
-  --cat-prophecies-border:rgba(168, 75, 62, 0.30);
-
-  --cat-theology:       #6a8c74;
-  --cat-theology-bg:    rgba(106, 140, 116, 0.12);
-  --cat-theology-border:rgba(106, 140, 116, 0.30);
-
-  --cat-philosophy:       #6e7e9e;
-  --cat-philosophy-bg:    rgba(110, 126, 158, 0.12);
-  --cat-philosophy-border:rgba(110, 126, 158, 0.30);
-
-  --hc-rule:        rgba(216, 177, 102, 0.32);
-  --hc-rule-soft:   rgba(242, 235, 220, 0.14);
-  --hc-rule-strong: rgba(216, 177, 102, 0.55);
-
-  --shadow:           0 30px 100px rgba(0, 0, 0, 0.42);
-  --hc-header-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-  --hc-popover-shadow:0 18px 50px rgba(0, 0, 0, 0.45);
-
-  --hc-header-link:       color-mix(in srgb, var(--hc-parchment) 78%, transparent);
-  --hc-header-link-mobile:color-mix(in srgb, var(--hc-parchment) 82%, transparent);
-
-  --hc-noise:     rgba(255,255,255,0.12);
-  --hc-noise-dim: rgba(255,255,255,0.08);
-}
 
 /* ═══════════════════════════════════════════════════════════════
    LIGHT THEME — Sunlit Manuscript
-   Every token is deliberately chosen for WCAG AA contrast.
-   No hardcoded dark-on-dark or light-on-light leakage.
+   Text tokens are verified against all four light surfaces at WCAG AA
+   (4.5:1). Verify with the audit in docs/design-research-notes.md after
+   changing any value here; the previous ramp claimed compliance it did
+   not have.
    ═══════════════════════════════════════════════════════════════ */
 
 [data-theme="light"] {
@@ -194,14 +178,20 @@
   /* ── Text: warm dark ink ── */
   --hc-text-primary:   #2b2824;   /* headings, body */
   --hc-text-secondary: #6b635a;   /* captions, meta */
-  --hc-text-tertiary:  #8c857a;   /* placeholders, disabled */
+  --hc-text-tertiary:  #635e56;   /* placeholders, disabled — 4.54:1 on the
+                                     deepest light surface; was #8c857a at
+                                     3.47:1, which failed as body text */
   --hc-text-inverse:   #fbf9f4;   /* text on dark accents */
 
-  /* ── Gold: deeper, less saturated for light backgrounds ── */
-  --hc-gold:       #b07e2c;
-  --hc-gold-bright:#795418;
-  --hc-gold-soft:  #966922;
-  --hc-gold-dim:   #cfa35b;
+  /* ── Gold: deeper, less saturated for light backgrounds.
+     Every step clears 4.5:1 against all four light surfaces, including
+     --hc-surface-3 (#dfd8cb). The previous ramp did not: --hc-gold sat at
+     3.40:1 and --hc-gold-dim at 2.21:1 on paper, which failed every gold
+     link and section numeral in light mode. ── */
+  --hc-gold:       #6f5019;
+  --hc-gold-bright:#63440f;
+  --hc-gold-soft:  #795820;
+  --hc-gold-dim:   #7a5920;
 
   /* ── Parchment: inverted for light mode ── */
   --hc-parchment:      #2b2824;
@@ -214,7 +204,6 @@
 
   /* ── Umber: deepened for contrast on light ── */
   --hc-umber:       #8a4c27;
-  --hc-umber-dark:  #b88a64;
   --hc-prophecy:    #a84b3e;
 
   /* ── Categories: deepened for light bg readability ── */
@@ -234,6 +223,15 @@
   --cat-philosophy-bg:    rgba(78, 92, 120, 0.10);
   --cat-philosophy-border:rgba(78, 92, 120, 0.28);
 
+  /* Text-safe variants. On paper the base hues are already dark enough to
+     use directly, so these match; the dark theme needs lifted values and
+     defines its own. Without these overrides the dark-theme variants leak
+     into light mode and fail. */
+  --cat-history-text:    #8a4c27;
+  --cat-prophecies-text: #99422f;
+  --cat-theology-text:   #446349;
+  --cat-philosophy-text: #4e5c78;
+
   /* ── Rules: umber-based, softer ── */
   --hc-rule:        rgba(138, 76, 39, 0.15);
   --hc-rule-soft:   rgba(138, 76, 39, 0.08);
@@ -242,12 +240,8 @@
   /* ── Shadows: warm, subtle ── */
   --shadow:           0 12px 24px rgba(43, 40, 36, 0.08);
   --hc-header-shadow: 0 10px 30px rgba(43, 40, 36, 0.12);
-  --hc-popover-shadow:0 18px 46px rgba(43, 40, 36, 0.14);
-
   /* ── Header links ── */
   --hc-header-link:       color-mix(in srgb, #2b2824 72%, transparent);
-  --hc-header-link-mobile:color-mix(in srgb, #2b2824 78%, transparent);
-
   /* ── Noise: warm brown tint ── */
   --hc-noise:     rgba(138, 76, 39, 0.08);
   --hc-noise-dim: rgba(138, 76, 39, 0.05);
@@ -402,9 +396,15 @@ button {
   cursor: pointer;
 }
 
+/* Focus ring — accessibility guarantee, WCAG 2.2 (2.4.11 / 2.4.13).
+   Components scope their styles to [data-astro-cid-*], which outranks a bare
+   :focus-visible; a stray `outline: none` on an input therefore used to remove
+   the ring entirely. The !important here restores a single source of truth.
+   To restyle the ring, set the variables below rather than re-declaring
+   `outline` in a component. */
 :focus-visible {
-  outline: 2px solid var(--hc-gold);
-  outline-offset: 4px;
+  outline: var(--hc-focus-width, 2px) solid var(--hc-focus-color, var(--hc-gold)) !important;
+  outline-offset: var(--hc-focus-offset, 3px) !important;
 }
 
 ::selection {
@@ -464,6 +464,43 @@ main {
   border: 0;
 }
 
+/* Skip link — WCAG 2.4.1 (Bypass Blocks, Level A). `main#main-content` has
+   always been the target; this is the link that reaches it. Hidden until
+   focused, then rendered as apparatus per DESIGN.md > Typography. */
+.hc-skip-link {
+  position: absolute;
+  z-index: 200;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -110%);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border: 1px solid var(--hc-gold);
+  border-top: 0;
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--hc-surface-1);
+  color: var(--hc-text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: transform 160ms var(--ease, ease);
+}
+
+.hc-skip-link:focus-visible {
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-skip-link {
+    transition: none;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════════
    TYPE SYSTEM — Uses adaptive text tokens
    ═══════════════════════════════════════════════════════════════ */
@@ -473,7 +510,7 @@ main {
   font-family: var(--font-ui);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  font-size: 0.72rem;
+  font-size: 0.81rem;
   line-height: 1.3;
   color: var(--hc-gold);
   font-weight: 600;
@@ -489,9 +526,9 @@ main {
   margin: 0;
 }
 
-.hc-title--xl { font-size: clamp(3.5rem, 7vw, 6rem); }
-.hc-title--lg { font-size: clamp(3rem, 6vw, 5.8rem); }
-.hc-title--md { font-size: clamp(2.25rem, 4vw, 4rem); }
+.hc-title--xl { font-size: clamp(2.98rem, 7vw, 5.1rem); }
+.hc-title--lg { font-size: clamp(2.55rem, 6vw, 4.93rem); }
+.hc-title--md { font-size: clamp(1.91rem, 4vw, 3.4rem); }
 
 .hc-copy {
   color: var(--hc-text-secondary);
@@ -500,18 +537,60 @@ main {
 }
 
 .hc-small {
-  font-family: var(--font-ui);
+  font-family: var(--font-body);
   color: var(--hc-text-tertiary);
-  font-size: 0.86rem;
+  font-size: 0.96rem;
   line-height: 1.55;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   ARABIC SCRIPT — global safety net.
+   Previously the only Arabic rule lived inside .hc-article-body, so any
+   Arabic outside an article body (tables, components, page chrome) fell
+   through to a Latin face. Matching on [lang="ar"] and [dir="rtl"] as
+   well as the class means correctly-marked Arabic is covered wherever
+   it appears, without ever touching Latin text.
+
+   Arabic needs more vertical room than Latin at the same nominal size:
+   Amiri sits small on the em and its harakat occupy the space above and
+   below the baseline that Latin leading would otherwise absorb. Hence
+   line-height 2 rather than the 1.7-1.75 used for Latin prose.
+   ═══════════════════════════════════════════════════════════════ */
+
 .arabic,
-.hc-arabic {
+.hc-arabic,
+[lang="ar"],
+[dir="rtl"] {
   font-family: var(--font-arabic);
   direction: rtl;
   line-height: 2;
-  font-size: clamp(1.25rem, 1vw + 1rem, 1.65rem);
+  /* Keep ligatures and required Arabic shaping on; never let a
+     text-rendering optimisation drop mark positioning. */
+  font-variant-ligatures: common-ligatures contextual;
+  text-rendering: optimizeLegibility;
+}
+
+.arabic,
+.hc-arabic,
+[lang="ar"] {
+  font-size: clamp(1.25rem, 1vw + 1rem, 1.4rem);
+}
+
+/* Qur'anic ayat carry marks general Arabic faces render badly. */
+.hc-quran,
+[data-quran] .quran-verse__arabic,
+.quran-verse__arabic {
+  font-family: var(--font-quran);
+}
+
+/* An inline Arabic run inside a Latin sentence must not flip the
+   paragraph's own alignment or become a block. */
+span[lang="ar"],
+span[dir="rtl"],
+span.arabic {
+  display: inline;
+  font-size: 1.08em;
+  line-height: inherit;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -533,7 +612,7 @@ main {
   background: linear-gradient(135deg, var(--hc-gold), var(--hc-gold-soft));
   font-family: var(--font-ui);
   font-weight: 500;
-  font-size: 0.88rem;
+  font-size: 0.99rem;
   letter-spacing: 0.02em;
   text-decoration: none;
   transition: transform 200ms var(--ease), filter 200ms ease, background 200ms ease, border-color 200ms ease;
@@ -728,27 +807,18 @@ main {
   left: 50%;
   transform: translate(-50%, -50%);
   color: var(--hc-gold);
-  font-size: 0.78rem;
+  font-size: 0.87rem;
   line-height: 1;
   background: var(--hc-surface-0);
   padding: 0 12px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   HEADER LINKS
-   ═══════════════════════════════════════════════════════════════ */
-
-.hc-header-link {
-  font-family: var(--font-ui);
-  font-size: 0.84rem;
-  letter-spacing: 0.035em;
-  text-decoration: none;
-  color: var(--hc-header-link);
-}
-
-.hc-header-link:hover {
-  color: var(--hc-gold);
-}
+/* HEADER LINKS — `.hc-header-link` is defined in SiteHeader.astro, its only
+   consumer. It used to be declared here as well, at 0.94rem/0.035em and no
+   uppercase: values that lost to the component's scoped `[data-astro-cid-*]`
+   rule on every page, and that would have broken the DESIGN.md apparatus role
+   had they ever won. The `--hc-header-link` token above is still live and is
+   read by the header's icon buttons. */
 
 /* ═══════════════════════════════════════════════════════════════
    DIRECTORY CARDS — adaptive
@@ -779,7 +849,7 @@ main {
 .hc-directory-card h3 {
   margin: 0.65rem 0 0;
   font-family: var(--font-display);
-  font-size: clamp(2.35rem, 4vw, 4rem);
+  font-size: clamp(2.0rem, 4vw, 3.4rem);
   line-height: 0.92;
   letter-spacing: -0.04em;
   font-weight: 500;
@@ -892,7 +962,7 @@ main {
   color: var(--cat-color, var(--hc-gold-soft));
   background: var(--cat-bg, rgba(216, 177, 102, 0.06));
   font-family: var(--font-ui);
-  font-size: 0.78rem;
+  font-size: 0.87rem;
   text-decoration: none;
 }
 
@@ -937,7 +1007,7 @@ main {
   }
 
   .hc-title--xl {
-    font-size: clamp(3.5rem, 15vw, 6rem);
+    font-size: clamp(2.98rem, 15vw, 5.1rem);
   }
 }
 
@@ -1122,11 +1192,14 @@ body { min-height: 100vh; min-height: 100dvh; }
 }
 
 /* Ensure tables don't cause overflow */
-.hc-article-body table {
-  display: block;
+.hc-article-body table,
+.hc-table-wrap,
+.variant-table-wrap,
+.b46-table-container,
+.hc-source-table-wrapper {
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
 }
 
 /* Fix grid layouts that might overflow */

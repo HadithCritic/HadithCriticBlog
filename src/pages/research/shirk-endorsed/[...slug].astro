@@ -1,0 +1,532 @@
+---
+import TreatiseLayout from '../../../layouts/TreatiseLayout.astro';
+import chaptersData from '../../../data/shirk-endorsed/chapters.json';
+import scholarsData from '../../../data/shirk-endorsed/scholars.json';
+import quranData from '../../../data/quran-verses.json';
+import { marked } from 'marked';
+
+export async function getStaticPaths() {
+  const paths: any[] = [];
+
+  for (let i = 0; i < chaptersData.length; i++) {
+    const chap = chaptersData[i];
+    const prev = i > 0
+      ? { title: chaptersData[i - 1].title, href: `/research/shirk-endorsed/${chaptersData[i - 1].id}` }
+      : null;
+    const next = i < chaptersData.length - 1
+      ? { title: chaptersData[i + 1].title, href: `/research/shirk-endorsed/${chaptersData[i + 1].id}` }
+      : (scholarsData.length > 0
+        ? { title: scholarsData[0].title, href: `/research/shirk-endorsed/${scholarsData[0].id}` }
+        : null);
+
+    paths.push({
+      params: { slug: chap.id },
+      props: { item: chap, isScholar: false, prevPage: prev, nextPage: next }
+    });
+  }
+
+  for (let i = 0; i < scholarsData.length; i++) {
+    const sch = scholarsData[i];
+    const prev = i > 0
+      ? { title: scholarsData[i - 1].title, href: `/research/shirk-endorsed/${scholarsData[i - 1].id}` }
+      : {
+          title: 'Scholars Worth Mentioning',
+          href: '/research/shirk-endorsed/scholars-worth-mentioning'
+        };
+    const next = i < scholarsData.length - 1
+      ? { title: scholarsData[i + 1].title, href: `/research/shirk-endorsed/${scholarsData[i + 1].id}` }
+      : null;
+
+    paths.push({
+      params: { slug: sch.id },
+      props: { item: sch, isScholar: true, prevPage: prev, nextPage: next }
+    });
+  }
+
+  return paths;
+}
+
+const { item, isScholar, prevPage, nextPage } = Astro.props;
+
+const verses = quranData as Record<string, { ar: string; en: string }>;
+const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
+function toArabicIndicDigits(input: string): string {
+  return input.replace(/\d/g, (d) => ARABIC_INDIC_DIGITS[Number(d)]);
+}
+
+function expandVerseRef(ref: string): string[] {
+  const out: string[] = [];
+  for (const part of ref.split(',').map((s) => s.trim()).filter(Boolean)) {
+    const m = part.match(/^(\d+):(\d+)-(\d+)$/);
+    if (m) {
+      const ch = m[1];
+      for (let v = Number(m[2]); v <= Number(m[3]); v++) out.push(`${ch}:${v}`);
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+function renderQuranVerseHtml(verseRef: string, label?: string): string {
+  const refs = expandVerseRef(verseRef);
+  const found = refs.map((r) => ({ ref: r, ...(verses[r] || {}) }));
+  const arabicSegments = found
+    .filter((f) => f.ar)
+    .map((f) => ({ text: f.ar, num: f.ref.split(':')[1] ?? '' }));
+  const arabicPlain = arabicSegments.map((s) => s.text).join(' ۝ ');
+  const verseEntries = found.filter((f) => f.en);
+  const ref = label || `Quran ${verseRef}`;
+  const hasData = Boolean(arabicSegments.length || verseEntries.length);
+
+  if (!hasData) {
+    return `<div class="hc-article-panel quran-verse"><div class="quran-verse__content"><p class="quran-verse__missing">Verse data unavailable for ${ref}.</p></div></div>`;
+  }
+
+  const arabicHtml = arabicSegments.length > 0 ? `
+    <div class="quran-verse__arabic" dir="rtl" lang="ar" data-arabic-text data-copy-text="${arabicPlain.replace(/"/g, '&quot;')}">
+      ${arabicSegments.map((seg) => `
+        <span class="qv-ayah">
+          ${seg.text}
+          ${seg.num ? `<span class="qv-ayah-end" aria-hidden="true">${toArabicIndicDigits(seg.num)}</span>` : ''}
+        </span>
+      `).join('')}
+    </div>
+  ` : '';
+
+  const englishHtml = verseEntries.length > 0 ? `
+    <div class="quran-verse__english" data-english-text>
+      ${verseEntries.map((f) => `
+        <p class="qv-verse">
+          ${f.ref.includes(':') ? `<span class="qv-verse-num" aria-hidden="true">${f.ref.split(':')[1]}</span>` : ''}
+          ${f.en}
+        </p>
+      `).join('')}
+    </div>
+  ` : '';
+
+  return `
+    <div class="hc-article-panel quran-verse" data-quran-verse>
+      <div class="quran-verse__header">
+        <div class="quran-verse__badge">
+          <span class="quran-verse__badge-icon" aria-hidden="true">✦</span>
+          <span class="quran-verse__badge-label">Quran</span>
+        </div>
+        <button type="button" class="quran-verse__copy" data-quran-copy title="Copy verse" aria-label="Copy verse to clipboard">
+          <span class="quran-verse__copy-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </span>
+          <span class="quran-verse__copy-check" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </span>
+          <span class="quran-verse__copy-text">Copy</span>
+        </button>
+      </div>
+      <div class="quran-verse__content">
+        ${arabicHtml}
+        ${englishHtml}
+        <div class="quran-verse__ref" data-ref-text="${ref}">
+          <span class="quran-verse__ref-icon" aria-hidden="true">✦</span>
+          <span>${ref}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function cleanContent(raw: string): string {
+  if (!raw) return '';
+  let content = raw;
+  content = content.replace(/^For the complete documentation index, see \[llms\.txt\].*?\n\nCopy\n\nOn this page\n\n/is, '');
+  content = content.replace(/^.*?\bllms\.txt\b.*?\n\nCopy\n\nOn this page\n\n/is, '');
+  content = content.replace(/\n*\[Previous.*?\]\(.*?\)\s*\[Next.*?\]\(.*?\)\s*Last updated.*$/is, '');
+  content = content.replace(/\n*Last updated.*$/is, '');
+  content = content.replace(/(\\_)+/g, '\n\n---\n\n');
+  content = content.replace(/_{4,}/g, '\n\n---\n\n');
+  content = content.replace(/(\n\s*---\s*\n)+/g, '\n\n---\n\n');
+  content = content.replace(/\\\s*\n/g, '\n');
+  content = content.replace(/<mark[^>]*>(.*?)<\/mark>/gis, '$1');
+  return content.trim();
+}
+
+marked.setOptions({
+  gfm: true,
+  breaks: false
+});
+
+function renderTreatiseContent(raw: string): string {
+  let content = cleanContent(raw);
+  const tokens: Record<string, string> = {};
+  let counter = 0;
+
+  content = content.replace(/<ClaimBox(?:\s+title="([^"]*)")?>([\s\S]*?)<\/ClaimBox>/gi, (_, title, inner) => {
+    const key = `%%CLAIMBOX_TOKEN_${counter++}%%`;
+    const innerHtml = marked.parse(inner.trim());
+    tokens[key] = `<div class="hc-article-panel claim-box"><div class="claim-header"><span class="claim-badge"><span class="claim-badge__icon" aria-hidden="true">✦</span><span class="claim-badge__text">${title || 'Core Thesis'}</span></span></div><div class="claim-content">${innerHtml}</div></div>`;
+    return key;
+  });
+
+  content = content.replace(/<ContextNote(?:\s+title="([^"]*)")?>([\s\S]*?)<\/ContextNote>/gi, (_, title, inner) => {
+    const key = `%%CONTEXTNOTE_TOKEN_${counter++}%%`;
+    const innerHtml = marked.parse(inner.trim());
+    tokens[key] = `<div class="hc-article-panel hc-article-panel--umber context-note"><div class="note-header"><span class="note-badge"><span class="note-badge__icon" aria-hidden="true">◈</span><span class="note-badge__text">${title || 'Historical Context'}</span></span></div><div class="note-content">${innerHtml}</div></div>`;
+    return key;
+  });
+
+  content = content.replace(/<VerdictBox(?:\s+title="([^"]*)")?>([\s\S]*?)<\/VerdictBox>/gi, (_, title, inner) => {
+    const key = `%%VERDICTBOX_TOKEN_${counter++}%%`;
+    const innerHtml = marked.parse(inner.trim());
+    tokens[key] = `<div class="hc-article-panel verdict-box"><div class="verdict-header"><span class="verdict-badge"><span class="verdict-badge__icon" aria-hidden="true">⚖</span><span class="verdict-badge__text">${title || 'Critical Verdict'}</span></span></div><div class="verdict-content">${innerHtml}</div></div>`;
+    return key;
+  });
+
+  content = content.replace(/<QuranVerse\s+verse="([^"]+)"(?:\s+label="([^"]+)")?\s*(?:\/>|>\s*<\/QuranVerse>)/gi, (_, verseRef, label) => {
+    const key = `%%QURAN_TOKEN_${counter++}%%`;
+    tokens[key] = renderQuranVerseHtml(verseRef, label);
+    return key;
+  });
+
+  let parsedHtml = marked.parse(content) as string;
+
+  for (const [k, val] of Object.entries(tokens)) {
+    parsedHtml = parsedHtml.replace(new RegExp(`<p>\\s*${k}\\s*<\\/p>`, 'g'), val);
+    parsedHtml = parsedHtml.replace(new RegExp(k, 'g'), val);
+  }
+
+  return bindArabicPassages(parsedHtml);
+}
+
+function arabicRatio(html: string) {
+  const text = html.replace(/<[^>]+>/g, '');
+  return {
+    arabic: (text.match(/[؀-ۿ]/g) || []).length,
+    latin: (text.match(/[A-Za-z]/g) || []).length
+  };
+}
+
+function bindArabicPassages(html: string): string {
+  let out = html.replace(/<(p|blockquote|li)>([\s\S]*?)<\/\1>/g, (whole, tag, inner) => {
+    const { arabic, latin } = arabicRatio(inner);
+    if (arabic < 12 || arabic <= latin) return whole;
+    return `<${tag} dir="rtl" lang="ar" class="treatise-arabic">${inner}</${tag}>`;
+  });
+
+  out = out.replace(
+    /<blockquote dir="rtl" lang="ar" class="treatise-arabic">([\s\S]*?)<\/blockquote>\s*<p>((?:(?!<\/p>)[\s\S])*?)<\/p>/g,
+    (whole, arabicInner, translation) => {
+      const { arabic, latin } = arabicRatio(translation);
+      if (latin < 20 || arabic > latin) return whole;
+      return `<figure class="passage">
+  <blockquote dir="rtl" lang="ar" class="treatise-arabic passage__source">${arabicInner}</blockquote>
+  <figcaption class="passage__translation">
+    <span class="passage__label">Translation</span>
+    <p>${translation}</p>
+  </figcaption>
+</figure>`;
+    }
+  );
+
+  out = out.replace(/<table>([\s\S]*?)<\/table>/g, (_, inner) =>
+    `<div class="table-scroll"><table>${inner}</table></div>`
+  );
+
+  return out;
+}
+
+const htmlContent = renderTreatiseContent(item.content);
+const categoryLabel = item.category === 'core'
+  ? 'PART I · FOUNDATIONAL STUDY'
+  : (item.category === 'four-imams'
+    ? 'PART II · THE FOUR SUNNI IMAMS'
+    : (item.category === 'scholars-overview' ? 'ARCHIVAL MONOGRAPH' : ''));
+---
+
+<TreatiseLayout
+  title={item.title}
+  description={isScholar ? `Classical citation and evidence on Tawassul from ${item.name} (${item.deathYear ? `d. ${item.deathYear} AH` : 'Classical Authority'}).` : `Critical analysis: ${item.title}`}
+  currentSlug={item.id}
+  prevPage={prevPage}
+  nextPage={nextPage}
+>
+  <header class="article-header">
+    {isScholar ? (
+      <div class="article-utility-line">
+        <span class="article-kicker">Classical Authority</span>
+        <span class="utility-separator">·</span>
+        <span>{item.madhhab}</span>
+        <span class="utility-separator">·</span>
+        <span>{item.deathYear ? `d. ${item.deathYear} AH` : 'Classical Period'}</span>
+        {item.century && <span class="utility-separator">·</span>}
+        {item.century && <span>{item.century}th Century Hijri</span>}
+      </div>
+    ) : (
+      categoryLabel && (
+        <div class="article-utility-line">
+          <span class="article-kicker">{categoryLabel}</span>
+        </div>
+      )
+    )}
+
+    <h1 class="article-heading">{item.title}</h1>
+  </header>
+
+  <div class="treatise-rendered-content" set:html={htmlContent} />
+
+  {item.scans && item.scans.length > 0 && (
+    <section class="manuscript-evidence-section" aria-label="Manuscript Evidence">
+      <div class="evidence-header">
+        <span class="evidence-eyebrow">Primary Source Archival Evidence</span>
+        <h2 class="evidence-title">Manuscript &amp; Reference Edition Scans</h2>
+        <p class="evidence-desc">
+          Click any scan below to open in high resolution and verify the original Arabic text, marginal notes, and printed edition chains.
+        </p>
+      </div>
+
+      <div class="scans-gallery">
+        {item.scans.map((scanUrl: string, idx: number) => (
+          <figure class="scan-figure">
+            <button
+              type="button"
+              class="scan-interactive-btn"
+              data-lightbox-src={scanUrl}
+              data-lightbox-title={`${item.title} — Primary Scan ${idx + 1}`}
+              data-lightbox-caption={`Original printed edition citation proof for ${item.title}`}
+              aria-label={`Open scan ${idx + 1} for ${item.title}`}
+            >
+              <img
+                src={scanUrl}
+                alt={`${item.title} scan proof ${idx + 1}`}
+                loading="lazy"
+                class="scan-img"
+              />
+              <span class="scan-overlay">
+                <span>Inspect Scan {idx + 1}</span>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  <line x1="11" y1="8" x2="11" y2="14"></line>
+                  <line x1="8" y1="11" x2="14" y2="11"></line>
+                </svg>
+              </span>
+            </button>
+            <figcaption class="scan-caption">Proof Page {idx + 1}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  )}
+</TreatiseLayout>
+
+<style>
+  .article-header {
+    margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .article-utility-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin-bottom: 0.8rem;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .article-kicker {
+    color: var(--hc-gold);
+  }
+
+  .utility-separator {
+    color: var(--hc-text-tertiary);
+  }
+
+  .article-heading {
+    max-width: 24ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.0rem, 4.6vw, 3.1rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    color: var(--hc-text-primary);
+    text-wrap: balance;
+  }
+
+  .treatise-rendered-content {
+    min-width: 0;
+    font-family: var(--font-body);
+    font-size: 1.17rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .treatise-rendered-content :global(h1:first-child) {
+    display: none;
+  }
+
+  .treatise-rendered-content :global(.quran-verse__missing) {
+    margin: 0;
+  }
+
+  .manuscript-evidence-section {
+    margin-top: clamp(3.75rem, 7vw, 5.5rem);
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .evidence-header {
+    max-width: 62ch;
+  }
+
+  .evidence-eyebrow {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .evidence-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.45rem, 2vw, 1.53rem);
+    font-weight: 500;
+    line-height: 1.15;
+    color: var(--hc-text-primary);
+  }
+
+  .evidence-desc {
+    margin: 0.7rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.04rem;
+    line-height: 1.68;
+    color: var(--hc-text-secondary);
+  }
+
+  .scans-gallery {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.65rem;
+  }
+
+  .scan-figure {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .scan-interactive-btn {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: zoom-in;
+    overflow: hidden;
+  }
+
+  .scan-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 470px;
+    object-fit: cover;
+    border: 1px solid var(--hc-rule-soft);
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-img {
+    opacity: 0.9;
+    transform: scale(1.008);
+  }
+
+  .scan-overlay {
+    position: absolute;
+    inset: auto 0 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.7rem 0.8rem;
+    background: linear-gradient(to top, rgba(15, 15, 16, 0.88), rgba(15, 15, 16, 0));
+    opacity: 0;
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-primary);
+    transition: opacity 180ms ease;
+  }
+
+  .scan-interactive-btn:hover .scan-overlay,
+  .scan-interactive-btn:focus-visible .scan-overlay {
+    opacity: 1;
+  }
+
+  .scan-caption {
+    margin-top: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  @media (max-width: 780px) {
+    .scans-gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  import { copyText, flashCopied, buildCitation } from '../../../lib/clipboard';
+  function initQuranCopy() {
+    for (const card of document.querySelectorAll<HTMLElement>('[data-quran-verse]')) {
+      if (card.dataset.copyInitialized) continue;
+      card.dataset.copyInitialized = 'true';
+      const copyBtn = card.querySelector<HTMLButtonElement>('[data-quran-copy]');
+      if (!copyBtn) continue;
+
+      copyBtn.addEventListener('click', async () => {
+        const arabicEl = card.querySelector('[data-arabic-text]');
+        const englishEl = card.querySelector('[data-english-text]');
+        const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
+        const textToCopy = buildCitation({
+          primary: arabicEl?.getAttribute('data-copy-text') || arabicEl?.textContent,
+          quoted: englishEl?.textContent,
+          reference: refVal
+        });
+        if (!textToCopy) return;
+        if (!(await copyText(textToCopy, 'verse'))) return;
+        flashCopied(copyBtn, { labelSelector: '.quran-verse__copy-text' });
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQuranCopy);
+  } else {
+    initQuranCopy();
+  }
+
+  document.addEventListener('astro:page-load', initQuranCopy);
+</script>

@@ -1,0 +1,983 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { person, entityPage } from '../../lib/seo';
+import { env } from 'cloudflare:workers';
+import { toPlainText } from '../../lib/format-text';
+
+/**
+ * Rijal dossier, rendered on demand from D1.
+ *
+ * This page used to be prerendered via getStaticPaths, which meant it existed
+ * for only 8,000 of the 20,950 narrators: Cloudflare Workers cap a deployment
+ * at 20,000 files and the build was already at 17,818. Reading from D1 removes
+ * both limits at once — every narrator now has a URL, and 8,000 HTML files
+ * leave the build.
+ *
+ * It also fixes a data split. The criticism shards under public/ deliberately
+ * carried only the narrators *without* a page, so the apparatus had to be
+ * inlined at build time here and fetched client-side there. D1 holds the whole
+ * 54 MB set, so both paths read the same rows.
+ */
+
+type Verdict = 'jarh' | 'tadil' | 'mixed' | 'unclassified';
+
+interface Relation {
+  id: number;
+  name: string;
+  count: number;
+}
+
+interface Statement {
+  text: string;
+  citation: string;
+  pageId: number | null;
+  verdict: Verdict;
+}
+
+interface Detail {
+  id: number;
+  nameEn: string;
+  nameAr: string;
+  fullName: string;
+  kunya: string;
+  nickname: string;
+  lineage: string;
+  relation: string;
+  generation: string;
+  grade: string;
+  tabaqa: string;
+  tabaqaEn: string;
+  tabaqaNumber: number | null;
+  rankIbnHajar: string;
+  rankIbnHajarEn: string;
+  rankDhahabi: string;
+  rankDhahabiEn: string;
+  madhhab: string;
+  madhhabEn: string;
+  flags: string[];
+  deathPlace: string;
+  placesEn: string[];
+  placesAr: string[];
+  deathDate: string;
+  deathHijri: string;
+  deathGregorian: string;
+  hadithCount: number;
+  aliasCount: number;
+  aliases: { form: string; count: number }[];
+  teachers: Relation[];
+  students: Relation[];
+  books: { book: string; count: number }[];
+  positions: { pos: number; count: number }[];
+  sampleChains: { book: string; number: string; path: number[] }[];
+}
+
+interface Criticism {
+  criticCount: number;
+  statementCount: number;
+  tally: Record<Verdict, number>;
+  critics: { critic: string; statements: Statement[] }[];
+  phenomena: { key: string; label: string; statements: Statement[] }[];
+}
+
+const id = Number(Astro.params.id);
+if (!Number.isFinite(id) || id < 0) return Astro.redirect('/narrators', 302);
+
+interface StatementRow {
+  critic: string;
+  text: string;
+  citation: string;
+  page_id: number | null;
+  verdict: Verdict;
+  phenomenon_key: string | null;
+  phenomenon_label: string | null;
+}
+
+const [detailRow, statementRows] = await env.DB.batch([
+  env.DB.prepare('SELECT payload FROM narrator_detail WHERE id = ?').bind(id),
+  env.DB.prepare(
+    `SELECT critic, text, citation, page_id, verdict, phenomenon_key, phenomenon_label
+       FROM criticism_statement WHERE narrator_id = ? ORDER BY ord`
+  ).bind(id)
+]);
+
+const detailPayload = detailRow.results?.[0] as { payload?: string } | undefined;
+if (!detailPayload?.payload) {
+  return new Response('Narrator not found', { status: 404 });
+}
+
+const detail = JSON.parse(detailPayload.payload) as Detail;
+
+/**
+ * Rebuild the shape the template already expects from the normalised rows.
+ * Criticism is stored one statement per row so it stays queryable and so no
+ * single narrator's apparatus exceeds D1's statement ceiling; grouping it back
+ * into critics happens here rather than changing the whole template.
+ */
+const rows = (statementRows.results || []) as unknown as StatementRow[];
+let criticism: Criticism | null = null;
+
+if (rows.length) {
+  const byCritic = new Map<string, Statement[]>();
+  const byPhenomenon = new Map<string, { key: string; label: string; statements: Statement[] }>();
+  const tally: Record<Verdict, number> = { jarh: 0, tadil: 0, mixed: 0, unclassified: 0 };
+
+  for (const r of rows) {
+    const statement: Statement = {
+      text: r.text,
+      citation: r.citation,
+      pageId: r.page_id,
+      verdict: r.verdict
+    };
+    if (!byCritic.has(r.critic)) byCritic.set(r.critic, []);
+    byCritic.get(r.critic)!.push(statement);
+
+    if (tally[r.verdict] !== undefined) tally[r.verdict] += 1;
+
+    if (r.phenomenon_key) {
+      if (!byPhenomenon.has(r.phenomenon_key)) {
+        byPhenomenon.set(r.phenomenon_key, {
+          key: r.phenomenon_key,
+          label: r.phenomenon_label || r.phenomenon_key,
+          statements: []
+        });
+      }
+      byPhenomenon.get(r.phenomenon_key)!.statements.push(statement);
+    }
+  }
+
+  criticism = {
+    criticCount: byCritic.size,
+    statementCount: rows.length,
+    tally,
+    critics: [...byCritic].map(([critic, statements]) => ({ critic, statements })),
+    phenomena: [...byPhenomenon.values()]
+  };
+}
+
+/**
+ * Sample chains store narrator ids, not names, to keep the dossier payload
+ * small. Resolve just the ids this page links to in one query rather than
+ * carrying a 20,950-entry name map.
+ */
+const referenced = [
+  ...(detail.sampleChains || []).flatMap((c) => c.path),
+  ...(detail.teachers || []).map((t) => t.id),
+  ...(detail.students || []).map((t) => t.id)
+];
+const uniqueIds = [...new Set(referenced)].filter((n) => Number.isFinite(n));
+
+const chainNames: Record<string, string> = {};
+if (uniqueIds.length) {
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const named = await env.DB.prepare(
+    `SELECT id, name_en, name_ar FROM narrator WHERE id IN (${placeholders})`
+  )
+    .bind(...uniqueIds)
+    .all<{ id: number; name_en: string; name_ar: string }>();
+  for (const row of named.results || []) {
+    chainNames[row.id] = row.name_en || row.name_ar;
+  }
+}
+
+// Every narrator in D1 now has a page, so anything we resolved a name for is
+// safe to link. The old build had to gate this on the prerendered subset.
+const linkableIds = new Set(Object.keys(chainNames).map(Number));
+
+/**
+ * What this transmitter actually narrated.
+ *
+ * The dossier already reports what the critics said about him. This is the
+ * other half of the evidence, and until the corpus landed in D1 the site could
+ * not show it: the register's `hadith_count` was a number with nothing behind
+ * it. `hadith_narrator.narrator_id` is the same integer as `narrator.id` —
+ * verified across all 20,950 shared rows — so this is one indexed lookup and
+ * not a reconciliation.
+ *
+ * A sample is enough on this page; the full list lives at /hadith?narrator={id}.
+ */
+interface Transmission {
+  id: number;
+  hadith_num: string;
+  book_en: string;
+  matn_en: string | null;
+  pos: number;
+  narrator_count: number;
+  parallel_count: number;
+}
+
+/**
+ * The corpus tables are a separate migration from the register, so this page
+ * has to survive their absence. A partly-applied import, or a rollback, would
+ * otherwise take every rijal dossier down with it — D1 rejects a whole batch
+ * when one statement references a missing table. The corpus sections are
+ * additive, so failing to read them degrades to hiding them.
+ */
+let transmissions: Transmission[] = [];
+let transmissionCount = 0;
+let attestedForms: { surface: string; n_mentions: number; is_display: number }[] = [];
+
+try {
+  const [transmissionRes, transmissionCountRes, aliasRes] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT h.id, h.hadith_num, h.matn_en, h.narrator_count, h.parallel_count,
+              hn.pos, b.title_en AS book_en
+         FROM hadith_narrator hn
+         JOIN hadith h ON h.id = hn.hadith_id
+         JOIN hadith_book b ON b.id = h.book_id
+        WHERE hn.narrator_id = ?
+        ORDER BY h.parallel_count DESC, h.id
+        LIMIT 8`
+    ).bind(id),
+    // DISTINCT because a transmitter can be named more than once in one chain.
+    // Counting rows here would disagree with the corpus view this links to,
+    // which counts narrations.
+    env.DB.prepare(
+      'SELECT COUNT(DISTINCT hadith_id) AS n FROM hadith_narrator WHERE narrator_id = ?'
+    ).bind(id),
+    // Attested spellings: the register's display form is often not how this
+    // person is actually named in the chains.
+    env.DB.prepare(
+      `SELECT surface, n_mentions, is_display FROM narrator_alias
+        WHERE narrator_id = ? ORDER BY n_mentions DESC LIMIT 8`
+    ).bind(id)
+  ]);
+
+  transmissions = (transmissionRes.results || []) as unknown as Transmission[];
+  transmissionCount = Number(
+    (transmissionCountRes.results?.[0] as { n?: number } | undefined)?.n ?? 0
+  );
+  attestedForms = (aliasRes.results || []) as unknown as typeof attestedForms;
+} catch (error) {
+  console.error('Corpus lookup failed for narrator', id, error);
+}
+
+const VERDICT_LABELS: Record<Verdict, string> = {
+  jarh: 'Jarh',
+  tadil: "Ta'dil",
+  mixed: 'Mixed',
+  unclassified: 'Unclassified'
+};
+
+const verdicts = [
+  ['Ibn Hajar al-Asqalani', detail.rankIbnHajarEn, detail.rankIbnHajar],
+  ['al-Dhahabi', detail.rankDhahabiEn, detail.rankDhahabi],
+  ['Tabaqa (Taqrib al-Tahdhib)', detail.tabaqaEn, detail.tabaqa],
+  ['Creedal Attribution', detail.madhhabEn, detail.madhhab]
+].filter(([, en, ar]) => en || ar);
+
+const nameRows = [
+  ['Full name', detail.fullName],
+  ['Kunya', detail.kunya],
+  ['Nickname', detail.nickname],
+  ['Lineage', detail.lineage],
+  ['Relations', detail.relation]
+].filter(([, v]) => v);
+
+const journey = detail.placesEn?.length ? detail.placesEn : detail.placesAr || [];
+
+const deathLine = detail.deathHijri
+  ? `${detail.deathHijri} AH / ${detail.deathGregorian} CE`
+  : 'date not recorded';
+
+const critics = [...(criticism?.critics || [])].sort(
+  (a, b) => b.statements.length - a.statements.length
+);
+
+const maxBook = detail.books?.[0]?.count || 1;
+const maxPos = Math.max(1, ...(detail.positions || []).map((p) => p.count));
+
+const title = `${detail.nameEn || detail.nameAr} | Rijāl Dossier | HadithCritic`;
+const description = [
+  `${detail.nameEn}${detail.nameAr ? ` (${detail.nameAr})` : ''}, ${deathLine}.`,
+  detail.rankIbnHajarEn ? `Ibn Hajar: ${detail.rankIbnHajarEn}` : '',
+  detail.hadithCount ? `${detail.hadithCount} hadith across the corpus.` : '',
+  criticism ? `${criticism.statementCount} recorded statements from ${criticism.criticCount} critics.` : ''
+]
+  .filter(Boolean)
+  .join(' ')
+  .slice(0, 300);
+
+// --- structured data -------------------------------------------------------
+const dossierUrl = new URL(`/narrators/${detail.id}`, Astro.site).href;
+const personNode = person({
+  url: dossierUrl,
+  nameEn: detail.nameEn,
+  nameAr: detail.nameAr,
+  fullName: detail.fullName,
+  kunya: detail.kunya,
+  description,
+  deathYearCE: detail.deathGregorian,
+  deathPlace: detail.deathPlace,
+  places: detail.placesEn,
+  generation: detail.generation,
+  id: detail.id
+});
+
+const narratorSchema = [
+  entityPage({
+    url: dossierUrl,
+    title,
+    description,
+    entityId: personNode['@id'] as string
+  }),
+  personNode
+];
+
+const narratorCrumbs = [
+  { name: 'Home', url: '/' },
+  { name: 'Rijāl Register', url: '/narrators' },
+  { name: detail.nameEn || detail.nameAr, url: `/narrators/${detail.id}` }
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  canonical={`/narrators/${detail.id}`}
+  schema={narratorSchema}
+  crumbs={narratorCrumbs}
+>
+  <article class="rijal-page">
+    <header class="rijal-head">
+      <a class="rijal-back" href="/narrators">&larr; Rijāl register</a>
+      <span class="rijal-id">#{detail.id}</span>
+      <h1 class="rijal-name-en">{detail.nameEn || detail.nameAr}</h1>
+      {detail.nameAr && <p class="rijal-name-ar" dir="rtl" lang="ar">{detail.nameAr}</p>}
+
+      <div class="rijal-badges">
+        <span class="rijal-badge">{detail.generation}</span>
+        {detail.tabaqaNumber && <span class="rijal-badge">Tabaqa {detail.tabaqaNumber}</span>}
+        <span class="rijal-badge rijal-badge--grade">{detail.grade}</span>
+        {detail.flags?.map((f) => <span class="rijal-badge rijal-badge--flag">{f}</span>)}
+      </div>
+
+      <dl class="rijal-facts">
+        <div><dt>Died</dt><dd>{deathLine}{detail.deathPlace ? `, ${detail.deathPlace}` : ''}</dd></div>
+        <div><dt>Hadith</dt><dd>{detail.hadithCount ? detail.hadithCount.toLocaleString() : '—'}</dd></div>
+        <div><dt>Teachers</dt><dd>{detail.teachers?.length || 0}</dd></div>
+        <div><dt>Students</dt><dd>{detail.students?.length || 0}</dd></div>
+      </dl>
+    </header>
+
+    {verdicts.length > 0 && (
+      <section class="rijal-section">
+        <h2>Scholarly Verdicts</h2>
+        <p class="rijal-note">Each verdict is the named authority's own wording, shown in translation with the Arabic alongside.</p>
+        <div class="rijal-verdicts">
+          {verdicts.map(([who, en, ar]) => (
+            <div class="rijal-verdict">
+              <span class="rijal-verdict__who">{who}</span>
+              {en && <p class="rijal-verdict__en">{en}</p>}
+              {ar && <p class="rijal-verdict__ar" dir="rtl" lang="ar">{ar}</p>}
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {detail.deathDate && (
+      <section class="rijal-section">
+        <h2>Death Notice</h2>
+        <p class="rijal-note">Kept verbatim: the source preserves the disagreement between authorities over the year, which is itself evidence.</p>
+        <p class="rijal-arabic" dir="rtl" lang="ar">{detail.deathDate}</p>
+      </section>
+    )}
+
+    {detail.books?.length > 0 && (
+      <section class="rijal-section">
+        <h2>Presence in the Corpus</h2>
+        <ul class="rijal-bars">
+          {detail.books.slice(0, 12).map((b) => (
+            <li class="rijal-bar">
+              <span class="rijal-bar__label">{b.book}</span>
+              <span class="rijal-bar__track"><span class="rijal-bar__fill" style={`width:${Math.max(2, (b.count / maxBook) * 100)}%`}></span></span>
+              <span class="rijal-bar__value">{b.count.toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+
+        {detail.positions?.length > 0 && (
+          <>
+            <h3 class="rijal-subhead">Position in the chain</h3>
+            <p class="rijal-note">Position 0 sits at the Companion end; the highest position sits with the compiler.</p>
+            <ul class="rijal-bars rijal-bars--compact">
+              {detail.positions.map((p) => (
+                <li class="rijal-bar">
+                  <span class="rijal-bar__label">Position {p.pos}</span>
+                  <span class="rijal-bar__track"><span class="rijal-bar__fill" style={`width:${Math.max(2, (p.count / maxPos) * 100)}%`}></span></span>
+                  <span class="rijal-bar__value">{p.count.toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    )}
+
+    {transmissionCount > 0 && (
+      <section class="rijal-section">
+        <h2>Narrations</h2>
+        <p class="rijal-note">
+          {transmissionCount.toLocaleString()} narrations in the corpus name this
+          transmitter. Shown are the most widely attested; no authenticity
+          grading is applied to any of them.
+        </p>
+        <ul class="rijal-transmissions">
+          {transmissions.map((t) => (
+            <li class="rijal-transmission">
+              <a href={`/hadith/${t.id}`}>
+                <span class="rijal-transmission__src">
+                  {t.book_en}{t.hadith_num ? ` № ${t.hadith_num}` : ''}
+                </span>
+                {t.matn_en && <span class="rijal-transmission__text">{toPlainText(t.matn_en).slice(0, 200)}</span>}
+                <span class="rijal-transmission__meta">
+                  Position {t.pos} of {t.narrator_count}
+                  {t.parallel_count > 0 && ` · ${t.parallel_count.toLocaleString()} parallels`}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="rijal-note">
+          <a class="rijal-more" href={`/hadith?narrator=${detail.id}`}>
+            All {transmissionCount.toLocaleString()} narrations →
+          </a>
+        </p>
+      </section>
+    )}
+
+    {attestedForms.length > 1 && (
+      <section class="rijal-section">
+        <h2>Attested Spellings</h2>
+        <p class="rijal-note">
+          How the chains actually name this person, with occurrence counts. The
+          register's display form is frequently not the commonest one, which is
+          why identity resolution cannot rely on string matching alone.
+        </p>
+        <ul class="rijal-forms">
+          {attestedForms.map((f) => (
+            <li class="rijal-form">
+              <span lang="ar" dir="rtl" class="rijal-form__surface">{f.surface}</span>
+              <span class="rijal-form__count">{f.n_mentions.toLocaleString()}</span>
+              {f.is_display === 1 && <span class="rijal-form__flag">Register form</span>}
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {detail.sampleChains?.length > 0 && (
+      <section class="rijal-section">
+        <h2>Sample Isnads</h2>
+        <p class="rijal-note">Read left to right from the Companion end toward the compiler. This narrator is marked.</p>
+        {detail.sampleChains.map((chain) => (
+          <div class="rijal-chain">
+            <span class="rijal-chain__src">{chain.book}{chain.number ? ` ${chain.number}` : ''}</span>
+            <ol class="rijal-chain__path">
+              {chain.path.map((nid) => (
+                <li class={nid === detail.id ? 'rijal-node rijal-node--self' : 'rijal-node'}>
+                  {nid === detail.id ? (
+                    <span>{detail.nameEn || detail.nameAr}</span>
+                  ) : linkableIds.has(nid) ? (
+                    <a href={`/narrators/${nid}`}>{chainNames[nid] || `#${nid}`}</a>
+                  ) : (
+                    <span>{chainNames[nid] || `#${nid}`}</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      </section>
+    )}
+
+    {criticism && (
+      <section class="rijal-section">
+        <h2>Jarh &amp; Ta'dil</h2>
+        <p class="rijal-note">
+          {criticism.statementCount.toLocaleString()} statements from {criticism.criticCount} critics.
+          A statement is labelled only where an unambiguous formula is present; the rest are left unclassified rather than guessed at.
+        </p>
+        <div class="rijal-tally">
+          {(Object.entries(criticism.tally) as [Verdict, number][])
+            .filter(([, n]) => n > 0)
+            .map(([k, n]) => <span class={`rijal-pill rijal-pill--${k}`}>{VERDICT_LABELS[k]} {n}</span>)}
+        </div>
+
+        {criticism.phenomena?.length > 0 && (
+          <div class="rijal-phenomena">
+            {criticism.phenomena.map((p) => (
+              <span class="rijal-badge rijal-badge--flag">{p.label} {p.statements.length}</span>
+            ))}
+          </div>
+        )}
+
+        {critics.map((g) => (
+          <details class="rijal-critic">
+            <summary>
+              <span dir="rtl" lang="ar">{g.critic}</span>
+              <span class="rijal-critic__count">{g.statements.length}</span>
+            </summary>
+            <ul class="rijal-statements">
+              {g.statements.map((s) => (
+                <li class={`rijal-statement rijal-statement--${s.verdict}`}>
+                  <p dir="rtl" lang="ar">{s.text}</p>
+                  <div class="rijal-statement__meta">
+                    <span class="rijal-statement__verdict">{VERDICT_LABELS[s.verdict]}</span>
+                    {s.citation && <cite dir="rtl" lang="ar">{s.citation}</cite>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </section>
+    )}
+
+    {(nameRows.length > 0 || detail.aliases?.length > 0) && (
+      <section class="rijal-section">
+        <h2>Names &amp; Attested Forms</h2>
+        {nameRows.length > 0 && (
+          <dl class="rijal-names">
+            {nameRows.map(([label, value]) => (
+              <div><dt>{label}</dt><dd dir="auto">{value}</dd></div>
+            ))}
+          </dl>
+        )}
+        {detail.aliases?.length > 0 && (
+          <>
+            <p class="rijal-note">Appears in the isnads under {detail.aliasCount} distinct form{detail.aliasCount === 1 ? '' : 's'}.</p>
+            <div class="rijal-aliases">
+              {detail.aliases.map((a) => (
+                <span class="rijal-alias" dir="rtl" lang="ar">{a.form}<span class="rijal-alias__count">{a.count}</span></span>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+    )}
+
+    {journey.length > 0 && (
+      <section class="rijal-section">
+        <h2>Places</h2>
+        <p class="rijal-journey">{journey.map((p) => <span class="rijal-place" dir="auto">{p}</span>)}</p>
+      </section>
+    )}
+
+    {(detail.teachers?.length > 0 || detail.students?.length > 0) && (
+      <section class="rijal-section">
+        <h2>Transmission Network</h2>
+        <p class="rijal-note">Derived from adjacency in the isnad chains, with the number of times each pairing occurs.</p>
+        <div class="rijal-network">
+          <div>
+            <h3 class="rijal-subhead">Teachers ({detail.teachers.length})</h3>
+            <ul class="rijal-relations">
+              {detail.teachers.map((t) => (
+                <li>
+                  {linkableIds.has(t.id) ? <a href={`/narrators/${t.id}`}>{t.name}</a> : <span class="rijal-plain">{t.name}</span>}
+                  <span>{t.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <h3 class="rijal-subhead">Students ({detail.students.length})</h3>
+            <ul class="rijal-relations">
+              {detail.students.map((s) => (
+                <li>
+                  {linkableIds.has(s.id) ? <a href={`/narrators/${s.id}`}>{s.name}</a> : <span class="rijal-plain">{s.name}</span>}
+                  <span>{s.count}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+    )}
+  </article>
+</BaseLayout>
+
+<style>
+  .rijal-page {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 5rem;
+  }
+
+  .rijal-back {
+    font-family: var(--font-ui);
+    font-size: 0.87rem;
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+  }
+
+  .rijal-back:hover { color: var(--hc-gold); }
+
+  .rijal-id {
+    margin-left: 0.7rem;
+    font-family: var(--font-ui);
+    font-size: 0.83rem;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rijal-name-en {
+    margin: 0.8rem 0 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.61rem, 4vw, 2.46rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .rijal-name-ar {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.36rem;
+    color: var(--hc-gold);
+    direction: rtl;
+    line-height: 1.7;
+  }
+
+  .rijal-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 1rem;
+  }
+
+  .rijal-badge {
+    padding: 0.2rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-pill);
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-badge--grade { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
+
+  .rijal-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.9rem;
+    margin: 1.6rem 0 0;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .rijal-facts dt {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-facts dd {
+    margin: 0.25rem 0 0;
+    font-size: 1.06rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-section {
+    margin-top: 2.6rem;
+    padding-top: 1.6rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .rijal-section h2 {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-display, serif);
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+  }
+
+  .rijal-subhead {
+    margin: 1.4rem 0 0.3rem;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-note {
+    margin: 0 0 1rem;
+    max-width: 68ch;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-arabic {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.18rem;
+    line-height: 2;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-verdicts { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .rijal-verdict {
+    padding: 0.8rem 0.95rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+  }
+
+  .rijal-verdict__who {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-verdict__en { margin: 0.35rem 0 0; font-size: 1.06rem; line-height: 1.6; max-width: 68ch; }
+
+  .rijal-verdict__ar {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.18rem;
+    line-height: 1.95;
+    color: var(--hc-gold);
+    direction: rtl;
+  }
+
+  .rijal-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+
+  .rijal-bar {
+    display: grid;
+    grid-template-columns: minmax(8rem, 15rem) 1fr auto;
+    align-items: center;
+    gap: 0.7rem;
+    font-size: 0.94rem;
+  }
+
+  .rijal-bar__label { color: var(--hc-text-secondary); }
+
+  .rijal-bar__track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--hc-surface-2);
+    overflow: hidden;
+  }
+
+  .rijal-bar__fill { display: block; height: 100%; background: var(--hc-gold); opacity: 0.75; }
+
+  .rijal-bar__value { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.87rem; }
+
+  .rijal-chain {
+    margin-bottom: 0.9rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    overflow-x: auto;
+  }
+
+  .rijal-chain__src {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--hc-text-tertiary);
+    margin-bottom: 0.45rem;
+  }
+
+  .rijal-chain__path {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: none;
+  }
+
+  .rijal-node { font-size: 0.92rem; }
+  .rijal-node:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
+  .rijal-node a { color: var(--hc-text-secondary); text-decoration: none; }
+  .rijal-node a:hover { color: var(--hc-gold); }
+  .rijal-node--self > span { color: var(--hc-gold); font-weight: 600; }
+
+  .rijal-tally { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.7rem; }
+
+  .rijal-pill {
+    padding: 0.18rem 0.5rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-pill--jarh { color: var(--hc-danger, #c2593c); border-color: color-mix(in oklch, var(--hc-danger, #b4472e) 45%, transparent); }
+  .rijal-pill--tadil { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
+
+  .rijal-phenomena { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+
+  .rijal-critic {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    margin-bottom: 0.4rem;
+  }
+
+  .rijal-critic > summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.7rem;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    font-family: var(--font-arabic);
+    font-size: 1.12rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .rijal-critic__count { font-family: var(--font-ui); font-size: 0.8rem; color: var(--hc-text-tertiary); }
+
+  .rijal-statements { list-style: none; margin: 0; padding: 0 0.75rem 0.7rem; display: flex; flex-direction: column; gap: 0.6rem; }
+
+  .rijal-statement { padding-top: 0.6rem; border-top: 1px solid var(--hc-rule-soft); }
+
+  .rijal-statement p {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.12rem;
+    line-height: 1.95;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-statement__meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; margin-top: 0.3rem; }
+
+  .rijal-statement__verdict {
+    font-family: var(--font-ui);
+    font-size: 0.79rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-statement--jarh .rijal-statement__verdict { color: var(--hc-danger, #c2593c); }
+  .rijal-statement--tadil .rijal-statement__verdict { color: var(--hc-gold); }
+
+  .rijal-statement cite {
+    font-family: var(--font-arabic);
+    font-size: 0.92rem;
+    font-style: normal;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-names { margin: 0 0 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .rijal-names dt {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .rijal-names dd { margin: 0.15rem 0 0; font-size: 1.06rem; color: var(--hc-text-secondary); }
+
+  .rijal-aliases { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+
+  .rijal-alias {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 4px;
+    background: var(--hc-surface-2);
+    font-family: var(--font-arabic);
+    font-size: 1.06rem;
+    color: var(--hc-text-secondary);
+    direction: rtl;
+  }
+
+  .rijal-alias__count { font-family: var(--font-ui); font-size: 0.79rem; color: var(--hc-text-tertiary); }
+
+  .rijal-journey { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin: 0; }
+  .rijal-place { font-size: 1.01rem; color: var(--hc-text-secondary); }
+  .rijal-place:not(:last-child)::after { content: '→'; margin-left: 0.35rem; color: var(--hc-text-tertiary); }
+
+  .rijal-network { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.4rem; }
+
+  .rijal-relations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+
+  .rijal-relations li { display: flex; justify-content: space-between; gap: 0.7rem; font-size: 0.96rem; }
+  .rijal-relations a { color: var(--hc-text-secondary); text-decoration: none; }
+  .rijal-relations a:hover { color: var(--hc-gold); }
+  .rijal-relations span { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
+  /* A narrator with no page of their own still shows, just not as a link. */
+  .rijal-relations .rijal-plain { color: var(--hc-text-secondary); font-size: 0.96rem; font-variant-numeric: normal; }
+
+  /* Narrations: what this transmitter carried, opposite what critics said of him. */
+  .rijal-transmissions { list-style: none; margin: 0 0 1rem; padding: 0; }
+  .rijal-transmission { border-top: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.16)); }
+  .rijal-transmission a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.9rem 0;
+    text-decoration: none;
+    color: inherit;
+  }
+  .rijal-transmission__src {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-gold);
+  }
+  .rijal-transmission__text {
+    font-size: 0.96rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+    max-width: 68ch;
+  }
+  .rijal-transmission a:hover .rijal-transmission__text { color: var(--hc-gold); }
+  .rijal-transmission__meta {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+  }
+  .rijal-more { color: var(--hc-gold); text-decoration: none; }
+  .rijal-more:hover { text-decoration: underline; }
+
+  /* Attested spellings. Arabic gets its own leading; harakat need the room. */
+  .rijal-forms { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+  .rijal-form {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.12));
+  }
+  .rijal-form__surface { font-family: 'Amiri', serif; font-size: 1.12rem; line-height: 2.0; flex: 1 1 auto; }
+  .rijal-form__count { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
+  .rijal-form__flag {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-gold);
+  }
+</style>

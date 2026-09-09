@@ -1,6 +1,19 @@
 import { expect, test } from '@playwright/test';
 
-const routes = ['/', '/blogs', '/resources', '/projects', '/academia', '/youtube', '/contact', '/blogs/origins-early-history/5-debunking-the-hadith-prophecy-of-bedouins-building-tall-buildings'];
+const routes = [
+  '/',
+  '/blogs',
+  '/resources',
+  '/projects',
+  '/academia',
+  '/youtube',
+  '/contact',
+  '/blogs/origins-early-history/5-debunking-the-hadith-prophecy-of-bedouins-building-tall-buildings',
+  '/blogs/transmission-narrators/47-hadith-logically-can-not-be-considered-wahi',
+  '/blogs/prophecies-eschatology/77-faces-like-hammered-shields-the-turks-hadith-clusters',
+  '/blogs/origins-early-history/46-a-case-study-of-ibn-abbas-ikrima-in-the-muwatta',
+  '/blogs/transmission-narrators/51-bukharis-blind-spot-the-problem-of-aishas-pre-birth-narrations'
+];
 
 for (const route of routes) {
   test(`${route} has one main landmark and no horizontal overflow`, async ({ page }) => {

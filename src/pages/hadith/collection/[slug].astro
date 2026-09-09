@@ -1,0 +1,514 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { toPlainText, renderArabic } from '../../../lib/format-text';
+
+/**
+ * One collection, read in its own order.
+ *
+ * The counterpart to searching. A reader who wants Sahih Muslim from the
+ * beginning should get it in sequence, with the chapter headings that structure
+ * it, rather than having to invent a query that happens to surface it.
+ *
+ * Laid out like the narration page: a chapter banner carrying both scripts,
+ * then each report with the Arabic and the translation in facing columns. The
+ * point of the corpus is reading one against the other, and a stacked list put
+ * a screen height between them.
+ *
+ * Sequence is `hadith.id`, not `hadith_num`. The numbers are stored as text and
+ * 33,794 narrations carry none at all, so sorting by them would interleave
+ * "10" before "9" and strand every unnumbered report. The ids were assigned in
+ * source order, so ordering by id reproduces the printed sequence and rides the
+ * (book_id, id) index instead of sorting.
+ *
+ * Chapter headings are emitted when the chapter changes between adjacent rows.
+ * They are bab level, not kitab level: the corpus records 56,896 of them across
+ * 33 collections, which is a heading per few narrations rather than a table of
+ * contents. That makes them a reading aid here and a poor navigation tree, so
+ * no chapter index is offered.
+ */
+
+const { slug } = Astro.params;
+const p = Astro.url.searchParams;
+const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
+const size = 25;
+const offset = (page - 1) * size;
+
+/** Characters of each narration shown in the list before it is cut. */
+const PREVIEW_AR = 420;
+const PREVIEW_EN = 380;
+
+interface Book {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  hadith_count: number;
+}
+
+interface Row {
+  id: number;
+  hadith_num: string;
+  chapter_en: string;
+  chapter_ar: string;
+  matn_en: string | null;
+  text_en: string;
+  matn_ar: string | null;
+  text_ar: string;
+  narrator_count: number;
+  parallel_count: number;
+}
+
+let book: Book | undefined;
+let rows: Row[] = [];
+let failed = false;
+
+try {
+  const found = await env.DB.prepare(
+    'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?'
+  )
+    .bind(slug)
+    .first<Book>();
+  book = found ?? undefined;
+
+  if (book) {
+    const res = await env.DB.prepare(
+      `SELECT id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
+              matn_ar, text_ar, narrator_count, parallel_count
+         FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`
+    )
+      .bind(book.id, size, offset)
+      .all();
+    rows = (res.results || []) as unknown as Row[];
+  }
+} catch (error) {
+  console.error('Collection page failed to load', error);
+  failed = true;
+}
+
+if (!book && !failed) {
+  return new Response('Collection not found', { status: 404 });
+}
+
+const total = book?.hadith_count ?? 0;
+const pages = Math.max(1, Math.ceil(total / size));
+
+const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
+
+/** Cut on a word boundary so a preview never ends mid-word. */
+const preview = (text: string, limit: number) => {
+  const clean = (text || '').trim();
+  if (clean.length <= limit) return { text: clean, cut: false };
+  const space = clean.lastIndexOf(' ', limit);
+  return { text: clean.slice(0, space > limit * 0.6 ? space : limit), cut: true };
+};
+
+// Chapter headings repeat across consecutive narrations; show one per run.
+let lastChapter = '';
+const withHeadings = rows.map((r) => {
+  const chapter = toPlainText(r.chapter_en) || '';
+  const isNew = chapter !== '' && chapter !== lastChapter;
+  if (isNew) lastChapter = chapter;
+  return {
+    row: r,
+    heading: isNew ? { en: chapter, ar: (r.chapter_ar || '').trim() } : null
+  };
+});
+---
+
+<BaseLayout
+  title={book ? `${book.title_en} | HadithCritic` : 'Collection | HadithCritic'}
+  description={book
+    ? `Browse all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in Arabic and English, in sequence, with no authenticity gradings.`
+    : 'Hadith collection'}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Hadith', url: '/hadith' },
+    { name: book?.title_en || 'Collection', url: `/hadith/collection/${slug}` }
+  ]}
+>
+  <div class="coll-page">
+    {failed || !book ? (
+      <div class="wrap">
+        <p class="coll-error">This collection is temporarily unavailable. Please try again shortly.</p>
+      </div>
+    ) : (
+      <>
+        <header class="coll-head">
+          <div class="wrap">
+            <p class="coll-eyebrow"><a href="/hadith">Corpus</a> — Collection</p>
+            <h1 class="coll-title">{book.title_en}</h1>
+            {book.title_ar && (
+              <p class="coll-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
+            )}
+            <p class="coll-count">
+              {book.hadith_count.toLocaleString()} narrations, in the order they appear in the source.
+            </p>
+
+            <form class="coll-search" method="get" action="/hadith">
+              <input type="hidden" name="book" value={book.id} />
+              <label class="sr-only" for="coll-q">Search within {book.title_en}</label>
+              <input
+                id="coll-q"
+                class="coll-search__input"
+                type="search"
+                name="q"
+                placeholder={`Search within ${book.title_en}…`}
+                autocomplete="off"
+              />
+              <button type="submit" class="coll-search__go">Search</button>
+            </form>
+          </div>
+        </header>
+
+        <div class="wrap coll-body">
+          <div class="coll-list">
+            {withHeadings.map(({ row: r, heading }) => {
+              const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
+              const en = preview(toPlainText(r.matn_en || r.text_en), PREVIEW_EN);
+              return (
+                <>
+                  {heading && (
+                    <div class="coll-chapter">
+                      {heading.ar && (
+                        <p class="coll-chapter__ar" lang="ar" dir="rtl">{heading.ar}</p>
+                      )}
+                      <h2 class="coll-chapter__en">{heading.en}</h2>
+                    </div>
+                  )}
+                  <article class="coll-item">
+                    <a class="coll-item__link" href={`/hadith/${r.id}`}>
+                      <p class="coll-item__num">
+                        {r.hadith_num ? `№ ${r.hadith_num}` : `ID ${r.id}`}
+                      </p>
+
+                      <div class="coll-item__cols">
+                        <div class="coll-item__col coll-item__col--en">
+                          {en.text ? (
+                            <p class="coll-item__en">{en.text}{en.cut ? ' …' : ''}</p>
+                          ) : (
+                            <p class="coll-item__missing">No translation recorded.</p>
+                          )}
+                        </div>
+                        <div class="coll-item__col coll-item__col--ar">
+                          <p class="coll-item__ar" lang="ar" dir="rtl">
+                            <Fragment set:html={renderArabic(ar.text)} />{ar.cut ? ' …' : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p class="coll-item__meta">
+                        <span>{r.narrator_count} transmitters</span>
+                        {Number(r.parallel_count) > 0 && (
+                          <>
+                            <span class="coll-sep" aria-hidden="true">·</span>
+                            <span>{Number(r.parallel_count).toLocaleString()} parallels</span>
+                          </>
+                        )}
+                      </p>
+                    </a>
+                  </article>
+                </>
+              );
+            })}
+          </div>
+
+          <nav class="coll-pager" aria-label="Collection pages">
+            {page > 1
+              ? <a class="coll-page" href={pageUrl(page - 1)}>← Previous</a>
+              : <span class="coll-page" aria-disabled="true">← Previous</span>}
+            <span class="coll-page-of">
+              Page {page.toLocaleString()} of {pages.toLocaleString()}
+            </span>
+            {page < pages
+              ? <a class="coll-page" href={pageUrl(page + 1)}>Next →</a>
+              : <span class="coll-page" aria-disabled="true">Next →</span>}
+          </nav>
+        </div>
+      </>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+  .coll-page {
+    background: var(--hc-surface-0);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .coll-error {
+    padding: 4rem 0;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .coll-head {
+    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(1.5rem, 3vw, 2.25rem);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .coll-eyebrow {
+    margin: 0 0 1rem;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .coll-eyebrow a { color: var(--hc-gold); text-decoration: none; }
+  .coll-eyebrow a:hover { text-decoration: underline; }
+
+  .coll-title {
+    max-width: 22ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.2vw, 3.2rem);
+    font-weight: 500;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--hc-text-primary);
+  }
+
+  .coll-title-ar {
+    margin: 0.5rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.5rem;
+    line-height: 2;
+    color: var(--hc-gold);
+  }
+
+  .coll-count {
+    margin: 0.9rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  .coll-search {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    max-width: 46rem;
+    margin-top: 1.75rem;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    transition: border-color 160ms ease;
+  }
+
+  .coll-search:focus-within { border-bottom-color: var(--hc-gold); }
+
+  .coll-search__input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.6rem 0 0.65rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-body);
+    font-size: 1rem;
+  }
+
+  .coll-search__input::placeholder { color: var(--hc-text-tertiary); }
+  .coll-search__input:focus { outline: none; }
+
+  .coll-search__go {
+    flex: none;
+    min-height: 24px;
+    padding: 0.3rem 0;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .coll-search__go:hover { border-bottom-color: var(--hc-gold); }
+
+  .coll-body { padding-top: clamp(1.5rem, 3vw, 2.25rem); }
+
+  .coll-list { border-top: 1px solid var(--hc-rule-soft); }
+
+  /* ---- chapter banner ---- */
+  /* The bab heading that opens a run of narrations, framed so it reads as a
+     division of the book rather than as another line of metadata. Both scripts
+     appear because the Arabic is the heading the edition actually prints. */
+  .coll-chapter {
+    margin: clamp(1.75rem, 3vw, 2.5rem) 0 0;
+    padding: clamp(1rem, 2vw, 1.4rem) clamp(1rem, 2vw, 1.5rem);
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .coll-list > .coll-chapter:first-child { margin-top: 1.5rem; }
+
+  .coll-chapter__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.2rem;
+    line-height: 2;
+    color: var(--hc-gold);
+  }
+
+  .coll-chapter__en {
+    max-width: 60ch;
+    margin: 0.35rem auto 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--hc-text-primary);
+  }
+
+  /* ---- narration rows ---- */
+  .coll-item { border-bottom: 1px solid var(--hc-rule-soft); }
+  .coll-chapter + .coll-item { border-top: 0; }
+
+  .coll-item__link {
+    display: block;
+    padding: 1.25rem 0;
+    text-decoration: none;
+    color: inherit;
+    transition: background 160ms ease;
+  }
+
+  .coll-item__link:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+  }
+
+  .coll-item__num {
+    margin: 0 0 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .coll-item__link:hover .coll-item__num { color: var(--hc-gold); }
+
+  /* Facing columns, matching the narration page. Arabic is second in the DOM so
+     it stacks first on a phone; the explicit row keeps auto-placement from
+     dropping the English into a second row on desktop. */
+  .coll-item__cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.25rem, 2.5vw, 2rem);
+  }
+
+  .coll-item__col { min-width: 0; }
+  .coll-item__col--en { grid-column: 1; grid-row: 1; }
+  .coll-item__col--ar { grid-column: 2; grid-row: 1; }
+
+  .coll-item__en {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Arabic runs at its own leading; harakat need the room. */
+  .coll-item__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.18rem;
+    line-height: 2.05;
+    color: var(--hc-text-primary);
+  }
+
+  .coll-item__missing {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    font-style: italic;
+    color: var(--hc-text-tertiary);
+  }
+
+  .coll-item__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.9rem 0 0;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--hc-text-tertiary);
+  }
+
+  .coll-sep { color: var(--hc-rule-strong); }
+
+  /* Volume and page in the printed edition, kept out of the reading line. */
+  .coll-item__ar :global(.folio) {
+    display: inline-block;
+    margin: 0 0.3em;
+    padding: 0 0.35em;
+    border: 1px solid var(--hc-rule);
+    border-radius: 2px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.6;
+    color: var(--hc-text-tertiary);
+    vertical-align: 0.08em;
+  }
+
+  .coll-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.75rem;
+  }
+
+  .coll-page {
+    min-height: 24px;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  a.coll-page:hover { border-bottom-color: var(--hc-gold); }
+
+  .coll-page[aria-disabled='true'] {
+    color: var(--hc-text-tertiary);
+    pointer-events: none;
+  }
+
+  .coll-page-of {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* Facing columns need real width. Below this they stack, Arabic first, so the
+     source is read before the translation. */
+  @media (max-width: 780px) {
+    .coll-item__cols { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    .coll-item__col--ar { grid-column: 1; grid-row: 1; }
+    .coll-item__col--en { grid-column: 1; grid-row: 2; }
+    .coll-search { flex-wrap: wrap; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .coll-item__link, .coll-search { transition: none; }
+  }
+</style>

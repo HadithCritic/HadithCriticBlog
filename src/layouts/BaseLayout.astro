@@ -3,8 +3,10 @@ import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
 import MotionRuntime from '../components/MotionRuntime.astro';
+import { SITE, organization, website, webPage, breadcrumbs, graph, type Crumb, type Graph } from '../lib/seo';
 import '../styles/global.css';
 import '../styles/motion.css';
+import '../styles/footer.css';
 
 interface Props {
   title: string;
@@ -13,19 +15,68 @@ interface Props {
   canonical?: string;
   type?: 'website' | 'article';
   noindex?: boolean;
+  /** Extra JSON-LD nodes merged into the page graph (article, person, etc.). */
+  schema?: Graph[];
+  /** Breadcrumb trail, root first. Emitted as BreadcrumbList and linked to the WebPage. */
+  crumbs?: Crumb[];
+  publishedTime?: string;
+  modifiedTime?: string;
+  section?: string;
+  tags?: string[];
 }
 
 const {
   title,
-  description = 'Historical criticism, Quranic scholarship, and source-level analysis of hadith traditions.',
-  image = '/images/brand/hc-logo-transparent-512.png',
+  description = SITE.description,
+  image = SITE.logo,
   canonical,
   type = 'website',
-  noindex = false
+  noindex = false,
+  schema = [],
+  crumbs = [],
+  publishedTime,
+  modifiedTime,
+  section,
+  tags = []
 } = Astro.props;
+
 const base = Astro.site ?? new URL(Astro.url.origin);
 const canonicalUrl = canonical ? new URL(canonical, base).href : new URL(Astro.url.pathname, base).href;
 const imageUrl = new URL(image, base).href;
+
+// Explicitly lift the snippet caps. Search and AI answer surfaces truncate
+// aggressively by default; max-snippet:-1 permits a full-length extract, which
+// is what an answer engine needs in order to quote the argument rather than the
+// first sentence of it.
+const robotsContent = noindex
+  ? 'noindex, nofollow'
+  : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
+
+// One connected graph per page: shared entity nodes first, then page-specific.
+// A page that supplies its own #webpage node (a CollectionPage hub, say) wins;
+// emitting both would put two nodes under one @id and make the graph ambiguous.
+const suppliesOwnPage = schema.some((n) => String(n['@id'] ?? '').endsWith('#webpage'));
+
+const nodes: Graph[] = noindex
+  ? []
+  : [
+      organization(),
+      website(),
+      ...(suppliesOwnPage
+        ? []
+        : [
+            webPage({
+              url: canonicalUrl,
+              title,
+              description,
+              hasBreadcrumb: crumbs.length > 0,
+              datePublished: publishedTime,
+              dateModified: modifiedTime
+            })
+          ]),
+      ...(crumbs.length ? [breadcrumbs(crumbs, canonicalUrl)] : []),
+      ...schema
+    ];
 ---
 
 <!doctype html>
@@ -45,19 +96,27 @@ const imageUrl = new URL(image, base).href;
     <meta name="description" content={description} />
     <meta name="theme-color" content="#0F0F10" />
     <meta name="msapplication-TileColor" content="#0F0F10" />
-    {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="robots" content={robotsContent} />
     <link rel="canonical" href={canonicalUrl} />
     <link rel="alternate" type="application/rss+xml" title="HadithCritic RSS" href="/rss.xml" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={type} />
     <meta property="og:image" content={imageUrl} />
+    {type === 'article' && publishedTime && <meta property="article:published_time" content={publishedTime} />}
+    {type === 'article' && modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+    {type === 'article' && section && <meta property="article:section" content={section} />}
+    {type === 'article' && tags.map((tag) => <meta property="article:tag" content={tag} />)}
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@HadithCritic" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={imageUrl} />
     <title>{title}</title>
+    {nodes.length > 0 && <script is:inline type="application/ld+json" set:html={graph(nodes)} />}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="shortcut icon" href="/favicon.ico" />
@@ -65,13 +124,22 @@ const imageUrl = new URL(image, base).href;
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap" rel="stylesheet" />
+    <link rel="preload" href="/fonts/glacial-indifference-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="/fonts/glacial-indifference-bold.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Amiri+Quran&display=swap" rel="stylesheet" />
     <slot name="head" />
   </head>
   <body>
+    <a class="hc-skip-link" href="#main-content">Skip to content</a>
     <div class="site-shell">
       <SiteHeader />
-      <main id="main-content"><slot /></main>
+      {/* data-pagefind-body scopes the search index to page content. Without it
+          Pagefind indexes every <body>, so the header nav, the footer and the
+          search dialog's own markup were indexed 208 times over and surfaced as
+          matches against the chrome rather than the writing. The only page
+          outside this layout is the token-gated admin route, which is noindex
+          and should not be searchable. */}
+      <main id="main-content" data-pagefind-body><slot /></main>
       <SiteFooter />
     </div>
     <SearchDialog />

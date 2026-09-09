@@ -1,0 +1,75 @@
+---
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  trail: Crumb[];
+}
+
+const { trail } = Astro.props;
+const last = trail.length - 1;
+---
+
+<nav class="edition-breadcrumb" aria-label="Breadcrumb">
+  <ol class="crumb-list">
+    {trail.map((crumb, i) => (
+      <>
+        {i > 0 && <li class="crumb-sep" aria-hidden="true">/</li>}
+        <li class="crumb">
+          {crumb.href && i !== last ? (
+            <a href={crumb.href} class="crumb-link">{crumb.label}</a>
+          ) : (
+            <span class="crumb-current" aria-current="page">{crumb.label}</span>
+          )}
+        </li>
+      </>
+    ))}
+  </ol>
+</nav>
+
+<style>
+  .crumb-list {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.42rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .crumb {
+    min-width: 0;
+  }
+
+  .crumb-link {
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .crumb-link:hover,
+  .crumb-link:focus-visible {
+    color: var(--hc-gold);
+  }
+
+  .crumb-sep {
+    color: var(--hc-text-tertiary);
+    opacity: 0.55;
+  }
+
+  .crumb-current {
+    color: var(--hc-text-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .crumb-link {
+      transition: none;
+    }
+  }
+</style>

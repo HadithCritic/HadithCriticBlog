@@ -1,0 +1,808 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+
+/**
+ * The narrator register.
+ *
+ * Replaces a 3,864-line page that mixed markup, ~2,000 lines of CSS and a large
+ * client script, downloaded a 5.2 MB index to filter 20,950 records in the
+ * browser, and opened every transmitter in a modal — so none of the dossier
+ * pages were linkable, shareable or crawlable.
+ *
+ * Now: the first page of results and the filter facets are rendered here from
+ * D1, so the register works with JavaScript off and search engines see real
+ * rows; the client module takes over for filtering and paging. Each row is a
+ * link to /narrators/{id}, which since the D1 move exists for every narrator
+ * rather than the 8,000 the file cap allowed.
+ */
+
+const p = Astro.url.searchParams;
+const q = (p.get('q') || '').trim().toLowerCase();
+const generation = p.get('generation') || 'all';
+const grade = p.get('grade') || 'all';
+const century = parseInt(p.get('century') || '', 10);
+const sortKey = p.get('sort') || 'id';
+const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
+const size = 50;
+
+const SORTS: Record<string, string> = {
+  id: 'id ASC',
+  'id-desc': 'id DESC',
+  name: 'name_en ASC, id ASC',
+  death: 'death_hijri IS NULL, death_hijri ASC, id ASC',
+  'death-desc': 'death_hijri IS NULL, death_hijri DESC, id ASC',
+  hadith: 'hadith_count DESC, id ASC',
+  criticism: 'statement_count DESC, id ASC'
+};
+
+const where: string[] = ['unnamed = 0'];
+const binds: unknown[] = [];
+if (q) {
+  where.push('search_text LIKE ?');
+  binds.push(`%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`);
+}
+if (generation !== 'all') {
+  where.push('generation = ?');
+  binds.push(generation);
+}
+if (grade !== 'all') {
+  where.push('grade = ?');
+  binds.push(grade);
+}
+if (Number.isFinite(century) && century > 0) {
+  where.push('death_hijri BETWEEN ? AND ?');
+  binds.push((century - 1) * 100 + 1, century * 100);
+}
+const sql = `WHERE ${where.join(' AND ')}`;
+const order = SORTS[sortKey] || SORTS.id;
+
+interface Row {
+  id: number;
+  name_en: string;
+  name_ar: string;
+  generation: string;
+  grade: string;
+  death_hijri: number | null;
+  death_place: string;
+  places_en: string;
+  hadith_count: number;
+  teacher_count: number;
+  student_count: number;
+  statement_count: number;
+}
+
+let rows: Row[] = [];
+let total = 0;
+let generations: { value: string; n: number }[] = [];
+let grades: { value: string; n: number }[] = [];
+let centuries: { value: number; n: number }[] = [];
+let stats = { all_narrators: 0, graded: 0, dated: 0 };
+let failed = false;
+
+try {
+  const [listed, counted, gen, grd, cen, tot] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT id,name_en,name_ar,generation,grade,death_hijri,death_place,places_en,
+              hadith_count,teacher_count,student_count,statement_count
+         FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
+    ).bind(...binds, size, (page - 1) * size),
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
+    env.DB.prepare(
+      `SELECT generation AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
+    ),
+    env.DB.prepare(
+      `SELECT grade AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC LIMIT 8`
+    ),
+    env.DB.prepare(
+      `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
+        WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
+    ),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS all_narrators,
+              SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
+              SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated
+         FROM narrator WHERE unnamed = 0`
+    )
+  ]);
+  rows = (listed.results || []) as unknown as Row[];
+  total = ((counted.results?.[0] as { n?: number })?.n) ?? 0;
+  generations = (gen.results || []) as unknown as typeof generations;
+  grades = (grd.results || []) as unknown as typeof grades;
+  centuries = (cen.results || []) as unknown as typeof centuries;
+  stats = { ...stats, ...((tot.results?.[0] as typeof stats) || {}) };
+} catch (error) {
+  console.error('Narrator register failed to load', error);
+  failed = true;
+}
+
+const pages = Math.max(1, Math.ceil(total / size));
+const firstIndex = (page - 1) * size + 1;
+
+const gradeTone = (g: string) => {
+  const s = (g || '').toLowerCase();
+  if (s.startsWith('thiqa') || s.startsWith('saduq')) return 'is-trusted';
+  if (s.startsWith("da'if") || s.startsWith('daif') || s.startsWith('matruk')) return 'is-weak';
+  if (s.startsWith('majhul') || s.startsWith('maqbul') || s.startsWith('unrated')) return 'is-unknown';
+  return '';
+};
+
+const heroStats = [
+  { num: stats.all_narrators.toLocaleString(), label: 'Transmitters' },
+  { num: stats.graded.toLocaleString(), label: 'With Verdicts' },
+  { num: stats.dated.toLocaleString(), label: 'Dated' },
+  { num: '33', label: 'Collections' }
+];
+---
+
+<BaseLayout
+  title="Narrator Biographies & Rijāl Archive | HadithCritic"
+  description={`A critical register of ${stats.all_narrators.toLocaleString()} classical hadith transmitters drawn from 33 collections. Every reliability grade is an attributed verdict from a named authority.`}
+>
+  <div class="register-page" data-register>
+    <header class="register-head">
+      <div class="wrap">
+        <h1 class="register-title">The Transmitters of <span class="register-title-accent">Hadith.</span></h1>
+        <p class="register-lead">
+          A critical register of {stats.all_narrators.toLocaleString()} classical hadith transmitters drawn
+          from 33 collections, including all six canonical books. Every reliability grade is an
+          attributed verdict from a named authority, not an editorial summary.
+        </p>
+
+        <div class="register-stat-band">
+          {heroStats.map((s) => (
+            <div class="register-stat">
+              <span class="register-stat__num">{s.num}</span>
+              <span class="register-stat__label">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap register-body">
+      {failed ? (
+        <p class="register-error">The register is temporarily unavailable. Please try again shortly.</p>
+      ) : (
+        <>
+          <form class="register-controls" method="get" action="/narrators">
+            <div class="register-search">
+              <label class="sr-only" for="register-q">Search transmitters</label>
+              <input
+                id="register-q"
+                class="register-search__input"
+                type="search"
+                name="q"
+                value={q}
+                placeholder="Search name, Arabic script, kunya, or place…"
+                data-register-search
+                autocomplete="off"
+              />
+              <button type="button" class="register-search__clear" data-register-clear aria-label="Clear search">×</button>
+            </div>
+
+            <div class="register-filters">
+              <div class="register-filter">
+                <span class="register-filter__label">Generation</span>
+                <div class="register-tabs" data-filter-group="generation">
+                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  {generations.map((g) => (
+                    <button type="button" class="register-tab" data-value={g.value}>
+                      {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div class="register-filter">
+                <span class="register-filter__label">Verdict</span>
+                <div class="register-tabs" data-filter-group="grade">
+                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  {grades.map((g) => (
+                    <button type="button" class="register-tab" data-value={g.value}>
+                      {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div class="register-filter">
+                <span class="register-filter__label">Century</span>
+                <div class="register-tabs" data-filter-group="century">
+                  <button type="button" class="register-tab is-active" data-value="">All</button>
+                  {centuries.map((c) => (
+                    <button type="button" class="register-tab" data-value={String(c.value)}>
+                      {c.value} AH <span class="register-tab__n">{c.n.toLocaleString()}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div class="register-toolbar">
+              <span class="register-status" data-register-status aria-live="polite">
+                {total.toLocaleString()} transmitter{total === 1 ? '' : 's'}
+              </span>
+              <label class="register-sort">
+                <span>Sort</span>
+                <select data-register-sort name="sort">
+                  <option value="id">Narrator ID</option>
+                  <option value="name">Name (A–Z)</option>
+                  <option value="death">Death year (earliest)</option>
+                  <option value="death-desc">Death year (latest)</option>
+                  <option value="hadith">Hadith transmitted</option>
+                  <option value="criticism">Most discussed</option>
+                </select>
+              </label>
+            </div>
+          </form>
+
+          <ol class="register-list" data-register-list start={firstIndex}>
+            {rows.map((r, i) => {
+              const places = JSON.parse(r.places_en || '[]') as string[];
+              const meta = [r.generation, r.death_hijri ? `d. ${r.death_hijri} AH` : null, places[0] || r.death_place || null].filter(Boolean);
+              const counts = [
+                r.hadith_count ? `${r.hadith_count.toLocaleString()} hadith` : null,
+                r.teacher_count || r.student_count ? `${r.teacher_count}T / ${r.student_count}S` : null,
+                r.statement_count ? `${r.statement_count} verdicts` : null
+              ].filter(Boolean);
+              return (
+                <li class="reg-row">
+                  <button
+                    type="button"
+                    class="reg-pick"
+                    data-pick={r.id}
+                    data-name={r.name_en || r.name_ar}
+                    aria-pressed="false"
+                    aria-label={`Add to comparison: ${r.name_en || r.name_ar}`}
+                  ><span aria-hidden="true">+</span></button>
+                  <span class="reg-index">{firstIndex + i}</span>
+                  <a class="reg-main" href={`/narrators/${r.id}`}>
+                    <span class="reg-names">
+                      <span class="reg-name">{r.name_en || r.name_ar}</span>
+                      {r.name_ar && <span class="reg-name-ar" lang="ar" dir="rtl">{r.name_ar}</span>}
+                    </span>
+                    <span class="reg-meta">
+                      {meta.map((m, k) => (
+                        <>
+                          {k > 0 && <span class="reg-sep" aria-hidden="true">·</span>}
+                          <span>{m}</span>
+                        </>
+                      ))}
+                    </span>
+                  </a>
+                  <span class={`reg-grade ${gradeTone(r.grade)}`}>{r.grade || 'Unrated'}</span>
+                  <span class="reg-counts">
+                    {counts.map((m, k) => (
+                      <>
+                        {k > 0 && <span class="reg-sep" aria-hidden="true">·</span>}
+                        <span>{m}</span>
+                      </>
+                    ))}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+
+          <nav class="register-pager" data-register-pager aria-label="Register pages">
+            {pages > 1 && (
+              <>
+                <a class="reg-page" href={`?${new URLSearchParams({ ...Object.fromEntries(p), page: String(page - 1) })}`} aria-disabled={page <= 1}>← Previous</a>
+                <span class="reg-page-of">Page {page.toLocaleString()} of {pages.toLocaleString()}</span>
+                <a class="reg-page" href={`?${new URLSearchParams({ ...Object.fromEntries(p), page: String(page + 1) })}`} aria-disabled={page >= pages}>Next →</a>
+              </>
+            )}
+          </nav>
+        </>
+      )}
+    </div>
+
+    <div class="compare-dock" data-compare-dock hidden>
+      <div class="wrap compare-dock__inner">
+        <span class="compare-dock__count"><strong data-compare-count>0</strong> selected</span>
+        <div class="compare-dock__chips" data-compare-chips></div>
+        <div class="compare-dock__actions">
+          <button type="button" class="compare-dock__clear" data-compare-clear>Clear</button>
+          <button type="button" class="hc-btn compare-dock__open" data-compare-open>Compare</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { initNarratorRegister } from '../../lib/narrator-register';
+    initNarratorRegister();
+  </script>
+
+  <style>
+    /* The register follows the same editorial rules-and-whitespace pattern as
+       the treatise ledger: numbered rows separated by hairlines, no card per
+       entry, one accent colour carrying state. */
+    .register-page {
+      background: var(--hc-surface-0);
+      padding-bottom: clamp(4rem, 8vw, 7rem);
+    }
+
+    .register-head {
+      padding: clamp(3rem, 6vw, 5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+      border-bottom: 1px solid var(--hc-rule);
+    }
+
+    .register-title {
+      max-width: 20ch;
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      color: var(--hc-text-primary);
+    }
+
+    .register-title-accent {
+      color: var(--hc-gold);
+      font-style: italic;
+    }
+
+    .register-lead {
+      max-width: 68ch;
+      margin: 1.25rem 0 0;
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      line-height: 1.72;
+      color: var(--hc-text-secondary);
+    }
+
+    .register-stat-band {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: clamp(2rem, 4vw, 3rem);
+      border-top: 1px solid var(--hc-rule);
+      border-bottom: 1px solid var(--hc-rule);
+    }
+
+    .register-stat {
+      position: relative;
+      min-width: 0;
+      padding: 1rem 1.2rem 1.05rem 0;
+    }
+
+    .register-stat + .register-stat { padding-left: 1.2rem; }
+
+    .register-stat + .register-stat::before {
+      content: "";
+      position: absolute;
+      inset-block: 0;
+      left: 0;
+      width: 1px;
+      background: var(--hc-rule-soft);
+    }
+
+    .register-stat__num {
+      display: block;
+      font-family: var(--font-body);
+      font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+      font-weight: 500;
+      line-height: 1;
+      letter-spacing: -0.025em;
+      font-variant-numeric: lining-nums tabular-nums;
+      color: var(--hc-text-primary);
+    }
+
+    .register-stat__label {
+      display: block;
+      margin-top: 0.4rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-body { padding-top: clamp(1.75rem, 3vw, 2.5rem); }
+
+    .register-error {
+      padding: 3rem 0;
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      color: var(--hc-text-secondary);
+    }
+
+    /* ---- controls ---- */
+    .register-controls {
+      padding-bottom: 1.1rem;
+      border-bottom: 1px solid var(--hc-rule);
+    }
+
+    .register-search { position: relative; }
+
+    .register-search__input {
+      width: 100%;
+      padding: 0.7rem 2rem 0.75rem 0;
+      border: 0;
+      border-bottom: 1px solid var(--hc-rule-strong);
+      background: transparent;
+      color: var(--hc-text-primary);
+      font-family: var(--font-body);
+      font-size: 1.05rem;
+      transition: border-color 160ms ease;
+    }
+
+    .register-search__input::placeholder { color: var(--hc-text-tertiary); }
+    .register-search__input:focus { border-bottom-color: var(--hc-gold); }
+
+    .register-search__clear {
+      position: absolute;
+      right: 0;
+      bottom: 0.45rem;
+      min-width: 24px;
+      min-height: 24px;
+      border: 0;
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .register-search__clear:hover { color: var(--hc-text-primary); }
+
+    .register-filters {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 1.35rem;
+    }
+
+    .register-filter {
+      display: grid;
+      grid-template-columns: 5.5rem minmax(0, 1fr);
+      gap: 0.9rem;
+      align-items: start;
+    }
+
+    .register-filter__label {
+      padding-top: 0.42rem;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    /* Filters wrap instead of scrolling sideways; the old preset bar put a raw
+       horizontal scrollbar under the controls. */
+    .register-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.15rem 1.1rem;
+    }
+
+    .register-tab {
+      padding: 0.35rem 0 0.4rem;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+      color: var(--hc-text-secondary);
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease;
+    }
+
+    .register-tab:hover { color: var(--hc-text-primary); }
+
+    .register-tab.is-active {
+      color: var(--hc-gold);
+      border-bottom-color: var(--hc-gold);
+    }
+
+    .register-tab__n {
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-toolbar {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-top: 1.35rem;
+    }
+
+    .register-status {
+      font-family: var(--font-ui);
+      font-size: 0.8rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-sort {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .register-sort select {
+      padding: 0.3rem 0.2rem;
+      border: 0;
+      border-bottom: 1px solid var(--hc-rule-strong);
+      background: transparent;
+      color: var(--hc-text-primary);
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    /* ---- comparison dock ---- */
+    .compare-dock {
+      position: sticky;
+      bottom: 0;
+      z-index: 40;
+      border-top: 1px solid var(--hc-rule-strong);
+      background: var(--hc-surface-1);
+    }
+
+    .compare-dock__inner {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 0;
+    }
+
+    .compare-dock__count {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+      white-space: nowrap;
+    }
+
+    .compare-dock__count strong { color: var(--hc-gold); }
+
+    .compare-dock__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .compare-dock__actions {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .compare-dock__clear {
+      border: 0;
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .compare-dock__clear:hover { color: var(--hc-text-primary); }
+
+    @media (max-width: 700px) {
+      .register-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .register-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+      .register-filter { grid-template-columns: 1fr; gap: 0.3rem; }
+      .register-filter__label { padding-top: 0; }
+      .register-toolbar { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+      .compare-dock__chips { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .register-tab, .register-search__input { transition: none; }
+    }
+  </style>
+
+  <!-- Rows are re-rendered client side after every filter change, so they can
+       never carry Astro's scoping attribute. These rules are global by
+       necessity; the class names are prefixed to keep them contained. -->
+  <style is:global>
+    /* ---- register rows ---- */
+    .register-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid var(--hc-rule-soft);
+    }
+
+    .register-list[aria-busy='true'] { opacity: 0.45; }
+
+    .reg-row {
+      display: grid;
+      grid-template-columns: 1.9rem 3.1rem minmax(0, 1fr) 11rem auto;
+      align-items: baseline;
+      gap: 0.9rem;
+      padding: 0.85rem 0;
+      border-bottom: 1px solid var(--hc-rule-soft);
+      transition: background 160ms ease;
+    }
+
+    .reg-row:hover {
+      background: linear-gradient(90deg,
+        color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+    }
+
+    .reg-pick {
+      min-width: 24px;
+      min-height: 24px;
+      border: 1px solid var(--hc-rule);
+      background: transparent;
+      color: var(--hc-text-tertiary);
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
+      line-height: 1;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease;
+    }
+
+    .reg-pick:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
+
+    .reg-pick.is-picked {
+      color: var(--hc-text-inverse);
+      background: var(--hc-gold);
+      border-color: var(--hc-gold);
+    }
+
+    .reg-index {
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-main {
+      min-width: 0;
+      text-decoration: none;
+      display: block;
+    }
+
+    .reg-names {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .reg-name {
+      font-family: var(--font-display);
+      font-size: 1.12rem;
+      font-weight: 500;
+      line-height: 1.25;
+      color: var(--hc-text-primary);
+    }
+
+    .reg-main:hover .reg-name { color: var(--hc-gold); }
+
+    .reg-name-ar {
+      font-family: var(--font-arabic);
+      font-size: 1.02rem;
+      line-height: 1.8;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-meta,
+    .reg-counts {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-meta { margin-top: 0.22rem; }
+    .reg-counts { justify-content: flex-end; text-align: right; }
+    .reg-sep { color: var(--hc-rule-strong); }
+
+    .reg-grade {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--hc-text-secondary);
+    }
+
+    /* Verdict tone is the one place a second colour earns its place. */
+    .reg-grade.is-trusted { color: var(--cat-theology-text); }
+    .reg-grade.is-weak    { color: var(--cat-prophecies-text); }
+    .reg-grade.is-unknown { color: var(--hc-text-tertiary); }
+
+    /* ---- pagination ---- */
+    .register-pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-top: 1.75rem;
+    }
+
+    .reg-page {
+      min-height: 24px;
+      padding: 0.35rem 0;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      background: transparent;
+      color: var(--hc-gold);
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .reg-page:hover:not([disabled]):not([aria-disabled='true']) { border-bottom-color: var(--hc-gold); }
+
+    .reg-page[disabled],
+    .reg-page[aria-disabled='true'] {
+      color: var(--hc-text-tertiary);
+      pointer-events: none;
+    }
+
+    .reg-page-of {
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .reg-chip {
+      min-height: 24px;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid var(--hc-rule);
+      background: transparent;
+      color: var(--hc-text-secondary);
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      cursor: pointer;
+    }
+
+    .reg-chip:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
+
+    /* The row grid collapses in stages. These live in the global block because
+       they target rows the client re-renders, which carry no scoping id. */
+    @media (max-width: 1024px) {
+      .reg-row { grid-template-columns: 1.9rem 2.6rem minmax(0, 1fr) 9rem; }
+      .reg-counts { grid-column: 3 / -1; justify-content: flex-start; text-align: left; margin-top: 0.25rem; }
+    }
+
+    @media (max-width: 700px) {
+      .reg-row { grid-template-columns: 1.9rem minmax(0, 1fr); row-gap: 0.3rem; }
+      .reg-index { display: none; }
+      .reg-grade, .reg-counts { grid-column: 2; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reg-row, .reg-pick { transition: none; }
+    }
+
+  </style>
+
+</BaseLayout>

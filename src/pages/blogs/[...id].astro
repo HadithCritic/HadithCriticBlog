@@ -1,12 +1,17 @@
 ---
-import ArticleLayout from '../../components/article/ArticleLayout.astro';
-import ArticleHero from '../../components/article/ArticleHero.astro';
-import ArticleTOC from '../../components/article/ArticleTOC.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import EditorialReader from '../../components/article/EditorialReader.astro';
+import EditorialHeader from '../../components/article/EditorialHeader.astro';
+import EditorialToc from '../../components/article/EditorialToc.astro';
+import EditorialRightRuler from '../../components/article/EditorialRightRuler.astro';
+import OtherStudies from '../../components/article/OtherStudies.astro';
 import MobileArticleTOC from '../../components/MobileArticleTOC.astro';
 import PreviousNext from '../../components/article/PreviousNext.astro';
-import RelatedPosts from '../../components/article/RelatedPosts.astro';
+import BackToTop from '../../components/treatise/BackToTop.astro';
 import SubscribeForm from '../../components/SubscribeForm.astro';
 import { getCollection, render } from 'astro:content';
+import { scholarlyArticle, author } from '../../lib/seo';
+import { categoryByName } from '../../lib/categories';
 
 const includeBlogMakerPreview = process.env.BLOG_MAKER_PREVIEW === 'true';
 
@@ -22,35 +27,33 @@ export async function getStaticPaths() {
     const prevPost = index < sorted.length - 1 ? sorted[index + 1] : null;
     const nextPost = index > 0 ? sorted[index - 1] : null;
 
-    const currentTags = new Set(post.data.tags || []);
-    const relatedPosts = sorted
+    // Other articles across the repository
+    const otherArticles = sorted
       .filter((p) => p.id !== post.id)
-      .map((p) => {
-        let score = 0;
-        if (p.data.category === post.data.category) score += 3;
-        if (p.data.tags) {
-          for (const t of p.data.tags) {
-            if (currentTags.has(t)) score += 2;
-          }
-        }
-        return { post: p, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3)
-      .map((item) => item.post);
+      .slice(0, 4);
 
     return {
       params: { id: post.id },
-      props: { post, prevPost, nextPost, relatedPosts },
+      props: { post, prevPost, nextPost, otherArticles },
     };
   });
 }
 
-const { post, prevPost, nextPost, relatedPosts } = Astro.props;
+const { post, prevPost, nextPost, otherArticles } = Astro.props;
 const { Content, headings } = await render(post);
 
-// Build the sidebar table of contents from the real rendered headings so
-// the anchors always resolve. Only top-level sections are shown.
+// Calculate exact words and reading time
+const rawBody = post.body || '';
+const wordCount = rawBody.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
+const readingMinutes = Math.max(1, Math.round(wordCount / 200));
+
+const formattedDate = new Date(post.data.date).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+});
+
+// Filter headings for TOC and ruler (h2 and h3, ignoring footnotes)
 const seenSlugs = new Set<string>();
 const tocHeadings = headings
   .filter((h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label')
@@ -60,105 +63,273 @@ const tocHeadings = headings
     return true;
   })
   .map((h) => ({ depth: h.depth, text: h.text, slug: h.slug }));
-const showToc = tocHeadings.length >= 3;
+const showToc = tocHeadings.length >= 2;
+
+// --- structured data -------------------------------------------------------
+const articleUrl = new URL(`/blogs/${post.id}`, Astro.site).href;
+const category = categoryByName(post.data.category);
+
+const articleSchema = [
+  author(post.data.author),
+  scholarlyArticle({
+    url: articleUrl,
+    title: post.data.title,
+    description: post.data.description,
+    authorName: post.data.author,
+    datePublished: post.data.date.toISOString(),
+    dateModified: post.data.updated?.toISOString(),
+    image: post.data.thumbnail,
+    section: post.data.category,
+    keywords: post.data.tags,
+    wordCount,
+    about: category?.about
+  })
+];
+
+const crumbs = [
+  { name: 'Home', url: '/' },
+  { name: 'Studies', url: '/blogs' },
+  ...(category ? [{ name: category.name, url: `/blogs/category/${category.slug}` }] : []),
+  { name: post.data.title, url: `/blogs/${post.id}` }
+];
 ---
 
-<ArticleLayout title={`${post.data.title} | HadithCritic`} description={post.data.description} image={post.data.thumbnail} canonical={`/blogs/${post.id}`}>
-  <Fragment slot="head">
-    <script is:inline type="application/ld+json" set:html={JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'ScholarlyArticle',
-      headline: post.data.title,
-      description: post.data.description,
-      author: { '@type': 'Person', name: post.data.author },
-      datePublished: post.data.date.toISOString(),
-      ...(post.data.updated ? { dateModified: post.data.updated.toISOString() } : {}),
-      ...(post.data.thumbnail ? { image: new URL(post.data.thumbnail, Astro.site).href } : {}),
-      mainEntityOfPage: new URL(`/blogs/${post.id}`, Astro.site).href,
-      publisher: { '@type': 'Organization', name: 'HadithCritic' }
-    })} />
-  </Fragment>
-  <ArticleHero
-    slot="hero"
-    title={post.data.title}
-    subtitle={post.data.category}
-    description={post.data.description}
-    category={post.data.category}
-    date={new Date(post.data.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-    heroImage={post.data.thumbnail}
-    heroAlt={post.data.heroAlt}
-  />
+<BaseLayout
+  title={`${post.data.title} | HadithCritic`}
+  description={post.data.description}
+  image={post.data.thumbnail}
+  canonical={`/blogs/${post.id}`}
+  type="article"
+  schema={articleSchema}
+  crumbs={crumbs}
+  publishedTime={post.data.date.toISOString()}
+  modifiedTime={post.data.updated?.toISOString()}
+  section={post.data.category}
+  tags={post.data.tags}
+>
 
-  {showToc && <ArticleTOC slot="toc" headings={tocHeadings} />}
+  <!-- Top Slim Reading Progress Bar -->
+  <div class="reading-progress" aria-hidden="true">
+    <div class="reading-progress__bar" data-reading-progress-bar></div>
+  </div>
+
+  <div class="hc-article">
+    {/* Deliberately a div. BaseLayout already supplies the page's single main
+        landmark and this grid sits inside it. It used to be a second main
+        element carrying the same id="main-content", so every article page
+        shipped two landmarks and a duplicate id: invalid HTML, and it left
+        assistive technology to choose between them. The grid is styled purely
+        by class, so no layout depends on the tag. tests/routes.spec.ts asserts
+        the one-landmark rule. */}
+    <div class="editorial-desk-grid">
+      <!-- Left Rail: Back link, Sections & Headings TOC, Other Studies -->
+      <aside class="desk-left-rail" aria-label="Article navigation and other studies">
+        <a href="/blogs" class="desk-back-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>All Studies</span>
+        </a>
+
+        {showToc && <EditorialToc headings={tocHeadings} />}
+
+        <OtherStudies articles={otherArticles} />
+      </aside>
+
+      <!-- Center: Physical Reading Sheet & Monograph Body -->
+      <div class="desk-center-col">
+        <EditorialReader
+          title={post.data.title}
+          prevUrl={prevPost ? `/blogs/${prevPost.id}` : undefined}
+          prevTitle={prevPost?.data.title}
+          nextUrl={nextPost ? `/blogs/${nextPost.id}` : undefined}
+          nextTitle={nextPost?.data.title}
+          backHref="/blogs"
+        >
+          <EditorialHeader
+            slot="header"
+            title={post.data.title}
+            description={post.data.description}
+            category={post.data.category}
+            wordCount={wordCount}
+            readingMinutes={readingMinutes}
+            author={post.data.author}
+            date={formattedDate}
+            heroImage={post.data.thumbnail}
+            heroAlt={post.data.heroAlt}
+          />
+
+          <div class="hc-article-body">
+            <Content />
+
+            {(prevPost || nextPost) && (
+              <PreviousNext
+                prevUrl={prevPost ? `/blogs/${prevPost.id}` : undefined}
+                prevTitle={prevPost?.data.title}
+                nextUrl={nextPost ? `/blogs/${nextPost.id}` : undefined}
+                nextTitle={nextPost?.data.title}
+              />
+            )}
+          </div>
+
+          <footer class="article-footer">
+            <a href="/blogs" class="article-footer__back">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+              </svg>
+              <span>Back to All Studies</span>
+            </a>
+
+            <div class="article-footer__nav-right">
+              <button
+                type="button"
+                class="article-footer__top"
+                onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
+                title="Scroll to top"
+                aria-label="Scroll to top"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+                <span>Top</span>
+              </button>
+            </div>
+          </footer>
+
+          <!-- Mobile view of Other Studies -->
+          <div class="mobile-provenance-container">
+            <OtherStudies articles={otherArticles} />
+          </div>
+        </EditorialReader>
+      </div>
+
+      <!-- Right Rail: Calibration Ruler -->
+      <aside class="desk-right-rail" aria-label="Reading position ruler">
+        <EditorialRightRuler headings={tocHeadings} targetId="main-article" />
+      </aside>
+    </div>
+  </div>
 
   {showToc && <MobileArticleTOC headings={tocHeadings} />}
 
-  <article class="hc-article-body" data-reading-progress-source>
-    <Content />
-
-    {(prevPost || nextPost) && (
-      <PreviousNext
-        prevUrl={prevPost ? `/blogs/${prevPost.id}` : undefined}
-        prevTitle={prevPost?.data.title}
-        nextUrl={nextPost ? `/blogs/${nextPost.id}` : undefined}
-        nextTitle={nextPost?.data.title}
-      />
-    )}
-  </article>
-
-  {relatedPosts && relatedPosts.length > 0 && (
-    <RelatedPosts currentCategory={post.data.category} posts={relatedPosts} />
-  )}
-
-  <footer class="article-footer hc-container" style="max-width: 760px; margin-inline: auto;">
-    <a href="/blogs" class="article-footer__back">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="19" y1="12" x2="5" y2="12"/>
-        <polyline points="12 19 5 12 12 5"/>
-      </svg>
-      <span>Back to All Studies</span>
-    </a>
-    
-    <div class="article-footer__nav-right">
-      <a href={`/blogs?category=${encodeURIComponent(post.data.category)}`} class="article-footer__category">
-        <span class="related-label">More in {post.data.category}</span>
-        <span aria-hidden="true">➔</span>
-      </a>
-
-      <button type="button" class="article-footer__top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Scroll to top" aria-label="Scroll to top">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-        <span>Top</span>
-      </button>
-    </div>
-  </footer>
-
   <SubscribeForm variant="article" />
+  <BackToTop />
+</BaseLayout>
+
+<script>
+  function initReadingProgressBar() {
+    const bar = document.querySelector<HTMLElement>('[data-reading-progress-bar]');
+    const target = document.querySelector<HTMLElement>('[data-reading-progress-source]') || document.getElementById('main-article');
+
+    if (!bar || !target) return;
+
+    const barEl = bar;
+    const targetEl = target;
+
+    function update() {
+      const rect = targetEl.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const targetTop = rect.top + scrollTop;
+      const targetHeight = targetEl.offsetHeight;
+      const windowHeight = window.innerHeight;
+      const start = targetTop - 64;
+      const end = Math.max(start + 1, targetTop + targetHeight - windowHeight);
+      const progress = Math.min(1, Math.max(0, (scrollTop - start) / (end - start)));
+
+      barEl.style.transform = `scaleX(${progress})`;
+    }
+
+    let frame = 0;
+    const requestUpdate = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        update();
+      });
+    };
+
+    update();
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate, { passive: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReadingProgressBar);
+  } else {
+    initReadingProgressBar();
+  }
+  document.addEventListener('astro:page-load', initReadingProgressBar);
+</script>
 
 <style>
+  /* ── Top Reading Progress ── */
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    z-index: 1000;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .reading-progress__bar {
+    width: 100%;
+    height: 100%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px rgba(216, 177, 102, 0.4);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 80ms ease-out;
+  }
+
+  /* ── Left Rail Back Link ── */
+  .desk-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 1.25rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms ease;
+  }
+
+  .desk-back-btn:hover {
+    color: var(--hc-gold);
+  }
+
+  /* ── Article Footer ── */
   .article-footer {
-    margin-top: 4.5rem;
-    padding-top: 2rem;
-    padding-bottom: 5rem;
+    margin-top: 4rem;
+    padding-top: 1.5rem;
     border-top: 1px solid var(--hc-rule);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .article-footer__back {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     text-decoration: none;
-    transition: color 200ms ease;
+    transition: color 160ms ease;
   }
 
   .article-footer__back:hover {
@@ -168,21 +339,21 @@ const showToc = tocHeadings.length >= 3;
   .article-footer__nav-right {
     display: inline-flex;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .article-footer__category {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.4rem;
     text-decoration: none;
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-gold-dim);
-    transition: color 180ms ease;
+    transition: color 160ms ease;
   }
 
   .article-footer__category:hover {
@@ -193,24 +364,41 @@ const showToc = tocHeadings.length >= 3;
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.3rem 0.7rem;
+    padding: 0.3rem 0.65rem;
     border-radius: 999px;
     border: 1px solid var(--hc-rule);
     background: color-mix(in srgb, var(--hc-surface-2) 80%, transparent);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
   }
 
   .article-footer__top:hover {
     color: var(--hc-gold);
     border-color: var(--hc-gold-dim);
     background: rgba(216, 177, 102, 0.1);
+  }
+
+  .mobile-provenance-container {
+    display: none;
+  }
+
+  @media (max-width: 1179px) {
+    .desk-left-rail {
+      display: none;
+    }
+
+    .mobile-provenance-container {
+      display: block;
+      margin-top: 3rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--hc-rule);
+    }
   }
 
   @media (max-width: 640px) {
@@ -226,4 +414,3 @@ const showToc = tocHeadings.length >= 3;
     }
   }
 </style>
-</ArticleLayout>

@@ -1,0 +1,124 @@
+---
+interface Props {
+  /** Scroll distance in pixels before the control reveals itself. */
+  threshold?: number;
+}
+
+const { threshold = 900 } = Astro.props;
+---
+
+<button
+  type="button"
+  class="back-to-top"
+  data-back-to-top
+  data-threshold={threshold}
+  hidden
+>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <line x1="12" y1="19" x2="12" y2="5"></line>
+    <polyline points="5 12 12 5 19 12"></polyline>
+  </svg>
+  <span>Top</span>
+</button>
+
+<script>
+  function initBackToTop() {
+    const button = document.querySelector<HTMLButtonElement>('[data-back-to-top]');
+    if (!button || button.dataset.ready === 'true') return;
+    button.dataset.ready = 'true';
+
+    const threshold = Number(button.dataset.threshold) || 900;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const sync = () => {
+      const past = window.scrollY > threshold;
+      if (past === button.classList.contains('is-visible')) return;
+      if (past) {
+        // Unhide, force the opacity:0 state to commit, then fade in. Reading
+        // offsetWidth does that synchronously, so this still works in a
+        // background tab where requestAnimationFrame is throttled.
+        button.hidden = false;
+        void button.offsetWidth;
+        button.classList.add('is-visible');
+      } else {
+        button.classList.remove('is-visible');
+        button.hidden = true;
+      }
+    };
+
+    button.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      const header = document.querySelector<HTMLElement>('h1');
+      header?.focus?.();
+    });
+
+    window.addEventListener('scroll', sync, { passive: true });
+    sync();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBackToTop);
+  } else {
+    initBackToTop();
+  }
+
+  document.addEventListener('astro:page-load', initBackToTop);
+</script>
+
+<style>
+  .back-to-top {
+    position: fixed;
+    right: calc(var(--pad) + var(--safe-right));
+    bottom: calc(1.5rem + var(--safe-bottom));
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 38px;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.77rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    transition:
+      opacity 200ms ease,
+      color 160ms ease,
+      border-color 160ms ease;
+  }
+
+  /* `display: inline-flex` above would otherwise beat the UA `[hidden]` rule,
+     leaving an invisible button in the tab order. */
+  .back-to-top[hidden] {
+    display: none;
+  }
+
+  .back-to-top.is-visible {
+    opacity: 1;
+  }
+
+  .back-to-top:hover,
+  .back-to-top:focus-visible {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
+  }
+
+  /* The mobile chapter-index bar occupies the bottom-left corner. */
+  @media (max-width: 1039px) {
+    .back-to-top {
+      bottom: calc(4.5rem + var(--safe-bottom));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .back-to-top {
+      transition: none;
+    }
+  }
+</style>

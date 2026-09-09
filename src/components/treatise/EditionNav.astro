@@ -1,0 +1,234 @@
+---
+import chaptersData from '../../data/shirk-endorsed/chapters.json';
+
+interface Props {
+  /** Slug of the page currently being read, used for the active state. */
+  currentSlug?: string;
+}
+
+const { currentSlug = 'index' } = Astro.props;
+
+const coreChapters = chaptersData.filter((c) => c.category === 'core');
+const imamsChapters = chaptersData.filter((c) => c.category === 'four-imams');
+
+const sections = [
+  { title: 'Part I · Foundational Studies', chapters: coreChapters, gold: false },
+  { title: 'Part II · The Four Sunni Imams', chapters: imamsChapters, gold: true }
+];
+
+const isLedger = currentSlug === 'ledger';
+const isOverview = currentSlug === 'scholars-worth-mentioning';
+---
+
+<div class="sidebar-header">
+  <a href="/research/shirk-endorsed" class="edition-back-link">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="19" y1="12" x2="5" y2="12"></line>
+      <polyline points="12 19 5 12 12 5"></polyline>
+    </svg>
+    <span>Archival Overview &amp; Register</span>
+  </a>
+  <span class="sidebar-eyebrow">Critical Research Edition</span>
+  <p class="sidebar-title">Shirk: Endorsed By The Scholars of Islam</p>
+</div>
+
+<nav class="sidebar-nav" aria-label="Treatise table of contents">
+  {sections.map((section) => (
+    <div class="nav-section">
+      <span class="nav-section-title">{section.title}</span>
+      <ul class="nav-list">
+        {section.chapters.map((c, i) => {
+          const isActive = currentSlug === c.id;
+          return (
+            <li>
+              <a
+                href={`/research/shirk-endorsed/${c.id}`}
+                class={`nav-item ${isActive ? 'is-active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <span class={`nav-item__num ${section.gold ? 'nav-item__num--gold' : ''}`}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span class="nav-item__text">{c.title}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  ))}
+
+  <div class="nav-section">
+    <span class="nav-section-title">Part III · The 99 Major Scholars</span>
+    <ul class="nav-list">
+      <li>
+        <a
+          href="/research/shirk-endorsed/scholars-worth-mentioning"
+          class={`nav-item ${isOverview ? 'is-active' : ''}`}
+          aria-current={isOverview ? 'page' : undefined}
+        >
+          <span class="nav-item__num nav-item__num--gold">01</span>
+          <span class="nav-item__text">Scholars Worth Mentioning</span>
+        </a>
+      </li>
+      <li>
+        <a
+          href="/research/shirk-endorsed/ledger"
+          class={`nav-item nav-item--highlight ${isLedger ? 'is-active' : ''}`}
+          aria-current={isLedger ? 'page' : undefined}
+        >
+          <span class="nav-item__num nav-item__num--gold" aria-hidden="true">↗</span>
+          <span class="nav-item__text">Interactive 99-Scholar Ledger</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<style>
+  .sidebar-header {
+    margin-bottom: 1.6rem;
+    padding-bottom: 1.2rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .edition-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    margin-bottom: 0.8rem;
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--hc-gold);
+    text-decoration: none;
+  }
+
+  .edition-back-link:hover,
+  .edition-back-link:focus-visible {
+    color: var(--hc-gold-bright);
+  }
+
+  .sidebar-eyebrow {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    line-height: 1.3;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .sidebar-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.29rem;
+    font-weight: 500;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--hc-text-primary);
+  }
+
+  .nav-section + .nav-section {
+    margin-top: 1.8rem;
+  }
+
+  .nav-section-title {
+    display: block;
+    margin-bottom: 0.48rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    line-height: 1.35;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .nav-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .nav-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.7rem minmax(0, 1fr);
+    gap: 0.42rem;
+    padding: 0.42rem 0;
+    border-bottom: 1px solid transparent;
+    font-family: var(--font-body);
+    font-size: 0.87rem;
+    line-height: 1.35;
+    color: var(--hc-text-secondary);
+    text-decoration: none;
+    transition: color 160ms ease, padding 160ms ease;
+  }
+
+  .nav-item::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 50%;
+    width: 2px;
+    height: 0;
+    background: var(--hc-gold);
+    transform: translateY(-50%);
+    transition: height 160ms ease;
+  }
+
+  .nav-item:hover,
+  .nav-item:focus-visible {
+    color: var(--hc-text-primary);
+    padding-left: 0.18rem;
+  }
+
+  .nav-item.is-active {
+    color: var(--hc-gold);
+  }
+
+  .nav-item.is-active::before {
+    height: 1.1rem;
+  }
+
+  .nav-item--highlight {
+    color: var(--hc-gold);
+  }
+
+  .nav-item__num {
+    padding-top: 0.05rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .nav-item__num--gold {
+    color: var(--hc-gold);
+  }
+
+  .nav-item.is-active .nav-item__num {
+    color: var(--hc-gold);
+  }
+
+  .nav-item__text {
+    min-width: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-item,
+    .nav-item::before {
+      transition: none;
+    }
+
+    .nav-item:hover,
+    .nav-item:focus-visible {
+      padding-left: 0;
+    }
+  }
+</style>

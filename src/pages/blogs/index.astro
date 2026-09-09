@@ -2,6 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { isNewPost } from '../../lib/new-badge';
+import { CATEGORIES } from '../../lib/categories';
 
 const allPosts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -34,40 +35,33 @@ const entries = posts.map((post, index) => ({
 >
   <div class="archive-page">
     <header class="archive-hero" aria-labelledby="archive-title" data-motion="hero">
-      <div class="hc-container archive-hero__inner">
-        <p class="hc-eyebrow archive-hero__label">The HadithCritic Research Archive</p>
-        <h1 id="archive-title" class="archive-hero__title">
-          Studies <em>&amp;</em> Analysis
-        </h1>
-        <div class="archive-hero__meta" aria-label="Archive statistics">
-          <span>{posts.length} Studies Catalogued</span>
-          <span class="archive-hero__diamond" aria-hidden="true"></span>
-          <span>{categories.length} Research Fields</span>
-          <span class="archive-hero__diamond" aria-hidden="true"></span>
-          <span>Latest: {entries[0]?.dateLabel}</span>
+      <div class="hc-container">
+        <div class="hero-content">
+          <h1 id="archive-title" class="archive-hero__title">
+            Studies <span class="archive-hero__title-accent">&amp; Analysis</span>
+          </h1>
+          <p class="archive-hero__lead">
+            Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts.
+          </p>
         </div>
-        <p class="archive-hero__lead">
-          Critical studies, transmission forensics, and historical analyses of prophetic
-          reports and early Islamic source texts. Search by topic, narrator, or category below.
-        </p>
       </div>
     </header>
 
     <div class="archive-tools" role="region" aria-label="Filter the index">
       <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress__bar" id="scroll-bar"></div></div>
       <div class="hc-container archive-tools__inner">
-        <!-- Search Bar Row -->
+        <!-- Search Row -->
         <div class="archive-search-row">
           <div class="archive-search-wrap">
-            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input
               type="search"
               id="archive-search-input"
               class="archive-search-input"
-              placeholder="Search studies by title, narrator, thesis, tag, or author..."
+              placeholder="Search studies by title, narrator, thesis, tag..."
               autocomplete="off"
               aria-label="Search studies"
             />
@@ -165,8 +159,92 @@ const entries = posts.map((post, index) => ({
           Clear Filters &amp; View All
         </button>
       </div>
+
+      <nav class="subject-index" aria-labelledby="subject-index-title">
+        <h2 id="subject-index-title" class="subject-index__title">Browse by subject</h2>
+        <ul class="subject-index__list">
+          {CATEGORIES.map((category) => (
+            <li class="subject-index__item">
+              <a href={`/blogs/category/${category.slug}`}>{category.name}</a>
+              <span class="subject-index__count">
+                {categoryCounts.get(category.name) ?? 0}
+              </span>
+              <p class="subject-index__blurb">{category.blurb.split('.')[0]}.</p>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </section>
   </div>
+
+  <style>
+    /* The category filter above is client-side and produces no crawlable URL.
+       These are the real addresses for each subject. */
+    .subject-index {
+      margin-top: clamp(3rem, 6vw, 5rem);
+      padding-top: 2rem;
+      border-top: 1px solid var(--hc-rule);
+    }
+
+    .subject-index__title {
+      margin: 0 0 1.75rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--hc-text-tertiary);
+    }
+
+    .subject-index__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 1.6rem;
+    }
+
+    .subject-index__item {
+      max-width: 64ch;
+      padding-bottom: 1.4rem;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .subject-index__item:last-child { border-bottom: 0; }
+
+    .subject-index__item a {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--hc-text-primary);
+      text-decoration: none;
+    }
+
+    .subject-index__item a:hover { color: var(--hc-gold); }
+
+    .subject-index__count {
+      margin-left: 0.6rem;
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--hc-text-tertiary);
+    }
+
+    .subject-index__blurb {
+      margin: 0.35rem 0 0;
+      font-family: var(--font-body);
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--hc-text-tertiary);
+    }
+
+    @media (min-width: 900px) {
+      .subject-index__list {
+        grid-template-columns: 1fr 1fr;
+        gap: 1.6rem 3rem;
+      }
+    }
+  </style>
 </BaseLayout>
 
 <script>
@@ -440,87 +518,101 @@ const entries = posts.map((post, index) => ({
       linear-gradient(180deg, var(--hc-surface-2) 0%, var(--hc-surface-0) 42%);
   }
 
-  /* Hero */
+  /* Minimalist Hero */
   .archive-hero {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(5rem, 8vw, 7.5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
-    border-bottom: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
+    background: radial-gradient(ellipse 700px 350px at 20% 30%, rgba(200, 167, 85, 0.04) 0%, transparent 70%);
+    padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(2rem, 3.5vw, 2.75rem);
   }
 
-  .archive-hero::before {
-    content: "";
-    position: absolute;
-    inset: 18px;
-    border: 1px solid rgba(216, 177, 102, 0.12);
-    pointer-events: none;
-  }
-
-  .archive-hero__inner {
-    position: relative;
-    z-index: 1;
-  }
-
-  .archive-hero__label {
-    margin: 0 0 1rem;
-    animation: heroRise 0.7s var(--ease) both;
+  .hero-content {
+    max-width: 680px;
   }
 
   .archive-hero__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(3rem, 6vw, 5.5rem);
-    line-height: 0.95;
+    margin: 0 0 0.85rem;
+    font-family: var(--font-display, serif);
+    font-size: clamp(2.21rem, 5.5vw, 3.82rem);
+    font-weight: 400;
+    line-height: 0.98;
     letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-    animation: heroRise 0.8s var(--ease) 60ms both;
+    color: var(--hc-text-primary, #f5f2eb);
   }
 
-  .archive-hero__title em {
+  .archive-hero__title-accent {
     font-style: italic;
-    color: var(--hc-gold);
-  }
-
-  .archive-hero__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.85rem;
-    margin-top: 1.6rem;
-    color: var(--hc-text-tertiary);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    animation: heroRise 0.8s var(--ease) 140ms both;
-  }
-
-  .archive-hero__diamond {
-    width: 5px;
-    height: 5px;
-    border: 1px solid var(--hc-gold-dim);
-    transform: rotate(45deg);
+    color: var(--hc-gold, #c8a755);
   }
 
   .archive-hero__lead {
-    max-width: 680px;
-    margin: 1.2rem 0 0;
-    color: var(--hc-text-secondary);
-    font-size: clamp(1.02rem, 0.4vw + 0.98rem, 1.18rem);
-    line-height: 1.72;
-    animation: heroRise 0.8s var(--ease) 200ms both;
+    margin: 0;
+    font-family: var(--font-body, serif);
+    font-size: clamp(1rem, 1.25vw, 1.15rem);
+    line-height: 1.65;
+    color: var(--hc-text-secondary, #b5b0a5);
+    max-width: 56ch;
   }
 
-  @keyframes heroRise {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  /* Toolbar Search Row */
+  .archive-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 0 0.5rem;
+  }
+
+  .archive-search-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--hc-surface-1, #141416);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.2s ease;
+  }
+
+  .archive-search-wrap:focus-within {
+    border-color: var(--hc-gold, #c8a755);
+  }
+
+  .archive-search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--hc-text-primary, #f5f2eb);
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.92rem;
+    min-width: 0;
+  }
+
+  .archive-search-input::placeholder {
+    color: var(--hc-text-tertiary, #858077);
+  }
+
+  .archive-search-clear {
+    background: transparent;
+    border: none;
+    color: var(--hc-text-tertiary, #858077);
+    cursor: pointer;
+    font-size: 0.84rem;
+    padding: 0.1rem 0.3rem;
+  }
+
+  .archive-search-clear:hover {
+    color: var(--hc-text-primary, #f5f2eb);
+  }
+
+  .search-kbd {
+    font-family: var(--font-ui, monospace);
+    font-size: 0.8rem;
+    color: var(--hc-text-tertiary, #858077);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
+    border-radius: 4px;
+    padding: 0.2rem 0.45rem;
+    flex-shrink: 0;
   }
 
   /* Filter toolbar */
@@ -599,9 +691,8 @@ const entries = posts.map((post, index) => ({
     border: 0;
     background: transparent;
     color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.92rem;
-    outline: none;
+    font-family: var(--font-body);
+    font-size: 1.03rem;
   }
 
   .archive-search-input::placeholder {
@@ -612,7 +703,7 @@ const entries = posts.map((post, index) => ({
     background: none;
     border: none;
     color: var(--hc-text-tertiary);
-    font-size: 0.9rem;
+    font-size: 1.01rem;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
     transition: color 180ms ease;
@@ -629,7 +720,7 @@ const entries = posts.map((post, index) => ({
     border: 1px solid var(--hc-rule);
     border-radius: 6px;
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 600;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-1);
@@ -713,7 +804,7 @@ const entries = posts.map((post, index) => ({
     background: var(--hc-surface-1);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.85rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     cursor: pointer;
@@ -755,14 +846,19 @@ const entries = posts.map((post, index) => ({
   }
 
   .filter-tab__count {
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     padding: 0.1rem 0.4rem;
     border-radius: var(--radius-pill);
     background: rgba(0, 0, 0, 0.18);
+    /* The tint darkens the ground under what is already the dimmest text
+       token, so the count takes the primary colour rather than inheriting. */
+    color: var(--hc-text-primary);
   }
 
   .filter-tab.is-active .filter-tab__count {
-    background: rgba(0, 0, 0, 0.26);
+    /* Lightens rather than darkens: the active tab already sits on a mid-tone
+       gold, and darkening it dropped the dark label below 4.5:1. */
+    background: rgba(255, 255, 255, 0.32);
     color: currentColor;
   }
 
@@ -776,7 +872,7 @@ const entries = posts.map((post, index) => ({
     background: transparent;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     cursor: pointer;
@@ -805,7 +901,7 @@ const entries = posts.map((post, index) => ({
     margin: 0;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     letter-spacing: 0.04em;
   }
 
@@ -848,7 +944,7 @@ const entries = posts.map((post, index) => ({
 
   .ledger-row__folio {
     color: var(--hc-gold);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -856,7 +952,7 @@ const entries = posts.map((post, index) => ({
 
   .ledger-row__date {
     color: var(--hc-text-tertiary);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
   }
 
   .new-badge {
@@ -868,7 +964,7 @@ const entries = posts.map((post, index) => ({
     background: rgba(224, 90, 71, 0.14);
     border: 1px solid rgba(224, 90, 71, 0.4);
     color: #e05a47;
-    font-size: 0.66rem;
+    font-size: 0.79rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -897,7 +993,7 @@ const entries = posts.map((post, index) => ({
     color: var(--hc-gold-soft);
     background: rgba(216, 177, 102, 0.06);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -931,7 +1027,7 @@ const entries = posts.map((post, index) => ({
     margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.45rem, 2.2vw, 1.95rem);
+    font-size: clamp(1.45rem, 2.2vw, 1.66rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
     color: var(--hc-text-primary);
@@ -950,7 +1046,7 @@ const entries = posts.map((post, index) => ({
     -webkit-box-orient: vertical;
     overflow: hidden;
     color: var(--hc-text-secondary);
-    font-size: 0.94rem;
+    font-size: 1.05rem;
     line-height: 1.62;
   }
 
@@ -982,7 +1078,7 @@ const entries = posts.map((post, index) => ({
     gap: 0.4rem;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -991,7 +1087,7 @@ const entries = posts.map((post, index) => ({
   .search-match-text {
     margin: 0;
     color: var(--hc-text-secondary);
-    font-size: 0.86rem;
+    font-size: 0.96rem;
     line-height: 1.5;
     font-style: italic;
   }
@@ -1011,7 +1107,7 @@ const entries = posts.map((post, index) => ({
     gap: 0.35rem;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1031,7 +1127,7 @@ const entries = posts.map((post, index) => ({
 
   .ledger-tag {
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.81rem;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-2);
     padding: 0.15rem 0.5rem;
@@ -1069,7 +1165,7 @@ const entries = posts.map((post, index) => ({
   }
 
   .ledger-empty__icon {
-    font-size: 2rem;
+    font-size: 1.7rem;
     color: var(--hc-gold);
     margin-bottom: 0.75rem;
   }
@@ -1077,14 +1173,14 @@ const entries = posts.map((post, index) => ({
   .ledger-empty h3 {
     margin: 0 0 0.5rem;
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.27rem;
     color: var(--hc-text-primary);
   }
 
   .ledger-empty p {
     margin: 0 0 1.5rem;
     color: var(--hc-text-secondary);
-    font-size: 0.92rem;
+    font-size: 1.03rem;
     line-height: 1.55;
   }
 

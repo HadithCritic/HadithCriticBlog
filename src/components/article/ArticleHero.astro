@@ -14,7 +14,11 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
   <div class="hc-container hero-grid">
     <div class="hero-content">
       <div class="hero-header-top">
-        <span class="hc-chip article-hero__chip" data-category={category}>{category}</span>
+        <a
+          href={`/blogs?category=${encodeURIComponent(category)}`}
+          class="hc-chip article-hero__chip"
+          data-category={category}
+        >{category}</a>
       </div>
       <h1 class="hc-title article-hero__title">{title}</h1>
       {subtitle && <h2 class="hc-title article-hero__subtitle">{subtitle}</h2>}
@@ -51,25 +55,20 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
 </section>
 
 <script>
+  import { copyText, flashCopied } from '../../lib/clipboard';
+
   function initHeroShare() {
     const btn = document.querySelector<HTMLButtonElement>('[data-share-link]');
     if (!btn || btn.dataset.shareInitialized) return;
     btn.dataset.shareInitialized = 'true';
 
     btn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        btn.classList.add('is-copied');
-        const textSpan = btn.querySelector('.action-btn-text');
-        if (textSpan) textSpan.textContent = 'Link Copied!';
-
-        setTimeout(() => {
-          btn.classList.remove('is-copied');
-          if (textSpan) textSpan.textContent = 'Share';
-        }, 2200);
-      } catch (e) {
-        console.warn('Failed to copy link:', e);
-      }
+      if (!(await copyText(window.location.href, 'link'))) return;
+      flashCopied(btn, {
+        labelSelector: '.action-btn-text',
+        copiedLabel: 'Link Copied!',
+        idleLabel: 'Share'
+      });
     });
   }
 
@@ -144,7 +143,7 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
   .article-hero__title {
     max-width: 800px;
     margin-bottom: 0.5rem;
-    font-size: clamp(2.75rem, 5vw, 4.5rem);
+    font-size: clamp(2.34rem, 5vw, 3.82rem);
     line-height: 1.05;
     letter-spacing: -0.025em;
   }
@@ -153,13 +152,13 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
     max-width: 700px;
     margin-bottom: 1.5rem;
     color: var(--hc-gold);
-    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    font-size: clamp(1.35rem, 2vw, 1.53rem);
     line-height: 1.12;
   }
 
   .article-hero__description {
     max-width: 650px;
-    font-size: 1.1rem;
+    font-size: 1.23rem;
     line-height: 1.6;
   }
 
@@ -187,7 +186,7 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
     background: rgba(15, 15, 16, 0.6);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -293,7 +292,7 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
     }
 
     .article-hero__title {
-      font-size: clamp(2rem, 8vw, 2.75rem);
+      font-size: clamp(1.7rem, 8vw, 2.34rem);
       line-height: 1.1;
     }
 
@@ -303,7 +302,7 @@ const { title, subtitle, description, category, date, heroImage, heroAlt } = Ast
     }
 
     .article-hero__description {
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.55;
     }
 

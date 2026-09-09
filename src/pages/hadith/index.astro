@@ -1,0 +1,867 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { env } from 'cloudflare:workers';
+import { buildMatch, type SearchScope } from '../../lib/arabic-normalize';
+import { makeSnippet } from '../../lib/snippet';
+import { toPlainText } from '../../lib/format-text';
+
+/**
+ * The corpus: browse or search.
+ *
+ * Two jobs on one page, which is deliberate. A reader who arrives knowing the
+ * collection they want should never have to guess at a search term to reach it,
+ * and a reader with a phrase should not have to pick a collection first. With
+ * no query the page is an index of the 33 compilations; with one it is a result
+ * list. The search box stays in the same place either way.
+ *
+ * Server rendered like the narrator register, for the same reasons: it works
+ * with JavaScript off, and search engines see real rows rather than an empty
+ * shell.
+ *
+ * No authenticity filter exists here because no grading is stored. A reader
+ * looking for "only the sahih ones" is asking a question this archive
+ * deliberately declines to answer for them.
+ */
+
+const p = Astro.url.searchParams;
+const q = (p.get('q') || '').trim();
+const scopeParam = (p.get('scope') || 'all') as SearchScope;
+const scope: SearchScope = ['all', 'matn', 'arabic', 'english'].includes(scopeParam)
+  ? scopeParam
+  : 'all';
+const bookFilter = parseInt(p.get('book') || '', 10);
+const narratorFilter = parseInt(p.get('narrator') || '', 10);
+const subjectFilter = (p.get('subject') || '').trim();
+const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
+const size = 25;
+const offset = (page - 1) * size;
+
+// Field weights: the matn is the prophetic core, so a hit there outranks one in
+// the isnad, and a chapter heading is the weakest signal of the three.
+const BM25 = 'bm25(hadith_fts, 1.0, 2.0, 1.0, 2.0, 0.5)';
+
+const hasFilter =
+  Boolean(q) ||
+  (Number.isFinite(bookFilter) && bookFilter > 0) ||
+  (Number.isFinite(narratorFilter) && narratorFilter > 0) ||
+  Boolean(subjectFilter);
+
+const where: string[] = [];
+const binds: unknown[] = [];
+let joinFts = false;
+let queryError = false;
+
+if (q) {
+  try {
+    where.push('hadith_fts MATCH ?');
+    binds.push(buildMatch(q, scope, p.get('phrase') === '1'));
+    joinFts = true;
+  } catch {
+    queryError = true;
+    where.pop();
+  }
+}
+if (Number.isFinite(bookFilter) && bookFilter > 0) {
+  where.push('h.book_id = ?');
+  binds.push(bookFilter);
+}
+if (Number.isFinite(narratorFilter) && narratorFilter > 0) {
+  where.push(
+    'EXISTS (SELECT 1 FROM hadith_narrator hn WHERE hn.hadith_id = h.id AND hn.narrator_id = ?)'
+  );
+  binds.push(narratorFilter);
+}
+if (subjectFilter) {
+  where.push(
+    'EXISTS (SELECT 1 FROM hadith_subject hs WHERE hs.hadith_id = h.id AND hs.label_en = ?)'
+  );
+  binds.push(subjectFilter);
+}
+
+const from = joinFts
+  ? 'FROM hadith_fts JOIN hadith h ON h.id = hadith_fts.rowid JOIN hadith_book b ON b.id = h.book_id'
+  : 'FROM hadith h JOIN hadith_book b ON b.id = h.book_id';
+const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+const order = joinFts ? `${BM25} ASC` : 'h.id ASC';
+
+interface Row {
+  id: number;
+  hadith_num: string;
+  chapter_en: string;
+  matn_en: string | null;
+  text_en: string;
+  text_ar: string;
+  matn_ar: string | null;
+  parallel_count: number;
+  narrator_count: number;
+  book_id: number;
+  book_en: string;
+  book_slug: string;
+}
+
+interface Book {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  hadith_count: number;
+}
+
+let results: Row[] = [];
+let total = 0;
+let books: Book[] = [];
+let activeNarrator: { id: number; name_en: string } | undefined;
+let stats = { narrations: 0, collections: 0, transmitters: 0 };
+let failed = false;
+let searchFailed = false;
+
+// Browsing and searching fail independently, and they are asked for
+// separately for that reason. The search index is the fragile half: it can be
+// mid-rebuild, or the database can be refusing queries on quota, and when that
+// happens a reader should still be able to open a collection and read it. One
+// combined batch would have turned any of those into a blank page.
+try {
+  const res = await env.DB.batch([
+    env.DB.prepare(
+      'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book ORDER BY hadith_count DESC'
+    ),
+    env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM hadith) AS narrations,
+              (SELECT COUNT(*) FROM hadith_book) AS collections,
+              (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS transmitters`
+    ),
+    narratorFilter
+      ? env.DB.prepare('SELECT id, name_en FROM narrator WHERE id = ?').bind(narratorFilter)
+      : env.DB.prepare('SELECT 0 AS id, NULL AS name_en WHERE 0')
+  ]);
+  books = (res[0].results || []) as unknown as Book[];
+  stats = { ...stats, ...((res[1].results?.[0] as typeof stats) || {}) };
+  activeNarrator = (res[2].results || [])[0] as typeof activeNarrator;
+} catch (error) {
+  console.error('Corpus page failed to load', error);
+  failed = true;
+}
+
+// Result rows are only fetched when something was actually asked for. An
+// unfiltered browse would otherwise pay for a scan nobody reads.
+if (!failed && hasFilter && !queryError) {
+  try {
+    const res = await env.DB.batch([
+      env.DB.prepare(
+        `SELECT h.id, h.hadith_num, h.chapter_en, h.matn_en, h.text_en,
+                h.parallel_count, h.narrator_count, h.text_ar, h.matn_ar,
+                b.id AS book_id, b.title_en AS book_en, b.slug AS book_slug
+           ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
+      ).bind(...binds, size, offset),
+      env.DB.prepare(`SELECT COUNT(*) AS n ${from} ${clause}`).bind(...binds)
+    ]);
+    results = (res[0].results || []) as unknown as Row[];
+    total = Number((res[1].results?.[0] as { n?: number } | undefined)?.n ?? 0);
+  } catch (error) {
+    console.error('Corpus search failed', error);
+    searchFailed = true;
+  }
+}
+
+const pages = Math.max(1, Math.ceil(total / size));
+const activeBook = books.find((b) => b.id === bookFilter);
+
+const pageUrl = (n: number) => {
+  const u = new URLSearchParams(Astro.url.search);
+  u.set('page', String(n));
+  return `/hadith?${u}`;
+};
+
+const heroStats = [
+  { num: stats.narrations.toLocaleString(), label: 'Narrations' },
+  { num: String(stats.collections), label: 'Collections' },
+  { num: stats.transmitters.toLocaleString(), label: 'Transmitters' },
+  { num: 'None', label: 'Gradings' }
+];
+---
+
+<BaseLayout
+  title={q ? `“${q}” — Hadith corpus search` : 'Hadith Corpus | HadithCritic'}
+  description={`Search ${stats.narrations.toLocaleString()} narrations from ${stats.collections} collections in Arabic and English. Chains link to the narrator register. No authenticity gradings are stored or shown.`}
+  crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith', url: '/hadith' }]}
+>
+  <div class="corpus-page">
+    <header class="corpus-head">
+      <div class="wrap">
+        <h1 class="corpus-title">The Corpus of <span class="corpus-title-accent">Narration.</span></h1>
+        <p class="corpus-lead">
+          {stats.narrations.toLocaleString()} narrations across {stats.collections} collections,
+          searchable in Arabic and English. Chains of transmission link to the narrator register.
+          No authenticity grading is stored or shown: the evidence is here, the verdict is yours.
+        </p>
+
+        <div class="corpus-stat-band">
+          {heroStats.map((s) => (
+            <div class="corpus-stat">
+              <span class="corpus-stat__num">{s.num}</span>
+              <span class="corpus-stat__label">{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap corpus-body">
+      {failed ? (
+        <p class="corpus-error">The corpus is temporarily unavailable. Please try again shortly.</p>
+      ) : (
+        <>
+          <form class="corpus-controls" method="get" action="/hadith">
+            <div class="corpus-search">
+              <label class="sr-only" for="corpus-q">Search the corpus</label>
+              <input
+                id="corpus-q"
+                class="corpus-search__input"
+                type="search"
+                name="q"
+                value={q}
+                placeholder="عائشة, intention, صلاة الفجر…"
+                autocomplete="off"
+              />
+              <button type="submit" class="corpus-search__go">Search</button>
+            </div>
+
+            <div class="corpus-selects">
+              <label class="corpus-select">
+                <span class="corpus-select__label">In</span>
+                <select name="scope">
+                  <option value="all" selected={scope === 'all'}>Everything</option>
+                  <option value="matn" selected={scope === 'matn'}>Matn only</option>
+                  <option value="arabic" selected={scope === 'arabic'}>Arabic</option>
+                  <option value="english" selected={scope === 'english'}>English</option>
+                </select>
+              </label>
+              <label class="corpus-select">
+                <span class="corpus-select__label">Collection</span>
+                <select name="book">
+                  <option value="">All {stats.collections}</option>
+                  {books.map((b) => (
+                    <option value={b.id} selected={b.id === bookFilter}>
+                      {b.title_en} ({b.hadith_count.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {narratorFilter > 0 && <input type="hidden" name="narrator" value={narratorFilter} />}
+              {subjectFilter && <input type="hidden" name="subject" value={subjectFilter} />}
+            </div>
+          </form>
+
+          {(activeNarrator || subjectFilter || activeBook) && (
+            <p class="corpus-active">
+              {activeBook && <span class="corpus-active__chip">In {activeBook.title_en}</span>}
+              {activeNarrator && (
+                <span class="corpus-active__chip">
+                  Transmitted by <a href={`/narrators/${activeNarrator.id}`}>{activeNarrator.name_en}</a>
+                </span>
+              )}
+              {subjectFilter && <span class="corpus-active__chip">Subject: {subjectFilter}</span>}
+              <a class="corpus-active__clear" href="/hadith">Clear all</a>
+            </p>
+          )}
+
+          {searchFailed && (
+            <p class="corpus-degraded">
+              Search is unavailable at the moment. The collections below are
+              still browsable in full.
+            </p>
+          )}
+
+          {hasFilter && !searchFailed ? (
+            <>
+              <div class="corpus-toolbar">
+                <span class="corpus-status" aria-live="polite">
+                  {queryError
+                    ? 'That query has no searchable terms.'
+                    : `${total.toLocaleString()} ${total === 1 ? 'narration' : 'narrations'}`}
+                  {q && !queryError && <span class="corpus-status__for"> for “{q}”</span>}
+                </span>
+              </div>
+
+              <ol class="corpus-results">
+                {results.map((r) => (
+                  <li class="corpus-result">
+                    <a class="corpus-result__link" href={`/hadith/${r.id}`}>
+                      <p class="corpus-result__src">
+                        <span class="corpus-result__book">{r.book_en}</span>
+                        {r.hadith_num && <span class="corpus-result__num">№ {r.hadith_num}</span>}
+                      </p>
+                      {r.chapter_en && (
+                        <p class="corpus-result__chapter">{toPlainText(r.chapter_en)}</p>
+                      )}
+                      <div class="corpus-result__cols">
+                        <div class="corpus-result__col corpus-result__col--en">
+                          <p class="corpus-result__text">
+                            <Fragment set:html={makeSnippet(toPlainText(r.matn_en || r.text_en), q, { window: 240 })} />
+                          </p>
+                        </div>
+                        {(r.matn_ar || r.text_ar) && (
+                          <div class="corpus-result__col corpus-result__col--ar">
+                            <p lang="ar" dir="rtl" class="corpus-result__ar">
+                              <Fragment set:html={makeSnippet(r.matn_ar || r.text_ar, q, { window: 180 })} />
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <p class="corpus-result__meta">
+                        <span>{r.narrator_count} transmitters</span>
+                        {Number(r.parallel_count) > 0 && (
+                          <>
+                            <span class="corpus-sep" aria-hidden="true">·</span>
+                            <span>{Number(r.parallel_count).toLocaleString()} parallels</span>
+                          </>
+                        )}
+                      </p>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+
+              {results.length === 0 && !queryError && (
+                <p class="corpus-empty">
+                  Nothing matched. Arabic is folded for spelling variation, so عائشة and
+                  عايشة find the same records; try fewer words rather than different ones.
+                </p>
+              )}
+
+              {pages > 1 && (
+                <nav class="corpus-pager" aria-label="Result pages">
+                  {page > 1
+                    ? <a class="corpus-page" href={pageUrl(page - 1)}>← Previous</a>
+                    : <span class="corpus-page" aria-disabled="true">← Previous</span>}
+                  <span class="corpus-page-of">
+                    Page {page.toLocaleString()} of {pages.toLocaleString()}
+                  </span>
+                  {page < pages
+                    ? <a class="corpus-page" href={pageUrl(page + 1)}>Next →</a>
+                    : <span class="corpus-page" aria-disabled="true">Next →</span>}
+                </nav>
+              )}
+            </>
+          ) : (
+            <section class="corpus-index" aria-labelledby="collections-heading">
+              <h2 class="corpus-index__heading" id="collections-heading">Collections</h2>
+              <p class="corpus-index__note">
+                Ordered by size. Every collection is browsable in full, in its own sequence.
+              </p>
+              <ol class="corpus-books">
+                {books.map((b, i) => (
+                  <li class="book-row">
+                    <span class="book-index">{i + 1}</span>
+                    <a class="book-main" href={`/hadith/collection/${b.slug}`}>
+                      <span class="book-names">
+                        <span class="book-name">{b.title_en}</span>
+                        {b.title_ar && (
+                          <span class="book-name-ar" lang="ar" dir="rtl">{b.title_ar}</span>
+                        )}
+                      </span>
+                    </a>
+                    <span class="book-count">{b.hadith_count.toLocaleString()}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </>
+      )}
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  /* The corpus follows the same editorial rules-and-whitespace pattern as the
+     narrator register: numbered rows separated by hairlines, no card per entry,
+     one accent colour carrying state. */
+  .corpus-page {
+    background: var(--hc-surface-0);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .corpus-head {
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .corpus-title {
+    max-width: 20ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-title-accent {
+    color: var(--hc-gold);
+    font-style: italic;
+  }
+
+  .corpus-lead {
+    max-width: 68ch;
+    margin: 1.25rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.72;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-stat-band {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: clamp(2rem, 4vw, 3rem);
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .corpus-stat {
+    position: relative;
+    min-width: 0;
+    padding: 1rem 1.2rem 1.05rem 0;
+  }
+
+  .corpus-stat + .corpus-stat { padding-left: 1.2rem; }
+
+  .corpus-stat + .corpus-stat::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 1px;
+    background: var(--hc-rule-soft);
+  }
+
+  .corpus-stat__num {
+    display: block;
+    font-family: var(--font-body);
+    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-stat__label {
+    display: block;
+    margin-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-body { padding-top: clamp(1.75rem, 3vw, 2.5rem); }
+
+  .corpus-error {
+    padding: 3rem 0;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- controls ---- */
+  .corpus-controls {
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .corpus-search {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    transition: border-color 160ms ease;
+  }
+
+  .corpus-search:focus-within { border-bottom-color: var(--hc-gold); }
+
+  .corpus-search__input {
+    flex: 1;
+    min-width: 0;
+    padding: 0.7rem 0 0.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+  }
+
+  .corpus-search__input::placeholder { color: var(--hc-text-tertiary); }
+  .corpus-search__input:focus { outline: none; }
+
+  .corpus-search__go {
+    flex: none;
+    min-height: 24px;
+    padding: 0.35rem 0;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .corpus-search__go:hover { border-bottom-color: var(--hc-gold); }
+
+  .corpus-selects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.35rem 2.4rem;
+    margin-top: 1.35rem;
+  }
+
+  .corpus-select {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .corpus-select__label {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    white-space: nowrap;
+  }
+
+  .corpus-select select {
+    max-width: 22rem;
+    padding: 0.3rem 0.2rem;
+    border: 0;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+  }
+
+  .corpus-active {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.6rem 1.2rem;
+    margin: 1.1rem 0 0;
+  }
+
+  .corpus-active__chip,
+  .corpus-active__clear {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-active__chip a { color: var(--hc-gold); }
+  .corpus-active__clear { color: var(--hc-gold); text-decoration: none; }
+  .corpus-active__clear:hover { text-decoration: underline; }
+
+  .corpus-toolbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.35rem;
+  }
+
+  .corpus-status {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-status__for {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- results ---- */
+  .corpus-results {
+    margin: 1.25rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .corpus-result { border-bottom: 1px solid var(--hc-rule-soft); }
+
+  .corpus-result__link {
+    display: block;
+    padding: 1.15rem 0;
+    text-decoration: none;
+    color: inherit;
+    transition: background 160ms ease;
+  }
+
+  .corpus-result__link:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+  }
+
+  .corpus-result__src {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 0 0 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .corpus-result__book { color: var(--hc-gold); }
+  .corpus-result__num {
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-result__chapter {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-result__link:hover .corpus-result__chapter { color: var(--hc-gold); }
+
+  /* Facing columns, matching the narration and collection pages. Arabic is
+     second in the DOM so it stacks first on a phone; the explicit row stops
+     grid auto-placement dropping the English into a second row on desktop. */
+  .corpus-result__cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.25rem, 2.5vw, 2rem);
+    margin-bottom: 0.6rem;
+  }
+
+  .corpus-result__col { min-width: 0; }
+  .corpus-result__col--en { grid-column: 1; grid-row: 1; }
+  .corpus-result__col--ar { grid-column: 2; grid-row: 1; }
+
+  .corpus-result__text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Arabic runs at its own leading; harakat need the room. */
+  .corpus-result__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.15rem;
+    line-height: 2.05;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-result__meta {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-sep { color: var(--hc-rule-strong); }
+
+  .corpus-empty {
+    max-width: 68ch;
+    padding: 2.5rem 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Shown when the search index is unreachable but the corpus is not. A rule
+     rather than a coloured banner: this is a degraded state, not an alarm. */
+  .corpus-degraded {
+    max-width: 68ch;
+    margin: 1.35rem 0 0;
+    padding: 0.85rem 0 0.9rem 1rem;
+    border-left: 2px solid var(--hc-gold);
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- collection index ---- */
+  .corpus-index { padding-top: 1.75rem; }
+
+  .corpus-index__heading {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-index__note {
+    max-width: 60ch;
+    margin: 0.6rem 0 1.4rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-books {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .book-row {
+    display: grid;
+    grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.9rem;
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    transition: background 160ms ease;
+  }
+
+  .book-row:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+  }
+
+  .book-index {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .book-main { min-width: 0; text-decoration: none; display: block; }
+
+  .book-names {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .book-name {
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--hc-text-primary);
+  }
+
+  .book-main:hover .book-name { color: var(--hc-gold); }
+
+  .book-name-ar {
+    font-family: var(--font-arabic);
+    font-size: 1.02rem;
+    line-height: 1.8;
+    color: var(--hc-text-tertiary);
+  }
+
+  .book-count {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* ---- pagination ---- */
+  .corpus-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.75rem;
+  }
+
+  .corpus-page {
+    min-height: 24px;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  a.corpus-page:hover { border-bottom-color: var(--hc-gold); }
+
+  .corpus-page[aria-disabled='true'] {
+    color: var(--hc-text-tertiary);
+    pointer-events: none;
+  }
+
+  .corpus-page-of {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-result :global(mark) {
+    background: color-mix(in srgb, var(--hc-gold) 26%, transparent);
+    color: inherit;
+    padding: 0 0.1em;
+  }
+
+  @media (max-width: 780px) {
+    .corpus-result__cols { grid-template-columns: minmax(0, 1fr); gap: 0.9rem; }
+    .corpus-result__col--ar { grid-column: 1; grid-row: 1; }
+    .corpus-result__col--en { grid-column: 1; grid-row: 2; }
+  }
+
+  @media (max-width: 700px) {
+    .corpus-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    /* Sibling form on purpose: Astro scopes each compound with its own
+       [data-astro-cid], so the two-compound base rule outranks a plain
+       :nth-child reset and the divider survived into column one. */
+    .corpus-stat + .corpus-stat:nth-child(2n + 1) { padding-left: 0; }
+    .corpus-stat + .corpus-stat:nth-child(2n + 1)::before { content: none; }
+    .corpus-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+    .corpus-selects { flex-direction: column; gap: 0.9rem; }
+    .corpus-select { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+    .corpus-select select { max-width: 100%; width: 100%; }
+    .book-row { grid-template-columns: 2rem minmax(0, 1fr); row-gap: 0.25rem; }
+    .book-count { grid-column: 2; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .corpus-search, .corpus-result__link, .book-row { transition: none; }
+  }
+</style>

@@ -71,6 +71,7 @@ const hasSlot = Astro.slots.has('default');
 </div>
 
 <script>
+  import { copyText, flashCopied, buildCitation } from '../../lib/clipboard';
   function initHadithCopy() {
     for (const block of document.querySelectorAll<HTMLElement>('[data-hadith-block]')) {
       if (block.dataset.copyInitialized) continue;
@@ -84,27 +85,14 @@ const hasSlot = Astro.slots.has('default');
         const englishEl = block.querySelector('[data-english-text]');
         const sourceVal = block.querySelector('[data-source-text]')?.getAttribute('data-source-text');
 
-        let textParts: string[] = [];
-        if (arabicEl?.textContent) textParts.push(arabicEl.textContent.trim());
-        if (englishEl?.textContent) textParts.push(`"${englishEl.textContent.trim()}"`);
-        if (sourceVal) textParts.push(`— ${sourceVal.trim()}`);
-
-        const textToCopy = textParts.join('\n\n');
+        const textToCopy = buildCitation({
+          primary: arabicEl?.textContent,
+          quoted: englishEl?.textContent,
+          reference: sourceVal
+        });
         if (!textToCopy) return;
-
-        try {
-          await navigator.clipboard.writeText(textToCopy);
-          copyBtn.classList.add('is-copied');
-          const labelSpan = copyBtn.querySelector('.hadith-block__copy-text');
-          if (labelSpan) labelSpan.textContent = 'Copied!';
-
-          setTimeout(() => {
-            copyBtn.classList.remove('is-copied');
-            if (labelSpan) labelSpan.textContent = 'Copy';
-          }, 2200);
-        } catch (err) {
-          console.warn('Failed to copy hadith text:', err);
-        }
+        if (!(await copyText(textToCopy, 'hadith text'))) return;
+        flashCopied(copyBtn, { labelSelector: '.hadith-block__copy-text' });
       });
     }
   }
@@ -175,7 +163,7 @@ const hasSlot = Astro.slots.has('default');
     border-right: 1px solid var(--hc-rule);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -220,7 +208,7 @@ const hasSlot = Astro.slots.has('default');
     background: rgba(15, 15, 16, 0.6);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -262,7 +250,7 @@ const hasSlot = Astro.slots.has('default');
   /* Arabic typography */
   .hadith-block__arabic {
     font-family: var(--font-arabic);
-    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.8rem);
+    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.53rem);
     line-height: 2.35;
     color: var(--hc-text-primary);
     text-align: right;
@@ -287,7 +275,7 @@ const hasSlot = Astro.slots.has('default');
 
   .hadith-block__slot-wrap :global(.hadith-block__arabic) {
     font-family: var(--font-arabic);
-    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.8rem);
+    font-size: clamp(1.45rem, 1.2vw + 1.2rem, 1.53rem);
     line-height: 2.35;
     color: var(--hc-text-primary);
     text-align: right;
@@ -327,13 +315,13 @@ const hasSlot = Astro.slots.has('default');
     padding: 0.85rem clamp(1.4rem, 3vw, 2.2rem);
     border-top: 1px solid rgba(216, 177, 102, 0.12);
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.92rem;
     color: var(--hc-text-secondary);
     background: rgba(216, 177, 102, 0.035);
   }
 
   .hadith-block__source-label {
-    font-size: 0.68rem;
+    font-size: 0.8rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -381,7 +369,7 @@ const hasSlot = Astro.slots.has('default');
 
     .hadith-block__badge {
       padding: 0.4rem 0.85rem;
-      font-size: 0.64rem;
+      font-size: 0.78rem;
     }
 
     .hadith-block__content {
@@ -390,14 +378,14 @@ const hasSlot = Astro.slots.has('default');
 
     .hadith-block__arabic,
     .hadith-block__slot-wrap :global(.hadith-block__arabic) {
-      font-size: clamp(1.28rem, 6.5vw, 1.55rem);
+      font-size: clamp(1.28rem, 6.5vw, 1.32rem);
       line-height: 2.1;
     }
 
     .hadith-block__english,
     .hadith-block__slot-wrap :global(.hadith-block__translation) {
       padding-left: 0.85rem;
-      font-size: 1rem;
+      font-size: 1.12rem;
       line-height: 1.68;
     }
 
