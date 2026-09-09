@@ -78,20 +78,41 @@ the whole account** — after which every other query was refused, including the
 collection is temporarily unavailable" while costing almost nothing themselves:
 they were not what spent the budget.
 
-Rows read per view, before any of this and after:
+### Measure it, don't estimate it
 
-| page | originally | now |
-| ---- | -----: | ----: |
-| `/narrators` | ~105,000 | ~90 |
-| `/api/narrator-facets` | ~84,000 | ~37 |
-| `/hadith` | ~297,000 | ~36 |
-| `/hadith` search | ~297,000 | ~10,060 |
-| `/hadith?book=N` total | whole collection | 0 |
-| unfiltered `/api/hadith` total | 276,347 | 10,001 |
-| collection page 1 | ~60 | ~60 |
-| one narration | ~16 | ~16 |
+```bash
+node scripts/measure-reads.mjs
+```
 
-Three rules produce that, in order of how much they saved:
+Turso's Hrana pipeline reports `rows_read` per statement, so what a page costs
+is a question with an exact answer. The SDK does not surface it, so that script
+asks `/v3/pipeline` directly and prints rows, milliseconds and views-per-month
+for every route. Every number below came from it.
+
+Rows read per view, measured:
+
+| page | originally | now | views/month |
+| ---- | -----: | ----: | ----: |
+| one narration | 20 | 20 | 25,000,000 |
+| collection page 1 | 58 | 58 | 8,620,000 |
+| `/hadith` landing | ~297,000 | **72** | 6,940,000 |
+| `/narrators` register | ~105,000 | **90** | 5,550,000 |
+| `/hadith?book=N` | ~40,000 | **98** | 5,100,000 |
+| `/api/narrator-facets` | ~84,000 | **40** | 12,500,000 |
+| `/hadith?narrator=N` | 207,461 | **10,527** | 47,000 |
+| `/narrators/<id>` dossier | 83,594 | **16,817** | 29,700 |
+| `/narrators?q=` | 24,171 | 24,171 | 20,600 |
+| `/hadith?q=` search | 104,334 | **47,252** | 10,500 |
+| collection page 1,564 | 39,130 | 39,130 | 12,700 |
+
+The search figure is the pessimistic end, not the typical one: cost scales with
+how many narrations match, and that row used عائشة, one of the most common
+words in the corpus. Measured across term frequencies — 47,180 rows for
+عائشة (10,000+ matches), 15,995 for "ablution" (5,315), 443 for كسوف (131),
+and 1 for a term that is absent. An ordinary research query costs hundreds of
+rows, not tens of thousands.
+
+Five rules produce that, in order of how much they saved:
 
 1. **Nothing that is already stored gets recounted.** Narrations and
    collections are summed off the 33 rows of `hadith_book`, whose
@@ -108,6 +129,25 @@ Three rules produce that, in order of how much they saved:
    over its size limit and refused to create a table.
 3. **A total that must be counted is counted to a ceiling** — 10,000 rows,
    reported as "10,000+". That is the residual cost of search.
+4. **Rank on an index, then fetch only what survived.** `ORDER BY bm25(...)
+   LIMIT 25` over a joined query does not stop at 25: FTS5 scores every match,
+   and with the join in place SQLite materializes the text of all of them into
+   a temp b-tree before sorting. Ranking inside a CTE first, where there is
+   nothing to hold but a rowid and a score, then joining the 25 survivors, was
+   74,260 rows and 2,190 ms against 37,180 and 22 ms — byte-identical output,
+   a hundredfold on latency. Search felt slow because it was.
+5. **Drive from the index that answers the question.** `/hadith?narrator=N`
+   scanned all 276,347 narrations evaluating an `EXISTS` per row, because
+   `ORDER BY h.id` with an `EXISTS` filter walks the table. Counted from
+   `idx_hn_narrator` instead it is 10,131 rows rather than 197,064. The same
+   mistake made a rijal dossier gather all 16,511 of ʿĀʾishah's narrations to
+   pick eight — now precomputed in `narrator_top_hadith` (migration 0006).
+
+Each of the cheap shapes in `src/lib/corpus-count.ts` is valid for exactly one
+active filter and wrong for a combination — an FTS-only count cannot see a book
+clause — so the pages check which single filter is narrowing and fall back to
+the general form otherwise. That is why the fast paths are the bare query and
+the bare narrator link: the two journeys the corpus is actually walked by.
 
 The corpus and register routes also opt into Cloudflare's cache for ten
 minutes, which is what stops a crawler walking 33 collections paying for any of
@@ -126,21 +166,32 @@ shows the reader a wrong count. Treat the refresh as part of an import, not an
 optional extra. `npm run fts:rebuild` and `scripts/verify-corpus.mjs` both
 include it.
 
+### Refresh the derived tables after any import
+
+Three tables are caches of things the pages used to compute per view:
+`corpus_stat`, `narrator_facet` and `narrator_top_hadith`. A stale one does not
+error — it shows a reader a wrong number — so the refresh is part of an import,
+not an optional extra.
+
 ### Still costly, and why
 
-Search still pays the 10,000-row bounded count, which is the honest floor for
-"how many results are there" over a corpus this size. The register's text
-filter is `search_text LIKE '%q%'`, which no index can serve, so a query there
-scans all 20,915 named narrators. An FTS index over the register would fix it
-and is now possible — writes work and there is room — but it is a separate
-piece of work with its own recall questions, not a tuning change.
+**The register's text search, 24,171 rows.** `search_text LIKE '%q%'` is
+unindexable, so it scans all 20,915 named narrators. An FTS index over the
+register would fix it and is now possible — writes work and there is room — but
+it needs the same Arabic-fold parity work the corpus index has, so it is a
+piece of work rather than a tuning change. This is the next thing worth doing.
 
-Deep pagination is the other soft spot. `ORDER BY id LIMIT 25 OFFSET n` walks
-and discards everything it skips, so page 1 of a collection costs ~60 rows and
-page 1,564 of Musannaf Ibn Abi Shaybah costs ~39,000. Search is capped at
+**Deep pagination, up to 39,130 rows.** `ORDER BY id LIMIT 25 OFFSET n` walks
+and discards everything it skips, so collection page 1 costs 58 rows and page
+1,564 of Musannaf Ibn Abi Shaybah costs 39,130. Search is capped at
 `MAX_PAGES` for this reason; collection pages are not, because reading a
-collection through is the point of the page. Keyset pagination (`WHERE id > ?`)
-would remove the cost entirely.
+collection through is the point of the page. Keyset pagination (`WHERE id > ?`
+carrying the last id) would remove it, at the cost of losing jump-to-page.
+
+**The 10,000-row bounded count on search.** The honest floor for "how many
+results are there" over a corpus this size. Lowering `COUNT_CAP` trades
+precision for reads; 10,000 was chosen because it is the point past which the
+exact figure stops being information a reader uses.
 
 ## How the data moved
 

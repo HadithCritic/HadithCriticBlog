@@ -47,6 +47,65 @@ export const MAX_PAGES = Math.floor(COUNT_CAP / 25);
 export const boundedCountSql = (from: string, clause: string) =>
   `SELECT COUNT(*) AS n FROM (SELECT 1 ${from} ${clause} LIMIT ${COUNT_CAP + 1})`;
 
+/**
+ * Count matches for a full-text query without touching `hadith` at all.
+ *
+ * The generic form above counts rows of the *joined* result, so it drags
+ * `hadith` and `hadith_book` in behind the FTS scan: 30,002 rows read where
+ * the index alone answers in 10,000. Measured, not assumed — see
+ * scripts/measure-reads.mjs.
+ *
+ * Only valid when the query is the single filter. With a book or narrator
+ * clause as well, this would count matches the reader is not being shown.
+ */
+export const ftsCountSql = () =>
+  `SELECT COUNT(*) AS n FROM (SELECT rowid FROM hadith_fts WHERE hadith_fts MATCH ? LIMIT ${COUNT_CAP + 1})`;
+
+/**
+ * Count the narrations a narrator appears in, from the chain index alone.
+ *
+ * The generic form scans `hadith` and evaluates an EXISTS per row — 197,064
+ * rows read, 441 ms — because `ORDER BY h.id` with an EXISTS filter walks the
+ * table. Driven from `idx_hn_narrator (narrator_id, hadith_id)` instead it is
+ * 10,131 rows and 11 ms for the same answer.
+ *
+ * `DISTINCT` is required, not tidiness: a narrator can occupy several
+ * positions in one chain, and `hadith_narrator` has a row per position. For
+ * narrator 5361 that is 10,485 rows against 8,693 narrations, so counting rows
+ * would overstate by a fifth.
+ */
+export const narratorCountSql = () =>
+  `SELECT COUNT(*) AS n FROM (SELECT DISTINCT hadith_id FROM hadith_narrator WHERE narrator_id = ? LIMIT ${COUNT_CAP + 1})`;
+
+/**
+ * Rank on the index, then fetch only the page of rows that survived.
+ *
+ * `ORDER BY bm25(...) LIMIT 25` over a joined query does not stop at 25: FTS5
+ * has to score every match, and with the join in place SQLite materialises the
+ * text of all of them into a temp b-tree before sorting. For a term matching
+ * 18,565 narrations that measured 74,260 rows read and 2,190 ms. Ranking
+ * inside a CTE first — where there is nothing to materialise but a rowid and a
+ * score — then joining the 25 survivors, is 37,180 rows and 22 ms for
+ * byte-identical output.
+ *
+ * A hundredfold on latency is the point. Search felt slow because it was.
+ *
+ * Like the counts above, only valid when the query is the single filter: the
+ * CTE's LIMIT is applied before any other clause could be, so a book filter
+ * would narrow the 25 already chosen rather than the corpus.
+ */
+export const ftsPageSql = (columns: string, order: string) =>
+  `WITH ranked AS (
+     SELECT rowid AS hadith_id, ${order} AS score
+       FROM hadith_fts WHERE hadith_fts MATCH ?
+      ORDER BY score ASC LIMIT ? OFFSET ?
+   )
+   SELECT ${columns}
+     FROM ranked
+     JOIN hadith h ON h.id = ranked.hadith_id
+     JOIN hadith_book b ON b.id = h.book_id
+    ORDER BY ranked.score ASC`;
+
 export interface CountResult {
   /** Matches found, never above `COUNT_CAP` when `approximate` is set. */
   total: number;

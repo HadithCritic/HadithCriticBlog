@@ -9,6 +9,9 @@ import { toPlainText } from '../../lib/format-text';
 import {
   boundedCountSql,
   exactCount,
+  ftsCountSql,
+  ftsPageSql,
+  narratorCountSql,
   formatCount,
   pageCount,
   readCount,
@@ -167,32 +170,54 @@ try {
   failed = true;
 }
 
-// The collection whose stored total answers this request on its own: set only
-// when a book filter is the single thing narrowing the result set, since any
-// other clause makes `hadith_count` the wrong number.
-const bookOnly =
-  !q && !subjectFilter && !(Number.isFinite(narratorFilter) && narratorFilter > 0)
-    ? books.find((b) => b.id === bookFilter)
-    : undefined;
+// Which single filter, if any, is doing all the narrowing. The cheap query
+// shapes in src/lib/corpus-count.ts are each valid for exactly one filter and
+// wrong for a combination, so this is what selects between them and the
+// general form. Measured costs are in scripts/measure-reads.mjs.
+const activeFilters = [
+  q ? 'query' : null,
+  Number.isFinite(bookFilter) && bookFilter > 0 ? 'book' : null,
+  Number.isFinite(narratorFilter) && narratorFilter > 0 ? 'narrator' : null,
+  subjectFilter ? 'subject' : null
+].filter(Boolean);
+const soleFilter = activeFilters.length === 1 ? activeFilters[0] : null;
+
+// The collection whose stored total answers this request on its own.
+const bookOnly = soleFilter === 'book' ? books.find((b) => b.id === bookFilter) : undefined;
+// A bare full-text query, and a bare narrator link from a rijal dossier: the
+// two journeys this corpus is actually walked by, and the two that were most
+// expensive before they got their own query shapes.
+const queryOnly = soleFilter === 'query' && !queryError;
+const narratorOnly = soleFilter === 'narrator';
 
 // Result rows are only fetched when something was actually asked for. An
 // unfiltered browse would otherwise pay for a scan nobody reads.
 if (!failed && hasFilter && !queryError) {
   try {
-    const res = await db.batch([
-      db.prepare(
-        `SELECT h.id, h.hadith_num, h.chapter_en, h.matn_en, h.text_en,
+    const COLUMNS = `h.id, h.hadith_num, h.chapter_en, h.matn_en, h.text_en,
                 h.parallel_count, h.narrator_count, h.text_ar, h.matn_ar,
-                b.id AS book_id, b.title_en AS book_en, b.slug AS book_slug
-           ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
-      ).bind(...binds, size, offset),
-      // Browsing one collection has its total already stored, so nothing is
-      // counted at all; anything else is counted to the cap. Before this,
-      // "?book=N" with no query scanned every row of the collection on each
-      // page view, and a bare query scanned the corpus.
+                b.id AS book_id, b.title_en AS book_en, b.slug AS book_slug`;
+
+    const res = await db.batch([
+      // A bare query ranks on the index and joins only the survivors. The
+      // general form materialises every match before sorting, which for a
+      // common term was 74,260 rows and 2,190 ms against 37,180 and 22 ms.
+      queryOnly
+        ? db.prepare(ftsPageSql(COLUMNS, BM25)).bind(binds[0], size, offset)
+        : db
+            .prepare(`SELECT ${COLUMNS} ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`)
+            .bind(...binds, size, offset),
+      // Cheapest total that is still the right total. A collection's is
+      // already stored; a bare query counts index entries; a bare narrator
+      // counts the chain index; a combination falls back to the general form,
+      // which is correct for all of them and expensive for some.
       bookOnly
         ? db.prepare('SELECT 0 AS n WHERE 0')
-        : db.prepare(boundedCountSql(from, clause)).bind(...binds)
+        : queryOnly
+          ? db.prepare(ftsCountSql()).bind(binds[0])
+          : narratorOnly
+            ? db.prepare(narratorCountSql()).bind(narratorFilter)
+            : db.prepare(boundedCountSql(from, clause)).bind(...binds)
     ]);
     results = (res[0].results || []) as unknown as Row[];
     count = bookOnly

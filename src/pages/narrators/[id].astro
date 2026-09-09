@@ -220,15 +220,27 @@ let attestedForms: { surface: string; n_mentions: number; is_display: number }[]
 
 try {
   const [transmissionRes, transmissionCountRes, aliasRes] = await db.batch([
+    // The eight openers come from `narrator_top_hadith`, which stores this
+    // exact ranking. Asked live it was the most expensive statement on the
+    // site — 66,853 rows and 735 ms for ʿĀʾishah — because no index spans
+    // `hadith_narrator.narrator_id` and `hadith.parallel_count`, so every one
+    // of her 16,511 narrations was gathered and sorted to take eight. See
+    // migrations/0006 and scripts/refresh-stats.mjs.
+    //
+    // It also fixes a duplicate: the old query joined `hadith_narrator`
+    // directly with no DISTINCT, so a transmitter named twice in one chain
+    // could spend two of their eight slots on the same narration. `pos` is now
+    // read back as the earliest position they occupy, an indexed lookup each.
     db.prepare(
       `SELECT h.id, h.hadith_num, h.matn_en, h.narrator_count, h.parallel_count,
-              hn.pos, b.title_en AS book_en
-         FROM hadith_narrator hn
-         JOIN hadith h ON h.id = hn.hadith_id
+              (SELECT MIN(hn.pos) FROM hadith_narrator hn
+                WHERE hn.narrator_id = t.narrator_id AND hn.hadith_id = h.id) AS pos,
+              b.title_en AS book_en
+         FROM narrator_top_hadith t
+         JOIN hadith h ON h.id = t.hadith_id
          JOIN hadith_book b ON b.id = h.book_id
-        WHERE hn.narrator_id = ?
-        ORDER BY h.parallel_count DESC, h.id
-        LIMIT 8`
+        WHERE t.narrator_id = ?
+        ORDER BY t.ord`
     ).bind(id),
     // DISTINCT because a transmitter can be named more than once in one chain.
     // Counting rows here would disagree with the corpus view this links to,

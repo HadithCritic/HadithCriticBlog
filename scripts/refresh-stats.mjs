@@ -117,6 +117,60 @@ for (const [kind, query] of Object.entries(FACETS)) {
   }
 }
 
+/**
+ * The eight most-paralleled narrations per narrator, for the dossier openers.
+ *
+ * One statement, computed entirely inside the database: a window function
+ * ranks each narrator's narrations by `parallel_count` and keeps the top
+ * eight. `DISTINCT` on the inner select matters — `hadith_narrator` has a row
+ * per chain position, so a narrator occupying two positions in one narration
+ * would otherwise take two of their eight slots with the same report.
+ *
+ * This reads the 2.25M-row chain index once. That is the whole point: the
+ * dossier pages then read eight rows each instead of tens of thousands, and
+ * this runs per import rather than per view.
+ */
+const TOP_HADITH = `
+  INSERT INTO narrator_top_hadith (narrator_id, ord, hadith_id)
+  SELECT narrator_id, ord, hadith_id FROM (
+    SELECT hn.narrator_id AS narrator_id,
+           hn.hadith_id AS hadith_id,
+           ROW_NUMBER() OVER (
+             PARTITION BY hn.narrator_id
+             ORDER BY h.parallel_count DESC, h.id ASC
+           ) - 1 AS ord
+      FROM (SELECT DISTINCT narrator_id, hadith_id FROM hadith_narrator
+             WHERE narrator_id IS NOT NULL) hn
+      JOIN hadith h ON h.id = hn.hadith_id
+  ) WHERE ord < 8`;
+
+console.log('\ntop narrations per narrator');
+const topStored = Number(
+  (await conn.all('SELECT COUNT(*) AS n FROM narrator_top_hadith'))[0].n
+);
+const narratorsWithHadith = Number(
+  (await conn.all(
+    'SELECT COUNT(*) AS n FROM (SELECT DISTINCT narrator_id FROM hadith_narrator WHERE narrator_id IS NOT NULL)'
+  ))[0].n
+);
+// Every narrator who appears in a chain should have between one and eight rows.
+const topLooksRight = topStored > 0 && topStored >= narratorsWithHadith;
+console.log(
+  `  ${topLooksRight ? 'ok  ' : 'DIFF'} narrator_top_hadith  ${topStored.toLocaleString().padStart(9)} rows` +
+    ` for ${narratorsWithHadith.toLocaleString()} narrators`
+);
+if (!topLooksRight) drift += 1;
+if (!check && !topLooksRight) {
+  console.log('  rebuilding (one pass over the 2.25M-row chain index)…');
+  await conn.run('DELETE FROM narrator_top_hadith');
+  const started = Date.now();
+  await conn.run(TOP_HADITH);
+  const rebuilt = Number((await conn.all('SELECT COUNT(*) AS n FROM narrator_top_hadith'))[0].n);
+  console.log(
+    `  built ${rebuilt.toLocaleString()} rows in ${((Date.now() - started) / 1000).toFixed(1)}s`
+  );
+}
+
 if (check) {
   console.log(`\n${drift === 0 ? 'up to date' : `${drift} group(s) stale — run without --check`}`);
   process.exit(drift === 0 ? 0 : 1);

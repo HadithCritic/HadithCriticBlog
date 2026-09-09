@@ -5,7 +5,14 @@ import { db } from '../../lib/db';
 import { buildMatch, type SearchScope } from '../../lib/arabic-normalize';
 import { makeSnippet } from '../../lib/snippet';
 import { toPlainText } from '../../lib/format-text';
-import { boundedCountSql, pageCount, readCount } from '../../lib/corpus-count';
+import {
+  boundedCountSql,
+  ftsCountSql,
+  ftsPageSql,
+  narratorCountSql,
+  pageCount,
+  readCount
+} from '../../lib/corpus-count';
 
 /**
  * Hadith search endpoint.
@@ -96,7 +103,8 @@ export const GET: APIRoute = async ({ url }) => {
   }
 
   // Only rows carrying an extracted prophetic core, for matn comparison work.
-  if (p.get('matn') === '1') where.push("h.matn_ar IS NOT NULL AND h.matn_ar <> ''");
+  const matnOnly = p.get('matn') === '1';
+  if (matnOnly) where.push("h.matn_ar IS NOT NULL AND h.matn_ar <> ''");
 
   const sortKey = p.get('sort') || (rawQuery ? 'relevance' : 'id');
   // Relevance is meaningless without a query, and bm25() is not available
@@ -113,19 +121,41 @@ export const GET: APIRoute = async ({ url }) => {
     ? 'FROM hadith_fts JOIN hadith h ON h.id = hadith_fts.rowid JOIN hadith_book b ON b.id = h.book_id'
     : 'FROM hadith h JOIN hadith_book b ON b.id = h.book_id';
   const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
+  // Which single filter is doing all the narrowing, if any. The cheap query
+  // shapes in src/lib/corpus-count.ts are each valid for one filter and wrong
+  // for a combination — see there for the measured costs, and
+  // scripts/measure-reads.mjs for the current numbers.
+  const active = [
+    rawQuery ? 'query' : null,
+    Number.isFinite(book) && book > 0 ? 'book' : null,
+    Number.isFinite(narrator) && narrator > 0 ? 'narrator' : null,
+    subject ? 'subject' : null,
+    matnOnly ? 'matn' : null
+  ].filter(Boolean);
+  const sole = active.length === 1 ? active[0] : null;
+  // Relevance order is what the CTE ranks on, so it only applies when the
+  // caller actually asked for relevance.
+  const queryOnly = sole === 'query' && order === SORTS.relevance;
+  const narratorOnly = sole === 'narrator';
 
   try {
-    const [rows, counted] = await db.batch<Record<string, unknown>>([
-      db.prepare(
-        `SELECT h.id, h.hadith_num, h.chapter_en,
+    const COLUMNS = `h.id, h.hadith_num, h.chapter_en,
                 h.matn_ar, h.matn_en, h.text_ar, h.text_en,
                 h.parallel_count, h.witness_count, h.variant_count,
                 h.narrator_count, h.path_count,
-                b.id AS book_id, b.title_en AS book_en, b.title_ar AS book_ar
-           ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
-      ).bind(...binds, size, offset),
-      db.prepare(boundedCountSql(from, clause)).bind(...binds)
+                b.id AS book_id, b.title_en AS book_en, b.title_ar AS book_ar`;
+
+    const [rows, counted] = await db.batch<Record<string, unknown>>([
+      queryOnly
+        ? db.prepare(ftsPageSql(COLUMNS, BM25)).bind(binds[0], size, offset)
+        : db
+            .prepare(`SELECT ${COLUMNS} ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`)
+            .bind(...binds, size, offset),
+      queryOnly
+        ? db.prepare(ftsCountSql()).bind(binds[0])
+        : narratorOnly
+          ? db.prepare(narratorCountSql()).bind(narrator)
+          : db.prepare(boundedCountSql(from, clause)).bind(...binds)
     ]);
 
     // Counted to a ceiling. Unbounded, this was a 276,347-row scan on every
