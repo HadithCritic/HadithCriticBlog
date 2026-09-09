@@ -4,6 +4,7 @@ export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { person, entityPage } from '../../lib/seo';
 import { env } from 'cloudflare:workers';
+import { toPlainText } from '../../lib/format-text';
 
 /**
  * Rijal dossier, rendered on demand from D1.
@@ -184,6 +185,74 @@ if (uniqueIds.length) {
 // safe to link. The old build had to gate this on the prerendered subset.
 const linkableIds = new Set(Object.keys(chainNames).map(Number));
 
+/**
+ * What this transmitter actually narrated.
+ *
+ * The dossier already reports what the critics said about him. This is the
+ * other half of the evidence, and until the corpus landed in D1 the site could
+ * not show it: the register's `hadith_count` was a number with nothing behind
+ * it. `hadith_narrator.narrator_id` is the same integer as `narrator.id` —
+ * verified across all 20,950 shared rows — so this is one indexed lookup and
+ * not a reconciliation.
+ *
+ * A sample is enough on this page; the full list lives at /hadith?narrator={id}.
+ */
+interface Transmission {
+  id: number;
+  hadith_num: string;
+  book_en: string;
+  matn_en: string | null;
+  pos: number;
+  narrator_count: number;
+  parallel_count: number;
+}
+
+/**
+ * The corpus tables are a separate migration from the register, so this page
+ * has to survive their absence. A partly-applied import, or a rollback, would
+ * otherwise take every rijal dossier down with it — D1 rejects a whole batch
+ * when one statement references a missing table. The corpus sections are
+ * additive, so failing to read them degrades to hiding them.
+ */
+let transmissions: Transmission[] = [];
+let transmissionCount = 0;
+let attestedForms: { surface: string; n_mentions: number; is_display: number }[] = [];
+
+try {
+  const [transmissionRes, transmissionCountRes, aliasRes] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT h.id, h.hadith_num, h.matn_en, h.narrator_count, h.parallel_count,
+              hn.pos, b.title_en AS book_en
+         FROM hadith_narrator hn
+         JOIN hadith h ON h.id = hn.hadith_id
+         JOIN hadith_book b ON b.id = h.book_id
+        WHERE hn.narrator_id = ?
+        ORDER BY h.parallel_count DESC, h.id
+        LIMIT 8`
+    ).bind(id),
+    // DISTINCT because a transmitter can be named more than once in one chain.
+    // Counting rows here would disagree with the corpus view this links to,
+    // which counts narrations.
+    env.DB.prepare(
+      'SELECT COUNT(DISTINCT hadith_id) AS n FROM hadith_narrator WHERE narrator_id = ?'
+    ).bind(id),
+    // Attested spellings: the register's display form is often not how this
+    // person is actually named in the chains.
+    env.DB.prepare(
+      `SELECT surface, n_mentions, is_display FROM narrator_alias
+        WHERE narrator_id = ? ORDER BY n_mentions DESC LIMIT 8`
+    ).bind(id)
+  ]);
+
+  transmissions = (transmissionRes.results || []) as unknown as Transmission[];
+  transmissionCount = Number(
+    (transmissionCountRes.results?.[0] as { n?: number } | undefined)?.n ?? 0
+  );
+  attestedForms = (aliasRes.results || []) as unknown as typeof attestedForms;
+} catch (error) {
+  console.error('Corpus lookup failed for narrator', id, error);
+}
+
 const VERDICT_LABELS: Record<Verdict, string> = {
   jarh: 'Jarh',
   tadil: "Ta'dil",
@@ -344,6 +413,58 @@ const narratorCrumbs = [
             </ul>
           </>
         )}
+      </section>
+    )}
+
+    {transmissionCount > 0 && (
+      <section class="rijal-section">
+        <h2>Narrations</h2>
+        <p class="rijal-note">
+          {transmissionCount.toLocaleString()} narrations in the corpus name this
+          transmitter. Shown are the most widely attested; no authenticity
+          grading is applied to any of them.
+        </p>
+        <ul class="rijal-transmissions">
+          {transmissions.map((t) => (
+            <li class="rijal-transmission">
+              <a href={`/hadith/${t.id}`}>
+                <span class="rijal-transmission__src">
+                  {t.book_en}{t.hadith_num ? ` № ${t.hadith_num}` : ''}
+                </span>
+                {t.matn_en && <span class="rijal-transmission__text">{toPlainText(t.matn_en).slice(0, 200)}</span>}
+                <span class="rijal-transmission__meta">
+                  Position {t.pos} of {t.narrator_count}
+                  {t.parallel_count > 0 && ` · ${t.parallel_count.toLocaleString()} parallels`}
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="rijal-note">
+          <a class="rijal-more" href={`/hadith?narrator=${detail.id}`}>
+            All {transmissionCount.toLocaleString()} narrations →
+          </a>
+        </p>
+      </section>
+    )}
+
+    {attestedForms.length > 1 && (
+      <section class="rijal-section">
+        <h2>Attested Spellings</h2>
+        <p class="rijal-note">
+          How the chains actually name this person, with occurrence counts. The
+          register's display form is frequently not the commonest one, which is
+          why identity resolution cannot rely on string matching alone.
+        </p>
+        <ul class="rijal-forms">
+          {attestedForms.map((f) => (
+            <li class="rijal-form">
+              <span lang="ar" dir="rtl" class="rijal-form__surface">{f.surface}</span>
+              <span class="rijal-form__count">{f.n_mentions.toLocaleString()}</span>
+              {f.is_display === 1 && <span class="rijal-form__flag">Register form</span>}
+            </li>
+          ))}
+        </ul>
       </section>
     )}
 
@@ -802,4 +923,61 @@ const narratorCrumbs = [
   .rijal-relations span { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
   /* A narrator with no page of their own still shows, just not as a link. */
   .rijal-relations .rijal-plain { color: var(--hc-text-secondary); font-size: 0.96rem; font-variant-numeric: normal; }
+
+  /* Narrations: what this transmitter carried, opposite what critics said of him. */
+  .rijal-transmissions { list-style: none; margin: 0 0 1rem; padding: 0; }
+  .rijal-transmission { border-top: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.16)); }
+  .rijal-transmission a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.9rem 0;
+    text-decoration: none;
+    color: inherit;
+  }
+  .rijal-transmission__src {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-gold);
+  }
+  .rijal-transmission__text {
+    font-size: 0.96rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+    max-width: 68ch;
+  }
+  .rijal-transmission a:hover .rijal-transmission__text { color: var(--hc-gold); }
+  .rijal-transmission__meta {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+  }
+  .rijal-more { color: var(--hc-gold); text-decoration: none; }
+  .rijal-more:hover { text-decoration: underline; }
+
+  /* Attested spellings. Arabic gets its own leading; harakat need the room. */
+  .rijal-forms { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
+  .rijal-form {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.12));
+  }
+  .rijal-form__surface { font-family: 'Amiri', serif; font-size: 1.12rem; line-height: 2.0; flex: 1 1 auto; }
+  .rijal-form__count { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
+  .rijal-form__flag {
+    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--hc-gold);
+  }
 </style>

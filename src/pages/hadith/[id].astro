@@ -1,0 +1,759 @@
+---
+export const prerender = false;
+
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { entityPage } from '../../lib/seo';
+import { env } from 'cloudflare:workers';
+import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
+
+/**
+ * A single narration, rendered on demand from D1.
+ *
+ * Laid out as a critical edition rather than as a stack of blocks: a banner
+ * that names the collection and chapter, then the text in facing columns with
+ * the Arabic on the right and the translation on the left, then the isnad as a
+ * numbered ladder. Reading the Arabic against the English is the thing this
+ * page exists for, and stacking them put a screen height between a phrase and
+ * its translation.
+ *
+ * What this page deliberately does not carry is a grading. The corpus stores
+ * none, and none is inferred: a sahih/da'if label is a conclusion, and putting
+ * one at the top of the page would settle the question the reader came to open.
+ * What it shows instead is the evidence a judgement would rest on — the chain,
+ * who each transmitter was, and how widely the report is attested elsewhere.
+ */
+
+const id = Number(Astro.params.id);
+if (!Number.isFinite(id) || id <= 0) {
+  return new Response('Not found', { status: 404 });
+}
+
+// An unguarded batch here surfaced as a 500 the moment the database began
+// refusing queries on quota. A narration page is worthless without the
+// narration, so there is nothing to degrade to: the honest answer is a 503,
+// which tells a reader to come back rather than that the record is missing.
+let hadithRow, chainRows, subjectRows, glossRows;
+try {
+  [hadithRow, chainRows, subjectRows, glossRows] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT h.*, b.title_ar AS book_ar, b.title_en AS book_en,
+              b.id AS book_id, b.slug AS book_slug
+         FROM hadith h JOIN hadith_book b ON b.id = h.book_id WHERE h.id = ?`
+    ).bind(id),
+    // Chain positions carry the register's name and death year, so the isnad
+    // renders as people rather than as strings.
+    env.DB.prepare(
+      `SELECT c.path_idx, c.pos, c.narrator_id, c.name,
+              n.name_en, n.death_hijri
+         FROM hadith_chain c
+         LEFT JOIN narrator n ON n.id = c.narrator_id
+        WHERE c.hadith_id = ? ORDER BY c.path_idx, c.pos`
+    ).bind(id),
+    env.DB.prepare('SELECT label_ar, label_en FROM hadith_subject WHERE hadith_id = ?').bind(id),
+    env.DB.prepare('SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?').bind(id)
+  ]);
+} catch (error) {
+  console.error(`Hadith ${id} failed to load`, error);
+  return new Response('The corpus is temporarily unavailable.', { status: 503 });
+}
+
+const hadith = hadithRow.results?.[0] as Record<string, any> | undefined;
+if (!hadith) {
+  return new Response('Hadith not found', { status: 404 });
+}
+
+interface ChainNode {
+  path_idx: number;
+  pos: number;
+  narrator_id: number | null;
+  name: string;
+  name_en: string | null;
+  death_hijri: number | null;
+}
+
+const chain = (chainRows.results || []) as unknown as ChainNode[];
+const subjects = (subjectRows.results || []) as unknown as { label_ar: string; label_en: string }[];
+const glosses = (glossRows.results || []) as unknown as { word_ar: string; word_en: string }[];
+
+// Group parallel isnads. A report often records several routes; collapsing them
+// into one list would misrepresent the transmission.
+const paths = new Map<number, ChainNode[]>();
+for (const node of chain) {
+  if (!paths.has(node.path_idx)) paths.set(node.path_idx, []);
+  paths.get(node.path_idx)!.push(node);
+}
+
+const chapter = toPlainText(hadith.chapter_en);
+const ref = `${hadith.book_en}${hadith.hadith_num ? ` ${hadith.hadith_num}` : ''}`;
+const title = `${ref} — Hadith ${id}`;
+const summary = toPlainText(hadith.matn_en || hadith.text_en).slice(0, 180);
+
+// The matn is the same text as the report on reports that carry no isnad. Two
+// identical panels would read as an editing mistake, so the matn panel is only
+// shown when it is actually a narrower thing than the report.
+const matnIsDistinct =
+  Boolean(hadith.matn_ar) && String(hadith.matn_ar).trim() !== String(hadith.text_ar).trim();
+
+const stats = [
+  { label: 'Transmitters', value: Number(hadith.narrator_count).toLocaleString() },
+  { label: 'Isnād paths', value: Number(hadith.path_count).toLocaleString() },
+  { label: 'Parallels', value: Number(hadith.parallel_count).toLocaleString() },
+  { label: 'Witnesses', value: Number(hadith.witness_count).toLocaleString() },
+  { label: 'Variants', value: Number(hadith.variant_count).toLocaleString() }
+];
+
+const totalParallels =
+  Number(hadith.parallel_count || 0) +
+  Number(hadith.witness_count || 0) +
+  Number(hadith.variant_count || 0);
+---
+
+<BaseLayout
+  title={title}
+  description={summary}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Hadith', url: '/hadith' },
+    { name: ref, url: `/hadith/${id}` }
+  ]}
+  schema={[
+    entityPage({
+      url: `${Astro.site}hadith/${id}`,
+      title,
+      description: summary,
+      entityId: `${Astro.site}hadith/${id}#hadith`
+    })
+  ]}
+>
+  <article class="hadith">
+    <!-- The banner carries the whole citation in one block: the collection in
+         Arabic, the chapter it sits under, and the reference a reader would
+         write down. Previously these were three loose lines that read as
+         unrelated. -->
+    <header class="hadith-banner">
+      <p class="hadith-banner__ar" lang="ar" dir="rtl">{hadith.book_ar}</p>
+      <h1 class="hadith-banner__title">{chapter || hadith.book_en}</h1>
+      <p class="hadith-banner__ref">
+        <a href={`/hadith/collection/${hadith.book_slug}`}>{hadith.book_en}</a>
+        {hadith.hadith_num && (
+          <>
+            <span class="hadith-sep" aria-hidden="true">·</span>
+            <span>№ {hadith.hadith_num}</span>
+          </>
+        )}
+        <span class="hadith-sep" aria-hidden="true">·</span>
+        <span>Corpus ID {id}</span>
+      </p>
+    </header>
+
+    <ul class="hadith-stats">
+      {stats.map((s) => (
+        <li class="hadith-stat">
+          <span class="hadith-stat__num">{s.value}</span>
+          <span class="hadith-stat__label">{s.label}</span>
+        </li>
+      ))}
+    </ul>
+
+    {matnIsDistinct && (
+      <section class="hadith-panel" aria-labelledby="matn-heading">
+        <div class="hadith-panel__head">
+          <h2 class="hadith-panel__title" id="matn-heading">Matn</h2>
+          <p class="hadith-panel__note">
+            The prophetic core with the chain of transmission removed. This is the
+            unit that matn comparison works on.
+          </p>
+        </div>
+        <div class="hadith-cols">
+          <div class="hadith-col hadith-col--ar">
+            <span class="hadith-col__label">Arabic</span>
+            <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar is-matn">
+              <Fragment set:html={renderArabic(hadith.matn_ar)} />
+            </p>
+          </div>
+          <div class="hadith-col hadith-col--en">
+            <span class="hadith-col__label">English</span>
+            {hadith.matn_en ? (
+              <>
+                <p class="hadith-col__text hadith-col__text--en is-matn">
+                  <Fragment set:html={renderRich(hadith.matn_en)} />
+                </p>
+                <p class="hadith-mt">Machine translation, unreviewed</p>
+              </>
+            ) : (
+              <p class="hadith-col__missing">No translation recorded for this matn.</p>
+            )}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section class="hadith-panel" aria-labelledby="report-heading">
+      <div class="hadith-panel__head">
+        <h2 class="hadith-panel__title" id="report-heading">Full Report</h2>
+        <p class="hadith-panel__note">
+          The narration as the collection prints it, chain of transmission included.
+        </p>
+      </div>
+      <div class="hadith-cols">
+        <div class="hadith-col hadith-col--ar">
+          <span class="hadith-col__label">Arabic</span>
+          <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar">
+            <Fragment set:html={renderArabic(hadith.text_ar)} />
+          </p>
+        </div>
+        <div class="hadith-col hadith-col--en">
+          <span class="hadith-col__label">English</span>
+          {hadith.text_en ? (
+            <>
+              <p class="hadith-col__text hadith-col__text--en">
+                <Fragment set:html={renderRich(hadith.text_en)} />
+              </p>
+              <p class="hadith-mt">Machine translation, unreviewed</p>
+            </>
+          ) : (
+            <p class="hadith-col__missing">No translation recorded for this report.</p>
+          )}
+        </div>
+      </div>
+    </section>
+
+    {paths.size > 0 && (
+      <section class="hadith-panel" aria-labelledby="isnad-heading">
+        <div class="hadith-panel__head">
+          <h2 class="hadith-panel__title" id="isnad-heading">Chain of Transmission</h2>
+          <p class="hadith-panel__note">
+            Listed from the source outward: position 1 is the earliest transmitter,
+            the last position is the collector. Each name links to its record in the
+            register, and the year is the death date where one is known.
+            No reliability verdict is shown here — that judgement is the reader's, and
+            the register reports what each critic said rather than settling it.
+          </p>
+        </div>
+
+        <div class="isnad-paths">
+          {[...paths.entries()].map(([idx, nodes]) => (
+            <div class="isnad-path">
+              {paths.size > 1 && (
+                <p class="isnad-path__label">
+                  Path {idx + 1} <span class="isnad-path__n">{nodes.length} links</span>
+                </p>
+              )}
+              <ol class="isnad">
+                {nodes.map((node, i) => (
+                  <li class="isnad__node">
+                    <span class="isnad__pos" aria-hidden="true">{i + 1}</span>
+                    {node.narrator_id ? (
+                      <a class="isnad__person" href={`/narrators/${node.narrator_id}`}>
+                        <span class="isnad__name">{node.name_en || node.name}</span>
+                        {node.death_hijri && (
+                          <span class="isnad__death">d. {node.death_hijri} AH</span>
+                        )}
+                      </a>
+                    ) : (
+                      <span class="isnad__person isnad__person--unresolved">
+                        <span class="isnad__name">{node.name || 'unidentified'}</span>
+                        <span class="isnad__death">not in register</span>
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
+      <section class="hadith-panel hadith-panel--apparatus" aria-labelledby="apparatus-heading">
+        <div class="hadith-panel__head">
+          <h2 class="hadith-panel__title" id="apparatus-heading">Apparatus</h2>
+        </div>
+
+        <div class="apparatus">
+          {totalParallels > 0 && (
+            <div class="apparatus__block">
+              <h3 class="apparatus__title">Attestation</h3>
+              <p class="apparatus__note">
+                Cross-referenced to {totalParallels.toLocaleString()} other entries:
+                {' '}{Number(hadith.parallel_count).toLocaleString()} parallel narrations,
+                {' '}{Number(hadith.witness_count).toLocaleString()} corroborating witnesses,
+                and {Number(hadith.variant_count).toLocaleString()} wording variants. How
+                widely a report is attested is evidence about its circulation, not about
+                its truth.
+              </p>
+            </div>
+          )}
+
+          {glosses.length > 0 && (
+            <div class="apparatus__block">
+              <h3 class="apparatus__title">Gharīb</h3>
+              <p class="apparatus__note">Rare vocabulary glossed by the editors.</p>
+              <dl class="glosses">
+                {glosses.map((g) => (
+                  <div class="gloss">
+                    <dt lang="ar" dir="rtl">{g.word_ar}</dt>
+                    <dd>{g.word_en}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {subjects.length > 0 && (
+            <div class="apparatus__block">
+              <h3 class="apparatus__title">Subjects</h3>
+              <ul class="subjects">
+                {subjects.map((s) => (
+                  <li>
+                    <a href={`/hadith?subject=${encodeURIComponent(s.label_en)}`}>{s.label_en}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+  </article>
+</BaseLayout>
+
+<style>
+  /* Wider than a prose page because the text is read in facing columns. The
+     measure is kept sane inside each column rather than by the page. */
+  .hadith {
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 2.75rem) 1.25rem clamp(4rem, 8vw, 6rem);
+  }
+
+  .hadith-sep { color: var(--hc-rule-strong); margin: 0 0.15rem; }
+
+  /* ---- banner ---- */
+  .hadith-banner {
+    padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .hadith-banner__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.25rem, 3vw, 1.6rem);
+    line-height: 2;
+    color: var(--hc-gold);
+  }
+
+  .hadith-banner__title {
+    max-width: 46ch;
+    margin: 0.5rem auto 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3.2vw, 2.1rem);
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
+  }
+
+  .hadith-banner__ref {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.3rem;
+    margin: 1rem 0 0;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .hadith-banner__ref a { color: var(--hc-gold); text-decoration: none; }
+  .hadith-banner__ref a:hover { text-decoration: underline; }
+
+  /* ---- stat band ---- */
+  .hadith-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: clamp(1.25rem, 2.5vw, 1.75rem) 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .hadith-stat {
+    position: relative;
+    min-width: 0;
+    padding: 0.85rem 1rem 0.9rem 0;
+  }
+
+  .hadith-stat + .hadith-stat { padding-left: 1rem; }
+
+  .hadith-stat + .hadith-stat::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    width: 1px;
+    background: var(--hc-rule-soft);
+  }
+
+  .hadith-stat__num {
+    display: block;
+    font-family: var(--font-body);
+    font-size: clamp(1.15rem, 2vw, 1.5rem);
+    font-weight: 500;
+    line-height: 1;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--hc-text-primary);
+  }
+
+  .hadith-stat__label {
+    display: block;
+    margin-top: 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* ---- panels ---- */
+  .hadith-panel { margin-top: clamp(2.25rem, 5vw, 3.5rem); }
+
+  .hadith-panel__head {
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .hadith-panel__title {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .hadith-panel__note {
+    max-width: 72ch;
+    margin: 0.55rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- facing columns ---- */
+  /* Arabic is second in the DOM so it stacks under the English on a phone in
+     source-then-translation order, and is placed into the right column on wide
+     screens where a right-hand position reads correctly for RTL. */
+  .hadith-cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.5rem, 3vw, 2.5rem);
+    margin-top: 1.5rem;
+  }
+
+  .hadith-col { min-width: 0; }
+  /* The row is explicit on both. Auto-placement never moves backwards, so the
+     Arabic being first in the DOM but assigned to column 2 pushed the English
+     into a second row instead of alongside it. */
+  .hadith-col--en { grid-column: 1; grid-row: 1; }
+  .hadith-col--ar { grid-column: 2; grid-row: 1; }
+
+  .hadith-col__label {
+    display: block;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.9rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .hadith-col__text { margin: 0; }
+
+  /* Arabic needs its own leading: harakat occupy the space Latin leading absorbs. */
+  .hadith-col__text--ar {
+    font-family: var(--font-arabic);
+    font-size: 1.3rem;
+    line-height: 2.05;
+    color: var(--hc-text-primary);
+  }
+
+  .hadith-col__text--en {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  /* The matn is the passage under analysis, so it is set apart on both sides
+     with the one accent the palette spends on hierarchy. */
+  .hadith-col__text.is-matn {
+    padding-inline-start: 1rem;
+    border-inline-start: 2px solid var(--hc-gold);
+  }
+
+  .hadith-col__text--en.is-matn { color: var(--hc-text-primary); }
+
+  .hadith-col__missing {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--hc-text-tertiary);
+    font-style: italic;
+  }
+
+  /* The translation is machine-generated. Saying so beside the text, rather
+     than in a footer, is the honest placement. */
+  .hadith-mt {
+    margin: 0.75rem 0 0;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* The translator marked transliterated Arabic with emphasis and the chapter
+     heading that opens many reports with strong. Both arrive through set:html,
+     so the selectors have to be global to reach them. */
+  .hadith-col__text :global(em) {
+    font-style: italic;
+    color: var(--hc-text-primary);
+  }
+
+  .hadith-col__text :global(strong) {
+    font-weight: 600;
+    color: var(--hc-gold);
+  }
+
+  /* Volume and page in the printed edition. Set quietly and out of the reading
+     line, because it is apparatus a reader consults rather than reads. */
+  .hadith-col__text :global(.folio) {
+    display: inline-block;
+    margin: 0 0.3em;
+    padding: 0 0.35em;
+    border: 1px solid var(--hc-rule);
+    border-radius: 2px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.6;
+    color: var(--hc-text-tertiary);
+    vertical-align: 0.08em;
+    cursor: help;
+  }
+
+  /* ---- isnad ladder ---- */
+  /* A vertical numbered ladder rather than wrapped chips. A chain is ordered,
+     and wrapping it across lines with arrows lost that order at exactly the
+     width where the chain got long enough to matter. */
+  .isnad-paths {
+    display: grid;
+    gap: 1.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .isnad-path__label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin: 0 0 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .isnad-path__n {
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+  }
+
+  .isnad {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .isnad__node {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.9rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .isnad__pos {
+    justify-self: start;
+    min-width: 1.6rem;
+    padding: 0.15rem 0;
+    text-align: center;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .isnad__person {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 0.7rem 0;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .isnad__name {
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--hc-text-primary);
+  }
+
+  a.isnad__person:hover .isnad__name { color: var(--hc-gold); }
+
+  .isnad__person--unresolved .isnad__name {
+    color: var(--hc-text-tertiary);
+    font-style: italic;
+  }
+
+  .isnad__death {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* ---- apparatus ---- */
+  .apparatus {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: clamp(1.5rem, 3vw, 2.5rem);
+    margin-top: 1.5rem;
+  }
+
+  .apparatus__block { min-width: 0; }
+
+  .apparatus__title {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--hc-text-primary);
+  }
+
+  .apparatus__note {
+    margin: 0 0 0.9rem;
+    font-family: var(--font-body);
+    font-size: 0.93rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  .glosses { margin: 0; }
+
+  .gloss {
+    display: grid;
+    grid-template-columns: minmax(5rem, 9rem) minmax(0, 1fr);
+    gap: 0.9rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .gloss dt {
+    font-family: var(--font-arabic);
+    font-size: 1.1rem;
+    line-height: 2;
+    color: var(--hc-text-primary);
+  }
+
+  .gloss dd {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.93rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  .subjects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .subjects a {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 3px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--hc-text-secondary);
+  }
+
+  .subjects a:hover { border-color: var(--hc-gold); color: var(--hc-gold); }
+
+  /* Each breakpoint re-picks which cells start a row and so must lose their
+     left divider. The resets repeat the `+` sibling form of the base rule on
+     purpose: Astro scopes every compound with its own [data-astro-cid]
+     attribute, so `.hadith-stat + .hadith-stat` carries two of them and
+     outranks a single-compound `:nth-child` reset no matter the source order.
+     Matching the sibling form puts them back on equal footing. */
+  @media (max-width: 900px) {
+    .hadith-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .hadith-stat + .hadith-stat:nth-child(3n + 1) { padding-left: 0; }
+    .hadith-stat + .hadith-stat:nth-child(3n + 1)::before { content: none; }
+    .hadith-stat:nth-child(n + 4) { border-top: 1px solid var(--hc-rule-soft); }
+  }
+
+  /* Facing columns need real width. Below this they stack, and the Arabic goes
+     first so the source is read before the translation. */
+  @media (max-width: 780px) {
+    .hadith-cols { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
+    .hadith-col--ar { grid-column: 1; grid-row: 1; }
+    .hadith-col--en { grid-column: 1; grid-row: 2; }
+  }
+
+  @media (max-width: 560px) {
+    .hadith-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hadith-stat + .hadith-stat:nth-child(3n + 1) { padding-left: 1rem; }
+    .hadith-stat + .hadith-stat:nth-child(3n + 1)::before { content: ""; }
+    .hadith-stat + .hadith-stat:nth-child(2n + 1) { padding-left: 0; }
+    .hadith-stat + .hadith-stat:nth-child(2n + 1)::before { content: none; }
+    .hadith-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+    .gloss { grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
+    .isnad__node { grid-template-columns: 1.75rem minmax(0, 1fr); gap: 0.6rem; }
+  }
+</style>
