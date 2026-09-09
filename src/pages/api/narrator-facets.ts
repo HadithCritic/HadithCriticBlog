@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 
 /**
  * Filter options for the narrator register, with counts.
@@ -13,20 +13,20 @@ import { env } from 'cloudflare:workers';
  */
 export const GET: APIRoute = async () => {
   try {
-    const [generations, grades, centuries, totals] = await env.DB.batch([
-      env.DB.prepare(
+    const [generations, grades, centuries, totals] = await db.batch([
+      db.prepare(
         `SELECT generation AS value, COUNT(*) AS n FROM narrator
           WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
       ),
-      env.DB.prepare(
+      db.prepare(
         `SELECT grade AS value, COUNT(*) AS n FROM narrator
           WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC`
       ),
-      env.DB.prepare(
+      db.prepare(
         `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
           WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
       ),
-      env.DB.prepare(
+      db.prepare(
         `SELECT COUNT(*) AS all_narrators,
                 SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
                 SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated

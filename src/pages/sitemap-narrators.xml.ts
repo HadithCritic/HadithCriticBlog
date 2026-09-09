@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../lib/db';
 import { SITE, NARRATOR_SITEMAP_PAGE_SIZE, narratorSitemapWhere } from '../lib/seo';
 
 /**
@@ -18,7 +18,7 @@ export const GET: APIRoute = async () => {
   let pages = 1;
 
   try {
-    const row = await env.DB.prepare(
+    const row = await db.prepare(
       `SELECT COUNT(*) AS n FROM narrator WHERE ${narratorSitemapWhere}`
     ).first<{ n: number }>();
     pages = Math.max(1, Math.ceil((row?.n ?? 0) / NARRATOR_SITEMAP_PAGE_SIZE));

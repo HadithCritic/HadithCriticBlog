@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../../../lib/db';
 import { toPlainText, renderArabic } from '../../../lib/format-text';
 import { CORPUS_CACHE_CONTROL } from '../../../lib/edge-cache';
 
@@ -67,7 +67,7 @@ let rows: Row[] = [];
 let failed = false;
 
 try {
-  const found = await env.DB.prepare(
+  const found = await db.prepare(
     'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?'
   )
     .bind(slug)
@@ -75,7 +75,7 @@ try {
   book = found ?? undefined;
 
   if (book) {
-    const res = await env.DB.prepare(
+    const res = await db.prepare(
       `SELECT id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
               matn_ar, text_ar, narrator_count, parallel_count
          FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`

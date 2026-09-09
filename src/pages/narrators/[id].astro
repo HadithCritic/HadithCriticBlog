@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { person, entityPage } from '../../lib/seo';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 import { toPlainText } from '../../lib/format-text';
 
 /**
@@ -94,9 +94,9 @@ interface StatementRow {
   phenomenon_label: string | null;
 }
 
-const [detailRow, statementRows] = await env.DB.batch([
-  env.DB.prepare('SELECT payload FROM narrator_detail WHERE id = ?').bind(id),
-  env.DB.prepare(
+const [detailRow, statementRows] = await db.batch([
+  db.prepare('SELECT payload FROM narrator_detail WHERE id = ?').bind(id),
+  db.prepare(
     `SELECT critic, text, citation, page_id, verdict, phenomenon_key, phenomenon_label
        FROM criticism_statement WHERE narrator_id = ? ORDER BY ord`
   ).bind(id)
@@ -171,7 +171,7 @@ const uniqueIds = [...new Set(referenced)].filter((n) => Number.isFinite(n));
 const chainNames: Record<string, string> = {};
 if (uniqueIds.length) {
   const placeholders = uniqueIds.map(() => '?').join(',');
-  const named = await env.DB.prepare(
+  const named = await db.prepare(
     `SELECT id, name_en, name_ar FROM narrator WHERE id IN (${placeholders})`
   )
     .bind(...uniqueIds)
@@ -219,8 +219,8 @@ let transmissionCount = 0;
 let attestedForms: { surface: string; n_mentions: number; is_display: number }[] = [];
 
 try {
-  const [transmissionRes, transmissionCountRes, aliasRes] = await env.DB.batch([
-    env.DB.prepare(
+  const [transmissionRes, transmissionCountRes, aliasRes] = await db.batch([
+    db.prepare(
       `SELECT h.id, h.hadith_num, h.matn_en, h.narrator_count, h.parallel_count,
               hn.pos, b.title_en AS book_en
          FROM hadith_narrator hn
@@ -233,12 +233,12 @@ try {
     // DISTINCT because a transmitter can be named more than once in one chain.
     // Counting rows here would disagree with the corpus view this links to,
     // which counts narrations.
-    env.DB.prepare(
+    db.prepare(
       'SELECT COUNT(DISTINCT hadith_id) AS n FROM hadith_narrator WHERE narrator_id = ?'
     ).bind(id),
     // Attested spellings: the register's display form is often not how this
     // person is actually named in the chains.
-    env.DB.prepare(
+    db.prepare(
       `SELECT surface, n_mentions, is_display FROM narrator_alias
         WHERE narrator_id = ? ORDER BY n_mentions DESC LIMIT 8`
     ).bind(id)

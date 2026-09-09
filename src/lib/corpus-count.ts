@@ -9,7 +9,7 @@
  * query — including the cheap 25-row reads behind a collection page — was
  * refused with "exceeded D1's free tier daily row read limit". That is what
  * put "This collection is temporarily unavailable" on collection pages that
- * were themselves costing almost nothing. See D1-CAPACITY.md.
+ * were themselves costing almost nothing. See DATABASE.md.
  *
  * Two rules come out of that, and both are applied here:
  *

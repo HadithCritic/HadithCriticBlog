@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../lib/db';
 import { SITE, NARRATOR_SITEMAP_PAGE_SIZE, narratorSitemapWhere } from '../lib/seo';
 
 /**
@@ -20,7 +20,7 @@ export const GET: APIRoute = async ({ params }) => {
   let ids: number[] = [];
 
   try {
-    const rows = await env.DB.prepare(
+    const rows = await db.prepare(
       `SELECT id FROM narrator WHERE ${narratorSitemapWhere}
         ORDER BY statement_count DESC, id ASC LIMIT ? OFFSET ?`
     )

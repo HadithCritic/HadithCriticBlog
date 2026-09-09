@@ -130,7 +130,8 @@ recorded critical statement nor an attributed hadith; submitting bare stubs
 invites a thin-content assessment that would dampen crawling of the whole
 section. They remain reachable and indexable by link.
 
-Both routes degrade to an empty but valid sitemap if D1 is unreachable. A broken
+Both routes degrade to an empty but valid sitemap if the database is
+unreachable. A broken
 sitemap teaches crawlers to stop asking; an empty one is a truthful "nothing to
 list yet".
 

@@ -3,7 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { entityPage } from '../../lib/seo';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
@@ -35,23 +35,23 @@ if (!Number.isFinite(id) || id <= 0) {
 // which tells a reader to come back rather than that the record is missing.
 let hadithRow, chainRows, subjectRows, glossRows;
 try {
-  [hadithRow, chainRows, subjectRows, glossRows] = await env.DB.batch([
-    env.DB.prepare(
+  [hadithRow, chainRows, subjectRows, glossRows] = await db.batch([
+    db.prepare(
       `SELECT h.*, b.title_ar AS book_ar, b.title_en AS book_en,
               b.id AS book_id, b.slug AS book_slug
          FROM hadith h JOIN hadith_book b ON b.id = h.book_id WHERE h.id = ?`
     ).bind(id),
     // Chain positions carry the register's name and death year, so the isnad
     // renders as people rather than as strings.
-    env.DB.prepare(
+    db.prepare(
       `SELECT c.path_idx, c.pos, c.narrator_id, c.name,
               n.name_en, n.death_hijri
          FROM hadith_chain c
          LEFT JOIN narrator n ON n.id = c.narrator_id
         WHERE c.hadith_id = ? ORDER BY c.path_idx, c.pos`
     ).bind(id),
-    env.DB.prepare('SELECT label_ar, label_en FROM hadith_subject WHERE hadith_id = ?').bind(id),
-    env.DB.prepare('SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?').bind(id)
+    db.prepare('SELECT label_ar, label_en FROM hadith_subject WHERE hadith_id = ?').bind(id),
+    db.prepare('SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?').bind(id)
   ]);
 } catch (error) {
   console.error(`Hadith ${id} failed to load`, error);

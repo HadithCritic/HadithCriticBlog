@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 import { buildMatch, type SearchScope } from '../../lib/arabic-normalize';
 import { makeSnippet } from '../../lib/snippet';
 import { toPlainText } from '../../lib/format-text';
@@ -116,8 +116,8 @@ export const GET: APIRoute = async ({ url }) => {
 
 
   try {
-    const [rows, counted] = await env.DB.batch<Record<string, unknown>>([
-      env.DB.prepare(
+    const [rows, counted] = await db.batch<Record<string, unknown>>([
+      db.prepare(
         `SELECT h.id, h.hadith_num, h.chapter_en,
                 h.matn_ar, h.matn_en, h.text_ar, h.text_en,
                 h.parallel_count, h.witness_count, h.variant_count,
@@ -125,7 +125,7 @@ export const GET: APIRoute = async ({ url }) => {
                 b.id AS book_id, b.title_en AS book_en, b.title_ar AS book_ar
            ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`
       ).bind(...binds, size, offset),
-      env.DB.prepare(boundedCountSql(from, clause)).bind(...binds)
+      db.prepare(boundedCountSql(from, clause)).bind(...binds)
     ]);
 
     // Counted to a ceiling. Unbounded, this was a 276,347-row scan on every

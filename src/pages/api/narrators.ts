@@ -1,7 +1,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 
 /**
  * Narrator register query endpoint.
@@ -98,15 +98,15 @@ export const GET: APIRoute = async ({ url }) => {
     // The page and its total are independent, so they go over the wire together.
     // Awaiting them in sequence cost two round-trips to D1 on every keystroke of
     // the register's search box; `batch` is what the facets endpoint already does.
-    const [rows, counted] = await env.DB.batch<Record<string, unknown>>([
-      env.DB.prepare(
+    const [rows, counted] = await db.batch<Record<string, unknown>>([
+      db.prepare(
         `SELECT id, name_en, name_ar, generation, grade, tabaqa_number,
                 death_hijri, death_gregorian, death_place, places_en,
                 hadith_count, teacher_count, student_count,
                 critic_count, statement_count, jarh_count, tadil_count, flags
            FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
       ).bind(...binds, size, offset),
-      env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds)
+      db.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds)
     ]);
 
     const total = Number(counted.results?.[0]?.n ?? 0);

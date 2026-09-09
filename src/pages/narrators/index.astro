@@ -2,7 +2,7 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 
 /**
  * The narrator register.
@@ -83,26 +83,26 @@ let stats = { all_narrators: 0, graded: 0, dated: 0 };
 let failed = false;
 
 try {
-  const [listed, counted, gen, grd, cen, tot] = await env.DB.batch([
-    env.DB.prepare(
+  const [listed, counted, gen, grd, cen, tot] = await db.batch([
+    db.prepare(
       `SELECT id,name_en,name_ar,generation,grade,death_hijri,death_place,places_en,
               hadith_count,teacher_count,student_count,statement_count
          FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
     ).bind(...binds, size, (page - 1) * size),
-    env.DB.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
-    env.DB.prepare(
+    db.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
+    db.prepare(
       `SELECT generation AS value, COUNT(*) AS n FROM narrator
         WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
     ),
-    env.DB.prepare(
+    db.prepare(
       `SELECT grade AS value, COUNT(*) AS n FROM narrator
         WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC LIMIT 8`
     ),
-    env.DB.prepare(
+    db.prepare(
       `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
         WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
     ),
-    env.DB.prepare(
+    db.prepare(
       `SELECT COUNT(*) AS all_narrators,
               SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
               SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated

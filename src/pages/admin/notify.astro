@@ -3,6 +3,7 @@ export const prerender = false;
 
 import { getCollection } from 'astro:content';
 import { env } from 'cloudflare:workers';
+import { db } from '../../lib/db';
 import { isValidAdminToken } from '../../lib/admin-auth';
 
 const token = Astro.url.searchParams.get('token');
@@ -13,7 +14,7 @@ if (!isValidAdminToken(token, env.ADMIN_NOTIFY_TOKEN)) {
 const posts = await getCollection('articles', ({ data }) => !data.draft && !data.preview);
 const sorted = [...posts].sort((a, b) => new Date(b.data.date).getTime() - new Date(a.data.date).getTime());
 
-const { results: sentRows } = await env.DB.prepare('SELECT slug, sent_at FROM article_notifications').all<{
+const { results: sentRows } = await db.prepare('SELECT slug, sent_at FROM article_notifications').all<{
   slug: string;
   sent_at: string;
 }>();

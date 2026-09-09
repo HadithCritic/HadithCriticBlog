@@ -3,6 +3,7 @@ export const prerender = false;
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { env } from 'cloudflare:workers';
+import { db } from '../../../lib/db';
 import { getEntry } from 'astro:content';
 import { buildNewArticleEmail } from '../../../lib/email-templates/new-article.mjs';
 import { sendArticleBroadcast } from '../../../lib/resend.mjs';
@@ -30,7 +31,7 @@ export const POST: APIRoute = async ({ request, site }) => {
 
   const { slug } = parsed.data;
 
-  const alreadySent = await env.DB.prepare('SELECT slug FROM article_notifications WHERE slug = ?')
+  const alreadySent = await db.prepare('SELECT slug FROM article_notifications WHERE slug = ?')
     .bind(slug)
     .first();
 
@@ -72,7 +73,7 @@ export const POST: APIRoute = async ({ request, site }) => {
   }
 
   try {
-    await env.DB.prepare('INSERT INTO article_notifications (slug, sent_at) VALUES (?, ?)')
+    await db.prepare('INSERT INTO article_notifications (slug, sent_at) VALUES (?, ?)')
       .bind(slug, new Date().toISOString())
       .run();
   } catch (error) {
