@@ -4,9 +4,16 @@ import { join, relative } from 'node:path';
 const root = process.cwd();
 const sourceRoot = join(root, 'src');
 const files = [];
+// Test files are skipped. These rules describe what reaches a reader, and a
+// test fixture does not: the XSS case in format-text.test.mjs deliberately
+// contains a bare <img> tag, which is precisely what the alt-text rule should
+// catch in a page and precisely what it must not catch there.
+const isTest = (file) => /\.test\.[cm]?[jt]sx?$/.test(file);
 const walk = (directory) => readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
   const file = join(directory, entry.name);
-  entry.isDirectory() ? walk(file) : /\.(astro|css|ts|tsx|js|mjs|mdx)$/.test(file) && files.push(file);
+  entry.isDirectory()
+    ? walk(file)
+    : /\.(astro|css|ts|tsx|js|mjs|mdx)$/.test(file) && !isTest(file) && files.push(file);
 });
 walk(sourceRoot);
 
