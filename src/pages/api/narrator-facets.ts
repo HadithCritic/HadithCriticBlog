@@ -10,36 +10,45 @@ import { db } from '../../lib/db';
  * browser on every load. They are properties of the dataset, not of the current
  * query, so they change only when the register is reseeded — hence the long
  * cache lifetime.
+ *
+ * Read from the stored tables rather than aggregated per call. These four
+ * aggregates scanned all 20,915 named narrators every time, about 84,000 rows
+ * for an answer that is identical between reseeds, and the `max-age` only ever
+ * spared a repeat visit from the same browser. Refreshed by
+ * scripts/refresh-stats.mjs.
  */
 export const GET: APIRoute = async () => {
   try {
-    const [generations, grades, centuries, totals] = await db.batch([
+    const [facets, stored] = await db.batch([
+      db.prepare('SELECT kind, value, n FROM narrator_facet ORDER BY kind, ord'),
       db.prepare(
-        `SELECT generation AS value, COUNT(*) AS n FROM narrator
-          WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
-      ),
-      db.prepare(
-        `SELECT grade AS value, COUNT(*) AS n FROM narrator
-          WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC`
-      ),
-      db.prepare(
-        `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
-          WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
-      ),
-      db.prepare(
-        `SELECT COUNT(*) AS all_narrators,
-                SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
-                SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated
-           FROM narrator WHERE unnamed = 0`
+        `SELECT key, value FROM corpus_stat
+          WHERE key IN ('narrator_named', 'narrator_graded', 'narrator_dated')`
       )
     ]);
 
+    const chips = (facets.results || []) as unknown as { kind: string; value: string; n: number }[];
+    const of = (kind: string, cast: (v: string) => string | number = (v) => v) =>
+      chips.filter((c) => c.kind === kind).map((c) => ({ value: cast(c.value), n: Number(c.n) }));
+
+    const totals = new Map(
+      (stored.results as { key: string; value: number }[] | undefined)?.map((r) => [
+        r.key,
+        Number(r.value)
+      ]) || []
+    );
+
     return new Response(
       JSON.stringify({
-        generations: generations.results,
-        grades: grades.results,
-        centuries: centuries.results,
-        totals: totals.results?.[0] ?? {}
+        generations: of('generation'),
+        grades: of('grade'),
+        // Numeric in the old response, and the client compares it as a number.
+        centuries: of('century', Number),
+        totals: {
+          all_narrators: totals.get('narrator_named') ?? 0,
+          graded: totals.get('narrator_graded') ?? 0,
+          dated: totals.get('narrator_dated') ?? 0
+        }
       }),
       {
         headers: {

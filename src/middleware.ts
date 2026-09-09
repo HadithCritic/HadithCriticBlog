@@ -2,14 +2,14 @@ import { defineMiddleware } from 'astro:middleware';
 import { isCacheablePath, wantsEdgeCache } from './lib/edge-cache';
 
 /**
- * Serve the corpus pages from Cloudflare's cache when they have already been
- * rendered.
+ * Serve the corpus and register pages from Cloudflare's cache when they have
+ * already been rendered.
  *
- * Scope is deliberately narrow. Only GET, only the /hadith routes, only
- * responses that opted in by sending an `s-maxage` (see src/lib/edge-cache.ts),
- * and only when no cookie is present — a signed-in editor gets the live page,
- * and nothing personalised can be stored under a shared key. Everything else
- * passes straight through.
+ * Scope is deliberately narrow. Only GET, only the /hadith and /narrators
+ * routes, only responses that opted in by sending an `s-maxage` (see
+ * src/lib/edge-cache.ts), and only when no cookie is present — a signed-in
+ * editor gets the live page, and nothing personalized can be stored under a
+ * shared key. Everything else passes straight through.
  *
  * A miss is not allowed to fail the request: if the Cache API is unavailable,
  * as it is under `astro dev`, the page still renders and simply is not stored.

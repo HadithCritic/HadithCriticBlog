@@ -98,6 +98,46 @@ check('SUM(hadith_book.hadith_count)', Number(stored.summed ?? -1), EXPECTED.had
 check('matches COUNT(*) FROM hadith', Number(stored.summed ?? -1), Number(stored.rows_present ?? -2));
 check('collections with a wrong count', Number(stored.disagreeing ?? -1), 0);
 
+// ---- 1c. derived stats agree with the rows -----------------------------
+// `corpus_stat` and `narrator_facet` are a cache of the aggregates the pages
+// used to compute on every view — about 105,000 rows read to render the
+// register. Nothing errors when they go stale; the reader is simply shown a
+// wrong count, which is the failure mode worth a test. Refreshed by
+// scripts/refresh-stats.mjs, which can also report drift with --check.
+console.log('\nderived stats');
+const derived = (await sql(`
+  SELECT (SELECT value FROM corpus_stat WHERE key = 'hadith_narrations') AS narrations,
+         (SELECT value FROM corpus_stat WHERE key = 'hadith_collections') AS collections,
+         (SELECT value FROM corpus_stat WHERE key = 'narrator_named') AS named,
+         (SELECT value FROM corpus_stat WHERE key = 'narrator_graded') AS graded,
+         (SELECT value FROM corpus_stat WHERE key = 'narrator_dated') AS dated,
+         (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS named_live,
+         (SELECT COUNT(*) FROM narrator WHERE unnamed = 0 AND critic_count > 0) AS graded_live,
+         (SELECT COUNT(*) FROM narrator WHERE unnamed = 0 AND death_hijri IS NOT NULL) AS dated_live
+`))[0] || {};
+check('corpus_stat hadith_narrations', Number(derived.narrations ?? -1), EXPECTED.hadith);
+check('corpus_stat hadith_collections', Number(derived.collections ?? -1), EXPECTED.hadith_book);
+check('corpus_stat narrator_named', Number(derived.named ?? -1), Number(derived.named_live ?? -2));
+check('corpus_stat narrator_graded', Number(derived.graded ?? -1), Number(derived.graded_live ?? -2));
+check('corpus_stat narrator_dated', Number(derived.dated ?? -1), Number(derived.dated_live ?? -2));
+
+// Each facet must total the named narrators it partitions, except `grade` and
+// `century`, which exclude blanks and undated rows respectively. Checking the
+// generation sum is the one that proves the partition is complete.
+const facets = (await sql(`
+  SELECT kind, COUNT(*) AS values_stored, COALESCE(SUM(n), 0) AS total
+    FROM narrator_facet GROUP BY kind ORDER BY kind
+`));
+for (const row of facets) {
+  check(`narrator_facet ${row.kind} values`, Number(row.values_stored), (n) => n > 0);
+}
+const generationTotal = facets.find((r) => r.kind === 'generation');
+check(
+  'narrator_facet generation sums to named',
+  Number(generationTotal?.total ?? -1),
+  Number(derived.named_live ?? -2)
+);
+
 // ---- 2. search index -------------------------------------------------
 console.log('\nsearch index');
 const fts = (await sql('SELECT COUNT(*) AS n FROM hadith_fts'))[0];

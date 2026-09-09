@@ -136,24 +136,31 @@ try {
     db.prepare(
       'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book ORDER BY hadith_count DESC'
     ),
-    // Narrations and collections are summed off the 33 rows of `hadith_book`
-    // rather than counted over `hadith`. The figures are identical — the
-    // import writes `hadith_count` from the same rows — and the scan this
-    // avoids was 276,347 reads per view, which is what drained the daily
-    // allowance and took the rest of the corpus down with it. See
-    // src/lib/corpus-count.ts.
+    // Three stored numbers, three rows read. Counting them live cost 276,347
+    // reads for the narrations and another 20,915 for the transmitters, on
+    // every view — which is what drained the allowance and took the rest of
+    // the corpus down with it. `corpus_stat` is refreshed by
+    // scripts/refresh-stats.mjs and asserted by scripts/verify-corpus.mjs.
     db.prepare(
-      `SELECT COUNT(*) AS collections,
-              COALESCE(SUM(hadith_count), 0) AS narrations,
-              (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS transmitters
-         FROM hadith_book`
+      `SELECT key, value FROM corpus_stat
+        WHERE key IN ('hadith_narrations', 'hadith_collections', 'narrator_named')`
     ),
     narratorFilter
       ? db.prepare('SELECT id, name_en FROM narrator WHERE id = ?').bind(narratorFilter)
       : db.prepare('SELECT 0 AS id, NULL AS name_en WHERE 0')
   ]);
   books = (res[0].results || []) as unknown as Book[];
-  stats = { ...stats, ...((res[1].results?.[0] as typeof stats) || {}) };
+  const stored = new Map(
+    (res[1].results as { key: string; value: number }[] | undefined)?.map((r) => [
+      r.key,
+      Number(r.value)
+    ]) || []
+  );
+  stats = {
+    narrations: stored.get('hadith_narrations') ?? 0,
+    collections: stored.get('hadith_collections') ?? 0,
+    transmitters: stored.get('narrator_named') ?? 0
+  };
   activeNarrator = (res[2].results || [])[0] as typeof activeNarrator;
 } catch (error) {
   console.error('Corpus page failed to load', error);

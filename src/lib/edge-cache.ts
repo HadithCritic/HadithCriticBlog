@@ -23,8 +23,16 @@ export const CORPUS_TTL = 600;
 /** The opt-in header. Browsers revalidate; the edge holds it for `CORPUS_TTL`. */
 export const CORPUS_CACHE_CONTROL = `public, max-age=0, s-maxage=${CORPUS_TTL}`;
 
-/** Routes allowed to be cached, so nothing personalised can be. */
-const CACHEABLE = /^\/hadith(\/|$)/;
+/**
+ * Routes allowed to be cached, so nothing personalized can be.
+ *
+ * The register is here as well as the corpus. Both are public, read-only and
+ * identical for every visitor, and the register was the more expensive of the
+ * two before its aggregates were stored. `/narrators/compare` is included by
+ * the prefix and is fine: it takes ids from the query string, which is part of
+ * the cache key.
+ */
+const CACHEABLE = /^\/(?:hadith|narrators)(\/|$)/;
 
 export const isCacheablePath = (pathname: string) => CACHEABLE.test(pathname);
 

@@ -3,6 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { db } from '../../lib/db';
+import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
  * The narrator register.
@@ -13,10 +14,10 @@ import { db } from '../../lib/db';
  * pages were linkable, shareable or crawlable.
  *
  * Now: the first page of results and the filter facets are rendered here from
- * D1, so the register works with JavaScript off and search engines see real
- * rows; the client module takes over for filtering and paging. Each row is a
- * link to /narrators/{id}, which since the D1 move exists for every narrator
- * rather than the 8,000 the file cap allowed.
+ * the database, so the register works with JavaScript off and search engines
+ * see real rows; the client module takes over for filtering and paging. Each
+ * row is a link to /narrators/{id}, which since the move to a database exists
+ * for every narrator rather than the 8,000 the file cap allowed.
  */
 
 const p = Astro.url.searchParams;
@@ -82,39 +83,64 @@ let centuries: { value: number; n: number }[] = [];
 let stats = { all_narrators: 0, graded: 0, dated: 0 };
 let failed = false;
 
+// Whether anything beyond the register's own `unnamed = 0` baseline narrows
+// the result set. When nothing does, the total is a number already stored and
+// no counting is needed at all.
+const unfiltered = where.length === 1;
+
 try {
-  const [listed, counted, gen, grd, cen, tot] = await db.batch([
+  const [listed, counted, facets, stored] = await db.batch([
     db.prepare(
       `SELECT id,name_en,name_ar,generation,grade,death_hijri,death_place,places_en,
               hadith_count,teacher_count,student_count,statement_count
          FROM narrator ${sql} ORDER BY ${order} LIMIT ? OFFSET ?`
     ).bind(...binds, size, (page - 1) * size),
-    db.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
+    unfiltered
+      ? db.prepare('SELECT 0 AS n WHERE 0')
+      : db.prepare(`SELECT COUNT(*) AS n FROM narrator ${sql}`).bind(...binds),
+    // The filter chips and the header stats carry no user filter — they were
+    // always the same four aggregates over all 20,915 named narrators, and
+    // every visitor paid for the identical answer. About 105,000 rows read to
+    // render a 50-row listing. Both tables are refreshed by
+    // scripts/refresh-stats.mjs and asserted by scripts/verify-corpus.mjs.
+    db.prepare('SELECT kind, value, n FROM narrator_facet ORDER BY kind, ord'),
     db.prepare(
-      `SELECT generation AS value, COUNT(*) AS n FROM narrator
-        WHERE unnamed = 0 AND generation <> '' GROUP BY generation ORDER BY n DESC`
-    ),
-    db.prepare(
-      `SELECT grade AS value, COUNT(*) AS n FROM narrator
-        WHERE unnamed = 0 AND grade <> '' GROUP BY grade ORDER BY n DESC LIMIT 8`
-    ),
-    db.prepare(
-      `SELECT ((death_hijri - 1) / 100) + 1 AS value, COUNT(*) AS n FROM narrator
-        WHERE unnamed = 0 AND death_hijri IS NOT NULL GROUP BY value ORDER BY value`
-    ),
-    db.prepare(
-      `SELECT COUNT(*) AS all_narrators,
-              SUM(CASE WHEN critic_count > 0 THEN 1 ELSE 0 END) AS graded,
-              SUM(CASE WHEN death_hijri IS NOT NULL THEN 1 ELSE 0 END) AS dated
-         FROM narrator WHERE unnamed = 0`
+      `SELECT key, value FROM corpus_stat
+        WHERE key IN ('narrator_named', 'narrator_graded', 'narrator_dated')`
     )
   ]);
   rows = (listed.results || []) as unknown as Row[];
-  total = ((counted.results?.[0] as { n?: number })?.n) ?? 0;
-  generations = (gen.results || []) as unknown as typeof generations;
-  grades = (grd.results || []) as unknown as typeof grades;
-  centuries = (cen.results || []) as unknown as typeof centuries;
-  stats = { ...stats, ...((tot.results?.[0] as typeof stats) || {}) };
+
+  const totals = new Map(
+    (stored.results as { key: string; value: number }[] | undefined)?.map((r) => [
+      r.key,
+      Number(r.value)
+    ]) || []
+  );
+  const named = totals.get('narrator_named') ?? 0;
+  total = unfiltered ? named : (((counted.results?.[0] as { n?: number })?.n) ?? 0);
+  stats = {
+    all_narrators: named,
+    graded: totals.get('narrator_graded') ?? 0,
+    dated: totals.get('narrator_dated') ?? 0
+  };
+
+  const chips = (facets.results || []) as unknown as { kind: string; value: string; n: number }[];
+  generations = chips
+    .filter((c) => c.kind === 'generation')
+    .map((c) => ({ value: c.value, n: Number(c.n) }));
+  // Eight chips, from the stored fourteen. The cap is this page's, so it is
+  // applied here rather than baked into the stored facet, which /api/
+  // narrator-facets returns in full.
+  grades = chips
+    .filter((c) => c.kind === 'grade')
+    .slice(0, 8)
+    .map((c) => ({ value: c.value, n: Number(c.n) }));
+  // Stored as text, because one table holds every facet kind; the century
+  // chips are compared and linked as numbers.
+  centuries = chips
+    .filter((c) => c.kind === 'century')
+    .map((c) => ({ value: Number(c.value), n: Number(c.n) }));
 } catch (error) {
   console.error('Narrator register failed to load', error);
   failed = true;
@@ -122,6 +148,12 @@ try {
 
 const pages = Math.max(1, Math.ceil(total / size));
 const firstIndex = (page - 1) * size + 1;
+
+// Cacheable only when the read landed, so an outage page is never stored.
+// See src/lib/edge-cache.ts.
+if (!failed) {
+  Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
+}
 
 const gradeTone = (g: string) => {
   const s = (g || '').toLowerCase();
