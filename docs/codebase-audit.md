@@ -3,6 +3,11 @@
 Read-only audit, September 2026. **This is a proposal list. Nothing here has been
 implemented and no existing file was modified.**
 
+> **Two items are now out of date; corrections are inline below.** 1.1 is done —
+> all four unused dependencies are gone. **4.3 was wrong**: `public/data/narrators`
+> was not being fetched at runtime, and 61 MB was deployed for nothing. Both are
+> marked where they appear. Everything else still stands as written.
+
 ## Method
 
 Static analysis first, then individual verification of every candidate.
@@ -25,7 +30,11 @@ find), **likely** (strong evidence, one plausible unknown), **needs review**
 
 ## 1. Dead code, unused files, unused dependencies
 
-### 1.1 Four genuinely unused npm dependencies — *confirmed*
+### 1.1 Four genuinely unused npm dependencies — *confirmed* — **DONE**
+
+> Resolved. `@libsql/client`, `fast-xml-parser`, `turath-sdk` and `yaml` are all
+> gone from `package.json`. The `yaml` override is still pinned, which is
+> harmless but is now a pin for a package nothing declares.
 
 `package.json`
 
@@ -245,7 +254,20 @@ budget. The `.webp` versions are 8–13× smaller.
 `scripts/optimize-images.cjs` already exists — the originals appear to be inputs
 that were never cleaned up after conversion.
 
-### 4.3 `public/` is 139 MB — *needs review*
+### 4.3 `public/` is 139 MB — ~~*needs review*~~ **CORRECTED — this section was wrong**
+
+> The claim below that the narrator JSON "is legitimately fetched in chunks at
+> runtime — that is a deliberate architecture, not waste" was false by the time
+> it was written. `src/lib/narrator-register.ts` states outright that it
+> "queries /api/narrators instead of downloading a 5.2 MB index", and
+> `src/pages/narrators/[id].astro` reads criticism from the database rather than
+> the sharded copy. There were zero references to the path anywhere in `src/`.
+>
+> All 471 files (61 MB) were tracked in git *and* copied into `dist/client`, so
+> they shipped on every deploy for nothing. They are now `data/generated/narrators/`,
+> a build input for the seed script only, which took the deploy from ~151 MB to
+> 90 MB. The lesson is the one this audit warns about in its own Method section:
+> a path can stop being read without anything erroring.
 
 Breakdown: 66 MB JSON (474 files), 33 MB JPG (200), 23 MB PNG (33), 12 MB WEBP (89).
 

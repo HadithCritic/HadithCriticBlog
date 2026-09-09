@@ -40,7 +40,11 @@ const CRITICISM_CANDIDATES = [
 
 const criticismPath = CRITICISM_CANDIDATES.find((p) => fs.existsSync(p));
 
-const outDir = path.resolve(rootDir, 'public', 'data', 'narrators');
+// Out of `public/` on purpose: nothing serves these any more. The register
+// queries /api/narrators and the dossier reads the database directly, so
+// shipping 61 MB of JSON to the edge was pure deploy weight. They remain a
+// build input for scripts/seed-narrators-d1.mjs. See data/generated/README.md.
+const outDir = path.resolve(rootDir, 'data', 'generated', 'narrators');
 const chunksDir = path.resolve(outDir, 'chunks');
 
 // Two homes for the criticism. Every narrator's statements go to the build

@@ -78,21 +78,69 @@ the whole account** — after which every other query was refused, including the
 collection is temporarily unavailable" while costing almost nothing themselves:
 they were not what spent the budget.
 
-| what | before | after |
+Rows read per view, before any of this and after:
+
+| page | originally | now |
 | ---- | -----: | ----: |
-| `/hadith` hero totals | 297,000 | 21,000 |
+| `/narrators` | ~105,000 | ~90 |
+| `/api/narrator-facets` | ~84,000 | ~37 |
+| `/hadith` | ~297,000 | ~36 |
+| `/hadith` search | ~297,000 | ~10,060 |
 | `/hadith?book=N` total | whole collection | 0 |
 | unfiltered `/api/hadith` total | 276,347 | 10,001 |
+| collection page 1 | ~60 | ~60 |
+| one narration | ~16 | ~16 |
 
-Narrations and collections are summed off the 33 rows of `hadith_book`, whose
-`hadith_count` the collection pager already paginated by. Verified exact: the
-33 stored counts sum to 276,347, and `scripts/verify-corpus.mjs` now asserts
-it, because nothing in the schema enforces it. Counts that cannot be read from
-stored data are counted to a 10,000-row ceiling and reported as "10,000+". The
-corpus routes also opt into Cloudflare's cache for ten minutes, which is what
-stops a crawler walking 33 collections paying for any of them twice; only a
-page that read its data successfully opts in, so an outage is never what gets
-cached.
+Three rules produce that, in order of how much they saved:
+
+1. **Nothing that is already stored gets recounted.** Narrations and
+   collections are summed off the 33 rows of `hadith_book`, whose
+   `hadith_count` the collection pager already paginated by — verified exact,
+   the 33 counts sum to 276,347, and `scripts/verify-corpus.mjs` asserts it
+   because nothing in the schema enforces it.
+2. **Aggregates that never vary are computed once, not per view.** The
+   register was the worst offender and nobody had measured it: six queries,
+   four of them full-table aggregates over 20,915 narrators, to render a
+   50-row listing. The filter chips carry no user filter at all, so every
+   visitor paid for an identical answer, and paid again on the facets API.
+   `corpus_stat` and `narrator_facet` (migration 0005) hold them, refreshed by
+   `scripts/refresh-stats.mjs`. This is the change D1 could not take: it was
+   over its size limit and refused to create a table.
+3. **A total that must be counted is counted to a ceiling** — 10,000 rows,
+   reported as "10,000+". That is the residual cost of search.
+
+The corpus and register routes also opt into Cloudflare's cache for ten
+minutes, which is what stops a crawler walking 33 collections paying for any of
+them twice. Only a page that read its data successfully opts in, so an outage
+is never what gets cached.
+
+### Refresh the derived tables after any import
+
+```bash
+npm run stats:refresh    # recompute corpus_stat and narrator_facet
+npm run stats:check      # report drift without writing
+```
+
+Nothing reads these tables for correctness, so a stale one does not error — it
+shows the reader a wrong count. Treat the refresh as part of an import, not an
+optional extra. `npm run fts:rebuild` and `scripts/verify-corpus.mjs` both
+include it.
+
+### Still costly, and why
+
+Search still pays the 10,000-row bounded count, which is the honest floor for
+"how many results are there" over a corpus this size. The register's text
+filter is `search_text LIKE '%q%'`, which no index can serve, so a query there
+scans all 20,915 named narrators. An FTS index over the register would fix it
+and is now possible — writes work and there is room — but it is a separate
+piece of work with its own recall questions, not a tuning change.
+
+Deep pagination is the other soft spot. `ORDER BY id LIMIT 25 OFFSET n` walks
+and discards everything it skips, so page 1 of a collection costs ~60 rows and
+page 1,564 of Musannaf Ibn Abi Shaybah costs ~39,000. Search is capped at
+`MAX_PAGES` for this reason; collection pages are not, because reading a
+collection through is the point of the page. Keyset pagination (`WHERE id > ?`)
+would remove the cost entirely.
 
 ## How the data moved
 

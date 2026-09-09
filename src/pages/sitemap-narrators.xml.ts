@@ -8,7 +8,7 @@ import { SITE, NARRATOR_SITEMAP_PAGE_SIZE, narratorSitemapWhere } from '../lib/s
  * Sitemap index for the rijal corpus.
  *
  * @astrojs/sitemap only emits prerendered routes, so the entire narrator
- * register (rendered on demand from D1) was invisible to crawlers. This index
+ * register (rendered on demand from the database) was invisible to crawlers. This index
  * and its paginated children close that gap.
  *
  * Serving an index rather than one flat file keeps us inside the 50,000-URL
