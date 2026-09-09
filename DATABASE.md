@@ -99,11 +99,11 @@ Rows read per view, measured:
 | `/narrators` register | ~105,000 | **90** | 5,550,000 |
 | `/hadith?book=N` | ~40,000 | **98** | 5,100,000 |
 | `/api/narrator-facets` | ~84,000 | **40** | 12,500,000 |
+| collection page 1,564 | 39,130 | **55** | 9,090,000 |
+| `/narrators?q=` | 24,171 | **4,410** | 113,000 |
 | `/hadith?narrator=N` | 207,461 | **10,527** | 47,000 |
 | `/narrators/<id>` dossier | 83,594 | **16,817** | 29,700 |
-| `/narrators?q=` | 24,171 | 24,171 | 20,600 |
 | `/hadith?q=` search | 104,334 | **47,252** | 10,500 |
-| collection page 1,564 | 39,130 | 39,130 | 12,700 |
 
 The search figure is the pessimistic end, not the typical one: cost scales with
 how many narrations match, and that row used عائشة, one of the most common
@@ -112,7 +112,7 @@ words in the corpus. Measured across term frequencies — 47,180 rows for
 and 1 for a term that is absent. An ordinary research query costs hundreds of
 rows, not tens of thousands.
 
-Five rules produce that, in order of how much they saved:
+Seven rules produce that, in order of how much they saved:
 
 1. **Nothing that is already stored gets recounted.** Narrations and
    collections are summed off the 33 rows of `hadith_book`, whose
@@ -142,6 +142,23 @@ Five rules produce that, in order of how much they saved:
    `idx_hn_narrator` instead it is 10,131 rows rather than 197,064. The same
    mistake made a rijal dossier gather all 16,511 of ʿĀʾishah's narrations to
    pick eight — now precomputed in `narrator_top_hadith` (migration 0006).
+
+6. **Index what is searched, don't scan it.** The register matched names with
+   `search_text LIKE '%q%'`, which no index can serve: 24,171 rows per query,
+   and it could not match folded Arabic at all — عايشه found nobody while
+   عائشة found sixty. `narrator_fts` (migration 0007) indexes the same
+   haystack folded, so the register and the corpus now agree on Arabic
+   orthography: 4,410 rows, and عايشه finds the sixty. Recall was compared
+   against the old `LIKE` across fourteen queries: twelve identical, one a
+   superset, and the two differences are both improvements — "mali" no longer
+   matches the nisba *al-Thumālī* by infix, and "3026" no longer returns
+   narrator #13026.
+7. **Seek, don't skip.** `LIMIT 25 OFFSET n` walks and discards everything
+   before it, so reading a long collection cost more the further in you got:
+   page 1,564 of Musannaf Ibn Abi Shaybah read 39,130 rows. The pager now
+   carries the last id on the page as a cursor, which is 55 rows at any depth.
+   `?page=N` without a cursor still falls back to OFFSET so old links keep
+   working.
 
 Each of the cheap shapes in `src/lib/corpus-count.ts` is valid for exactly one
 active filter and wrong for a combination — an FTS-only count cannot see a book
@@ -175,23 +192,19 @@ not an optional extra.
 
 ### Still costly, and why
 
-**The register's text search, 24,171 rows.** `search_text LIKE '%q%'` is
-unindexable, so it scans all 20,915 named narrators. An FTS index over the
-register would fix it and is now possible — writes work and there is room — but
-it needs the same Arabic-fold parity work the corpus index has, so it is a
-piece of work rather than a tuning change. This is the next thing worth doing.
+**The 10,000-row bounded count on search**, which is most of the 47,252. The
+honest floor for "how many results are there" over a corpus this size.
+Lowering `COUNT_CAP` trades precision for reads; 10,000 was chosen because it
+is the point past which the exact figure stops being information a reader
+uses. The rest is FTS5 scoring every match, which is what relevance ranking
+costs, and it is only that large for the most common words in the corpus.
 
-**Deep pagination, up to 39,130 rows.** `ORDER BY id LIMIT 25 OFFSET n` walks
-and discards everything it skips, so collection page 1 costs 58 rows and page
-1,564 of Musannaf Ibn Abi Shaybah costs 39,130. Search is capped at
-`MAX_PAGES` for this reason; collection pages are not, because reading a
-collection through is the point of the page. Keyset pagination (`WHERE id > ?`
-carrying the last id) would remove it, at the cost of losing jump-to-page.
-
-**The 10,000-row bounded count on search.** The honest floor for "how many
-results are there" over a corpus this size. Lowering `COUNT_CAP` trades
-precision for reads; 10,000 was chosen because it is the point past which the
-exact figure stops being information a reader uses.
+**A jump straight to a deep page, 39,130 rows.** The pager seeks on a cursor,
+so *reading* a collection through costs 55 rows a page at any depth. But
+`?page=1564` on its own — an old link, a shared one, a crawler walking the
+pager without following it — still falls back to OFFSET, because the
+alternative is breaking those URLs. Capping `pages` would fix the crawler case
+at the cost of making the tail of every long collection unreachable.
 
 ## How the data moved
 

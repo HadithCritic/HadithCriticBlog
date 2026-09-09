@@ -126,7 +126,19 @@ const ROUTES = [
     ]
   ],
   [
-    '/hadith/collection/<slug> page 1564 (deep offset)',
+    '/hadith/collection/<slug> page 1564 (cursor)',
+    [
+      ['SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?', ['musannaf-ibn-abi-shaybah']],
+      [
+        `SELECT id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
+                matn_ar, text_ar, narrator_count, parallel_count
+           FROM hadith WHERE book_id = ? AND id > ? ORDER BY id LIMIT 25`,
+        [1, 281690]
+      ]
+    ]
+  ],
+  [
+    '/hadith/collection/<slug> page 1564 (offset fallback)',
     [
       ['SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?', ['musannaf-ibn-abi-shaybah']],
       [
@@ -171,16 +183,21 @@ const ROUTES = [
     ]
   ],
   [
-    '/narrators?q=… (register text search)',
+    '/narrators?q=… (register FTS)',
     [
       [
         `SELECT id,name_en,name_ar,generation,grade,death_hijri,death_place,places_en,
                 hadith_count,teacher_count,student_count,statement_count
-           FROM narrator WHERE unnamed = 0 AND search_text LIKE ?
+           FROM narrator WHERE unnamed = 0
+            AND id IN (SELECT rowid FROM narrator_fts WHERE narrator_fts MATCH ?)
           ORDER BY id ASC LIMIT 50 OFFSET 0`,
-        ['%malik%']
+        ['"malik"*']
       ],
-      ['SELECT COUNT(*) AS n FROM narrator WHERE unnamed = 0 AND search_text LIKE ?', ['%malik%']],
+      [
+        `SELECT COUNT(*) AS n FROM narrator WHERE unnamed = 0
+          AND id IN (SELECT rowid FROM narrator_fts WHERE narrator_fts MATCH ?)`,
+        ['"malik"*']
+      ],
       ['SELECT kind, value, n FROM narrator_facet ORDER BY kind, ord'],
       [
         `SELECT key, value FROM corpus_stat

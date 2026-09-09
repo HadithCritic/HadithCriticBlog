@@ -3,6 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { db } from '../../lib/db';
+import { buildNarratorMatch } from '../../lib/arabic-normalize';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
@@ -41,9 +42,21 @@ const SORTS: Record<string, string> = {
 
 const where: string[] = ['unnamed = 0'];
 const binds: unknown[] = [];
+// Matched through `narrator_fts` rather than `search_text LIKE '%q%'`, which
+// no index could serve: it scanned all 20,915 named narrators for every query
+// and matched no folded Arabic, so عايشه found nobody while عائشة found sixty.
+// The same haystack is still searched. See migrations/0007.
 if (q) {
-  where.push('search_text LIKE ?');
-  binds.push(`%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`);
+  try {
+    where.push('id IN (SELECT rowid FROM narrator_fts WHERE narrator_fts MATCH ?)');
+    binds.push(buildNarratorMatch(q));
+  } catch {
+    // Folds away to nothing — punctuation only. `MATCH ''` would be an error,
+    // and simply dropping the clause would answer "«»" with all 20,915
+    // narrators, so the query is made unsatisfiable instead.
+    where.pop();
+    where.push('0');
+  }
 }
 if (generation !== 'all') {
   where.push('generation = ?');

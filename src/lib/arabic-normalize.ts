@@ -108,3 +108,42 @@ export function buildMatch(query: string, scope: SearchScope = 'all', phrase = f
 
   return SCOPE_COLUMNS[scope].map((col) => `${col} : ${body}`).join(' OR ');
 }
+
+/**
+ * Turn a reader's query into a MATCH expression for the narrator register.
+ *
+ * Separate from `buildMatch` because the two indexes answer different
+ * questions. The corpus index ranks prose by relevance across five weighted
+ * columns; the register index is a single column of names and is only ever a
+ * filter, since the register orders by whatever the reader picked — id, name,
+ * death year, hadith count — and never by score.
+ *
+ * Every token becomes a prefix term. That is what keeps the index usable as
+ * someone types: "mali" has to find Malik. It is also the one place this is
+ * narrower than the `LIKE '%q%'` it replaced, which matched inside words too
+ * and so found "somali" for "mali". For names, prefix is the expectation.
+ *
+ * Arabic tokens get the same orthographic fold the index was built with, which
+ * is a recall gain rather than a change: the register previously held the
+ * Arabic unfolded, so عايشه matched nobody at all.
+ *
+ * Throws on a query that normalizes to nothing, so a caller can treat it as an
+ * empty search rather than send bare `MATCH ''` to SQLite.
+ */
+export function buildNarratorMatch(query: string): string {
+  const cleaned = query.replace(FTS_SPECIAL, ' ').trim();
+  if (!cleaned) throw new Error('empty query');
+
+  const tokens = cleaned
+    .split(/\s+/)
+    .map((raw) => (hasArabic(raw) ? normalizeArabic(raw) : raw.toLowerCase()))
+    // Same guard as buildMatch: Arabic punctuation survives the fold and would
+    // otherwise reach FTS5 as a term that can never match.
+    .filter((t) => /[ء-ي٠-٩a-z0-9]/.test(t));
+
+  if (!tokens.length) throw new Error('query normalized to nothing');
+
+  // `"term" *` is not prefix syntax; `"term"*` is. Quoted so a token carrying
+  // a hyphen or an apostrophe cannot be read as an operator.
+  return tokens.map((t) => `"${t}"*`).join(' AND ');
+}

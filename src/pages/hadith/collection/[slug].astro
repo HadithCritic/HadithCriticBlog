@@ -37,6 +37,31 @@ const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
 const size = 25;
 const offset = (page - 1) * size;
 
+/**
+ * Where to resume from, when the reader arrived by following the pager.
+ *
+ * `LIMIT 25 OFFSET n` walks and discards every row it skips, so reading a
+ * large collection got steadily more expensive the further in you were: page 1
+ * of Musannaf Ibn Abi Shaybah costs 58 rows and page 1,564 costs 39,097. On a
+ * backend that bills rows read, the cost of reading a collection through was
+ * quadratic in its length.
+ *
+ * Seeking on the primary key instead is 25 rows at any depth. `ORDER BY id`
+ * already rides `(book_id, id)`, so the cursor is just the last id on the page
+ * you came from — the Next link carries it, and Previous carries the first id
+ * to seek backwards.
+ *
+ * The page number is still in the URL and still shown, and `?page=N` on its
+ * own still works: without a cursor this falls back to OFFSET, so an old link,
+ * a shared link, or a crawler jumping straight to page 900 all behave exactly
+ * as before. Only sequential reading — the thing this page exists for — gets
+ * the cheap path.
+ */
+const after = parseInt(p.get('after') || '', 10);
+const before = parseInt(p.get('before') || '', 10);
+const seekAfter = Number.isFinite(after) && after > 0 ? after : null;
+const seekBefore = Number.isFinite(before) && before > 0 ? before : null;
+
 /** Characters of each narration shown in the list before it is cut. */
 const PREVIEW_AR = 420;
 const PREVIEW_EN = 380;
@@ -75,14 +100,32 @@ try {
   book = found ?? undefined;
 
   if (book) {
-    const res = await db.prepare(
-      `SELECT id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
-              matn_ar, text_ar, narrator_count, parallel_count
-         FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`
-    )
-      .bind(book.id, size, offset)
-      .all();
+    const COLUMNS = `id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
+              matn_ar, text_ar, narrator_count, parallel_count`;
+    const res = seekAfter
+      ? await db
+          .prepare(
+            `SELECT ${COLUMNS} FROM hadith
+              WHERE book_id = ? AND id > ? ORDER BY id LIMIT ?`
+          )
+          .bind(book.id, seekAfter, size)
+          .all()
+      : seekBefore
+        ? // Seeking backwards has to walk down from the cursor, so it selects
+          // in descending order and the page is flipped back below.
+          await db
+            .prepare(
+              `SELECT ${COLUMNS} FROM hadith
+                WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT ?`
+            )
+            .bind(book.id, seekBefore, size)
+            .all()
+        : await db
+            .prepare(`SELECT ${COLUMNS} FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`)
+            .bind(book.id, size, offset)
+            .all();
     rows = (res.results || []) as unknown as Row[];
+    if (seekBefore) rows.reverse();
   }
 } catch (error) {
   console.error('Collection page failed to load', error);
@@ -94,9 +137,9 @@ if (!book && !failed) {
 }
 
 // Already stored per collection, so sequence never costs a count. Pages are
-// not capped here as they are on search: reading a collection through is the
-// point of the page, and `ORDER BY id` rides the (book_id, id) index instead
-// of walking discarded rows the way a filtered OFFSET does.
+// not capped here as they are on search — reading a collection through is the
+// point of the page — which is exactly why the pager seeks on a cursor rather
+// than paying OFFSET at depth. See the note on `seekAfter` above.
 const total = book?.hadith_count ?? 0;
 const pages = Math.max(1, Math.ceil(total / size));
 
@@ -107,6 +150,14 @@ if (!failed && book) {
 }
 
 const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
+
+// The pager carries a cursor so the next or previous page can seek instead of
+// counting past everything before it. The page number rides along so the label
+// and any shared link keep working.
+const first = rows[0]?.id;
+const last = rows[rows.length - 1]?.id;
+const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);
+const prevUrl = first ? `${pageUrl(page - 1)}&before=${first}` : pageUrl(page - 1);
 
 /** Cut on a word boundary so a preview never ends mid-word. */
 const preview = (text: string, limit: number) => {
@@ -228,13 +279,13 @@ const withHeadings = rows.map((r) => {
 
           <nav class="coll-pager" aria-label="Collection pages">
             {page > 1
-              ? <a class="coll-page" href={pageUrl(page - 1)}>← Previous</a>
+              ? <a class="coll-page" href={prevUrl}>← Previous</a>
               : <span class="coll-page" aria-disabled="true">← Previous</span>}
             <span class="coll-page-of">
               Page {page.toLocaleString()} of {pages.toLocaleString()}
             </span>
             {page < pages
-              ? <a class="coll-page" href={pageUrl(page + 1)}>Next →</a>
+              ? <a class="coll-page" href={nextUrl}>Next →</a>
               : <span class="coll-page" aria-disabled="true">Next →</span>}
           </nav>
         </div>

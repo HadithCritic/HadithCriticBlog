@@ -2,6 +2,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { db } from '../../lib/db';
+import { buildNarratorMatch } from '../../lib/arabic-normalize';
 
 /**
  * Narrator register query endpoint.
@@ -50,11 +51,22 @@ export const GET: APIRoute = async ({ url }) => {
 
   const q = (p.get('q') || '').trim().toLowerCase();
   if (q) {
-    // search_text is a prebuilt lowercase haystack holding the
-    // transliteration, an ASCII-folded copy of it, the Arabic, the kunya and
-    // the places — so one LIKE covers what used to be a multi-field client scan.
-    where.push("search_text LIKE ? ESCAPE '\\'");
-    binds.push(`%${likeEscape(q)}%`);
+    // `search_text` is a prebuilt haystack holding the transliteration, an
+    // ASCII-folded copy of it, the Arabic, the kunya and the places, and it is
+    // all still what gets matched — but through `narrator_fts` rather than a
+    // `LIKE '%q%'` no index could serve. That scanned all 20,915 named
+    // narrators per keystroke and could not match folded Arabic at all. See
+    // migrations/0007.
+    let match: string;
+    try {
+      match = buildNarratorMatch(q);
+    } catch {
+      // A query of only punctuation folds away to nothing. An empty result is
+      // the honest answer; bare `MATCH ''` would be a 500.
+      return json({ total: 0, page: 1, size: DEFAULT_PAGE_SIZE, pages: 1, results: [] });
+    }
+    where.push('id IN (SELECT rowid FROM narrator_fts WHERE narrator_fts MATCH ?)');
+    binds.push(match);
   }
 
   const generation = p.get('generation');

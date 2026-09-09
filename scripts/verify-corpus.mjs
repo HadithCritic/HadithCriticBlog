@@ -138,6 +138,50 @@ check(
   Number(derived.named_live ?? -2)
 );
 
+// The register's search index must cover every named narrator: a short one
+// means people who cannot be found by name, which no error would report.
+const registerIndex = (await sql(`
+  SELECT (SELECT COUNT(*) FROM narrator_fts) AS indexed,
+         (SELECT COUNT(*) FROM narrator WHERE unnamed = 0) AS named
+`))[0] || {};
+check(
+  'narrator_fts covers named narrators',
+  Number(registerIndex.indexed ?? -1),
+  Number(registerIndex.named ?? -2)
+);
+// The fold is the whole reason this index exists rather than a LIKE. عايشه is
+// the orthographic variant of عائشة; if the two disagree, the fold is not
+// being applied and the register has quietly lost recall again.
+const foldPair = await Promise.all(
+  ['عائشة', 'عايشه'].map(async (form) =>
+    Number(
+      (
+        await sql(
+          `SELECT COUNT(*) AS n FROM narrator_fts WHERE narrator_fts MATCH '"${normalizeArabic(form)}"*'`
+        )
+      )[0]?.n ?? -1
+    )
+  )
+);
+check('narrator_fts folds عائشة = عايشه', foldPair[0], foldPair[1]);
+check('narrator_fts finds that name at all', foldPair[0], (n) => n > 0);
+
+// Dossier openers: one to eight per narrator who appears in any chain.
+const topHadith = (await sql(`
+  SELECT (SELECT COUNT(*) FROM narrator_top_hadith) AS stored,
+         (SELECT COUNT(*) FROM (SELECT DISTINCT narrator_id FROM hadith_narrator
+                                 WHERE narrator_id IS NOT NULL)) AS narrators,
+         (SELECT COUNT(*) FROM (SELECT narrator_id FROM narrator_top_hadith
+                                 GROUP BY narrator_id HAVING COUNT(*) > 8)) AS overfull
+`))[0] || {};
+check('narrator_top_hadith rows', Number(topHadith.stored ?? -1), (n) => n > 0);
+check(
+  'narrator_top_hadith covers every charted narrator',
+  Number(topHadith.stored ?? -1),
+  (n) => n >= Number(topHadith.narrators ?? Infinity)
+);
+check('narrators with more than 8 openers', Number(topHadith.overfull ?? -1), 0);
+
 // ---- 2. search index -------------------------------------------------
 console.log('\nsearch index');
 const fts = (await sql('SELECT COUNT(*) AS n FROM hadith_fts'))[0];

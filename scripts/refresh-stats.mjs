@@ -1,3 +1,4 @@
+import { arabicFoldSql } from '../src/lib/arabic-fold-sql.ts';
 import { tursoConnect, tursoTarget } from './lib/turso.mjs';
 
 /**
@@ -169,6 +170,42 @@ if (!check && !topLooksRight) {
   console.log(
     `  built ${rebuilt.toLocaleString()} rows in ${((Date.now() - started) / 1000).toFixed(1)}s`
   );
+}
+
+/**
+ * The register's search index.
+ *
+ * One statement, folded inside the database by the same SQL fold the corpus
+ * index uses, so the two agree on Arabic orthography. Only `unnamed = 0` is
+ * indexed: every query the register runs starts with that clause.
+ *
+ * See migrations/0007 for why this exists — `search_text LIKE '%q%'` scanned
+ * all 20,915 named narrators per keystroke, and matched no folded Arabic at
+ * all.
+ */
+const NARRATOR_FTS = `
+  INSERT INTO narrator_fts (rowid, text)
+  SELECT id, ${arabicFoldSql('COALESCE(search_text, \'\')')}
+    FROM narrator WHERE unnamed = 0`;
+
+console.log('\nregister search index');
+const ftsRows = Number((await conn.all('SELECT COUNT(*) AS n FROM narrator_fts'))[0].n);
+const named = Number(
+  (await conn.all('SELECT COUNT(*) AS n FROM narrator WHERE unnamed = 0'))[0].n
+);
+const ftsOk = ftsRows === named;
+console.log(
+  `  ${ftsOk ? 'ok  ' : 'DIFF'} narrator_fts         ${ftsRows.toLocaleString().padStart(9)} rows` +
+    ` for ${named.toLocaleString()} named narrators`
+);
+if (!ftsOk) drift += 1;
+if (!check && !ftsOk) {
+  console.log('  rebuilding…');
+  const started = Date.now();
+  await conn.run('DELETE FROM narrator_fts');
+  await conn.run(NARRATOR_FTS);
+  const built = Number((await conn.all('SELECT COUNT(*) AS n FROM narrator_fts'))[0].n);
+  console.log(`  built ${built.toLocaleString()} rows in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 }
 
 if (check) {
