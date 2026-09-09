@@ -30,33 +30,41 @@ import { env } from 'cloudflare:workers';
  */
 
 /**
- * A connection per operation, deliberately not one cached per isolate.
+ * Run one operation on a connection of its own, and close it afterwards.
  *
- * Caching one looks obviously right — the connection holds no socket, it is an
- * HTTP caller — and it is wrong. `Connection` owns an `AsyncLock` that
- * serializes operations on it, and module scope is shared by every request an
- * isolate handles. So a promise queued by one request gets resolved inside a
- * later one, and the Workers runtime cancels the continuation:
+ * Both halves of that are load-bearing, and each was learned by getting it
+ * wrong.
  *
- *   A promise was resolved or rejected from a different request context than
- *   the one it was created in ... Continuations for that request are unlikely
- *   to run safely and have been canceled.
+ * **Why not one connection cached per isolate.** `Connection` owns an
+ * `AsyncLock` that serializes operations on it, and module scope is shared by
+ * every request an isolate handles. A promise queued by one request then gets
+ * resolved inside a later one, and the runtime cancels the continuation —
+ * "a promise was resolved or rejected from a different request context than
+ * the one it was created in" — leaving the waiting request with no response at
+ * all. Sequential traffic never shows it; two overlapping requests do.
  *
- * The request waiting on that lock then never gets a response — it hangs until
- * the runtime kills it. Sequential requests never show it, which is exactly
- * what makes it worth a comment: it appears under concurrency, as an
- * intermittent hang rather than an error.
+ * **Why it must be closed.** Every pipeline response carries a `baton`, which
+ * is a stream the server holds open for that session. A connection per
+ * operation that is never closed leaks one per query, and once enough are
+ * outstanding Turso stops answering and the Worker hangs instead — which is
+ * strictly worse than the problem it was meant to fix. `close()` is a single
+ * request, about 50 ms, and it is only sent when a baton was actually issued.
  *
- * `connect()` performs no I/O, so a fresh one costs an object. With one
- * operation per connection the lock has nothing to queue, and nothing crosses
- * a request boundary. Interactive transactions would need a persistent
- * connection; nothing here uses them — `batch()` is one request that is
- * already atomic.
+ * So the cost of correctness here is one extra round trip per operation. That
+ * is also why `batch()` matters more than it looks: a page that asks four
+ * questions in one batch pays this once, not four times.
  */
-const getConnection = (): Connection => {
+const withConnection = async <T>(run: (conn: Connection) => Promise<T>): Promise<T> => {
   const url = env.TURSO_DATABASE_URL;
   if (!url) throw new Error('TURSO_DATABASE_URL is not set');
-  return connect({ url, authToken: env.TURSO_AUTH_TOKEN });
+  const conn = connect({ url, authToken: env.TURSO_AUTH_TOKEN });
+  try {
+    return await run(conn);
+  } finally {
+    // Never allowed to mask the query's own error, and never worth failing a
+    // rendered page over: an unclosed stream expires on the server by itself.
+    await conn.close().catch(() => {});
+  }
 };
 
 /** D1's `all()` envelope, so callers keep reading `.results`. */
@@ -84,18 +92,18 @@ export class Statement {
   }
 
   async all<T = Record<string, unknown>>(): Promise<QueryResult<T>> {
-    const rows = await getConnection().all(this.sql, ...this.args);
+    const rows = await withConnection((conn) => conn.all(this.sql, ...this.args));
     return { results: rows as T[], success: true };
   }
 
   /** First row, or null when nothing matched — D1's contract, not `undefined`. */
   async first<T = Record<string, unknown>>(): Promise<T | null> {
-    const row = await getConnection().get(this.sql, ...this.args);
+    const row = await withConnection((conn) => conn.get(this.sql, ...this.args));
     return (row as T | undefined) ?? null;
   }
 
   async run(): Promise<QueryResult> {
-    await getConnection().run(this.sql, ...this.args);
+    await withConnection((conn) => conn.run(this.sql, ...this.args));
     return { results: [], success: true };
   }
 }
@@ -118,9 +126,11 @@ export const db = {
   batch: async <T = Record<string, unknown>>(
     statements: Statement[]
   ): Promise<QueryResult<T>[]> => {
-    const results = await getConnection().batch(
-      statements.map((s) => ({ sql: s.sql, args: s.args })),
-      'deferred'
+    const results = await withConnection((conn) =>
+      conn.batch(
+        statements.map((s) => ({ sql: s.sql, args: s.args })),
+        'deferred'
+      )
     );
     return (results as { rows: unknown[] }[]).map((r) => ({
       results: (r.rows || []) as T[],
