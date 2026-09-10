@@ -55,7 +55,9 @@
   --hc-fixed-parchment-deep: #e5d7bd;
   --hc-fixed-parchment-ink:  #1a1715;
   --hc-fixed-muted:        #b8ad99;
-  --hc-fixed-ash:          #8c8a86;
+  --hc-fixed-ash:          #a7a5a2;   /* was #8c8a86, which read 3.30:1 as
+                                         apparatus text on the gold-tinted
+                                         record panels */
 
   /* ── Adaptive surface tokens (swap per theme) ── */
   --hc-surface-0:  var(--hc-fixed-black);        /* deepest bg */
@@ -72,7 +74,9 @@
   --hc-gold:       #d8b166;
   --hc-gold-bright:#e8c878;
   --hc-gold-soft:  #e2c783;
-  --hc-gold-dim:   #9d7a3c;
+  --hc-gold-dim:   #bf9957;   /* lifted from #9d7a3c, which read 3.09:1
+                                    as text on a tinted panel; it is used as a
+                                    colour in 66 places, not only as a rule */
 
   --hc-parchment:      var(--hc-fixed-parchment);
   --hc-parchment-deep: var(--hc-fixed-parchment-deep);
@@ -83,6 +87,15 @@
 
   --hc-umber:       #a46a3f;
   --hc-prophecy:    #7b2d24;
+
+  /* Text-safe copper for article apparatus (context notes, hadith blocks, the
+     isnad diagram). Distinct from --hc-umber, which is a surface and border
+     tone and only reaches 3.51:1 as text. Light replaced a 2.05:1 failure with
+     4.71:1. Dark started as the value the components had been falling back to,
+     #c48b68, and was nudged to #c58e6b because the context-note badge sits on
+     a warm tinted header where the original measured 4.49:1, one hundredth
+     under, on 59 articles. */
+  --hc-copper:      #c58e6b;
 
   /* ── Category tokens ── */
   --cat-history:       #b88a64;
@@ -103,13 +116,18 @@
 
   /* Text-safe category variants. The base --cat-* values are tuned for
      12%-opacity fills and 30% borders; used directly as text on
-     --hc-surface-0 the red drops to 3.4:1. These lifted variants clear
-     4.5:1 on every surface level and are the only ones that may be used
-     as a `color`. */
-  --cat-history-text:    #c99a72;
-  --cat-prophecies-text: #c8705f;
-  --cat-theology-text:   #7fa389;
-  --cat-philosophy-text: #8595b5;
+     --hc-surface-0 the red drops to 3.4:1. These are the only ones that
+     may be used as a `color`.
+
+     They were lifted a second time in 2026-09. The first pass measured
+     them against the flat surface tokens, but a chip paints its own
+     --cat-*-bg tint over an already elevated card, and on that composite
+     the red still read 3.14:1. These values clear 4.5:1 on the tinted
+     chip, which is the worst ground any of them actually sits on. */
+  --cat-history-text:    #d5b091;
+  --cat-prophecies-text: #d7988b;
+  --cat-theology-text:   #9cb8a4;
+  --cat-philosophy-text: #a3afc7;
 
   /* ── Rules / dividers ── */
   --hc-rule:        rgba(216, 177, 102, 0.32);
@@ -124,6 +142,19 @@
   /* ── Noise texture ── */
   --hc-noise:     rgba(255,255,255,0.12);
   --hc-noise-dim: rgba(255,255,255,0.08);
+
+  /* ── Article panel scrims ──
+     Long-form articles inset their own plates, ledgers and matrices with an
+     alpha wash over the sheet. Authored dark-first as a near-black, the same
+     declaration composited to grey mud on paper and dropped body text to
+     1.02:1 across fourteen articles: the text colours were theme-aware all
+     along, only the fill was not. These carry the fill across themes so one
+     alpha reads as a deeper panel in dark and a warmer, lighter one on paper.
+     Used as an rgb triplet so the author keeps their own alpha:
+       background: rgba(var(--hc-scrim), 0.64);
+     --hc-scrim is the neutral wash, --hc-scrim-warm the sepia one. */
+  --hc-scrim:      15, 15, 16;
+  --hc-scrim-warm: 32, 25, 15;
 
   /* ── Typography ── */
   /* Latin faces list Amiri after themselves so an Arabic run inside an
@@ -150,6 +181,68 @@
   --pad:         clamp(1.2rem, 4vw, 2.5rem);
   --section-y:   clamp(2.5rem, 5vw, 4.5rem);
   --ease:        cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Motion (consolidated from motion.css — see motion.css header) ── */
+  --motion-fast: 160ms;
+  --motion-base: 260ms;
+  --motion-slow: 520ms;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ── Status colors — per-theme audited (docs/hallmark-audit-before.md). Dark
+     values kept from footer.css; light values re-picked because the
+     dark greens/reds fail on paper (#81c784 → 1.71:1, #e57373 → 2.54:1
+     on #f2ece0). Light: #2e6b2e = 5.48:1, #b71c1c = 5.58:1. ── */
+  --hc-success: #81c784;
+  --hc-error:   #e57373;
+
+  /* Critical/negative emphasis in running argument (article callouts, negative
+     claim highlighting). Distinct from --hc-error, which is a form-failure
+     state. 18 call sites referenced --hc-danger before it existed and every one
+     fell through to a hardcoded hex: #ff6b6b in the article bodies and #c2593c
+     in the rijal dossier, the latter measuring 3.10-4.37:1 and failing AA in
+     both themes on every surface. Values below are brick tones in the umber
+     family rather than the generic pink-red, and clear 4.5:1 on all four
+     surfaces in their own theme (dark 6.33 min, light 5.59 min).
+
+     Not for narrator criticism. Colouring jarh red is an evaluative signal the
+     site does not make: see DESIGN.md > The one non-negotiable of content. */
+  --hc-danger:  #e2907a;
+
+  /* Highlight wash behind marked search terms; lightened in light theme
+     so a dark-gold wash never sits behind dark ink. */
+  --hc-highlight: color-mix(in srgb, var(--hc-gold) 26%, transparent);
+
+  /* Arabic script metrics. The codebase previously shipped line-height
+     2 / 2.05 / 2.1 in six places; one token. Amiri's harakat need the
+     room; Latin leading must not absorb it. */
+  --leading-arabic: 2.05;
+  --text-arabic: clamp(1.15rem, 0.35vw + 1.08rem, 1.3rem);
+
+  /* Hero section rhythm: catalogue used clamp(4,8vw,7rem), collection
+     and treatise clamp(3.5,7vw,6rem). One token ends the drift. */
+  --section-y-hero: clamp(3.5rem, 7vw, 6rem);
+
+  /* Sticky offset for anything that parks under the header. Three call sites
+     read this with a 72px fallback and nothing ever set it, so the magic
+     number was doing the work while the header measured 73px. */
+  --site-header-height: 73px;
+
+  /* ── Spacing scale, 4px base ──────────────────────────────────────
+     The site had no named scale; padding, gap and margin were ad hoc rem
+     literals (0.42rem, 0.55rem, 0.85rem, 1.05rem...). New work uses these.
+     Existing declarations migrate when their file is next touched rather
+     than in one sweep, so a --space-* value and a legacy literal will sit
+     side by side for a while. That is expected. */
+  --space-3xs: 0.25rem;  /*  4px */
+  --space-2xs: 0.5rem;   /*  8px */
+  --space-xs:  0.75rem;  /* 12px */
+  --space-sm:  1rem;     /* 16px */
+  --space-md:  1.5rem;   /* 24px */
+  --space-lg:  2rem;     /* 32px */
+  --space-xl:  3rem;     /* 48px */
+  --space-2xl: 4rem;     /* 64px */
+  --space-3xl: 6rem;     /* 96px */
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -177,20 +270,30 @@
 
   /* ── Text: warm dark ink ── */
   --hc-text-primary:   #2b2824;   /* headings, body */
-  --hc-text-secondary: #6b635a;   /* captions, meta */
-  --hc-text-tertiary:  #635e56;   /* placeholders, disabled — 4.54:1 on the
-                                     deepest light surface; was #8c857a at
-                                     3.47:1, which failed as body text */
+  --hc-text-secondary: #4e4842;   /* captions, meta */
+  --hc-text-tertiary:  #58534c;   /* placeholders, disabled; 4.66:1
+
+     Both were deepened in 2026-09. The earlier pair was measured against the
+     flat surface tokens, but a card on this site can carry a category wash
+     over the body gradient and then a chip wash over that, and on the triple
+     composite (rgb(216,198,177)) the old secondary read 3.55:1. Tertiary now
+     sits at the AA floor and secondary a clear step below it; the previous
+     pair had those two inverted, so tertiary printed darker than secondary. */
   --hc-text-inverse:   #fbf9f4;   /* text on dark accents */
 
   /* ── Gold: deeper, less saturated for light backgrounds.
      Every step clears 4.5:1 against all four light surfaces, including
      --hc-surface-3 (#dfd8cb). The previous ramp did not: --hc-gold sat at
      3.40:1 and --hc-gold-dim at 2.21:1 on paper, which failed every gold
-     link and section numeral in light mode. ── */
-  --hc-gold:       #6f5019;
+     link and section numeral in light mode.
+
+     Deepened again in 2026-09. Article panels commonly lay a gold radial
+     glow over their fill; on paper that glow darkens the panel instead of
+     lightening it, and gold on gold-tinted paper was reaching only 4.07:1.
+     The ramp is now measured against those tinted panels too. ── */
+  --hc-gold:       #6a4c18;
   --hc-gold-bright:#63440f;
-  --hc-gold-soft:  #795820;
+  --hc-gold-soft:  #6d4f1d;
   --hc-gold-dim:   #7a5920;
 
   /* ── Parchment: inverted for light mode ── */
@@ -198,13 +301,17 @@
   --hc-parchment-deep: #4a4237;
   --hc-parchment-ink:  #201c18;
 
-  /* ── Muted / Ash ── */
-  --hc-muted: #6b635a;
+  /* ── Muted / Ash ──
+     --hc-ash is the disabled and placeholder tier and is the one neutral
+     that is not safe as content text on paper: it reads 2.61:1. Use
+     --hc-text-secondary for anything a reader is meant to read. */
+  --hc-muted: #4e4842;
   --hc-ash:   #8c857a;
 
   /* ── Umber: deepened for contrast on light ── */
-  --hc-umber:       #8a4c27;
+  --hc-umber:       #834825;
   --hc-prophecy:    #a84b3e;
+  --hc-copper:      #834825;
 
   /* ── Categories: deepened for light bg readability ── */
   --cat-history:       #8a4c27;
@@ -227,10 +334,10 @@
      use directly, so these match; the dark theme needs lifted values and
      defines its own. Without these overrides the dark-theme variants leak
      into light mode and fail. */
-  --cat-history-text:    #8a4c27;
-  --cat-prophecies-text: #99422f;
-  --cat-theology-text:   #446349;
-  --cat-philosophy-text: #4e5c78;
+  --cat-history-text:    #713e20;
+  --cat-prophecies-text: #7e3727;
+  --cat-theology-text:   #39533d;
+  --cat-philosophy-text: #414c64;
 
   /* ── Rules: umber-based, softer ── */
   --hc-rule:        rgba(138, 76, 39, 0.15);
@@ -242,9 +349,19 @@
   --hc-header-shadow: 0 10px 30px rgba(43, 40, 36, 0.12);
   /* ── Header links ── */
   --hc-header-link:       color-mix(in srgb, #2b2824 72%, transparent);
+  --hc-success: #2e6b2e;
+  --hc-error:   #b71c1c;
+  --hc-danger:  #8f3316;
+  --hc-highlight: color-mix(in srgb, var(--hc-gold) 18%, transparent);
+
   /* ── Noise: warm brown tint ── */
   --hc-noise:     rgba(138, 76, 39, 0.08);
   --hc-noise-dim: rgba(138, 76, 39, 0.05);
+
+  /* See the dark-theme block for what these are. On paper the wash has to
+     lighten instead of darken, or the panel stays a dark plate under ink. */
+  --hc-scrim:      242, 236, 223;
+  --hc-scrim-warm: 245, 236, 215;
 }
 
 /* Light Theme Component & Element Overrides */
@@ -360,7 +477,7 @@ body::before {
   pointer-events: none;
   opacity: .08;
   mix-blend-mode: soft-light;
-  z-index: 100;
+  z-index: 40;
   background-image:
     radial-gradient(circle at 20% 30%, var(--hc-noise) 0 1px, transparent 1px),
     radial-gradient(circle at 80% 60%, var(--hc-noise-dim) 0 1px, transparent 1px);
@@ -488,7 +605,7 @@ main {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-decoration: none;
-  transition: transform 160ms var(--ease, ease);
+  transition: transform 160ms var(--ease-emphasis);
 }
 
 .hc-skip-link:focus-visible {
@@ -498,6 +615,83 @@ main {
 @media (prefers-reduced-motion: reduce) {
   .hc-skip-link {
     transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FIXED-DARK PLATES
+   ═══════════════════════════════════════════════════════════════
+
+   Some article figures are lamp-lit instruments rather than panels: a night
+   sky behind a moon diagram, an isnad chart drawn as a dark ledger, a
+   transmission map. They were composed on black and their own labels are
+   written in fixed parchment and gold, so they stay dark in both themes.
+
+   The failure mode is mixing: a plate whose fill is fixed but whose text
+   reaches for --hc-text-primary prints dark ink on a black ground the moment
+   the reader switches to paper. Fourteen articles did exactly that, some as
+   low as 1.02:1.
+
+   Put this class on the element that carries the dark fill. It pins the
+   palette for everything inside, so a figure can go on using the ordinary
+   token names and get the dark-theme values on both themes.
+
+   Surfaces are pinned as well as text, and on paper the plate is also given
+   an opaque base; both are explained where they are declared below.  */
+
+.hc-plate {
+  /* Surfaces are pinned as well as text. A figure that fills a sub-panel with
+     color-mix(--hc-surface-2 …) would otherwise punch a paper-coloured card
+     into the middle of the plate and take the pinned parchment down to
+     1.09:1 on it. */
+  --hc-surface-0:      var(--hc-fixed-black);
+  --hc-surface-1:      var(--hc-fixed-black-soft);
+  --hc-surface-2:      var(--hc-fixed-charcoal);
+  --hc-surface-3:      var(--hc-fixed-charcoal-2);
+  --hc-text-primary:   var(--hc-fixed-parchment);
+  --hc-text-secondary: var(--hc-fixed-muted);
+  --hc-text-tertiary:  var(--hc-fixed-ash);
+  --hc-muted:          var(--hc-fixed-muted);
+  --hc-ash:            var(--hc-fixed-ash);
+  --hc-parchment:      var(--hc-fixed-parchment);
+  --hc-parchment-deep: var(--hc-fixed-parchment-deep);
+  --hc-text-inverse:   var(--hc-fixed-black);
+  --hc-gold:           #d8b166;
+  --hc-gold-bright:    #e8c878;
+  --hc-gold-soft:      #e2c783;
+  --hc-gold-dim:       #bf9957;
+  --hc-umber:          #a46a3f;
+  --hc-copper:         #c58e6b;
+  --hc-danger:         #e2907a;
+  --hc-rule:           rgba(216, 177, 102, 0.32);
+  --hc-rule-soft:      rgba(242, 235, 220, 0.14);
+  --hc-rule-strong:    rgba(216, 177, 102, 0.55);
+  --hc-scrim:          15, 15, 16;
+  --hc-scrim-warm:     32, 25, 15;
+  color: var(--hc-fixed-parchment);
+}
+
+/* On paper a plate needs an opaque base under its own fill. These fills are
+   nearly all translucent, written to darken a black sheet: rgba(17, 17, 17,
+   .56) over parchment is mid grey, not a plate, and gold on mid grey tops out
+   near 2.6:1 however the gold is tuned. The base is !important, for the same
+   reason the focus ring is, because it has to beat the shorthand `background`
+   the figures declare. A plate that paints its own gradient still paints it
+   over this, so only the ground changes.
+
+   It is scoped to the light theme on purpose. In dark mode the author's own
+   translucent fill already lands on a dark sheet and reads as intended, and
+   forcing an opaque base there flattened cards that were meant to sit a shade
+   below the page. The two selectors below are the same pair the rest of this
+   file uses to mean "the reader is currently on paper". */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .hc-plate {
+    background-color: var(--hc-fixed-black-soft) !important;
+  }
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="light"] .hc-plate {
+    background-color: var(--hc-fixed-black-soft) !important;
   }
 }
 
@@ -514,6 +708,18 @@ main {
   line-height: 1.3;
   color: var(--hc-gold);
   font-weight: 600;
+}
+
+/* Breadcrumb-style kickers ("Corpus / Collection") appear on both the
+   catalogue and the collection edition; one link treatment. */
+.hc-eyebrow a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.hc-eyebrow a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
 }
 
 .hc-title {
@@ -563,7 +769,7 @@ main {
 [dir="rtl"] {
   font-family: var(--font-arabic);
   direction: rtl;
-  line-height: 2;
+  line-height: var(--leading-arabic);
   /* Keep ligatures and required Arabic shaping on; never let a
      text-rendering optimisation drop mark positioning. */
   font-variant-ligatures: common-ligatures contextual;
@@ -870,7 +1076,7 @@ span.arabic {
   object-fit: contain;
   opacity: 0.58;
   filter: sepia(0.2) saturate(0.9);
-  transition: transform 450ms var(--ease), opacity 250ms ease;
+  transition: transform 450ms var(--ease-emphasis), opacity 250ms ease;
 }
 
 .hc-directory-card:hover img {
@@ -967,22 +1173,22 @@ span.arabic {
 }
 
 [data-category="Origins & Early History"] {
-  --cat-color:  var(--cat-history);
+  --cat-color:  var(--cat-history-text);
   --cat-bg:     var(--cat-history-bg);
   --cat-border: var(--cat-history-border);
 }
 [data-category="Prophecies & Eschatology"] {
-  --cat-color:  var(--cat-prophecies);
+  --cat-color:  var(--cat-prophecies-text);
   --cat-bg:     var(--cat-prophecies-bg);
   --cat-border: var(--cat-prophecies-border);
 }
 [data-category="Theology & Epistemology"] {
-  --cat-color:  var(--cat-theology);
+  --cat-color:  var(--cat-theology-text);
   --cat-bg:     var(--cat-theology-bg);
   --cat-border: var(--cat-theology-border);
 }
 [data-category="Transmission & Narrators"] {
-  --cat-color:  var(--cat-philosophy);
+  --cat-color:  var(--cat-philosophy-text);
   --cat-bg:     var(--cat-philosophy-bg);
   --cat-border: var(--cat-philosophy-border);
 }
@@ -1340,4 +1546,453 @@ footer {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SHARED COMPONENT LAYER — design-upgrade consolidation
+   (docs/hallmark-audit-before.md). Everything below is unscoped
+   global CSS. Page components are Astro-scoped ([data-astro-cid-*]),
+   so after repointing a call site its page-local original MUST be
+   deleted in the same commit — a leftover scoped copy outranks these
+   rules at equal specificity.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── STAT BAND ────────────────────────────────────────────────────
+   One component replacing four: .corpus-stat-band/.corpus-stat,
+   .edition-stat-band/.edition-stat, .hadith-stats/.hadith-stat and
+   .hero-stat-band/.hero-stat. Their drift (min-heights 6rem/5.7rem/
+   none, four different num clamps, four paddings) collapses onto the
+   scale below. Column count via --stat-cols; the "Not stored" value
+   cell is a modifier, not a fifth copy. .register-stat-band and
+   .rijal-facts were missed by that pass and are folded in here too.
+
+   NEVER put this class on the same element as .wrap or .hc-container.
+   Those carry `padding-inline: max(--pad, --sal)` INSIDE their border
+   box, so the band's top and bottom rules land on the padding box and
+   overhang the text column by --pad on each side (40px at desktop),
+   while the cells themselves still align correctly. Nest instead:
+
+       <div class="wrap"><div class="hc-stat-band"> ... </div></div>
+
+   See DESIGN.md > Layout > Grid and container. */
+
+.hc-stat-band {
+  display: grid;
+  grid-template-columns: repeat(var(--stat-cols, 4), minmax(0, 1fr));
+  border-top: 1px solid var(--hc-rule);
+  border-bottom: 1px solid var(--hc-rule);
+}
+
+.hc-stat-band--5 { --stat-cols: 5; }
+.hc-stat-band--4 { --stat-cols: 4; }
+.hc-stat-band--3 { --stat-cols: 3; }
+
+.hc-stat {
+  position: relative;
+  min-width: 0;
+  min-height: 5.75rem;
+  padding: 1.05rem 1.2rem 1.1rem 0;
+}
+
+.hc-stat + .hc-stat {
+  padding-left: 1.2rem;
+}
+
+.hc-stat + .hc-stat::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 1px;
+  background: var(--hc-rule-soft);
+}
+
+.hc-stat__num {
+  display: block;
+  font-family: var(--font-body);
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--hc-text-primary);
+}
+
+.hc-stat__label {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hc-text-tertiary);
+}
+
+/* Value cell set in display type instead of numerals ("Not stored /
+   Authenticity grading"). */
+.hc-stat--display .hc-stat__num {
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 1.7vw, 1.45rem);
+  letter-spacing: -0.01em;
+}
+
+/* Quiet variant: value de-emphasized to secondary ink. */
+.hc-stat--quiet .hc-stat__num {
+  color: var(--hc-text-secondary);
+}
+
+/* Row wraps below 900px: first cell in each row loses the left
+   hairline; wrapped rows pick up a top hairline. Compound form kept
+   identical to the base rule on purpose — unscoped global CSS and
+   Astro-scoped page CSS resolve at equal specificity only when the
+   compounds match shape for shape. */
+@media (max-width: 900px) {
+  .hc-stat-band { --stat-cols: 2; }
+  .hc-stat { min-height: 5rem; }
+  .hc-stat:nth-child(2n + 1) { padding-left: 0; }
+  .hc-stat:nth-child(2n + 1)::before { content: none; }
+  .hc-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+}
+
+@media (max-width: 560px) {
+  .hc-stat { padding-top: 0.95rem; padding-bottom: 1rem; }
+}
+
+/* ── BACK LINK ────────────────────────────────────────────────────
+   Replaces .corpus-aside__link, .edition-aside__link and
+   .corpus-search-hero__back (docs/hallmark-audit-before.md). 44px target per
+   WCAG 2.2 §2.5.8; gap-shift hover extends the established arrow
+   vocabulary. */
+
+.hc-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--hc-gold);
+  text-decoration: none;
+  transition: color var(--motion-fast) ease, gap var(--motion-fast) var(--ease-standard);
+}
+
+.hc-back-link:hover {
+  color: var(--hc-gold-bright);
+  gap: 0.6rem;
+}
+
+.hc-back-link--ruled {
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--hc-rule-strong);
+}
+
+/* ── SEARCH BAR ───────────────────────────────────────────────────
+   Replaces .corpus-search-field and .edition-search. Form semantics
+   untouched: method="get", real inputs, hidden param passthrough —
+   the no-JS principle is preserved by construction. */
+
+.hc-searchbar {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--hc-rule-strong);
+  background: color-mix(in srgb, var(--hc-surface-1) 52%, transparent);
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.hc-searchbar:focus-within {
+  border-color: var(--hc-gold);
+  background: color-mix(in srgb, var(--hc-surface-1) 82%, transparent);
+}
+
+.hc-searchbar__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--hc-text-primary);
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+}
+
+.hc-searchbar__input::placeholder { color: var(--hc-text-tertiary); }
+
+.hc-searchbar__submit {
+  flex: none;
+  min-height: 3.25rem;
+  padding: 0 1.05rem;
+  border: 0;
+  border-left: 1px solid var(--hc-rule);
+  background: transparent;
+  color: var(--hc-gold);
+  font-family: var(--font-ui);
+  font-size: 0.94rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.hc-searchbar__submit:hover {
+  color: var(--hc-gold-bright);
+  background: color-mix(in srgb, var(--hc-gold) 8%, transparent);
+}
+
+/* Options row under the bar (scope/collection selects, exact-phrase). */
+.hc-searchbar__options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.2rem 2.5rem;
+  margin-top: 1.2rem;
+}
+
+.hc-searchbar__phrase {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 24px;
+  font-family: var(--font-ui);
+  font-size: 0.81rem;
+  font-weight: 600;
+  color: var(--hc-text-secondary);
+}
+
+.hc-searchbar__phrase input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--hc-gold);
+}
+
+/* ── ANIMATED UNDERLINE (micro-interaction vocabulary) ────────────
+   For links that previously recolored only: .corpus-active__clear,
+   .isnad__person, .hadith-banner__ref a, .subjects a,
+   .hcFooter__learn-link. Rides the consolidated motion tokens, so
+   the global prefers-reduced-motion flattening applies automatically. */
+
+.hc-ulink {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  padding-bottom: 1px;
+  transition: color var(--motion-fast) ease,
+              background-size var(--motion-base) var(--ease-standard);
+}
+
+.hc-ulink:hover {
+  background-size: 100% 1px;
+}
+
+/* ── ROW-HOVER STATE CHANGE WITH SHAPE ────────────────────────────
+   The ledger-row hover was a color-only gradient wash; an inset
+   hairline now carries the state change too (WCAG 1.4.1-adjacent). */
+
+.book-row__link,
+.corpus-result__link,
+.edition-report__link,
+.contents-row,
+.dossier-entry {
+  transition: background var(--motion-base) var(--ease-standard),
+              padding var(--motion-base) var(--ease-standard);
+}
+
+.book-row__link:hover,
+.corpus-result__link:hover,
+.edition-report__link:hover,
+.contents-row:hover,
+.dossier-entry:hover {
+  box-shadow: inset 2px 0 0 var(--hc-gold-dim);
+}
+
+/* ── ACCESSIBILITY PATCHES ──────────────────────────────────────── */
+
+/* Tap targets below 44px on primary navigation controls (WCAG 2.2
+   §2.5.8; the 24px AA floor is met everywhere else). */
+.corpus-pager__link,
+.edition-pager__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.corpus-active__clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+/* Search-term highlight: per-theme token so light mode stops
+   rendering a dark-gold wash behind dark ink. */
+.corpus-page mark {
+  background: var(--hc-highlight);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hc-back-link,
+  .hc-searchbar,
+  .hc-searchbar__submit,
+  .hc-ulink,
+  .book-row__link,
+  .corpus-result__link,
+  .edition-report__link,
+  .contents-row,
+  .dossier-entry {
+    transition: none;
+  }
+
+  .hc-ulink:hover {
+    background-size: 0% 1px;
+  }
+}
+
+/* ── SECTION HEAD ─────────────────────────────────────────────────
+   One component replacing five: .corpus-section-head/.corpus-results-head
+   (catalogue), .edition-section-head (edition), .hadith-panel__head
+   (record) and the bare `.rijal-section h2` (dossier). They were the same
+   object at five type scales, which is why the record and the dossier read
+   as lesser pages than the catalogue: their heads topped out at 13px and
+   1.35rem against the catalogue's clamp(1.8rem, 3vw, 2.55rem).
+
+   Structure: an optional kicker, a display-scale title, an optional note,
+   and an optional trailing accessory (a back link, a count, a hint) that
+   sits baseline-aligned on the right and stacks below 780px. */
+
+.hc-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-md) var(--space-lg);
+}
+
+.hc-section-head__main {
+  min-width: 0;
+}
+
+.hc-section-head__title {
+  margin: 0.42rem 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 3vw, 2.55rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--hc-text-primary);
+  text-wrap: balance;
+}
+
+/* Panel-scale head, for a section that sits inside a record rather than
+   dividing the page: the four panels on /hadith/:id, the dossier's inner
+   sections. Still display face, still a real step above the apparatus. */
+.hc-section-head--panel .hc-section-head__title {
+  font-size: clamp(1.35rem, 2.1vw, 1.75rem);
+  letter-spacing: -0.02em;
+}
+
+.hc-section-head__note {
+  max-width: 68ch;
+  margin: 0.8rem 0 0;
+  font-family: var(--font-body);
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: var(--hc-text-secondary);
+}
+
+/* Trailing accessory. Uppercase apparatus, right-aligned, never wider than
+   it needs to be: it is a caption on the head, not a second column. */
+.hc-section-head__aside {
+  flex: none;
+  max-width: 30ch;
+  margin: 0 0 0.15rem;
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--hc-text-tertiary);
+}
+
+/* A head that carries a rule instead of relying on whitespace alone. */
+.hc-section-head--ruled {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--hc-rule);
+}
+
+@media (max-width: 780px) {
+  .hc-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .hc-section-head__aside {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+/* ── BACK LINK, NON-INTERACTIVE EDGE ──────────────────────────────
+   The record pager renders its first/last edges as <span aria-disabled>,
+   which was borrowing .hc-back-link and so advertised an affordance that
+   was not there: gold ink, arrow shift on hover. This demotes it to
+   apparatus ink and removes the hover vocabulary without changing metrics,
+   so the row keeps its alignment. */
+
+.hc-back-link--disabled {
+  color: var(--hc-text-tertiary);
+  cursor: default;
+}
+
+.hc-back-link--disabled:hover {
+  color: var(--hc-text-tertiary);
+  gap: 0.4rem;
+}
+
+/* ── PROGRESS DRAW ────────────────────────────────────
+   The section's one entrance. Vocabulary borrowed from react-bits' line
+   stagger and reimplemented in plain CSS: no React island exists on this
+   site and none is being added for an animation.
+
+   It is deliberately NOT on the hero title. A title fade communicates
+   nothing (no hierarchy, no orientation, no state), and animating opacity
+   on the LCP element delays the largest paint, so it fails this project's
+   own rule that motion must be motivated. A reading-position track is the
+   opposite case: the draw is what tells a reader how far into 1,564 pages
+   they are, which is orientation, and the track is nowhere near the LCP
+   element.
+
+   The fill is authored at its final width, so with animation unavailable
+   or reduced-motion set it simply renders in place. */
+
+.hc-progress {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: var(--hc-rule-soft);
+}
+
+.hc-progress__fill {
+  display: block;
+  height: 100%;
+  /* A page-one reading position is a fraction of a percent wide. A minimum
+     keeps it visible without misreporting: the numeric position is stated
+     next to it either way. */
+  min-width: 2px;
+  background: var(--hc-gold);
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hc-progress__fill {
+    animation: hc-progress-draw var(--motion-slow) var(--ease-standard) both;
+  }
+}
+
+@keyframes hc-progress-draw {
+  from { transform: scaleX(0); }
+  to   { transform: none; }
 }
