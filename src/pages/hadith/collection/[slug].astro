@@ -6,28 +6,13 @@ import { env } from 'cloudflare:workers';
 import { toPlainText, renderArabic } from '../../../lib/format-text';
 
 /**
- * One collection, read in its own order.
+ * Collection edition / sequential reader.
  *
- * The counterpart to searching. A reader who wants Sahih Muslim from the
- * beginning should get it in sequence, with the chapter headings that structure
- * it, rather than having to invent a query that happens to surface it.
- *
- * Laid out like the narration page: a chapter banner carrying both scripts,
- * then each report with the Arabic and the translation in facing columns. The
- * point of the corpus is reading one against the other, and a stacked list put
- * a screen height between them.
- *
- * Sequence is `hadith.id`, not `hadith_num`. The numbers are stored as text and
- * 33,794 narrations carry none at all, so sorting by them would interleave
- * "10" before "9" and strand every unnumbered report. The ids were assigned in
- * source order, so ordering by id reproduces the printed sequence and rides the
- * (book_id, id) index instead of sorting.
- *
- * Chapter headings are emitted when the chapter changes between adjacent rows.
- * They are bab level, not kitab level: the corpus records 56,896 of them across
- * 33 collections, which is a heading per few narrations rather than a table of
- * contents. That makes them a reading aid here and a poor navigation tree, so
- * no chapter index is offered.
+ * This page deliberately behaves like the middle layer of the corpus:
+ * /hadith is the catalogue, this route is the source sequence, and /hadith/:id
+ * is the critical record. The query semantics and source ordering of the
+ * existing implementation are retained; the presentation is rebuilt around
+ * edition identity, reading position, chapter divisions, and report records.
  */
 
 const { slug } = Astro.params;
@@ -36,9 +21,8 @@ const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
 const size = 25;
 const offset = (page - 1) * size;
 
-/** Characters of each narration shown in the list before it is cut. */
-const PREVIEW_AR = 420;
-const PREVIEW_EN = 380;
+const PREVIEW_AR = 330;
+const PREVIEW_EN = 300;
 
 interface Book {
   id: number;
@@ -61,8 +45,16 @@ interface Row {
   parallel_count: number;
 }
 
+interface ChapterMark {
+  id: number;
+  chapter_en: string;
+  chapter_ar: string;
+  pos: number;
+}
+
 let book: Book | undefined;
 let rows: Row[] = [];
+let previousChapter = '';
 let failed = false;
 
 try {
@@ -71,17 +63,32 @@ try {
   )
     .bind(slug)
     .first<Book>();
+
   book = found ?? undefined;
 
   if (book) {
-    const res = await env.DB.prepare(
+    const rowQuery = env.DB.prepare(
       `SELECT id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
               matn_ar, text_ar, narrator_count, parallel_count
          FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`
-    )
-      .bind(book.id, size, offset)
-      .all();
-    rows = (res.results || []) as unknown as Row[];
+    ).bind(book.id, size, offset);
+
+    if (offset > 0) {
+      const previousQuery = env.DB.prepare(
+        `SELECT chapter_en FROM hadith
+          WHERE book_id = ? AND id < (
+            SELECT id FROM hadith WHERE book_id = ? ORDER BY id LIMIT 1 OFFSET ?
+          )
+          ORDER BY id DESC LIMIT 1`
+      ).bind(book.id, book.id, offset);
+
+      const [rowRes, previousRes] = await env.DB.batch([rowQuery, previousQuery]);
+      rows = (rowRes.results || []) as unknown as Row[];
+      previousChapter = toPlainText((previousRes.results?.[0] as { chapter_en?: string } | undefined)?.chapter_en || '');
+    } else {
+      const res = await rowQuery.all();
+      rows = (res.results || []) as unknown as Row[];
+    }
   }
 } catch (error) {
   console.error('Collection page failed to load', error);
@@ -94,26 +101,88 @@ if (!book && !failed) {
 
 const total = book?.hadith_count ?? 0;
 const pages = Math.max(1, Math.ceil(total / size));
+const resultStart = total > 0 ? offset + 1 : 0;
+const resultEnd = total > 0 ? Math.min(offset + rows.length, total) : 0;
+const progress = total > 0 ? Math.min(100, (resultEnd / total) * 100) : 0;
 
-const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
+const pageUrl = (n: number) => {
+  const u = new URLSearchParams();
+  u.set('page', String(n));
+  return `/hadith/collection/${slug}?${u}`;
+};
 
-/** Cut on a word boundary so a preview never ends mid-word. */
+// Chapter table of contents. This is a nice-to-have on top of the reading
+// stream, not the content itself, so a failure here degrades to "no TOC"
+// rather than the 404/503 the book/rows fetch above would produce — a
+// reader can still read the collection with Previous/Next even if this
+// query never runs.
+//
+// One window-function pass over (id, chapter_en) returns only the rows
+// where the chapter changes, tagged with their zero-based position in the
+// book's id order. That position is what turns a bāb into a page number:
+// pos 0 is always page 1, and the query never has to touch the running
+// text of the report, only the chapter label and the id ordering.
+let chapterMarks: ChapterMark[] = [];
+if (book) {
+  try {
+    const res = await env.DB.prepare(
+      `SELECT id, chapter_en, chapter_ar, pos FROM (
+         SELECT id, chapter_en, chapter_ar,
+                ROW_NUMBER() OVER (ORDER BY id) - 1 AS pos,
+                LAG(chapter_en, 1, '') OVER (ORDER BY id) AS prev_chapter_en
+           FROM hadith WHERE book_id = ?
+       )
+       WHERE TRIM(COALESCE(chapter_en, '')) != ''
+         AND TRIM(COALESCE(chapter_en, '')) != TRIM(COALESCE(prev_chapter_en, ''))
+       ORDER BY pos`
+    )
+      .bind(book.id)
+      .all<ChapterMark>();
+    chapterMarks = (res.results || []) as unknown as ChapterMark[];
+  } catch (error) {
+    console.error(`Chapter TOC failed to load for book ${book.id}`, error);
+  }
+}
+
+// Each mark becomes a TOC row carrying the page it starts on and the page
+// range it spans, so "is this the chapter I'm currently reading" can be
+// answered without a second query.
+const chapters = chapterMarks.map((c, i) => {
+  const startPage = Math.floor(c.pos / size) + 1;
+  const nextPos = chapterMarks[i + 1]?.pos ?? total;
+  const endPage = Math.max(startPage, Math.ceil(nextPos / size));
+  return {
+    id: c.id,
+    en: toPlainText(c.chapter_en),
+    ar: (c.chapter_ar || '').trim(),
+    startPage,
+    isCurrent: page >= startPage && page <= endPage
+  };
+});
+
 const preview = (text: string, limit: number) => {
   const clean = (text || '').trim();
-  if (clean.length <= limit) return { text: clean, cut: false };
+  if (!clean || clean.length <= limit) return { text: clean, cut: false };
   const space = clean.lastIndexOf(' ', limit);
   return { text: clean.slice(0, space > limit * 0.6 ? space : limit), cut: true };
 };
 
-// Chapter headings repeat across consecutive narrations; show one per run.
 let lastChapter = '';
-const withHeadings = rows.map((r) => {
+const withHeadings = rows.map((r, i) => {
   const chapter = toPlainText(r.chapter_en) || '';
   const isNew = chapter !== '' && chapter !== lastChapter;
+  const isContinuation = i === 0 && page > 1 && chapter !== '' && chapter === previousChapter;
   if (isNew) lastChapter = chapter;
+
   return {
     row: r,
-    heading: isNew ? { en: chapter, ar: (r.chapter_ar || '').trim() } : null
+    heading: isNew
+      ? {
+          en: chapter,
+          ar: (r.chapter_ar || '').trim(),
+          continuation: isContinuation
+        }
+      : null
   };
 });
 ---
@@ -129,102 +198,253 @@ const withHeadings = rows.map((r) => {
     { name: book?.title_en || 'Collection', url: `/hadith/collection/${slug}` }
   ]}
 >
-  <div class="coll-page">
+  <div class="edition-page">
     {failed || !book ? (
-      <div class="wrap">
-        <p class="coll-error">This collection is temporarily unavailable. Please try again shortly.</p>
+      <div class="edition-error wrap">
+        <p class="hc-eyebrow">Hadith · Collection</p>
+        <h1>This collection is temporarily unavailable.</h1>
+        <p>Please try again shortly.</p>
       </div>
     ) : (
       <>
-        <header class="coll-head">
-          <div class="wrap">
-            <p class="coll-eyebrow"><a href="/hadith">Corpus</a> — Collection</p>
-            <h1 class="coll-title">{book.title_en}</h1>
-            {book.title_ar && (
-              <p class="coll-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
-            )}
-            <p class="coll-count">
-              {book.hadith_count.toLocaleString()} narrations, in the order they appear in the source.
-            </p>
+        <header class="edition-head">
+          <div class="wrap edition-head__grid">
+            <div class="edition-head__main">
+              <p class="hc-eyebrow"><a href="/hadith">Corpus</a> / Collection</p>
+              <div class="edition-titleblock">
+                <h1 class="edition-title">{book.title_en}</h1>
+                {book.title_ar && (
+                  <p class="edition-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
+                )}
+              </div>
+              <p class="edition-description">
+                {book.hadith_count.toLocaleString()} narrations in source sequence. Read the reports as they occur in the collection, with Arabic and English side by side.
+              </p>
+            </div>
 
-            <form class="coll-search" method="get" action="/hadith">
-              <input type="hidden" name="book" value={book.id} />
-              <label class="sr-only" for="coll-q">Search within {book.title_en}</label>
-              <input
-                id="coll-q"
-                class="coll-search__input"
-                type="search"
-                name="q"
-                placeholder={`Search within ${book.title_en}…`}
-                autocomplete="off"
-              />
-              <button type="submit" class="coll-search__go">Search</button>
-            </form>
+            <aside class="edition-head__aside" aria-label="Collection navigation">
+              <p class="edition-aside__label">Edition position</p>
+              <p class="edition-aside__range">
+                {resultStart.toLocaleString()}–{resultEnd.toLocaleString()}{' '}
+                <span>of {total.toLocaleString()}</span>
+              </p>
+              <div class="hc-progress edition-aside__track" aria-hidden="true">
+                <span class="hc-progress__fill" style={`width:${progress}%`}></span>
+              </div>
+              <p class="edition-aside__note">Source order preserved. No authenticity grading is stored or inferred.</p>
+              <a class="hc-back-link" href="/hadith"><span aria-hidden="true">←</span> Back to corpus</a>
+            </aside>
+          </div>
+
+          <div class="wrap">
+            <div class="hc-stat-band hc-stat-band--4" aria-label="Collection status">
+              <div class="hc-stat">
+                <span class="hc-stat__num">{total.toLocaleString()}</span>
+                <span class="hc-stat__label">Narrations</span>
+              </div>
+              <div class="hc-stat">
+                <span class="hc-stat__num">{page.toLocaleString()} / {pages.toLocaleString()}</span>
+                <span class="hc-stat__label">Reading pages</span>
+              </div>
+              <div class="hc-stat">
+                <span class="hc-stat__num">25</span>
+                <span class="hc-stat__label">Reports per page</span>
+              </div>
+              <div class="hc-stat hc-stat--display hc-stat--quiet">
+                <span class="hc-stat__num">Not stored</span>
+                <span class="hc-stat__label">Authenticity grading</span>
+              </div>
+            </div>
           </div>
         </header>
 
-        <div class="wrap coll-body">
-          <div class="coll-list">
-            {withHeadings.map(({ row: r, heading }) => {
-              const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
-              const en = preview(toPlainText(r.matn_en || r.text_en), PREVIEW_EN);
-              return (
-                <>
-                  {heading && (
-                    <div class="coll-chapter">
-                      {heading.ar && (
-                        <p class="coll-chapter__ar" lang="ar" dir="rtl">{heading.ar}</p>
+        <div class="wrap edition-body">
+          <section class="edition-tools" aria-labelledby="tools-heading">
+            <div class="hc-section-head">
+              <div class="hc-section-head__main">
+                <h2 class="hc-section-head__title" id="tools-heading">Search this collection</h2>
+              </div>
+              <p class="hc-section-head__aside">Scoped to this collection via the corpus index</p>
+            </div>
+
+            <form method="get" action="/hadith">
+              <input type="hidden" name="book" value={book.id} />
+              <div class="hc-searchbar">
+                <label class="sr-only" for="edition-q">Search within this collection</label>
+                <input id="edition-q" class="hc-searchbar__input" type="search" name="q"
+                       placeholder={`Search ${book.title_en}…`} autocomplete="off" spellcheck="false" />
+                <button class="hc-searchbar__submit" type="submit">Search <span aria-hidden="true">→</span></button>
+              </div>
+
+              <div class="hc-searchbar__options">
+                <label class="hc-searchbar__phrase">
+                  <input type="checkbox" name="phrase" value="1" />
+                  <span>Exact phrase</span>
+                </label>
+              </div>
+            </form>
+
+            <div class="edition-position" aria-label="Reading position">
+              <div class="edition-position__topline">
+                <span>Reports {resultStart.toLocaleString()}–{resultEnd.toLocaleString()} of {total.toLocaleString()}</span>
+
+                <form class="edition-position__jump" method="get" action={`/hadith/collection/${slug}`}>
+                  <label class="sr-only" for="edition-jump">Go to page</label>
+                  <input
+                    id="edition-jump"
+                    class="edition-position__jump-input"
+                    type="number"
+                    name="page"
+                    min="1"
+                    max={pages}
+                    value={page}
+                    inputmode="numeric"
+                  />
+                  <span class="edition-position__jump-of">/ {pages.toLocaleString()}</span>
+                  <button type="submit" class="edition-position__jump-btn">Go</button>
+                </form>
+
+                <span>{progress.toFixed(1)}%</span>
+              </div>
+              <div class="edition-position__track" aria-hidden="true">
+                <span style={`width:${progress}%`}></span>
+              </div>
+            </div>
+          </section>
+
+          {chapters.length > 0 && (
+            <section class="edition-toc" aria-labelledby="toc-heading">
+              <details class="edition-toc__details" open={chapters.length <= 12}>
+                <summary class="edition-toc__summary">
+                  <span class="edition-toc__summary-text">
+                    <span class="edition-toc__chevron" aria-hidden="true"></span>
+                    <span id="toc-heading">Table of contents</span>
+                  </span>
+                  <span class="edition-toc__count">{chapters.length.toLocaleString()} {chapters.length === 1 ? 'chapter' : 'chapters'}</span>
+                </summary>
+
+                <ol class="edition-toc__list">
+                  {chapters.map((c, i) => (
+                    <li class={`edition-toc__item${c.isCurrent ? ' is-current' : ''}`}>
+                      <a
+                        class="edition-toc__link"
+                        href={`${pageUrl(c.startPage)}#ch-${c.id}`}
+                        aria-current={c.isCurrent ? 'location' : undefined}
+                      >
+                        <span class="edition-toc__num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+                        <span class="edition-toc__text">
+                          <span class="edition-toc__en">{c.en}</span>
+                          {c.ar && <span class="edition-toc__ar" lang="ar" dir="rtl">{c.ar}</span>}
+                        </span>
+                        <span class="edition-toc__page">p. {c.startPage}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            </section>
+          )}
+
+          <section class="edition-reading" aria-labelledby="reading-heading">
+            <div class="hc-section-head edition-reading__head">
+              <div class="hc-section-head__main">
+                <p class="hc-eyebrow">Source sequence</p>
+                <h2 class="hc-section-head__title" id="reading-heading">Reading the collection</h2>
+              </div>
+              <div class="edition-reading__legend" aria-hidden="true">
+                <span class="edition-reading__legend-col">English translation</span>
+                <span class="edition-reading__legend-sep">·</span>
+                <span class="edition-reading__legend-col">Arabic source</span>
+              </div>
+            </div>
+
+            <div class="edition-ledger">
+              {withHeadings.length === 0 ? (
+                <div class="edition-empty">
+                  <h3>No reports on this page.</h3>
+                  <p>The requested position is outside the collection.</p>
+                </div>
+              ) : (
+                withHeadings.map(({ row: r, heading }) => {
+                  const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
+                  const en = preview(toPlainText(r.matn_en || r.text_en), PREVIEW_EN);
+                  return (
+                    <>
+                      {heading && (
+                        <div
+                          id={`ch-${r.id}`}
+                          class={`edition-chapter${heading.continuation ? ' edition-chapter--continuation' : ''}`}
+                        >
+                          <div class="edition-chapter__rule" aria-hidden="true"></div>
+                          <div class="edition-chapter__identity">
+                            <p class="edition-chapter__kicker">
+                              {heading.continuation ? 'Chapter continues' : 'Bāb'}
+                            </p>
+                            <h3 class="edition-chapter__en">{heading.en}</h3>
+                            {heading.ar && (
+                              <p class="edition-chapter__ar" lang="ar" dir="rtl">{heading.ar}</p>
+                            )}
+                          </div>
+                          <div class="edition-chapter__rule edition-chapter__rule--after" aria-hidden="true"></div>
+                        </div>
                       )}
-                      <h2 class="coll-chapter__en">{heading.en}</h2>
-                    </div>
-                  )}
-                  <article class="coll-item">
-                    <a class="coll-item__link" href={`/hadith/${r.id}`}>
-                      <p class="coll-item__num">
-                        {r.hadith_num ? `№ ${r.hadith_num}` : `ID ${r.id}`}
-                      </p>
 
-                      <div class="coll-item__cols">
-                        <div class="coll-item__col coll-item__col--en">
-                          {en.text ? (
-                            <p class="coll-item__en">{en.text}{en.cut ? ' …' : ''}</p>
-                          ) : (
-                            <p class="coll-item__missing">No translation recorded.</p>
-                          )}
-                        </div>
-                        <div class="coll-item__col coll-item__col--ar">
-                          <p class="coll-item__ar" lang="ar" dir="rtl">
-                            <Fragment set:html={renderArabic(ar.text)} />{ar.cut ? ' …' : ''}
+                      <article class="edition-report">
+                        <a class="edition-report__link" href={`/hadith/${r.id}`}>
+                          <div class="edition-report__citation">
+                            <span class="edition-report__num">{r.hadith_num ? `№ ${r.hadith_num}` : `ID ${r.id}`}</span>
+                            <span class="edition-report__open">Open record <span aria-hidden="true">→</span></span>
+                          </div>
+
+                          <div class="edition-report__cols">
+                            <div class="edition-report__col edition-report__col--en">
+                              {en.text ? (
+                                <p class="edition-report__en">{en.text}{en.cut ? ' …' : ''}</p>
+                              ) : (
+                                <p class="edition-report__missing">No translation recorded.</p>
+                              )}
+                            </div>
+
+                            <div class="edition-report__col edition-report__col--ar">
+                              <p class="edition-report__ar" lang="ar" dir="rtl">
+                                <Fragment set:html={renderArabic(ar.text)} />{ar.cut ? ' …' : ''}
+                              </p>
+                            </div>
+                          </div>
+
+                          <p class="edition-report__meta">
+                            <span>{r.narrator_count} transmitters</span>
+                            {Number(r.parallel_count) > 0 && (
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span>{Number(r.parallel_count).toLocaleString()} parallels</span>
+                              </>
+                            )}
                           </p>
-                        </div>
-                      </div>
+                        </a>
+                      </article>
+                    </>
+                  );
+                })
+              )}
+            </div>
+          </section>
 
-                      <p class="coll-item__meta">
-                        <span>{r.narrator_count} transmitters</span>
-                        {Number(r.parallel_count) > 0 && (
-                          <>
-                            <span class="coll-sep" aria-hidden="true">·</span>
-                            <span>{Number(r.parallel_count).toLocaleString()} parallels</span>
-                          </>
-                        )}
-                      </p>
-                    </a>
-                  </article>
-                </>
-              );
-            })}
-          </div>
-
-          <nav class="coll-pager" aria-label="Collection pages">
-            {page > 1
-              ? <a class="coll-page" href={pageUrl(page - 1)}>← Previous</a>
-              : <span class="coll-page" aria-disabled="true">← Previous</span>}
-            <span class="coll-page-of">
-              Page {page.toLocaleString()} of {pages.toLocaleString()}
-            </span>
-            {page < pages
-              ? <a class="coll-page" href={pageUrl(page + 1)}>Next →</a>
-              : <span class="coll-page" aria-disabled="true">Next →</span>}
+          <nav class="edition-pager" aria-label="Collection pages">
+            <div class="edition-pager__side">
+              {page > 1
+                ? <a class="edition-pager__link" href={pageUrl(page - 1)}>← Previous reports</a>
+                : <span class="edition-pager__link edition-pager__link--disabled">← Previous reports</span>}
+            </div>
+            <div class="edition-pager__center">
+              <span>{resultStart.toLocaleString()}–{resultEnd.toLocaleString()}</span>
+              <span>/ {total.toLocaleString()}</span>
+            </div>
+            <div class="edition-pager__side edition-pager__side--next">
+              {page < pages
+                ? <a class="edition-pager__link" href={pageUrl(page + 1)}>Next reports →</a>
+                : <span class="edition-pager__link edition-pager__link--disabled">Next reports →</span>}
+            </div>
           </nav>
         </div>
       </>
@@ -233,203 +453,589 @@ const withHeadings = rows.map((r) => {
 </BaseLayout>
 
 <style>
-  .coll-page {
-    background: var(--hc-surface-0);
+  /* ================================================================
+     COLLECTION EDITION — digital reading sequence / archival ledger
+     ================================================================ */
+
+  .edition-page {
+    min-height: 100vh;
     padding-bottom: clamp(4rem, 8vw, 7rem);
+    background:
+      radial-gradient(circle at 72% 0%, rgba(216, 177, 102, 0.065), transparent 32%),
+      linear-gradient(180deg, var(--hc-surface-0) 0%, var(--hc-surface-0) 72%, var(--hc-surface-1) 100%);
   }
 
-  .coll-error {
-    padding: 4rem 0;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
+  .edition-error {
+    padding-block: clamp(5rem, 10vw, 8rem);
+  }
+
+  .edition-error h1 {
+    max-width: 18ch;
+    margin: 0.6rem 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.3rem, 5vw, 4rem);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+  }
+
+  .edition-error p:last-child {
+    margin: 1.1rem 0 0;
     color: var(--hc-text-secondary);
+    line-height: 1.7;
   }
 
-  .coll-head {
-    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(1.5rem, 3vw, 2.25rem);
+  /* ---------- masthead ---------- */
+
+  .edition-head {
+    padding-top: clamp(3.5rem, 7vw, 6rem);
     border-bottom: 1px solid var(--hc-rule);
   }
 
-  .coll-eyebrow {
-    margin: 0 0 1rem;
+  .edition-head__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(17rem, 0.55fr);
+    gap: clamp(3rem, 8vw, 8rem);
+    align-items: end;
+    padding-bottom: clamp(3rem, 6vw, 4.5rem);
+  }
+
+  /* The English and Arabic names are one masthead. Sizing the block to its
+     content gives the Arabic the end of the English title as an anchor;
+     without it the RTL block right-aligned to the grid column edge and read
+     as an accident. */
+  .edition-titleblock {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .edition-title {
+    max-width: 15ch;
+    margin: 0.8rem 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.9rem, 6vw, 4.85rem);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -0.045em;
+    color: var(--hc-text-primary);
+    text-wrap: balance;
+  }
+
+  .edition-title-ar {
+    margin: 0.5rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.35rem, 2.4vw, 1.8rem);
+    line-height: 1.8;
+    color: var(--hc-gold);
+  }
+
+  .edition-description {
+    max-width: 65ch;
+    margin: 1.2rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.04rem;
+    line-height: 1.76;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Ruled block, not a container. The old bordered card ran ~40% empty and
+     was the only box on the page: DESIGN.md puts fine rules above large
+     containers. */
+  .edition-head__aside {
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--hc-rule-strong);
+  }
+
+  .edition-aside__label {
+    margin: 0;
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .coll-eyebrow a { color: var(--hc-gold); text-decoration: none; }
-  .coll-eyebrow a:hover { text-decoration: underline; }
-
-  .coll-title {
-    max-width: 22ch;
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4.2vw, 3.2rem);
+  .edition-aside__range {
+    margin: 0.55rem 0 0;
+    font-family: var(--font-body);
+    font-size: clamp(1.6rem, 2.7vw, 2.15rem);
     font-weight: 500;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: lining-nums tabular-nums;
     color: var(--hc-text-primary);
   }
 
-  .coll-title-ar {
-    margin: 0.5rem 0 0;
-    font-family: var(--font-arabic);
-    font-size: 1.5rem;
-    line-height: 2;
-    color: var(--hc-gold);
+  .edition-aside__range span {
+    color: var(--hc-text-tertiary);
   }
 
-  .coll-count {
-    margin: 0.9rem 0 0;
+  .edition-aside__track {
+    margin-top: 0.75rem;
+  }
+
+  .edition-aside__note {
+    max-width: 31ch;
+    margin: 0.75rem 0 0;
     font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.7;
+    font-size: 0.92rem;
+    line-height: 1.6;
     color: var(--hc-text-secondary);
   }
 
-  .coll-search {
+  /* ---------- tools ---------- */
+
+  .edition-body { padding-top: clamp(2.5rem, 5vw, 4rem); }
+
+  .edition-tools {
+    padding-bottom: clamp(2rem, 3.5vw, 2.75rem);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .edition-position {
+    margin-top: 1.2rem;
+  }
+
+  .edition-position__topline {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    justify-content: space-between;
     gap: 1rem;
-    max-width: 46rem;
-    margin-top: 1.75rem;
-    border-bottom: 1px solid var(--hc-rule-strong);
-    transition: border-color 160ms ease;
-  }
-
-  .coll-search:focus-within { border-bottom-color: var(--hc-gold); }
-
-  .coll-search__input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.6rem 0 0.65rem;
-    border: 0;
-    background: transparent;
-    color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1rem;
-  }
-
-  .coll-search__input::placeholder { color: var(--hc-text-tertiary); }
-  .coll-search__input:focus { outline: none; }
-
-  .coll-search__go {
-    flex: none;
-    min-height: 24px;
-    padding: 0.3rem 0;
-    border: 0;
-    border-bottom: 1px solid transparent;
-    background: transparent;
-    color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-  }
-
-  .coll-search__go:hover { border-bottom-color: var(--hc-gold); }
-
-  .coll-body { padding-top: clamp(1.5rem, 3vw, 2.25rem); }
-
-  .coll-list { border-top: 1px solid var(--hc-rule-soft); }
-
-  /* ---- chapter banner ---- */
-  /* The bab heading that opens a run of narrations, framed so it reads as a
-     division of the book rather than as another line of metadata. Both scripts
-     appear because the Arabic is the heading the edition actually prints. */
-  .coll-chapter {
-    margin: clamp(1.75rem, 3vw, 2.5rem) 0 0;
-    padding: clamp(1rem, 2vw, 1.4rem) clamp(1rem, 2vw, 1.5rem);
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: 4px;
-    text-align: center;
-  }
-
-  .coll-list > .coll-chapter:first-child { margin-top: 1.5rem; }
-
-  .coll-chapter__ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1.2rem;
-    line-height: 2;
-    color: var(--hc-gold);
-  }
-
-  .coll-chapter__en {
-    max-width: 60ch;
-    margin: 0.35rem auto 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.05rem, 2vw, 1.3rem);
-    font-weight: 500;
-    line-height: 1.35;
-    color: var(--hc-text-primary);
-  }
-
-  /* ---- narration rows ---- */
-  .coll-item { border-bottom: 1px solid var(--hc-rule-soft); }
-  .coll-chapter + .coll-item { border-top: 0; }
-
-  .coll-item__link {
-    display: block;
-    padding: 1.25rem 0;
-    text-decoration: none;
-    color: inherit;
-    transition: background 160ms ease;
-  }
-
-  .coll-item__link:hover {
-    background: linear-gradient(90deg,
-      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
-  }
-
-  .coll-item__num {
-    margin: 0 0 0.75rem;
-    font-family: var(--font-ui);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-tertiary);
   }
 
-  .coll-item__link:hover .coll-item__num { color: var(--hc-gold); }
-
-  /* Facing columns, matching the narration page. Arabic is second in the DOM so
-     it stacks first on a phone; the explicit row keeps auto-placement from
-     dropping the English into a second row on desktop. */
-  .coll-item__cols {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1.25rem, 2.5vw, 2rem);
+  /* Quick jump, for collections long enough that Previous/Next alone would
+     take hundreds of clicks to cross. Sits inline in the position row
+     rather than as its own control, since it answers the same question
+     ("where am I / where do I want to be") as the text either side of it. */
+  .edition-position__jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex: none;
   }
 
-  .coll-item__col { min-width: 0; }
-  .coll-item__col--en { grid-column: 1; grid-row: 1; }
-  .coll-item__col--ar { grid-column: 2; grid-row: 1; }
-
-  .coll-item__en {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.98rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
+  .edition-position__jump-input {
+    width: 3.6rem;
+    min-height: 30px;
+    padding: 0 0.4rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs, 2px);
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    transition: border-color 160ms ease;
+    /* Hide native number-input spinners; the field is small and the Go
+       button is the intended way to submit, not the stepper arrows. */
+    -moz-appearance: textfield;
   }
 
-  /* Arabic runs at its own leading; harakat need the room. */
-  .coll-item__ar {
+  .edition-position__jump-input::-webkit-outer-spin-button,
+  .edition-position__jump-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
     margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1.18rem;
-    line-height: 2.05;
+  }
+
+  .edition-position__jump-input:focus-visible {
+    border-color: var(--hc-gold);
+  }
+
+  .edition-position__jump-of {
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-position__jump-btn {
+    min-height: 30px;
+    padding: 0 0.6rem;
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs, 2px);
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .edition-position__jump-btn:hover {
+    color: var(--hc-gold-bright);
+    border-color: var(--hc-gold);
+  }
+
+  .edition-position__track {
+    height: 3px;
+    margin-top: 0.55rem;
+    background: var(--hc-rule-soft);
+    overflow: hidden;
+  }
+
+  .edition-position__track span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--hc-gold-dim), var(--hc-gold));
+    transition: width 300ms var(--ease-standard);
+  }
+
+  /* ---------- table of contents ---------- */
+  /* A native <details> disclosure rather than a JS-driven dropdown: the
+     page's stated principle is that it stays usable without JS, and a
+     summary/details pair gets a working expand/collapse, keyboard support,
+     and browser find-in-page reach for free. */
+  .edition-toc {
+    margin-top: clamp(2rem, 4vw, 2.75rem);
+  }
+
+  .edition-toc__details {
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .edition-toc__summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 0.4rem;
+    cursor: pointer;
+    list-style: none;
+    transition: background 160ms ease;
+  }
+
+  .edition-toc__summary:hover {
+    background: color-mix(in srgb, var(--hc-gold) 4%, transparent);
+  }
+
+  .edition-toc__summary::-webkit-details-marker { display: none; }
+  .edition-toc__summary::marker { content: ""; }
+
+  .edition-toc__summary-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 500;
     color: var(--hc-text-primary);
   }
 
-  .coll-item__missing {
+  .edition-toc__chevron {
+    flex: none;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-right: 1.5px solid var(--hc-gold);
+    border-bottom: 1.5px solid var(--hc-gold);
+    transform: rotate(-45deg);
+    transition: transform 200ms var(--ease, ease);
+  }
+
+  .edition-toc__details[open] .edition-toc__chevron {
+    transform: rotate(45deg);
+  }
+
+  .edition-toc__count {
+    flex: none;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-toc__list {
+    position: relative;
+    max-height: 26rem;
+    margin: 0;
+    padding: 0 0 0.5rem;
+    list-style: none;
+    overflow-y: auto;
+    border-top: 1px solid var(--hc-rule-soft);
+    /* Subtle scrollbar on capable browsers */
+    scrollbar-width: thin;
+    scrollbar-color: var(--hc-rule) transparent;
+  }
+
+  .edition-toc__item + .edition-toc__item { border-top: 1px solid var(--hc-rule-soft); }
+
+  .edition-toc__link {
+    display: grid;
+    grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.8rem;
+    padding: 0.65rem 0.25rem;
+    text-decoration: none;
+    color: inherit;
+    border-radius: var(--radius-xs, 2px);
+    transition: background 160ms ease;
+  }
+
+  .edition-toc__link:hover { background: color-mix(in srgb, var(--hc-gold) 6%, transparent); }
+
+  .edition-toc__item.is-current .edition-toc__link {
+    background: color-mix(in srgb, var(--hc-gold) 9%, transparent);
+    box-shadow: inset 2px 0 0 var(--hc-gold);
+  }
+
+  .edition-toc__num {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-toc__text {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.7rem;
+    min-width: 0;
+  }
+
+  .edition-toc__en {
+    font-family: var(--font-body);
+    font-size: 0.94rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--hc-text-primary);
+  }
+
+  .edition-toc__item.is-current .edition-toc__en { color: var(--hc-gold); }
+
+  .edition-toc__ar {
+    font-family: var(--font-arabic);
+    font-size: 0.94rem;
+    line-height: 1.8;
+    color: var(--hc-text-secondary);
+  }
+
+  .edition-toc__page {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+    white-space: nowrap;
+  }
+
+  /* ---------- reading stream ---------- */
+
+  .edition-reading {
+    padding-top: clamp(3.5rem, 6.5vw, 6rem);
+  }
+
+  .edition-reading__head {
+    margin-bottom: 1.8rem;
+  }
+
+  /* Column legend — replaces per-report ENGLISH/ARABIC labels.
+     Shown once in the section head so every report below is clean. */
+  .edition-reading__legend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.15rem;
+  }
+
+  .edition-reading__legend-col {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-reading__legend-sep {
+    color: var(--hc-rule-strong);
+    font-size: 0.75rem;
+  }
+
+  .edition-ledger {
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .edition-chapter {
+    display: grid;
+    grid-template-columns: minmax(2rem, 1fr) minmax(15rem, 60rem) minmax(2rem, 1fr);
+    align-items: center;
+    gap: 1rem;
+    padding: clamp(2rem, 4vw, 3.2rem) 0 1.15rem;
+  }
+
+  .edition-chapter__rule {
+    height: 1px;
+    background: var(--hc-rule-soft);
+  }
+
+  .edition-chapter__rule:first-child {
+    background: linear-gradient(90deg, transparent, var(--hc-rule));
+  }
+
+  .edition-chapter__rule--after {
+    background: linear-gradient(90deg, var(--hc-rule), transparent);
+  }
+
+  .edition-chapter__identity {
+    display: flex;
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .edition-chapter__kicker { order: 1; }
+  .edition-chapter__ar     { order: 2; }
+  .edition-chapter__en     { order: 3; }
+
+  .edition-chapter__kicker {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-chapter__ar {
+    margin: 0.45rem 0 0;
+    font-family: var(--font-arabic);
+    font-size: 1.25rem;
+    line-height: var(--leading-arabic);
+    color: var(--hc-gold);
+  }
+
+  .edition-chapter__en {
+    max-width: 58ch;
+    margin: 0.2rem auto 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 1.9vw, 1.45rem);
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--hc-text-primary);
+    text-wrap: balance;
+  }
+
+  .edition-chapter--continuation .edition-chapter__kicker { color: var(--hc-gold); }
+
+  .edition-report {
+    position: relative;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  /* Gold accent bar on the left — hidden by default, appears on hover.
+     Carries the state change with shape, not just color (WCAG 1.4.1). */
+  .edition-report::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--hc-gold);
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: transform 200ms var(--ease-standard);
+  }
+
+  .edition-report:hover::before {
+    transform: scaleY(1);
+  }
+
+  .edition-report__link {
+    display: block;
+    padding: 1.35rem 0 1.55rem;
+    text-decoration: none;
+    color: inherit;
+    transition: background 180ms ease, padding-left 180ms ease;
+  }
+
+  .edition-report__link:hover {
+    padding-left: 0.85rem;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 60%);
+  }
+
+  .edition-report__citation {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .edition-report__num {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .edition-report__open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.38rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+    transition: color 180ms ease, gap 180ms ease;
+  }
+
+  .edition-report__link:hover .edition-report__open {
+    color: var(--hc-gold);
+    gap: 0.55rem;
+  }
+
+  .edition-report__cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.5rem, 3vw, 3rem);
+    margin-top: 0.65rem;
+  }
+
+  .edition-report__col { min-width: 0; }
+
+  .edition-report__col--ar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .edition-report__col--en {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* Per-card labels removed: .edition-reading__legend handles it once. */
+
+  .edition-report__en {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.72;
+    color: var(--hc-text-secondary);
+  }
+
+  .edition-report__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: var(--text-arabic);
+    line-height: var(--leading-arabic);
+    color: var(--hc-text-primary);
+  }
+
+  .edition-report__missing {
     margin: 0;
     font-family: var(--font-body);
     font-size: 0.95rem;
@@ -438,77 +1044,179 @@ const withHeadings = rows.map((r) => {
     color: var(--hc-text-tertiary);
   }
 
-  .coll-item__meta {
+  .edition-report__meta {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0.9rem 0 0;
+    gap: 0.42rem;
+    margin: 0.95rem 0 0;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--hc-rule-soft);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
     color: var(--hc-text-tertiary);
   }
 
-  .coll-sep { color: var(--hc-rule-strong); }
-
-  /* Volume and page in the printed edition, kept out of the reading line. */
-  .coll-item__ar :global(.folio) {
+  .edition-report__ar :global(.folio) {
     display: inline-block;
     margin: 0 0.3em;
     padding: 0 0.35em;
     border: 1px solid var(--hc-rule);
     border-radius: 2px;
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
     line-height: 1.6;
     color: var(--hc-text-tertiary);
     vertical-align: 0.08em;
   }
 
-  .coll-pager {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-top: 1.75rem;
+  .edition-empty {
+    padding: 3rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
-  .coll-page {
-    min-height: 24px;
-    padding: 0.35rem 0;
+  .edition-empty h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    font-weight: 500;
+  }
+
+  .edition-empty p {
+    margin: 0.6rem 0 0;
+    font-family: var(--font-body);
+    color: var(--hc-text-secondary);
+    line-height: 1.7;
+  }
+
+  /* ---------- pager ---------- */
+
+  .edition-pager {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 1.5rem;
+    margin-top: clamp(2.5rem, 5vw, 4rem);
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .edition-pager__side--next { justify-self: end; }
+
+  .edition-pager__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.25rem;
+    padding: 0.3rem 0;
     border-bottom: 1px solid transparent;
-    color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: 0.8rem;
     font-weight: 600;
+    color: var(--hc-gold);
     text-decoration: none;
   }
 
-  a.coll-page:hover { border-bottom-color: var(--hc-gold); }
+  .edition-pager__link:hover { border-bottom-color: var(--hc-gold); }
 
-  .coll-page[aria-disabled='true'] {
+  .edition-pager__link--disabled {
     color: var(--hc-text-tertiary);
     pointer-events: none;
   }
 
-  .coll-page-of {
+  .edition-pager__center {
+    display: inline-flex;
+    gap: 0.35rem;
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
+    color: var(--hc-text-secondary);
   }
 
-  /* Facing columns need real width. Below this they stack, Arabic first, so the
-     source is read before the translation. */
+  .edition-pager__center span:last-child {
+    color: var(--hc-text-tertiary);
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .edition-head__grid {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .edition-head__aside { max-width: 38rem; }
+
+    /* .hc-section-head stacks itself at this width in global.css. */
+    .edition-reading__legend { margin: 0.5rem 0 0; }
+  }
+
   @media (max-width: 780px) {
-    .coll-item__cols { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
-    .coll-item__col--ar { grid-column: 1; grid-row: 1; }
-    .coll-item__col--en { grid-column: 1; grid-row: 2; }
-    .coll-search { flex-wrap: wrap; }
+    .edition-toc__link {
+      grid-template-columns: 1.6rem minmax(0, 1fr);
+    }
+
+    .edition-toc__page { display: none; }
+    .edition-toc__ar { text-align: left; }
+
+    .edition-chapter {
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+      padding-top: 2.2rem;
+    }
+
+    .edition-chapter__rule { display: none; }
+    .edition-chapter__identity { text-align: left; }
+    .edition-chapter__en { margin-left: 0; }
+    .edition-chapter__ar { text-align: right; }
+
+    .edition-report__cols {
+      grid-template-columns: 1fr;
+      gap: 1.2rem;
+    }
+
+    .edition-report__col--ar {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .edition-report__col--en {
+      grid-column: 1;
+      grid-row: 2;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .edition-title { font-size: clamp(2.7rem, 13vw, 4.1rem); }
+
+    .edition-position__topline {
+      flex-wrap: wrap;
+      row-gap: 0.6rem;
+    }
+
+    .edition-position__jump { order: 3; flex-basis: 100%; justify-content: flex-start; }
+
+    .edition-toc__summary { padding: 0.85rem 0.25rem; }
+    .edition-toc__summary-text { font-size: 0.98rem; }
+
+    .edition-pager {
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+    }
+
+    .edition-pager__center {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      justify-self: center;
+    }
+
+    .edition-pager__side { grid-row: 2; }
+    .edition-pager__side--next { grid-column: 2; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .coll-item__link, .coll-search { transition: none; }
+    .edition-report__link,
+    .edition-report__open { transition: none; }
   }
 </style>
