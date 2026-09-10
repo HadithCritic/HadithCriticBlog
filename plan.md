@@ -278,3 +278,29 @@ not make for you.
    exact proposed strings in Phase 4 rather than rewriting them now.
 
 Everything else in this plan I am confident enough to build as specified.
+
+---
+
+## Outcome (recorded after execution)
+
+Built in full. See `docs/hallmark-audit-after.md`. Three deviations from this
+plan, all decided during the build:
+
+1. **S6 `.hc-title-reveal` was built, rendered, and then removed.** As written
+   it hid the hero h1 during its animation delay, which is the LCP element, and
+   a title fade communicates no hierarchy, orientation or state. It failed this
+   project's own motion-must-be-motivated rule. The borrowed react-bits line
+   stagger became `.hc-progress` on the edition's reading-position track
+   instead, where the draw actually tells a reader where they are.
+
+2. **R3 shipped without kickers.** Adding an eyebrow above each of the four
+   record panel heads would have created the eyebrow-on-every-section tell
+   flagged as L4 elsewhere in the same audit. The display-size heading alone
+   gives the page its register.
+
+3. **H7 was withdrawn.** `.isnad__pos` already carried `tabular-nums`; the
+   finding was wrong.
+
+Both open questions were resolved as proposed: the grade term stays as
+attributed data with the valence colouring removed, and the copy strings landed
+as `With Criticism`, `Recorded grade` and `Attributed Assessments`.
