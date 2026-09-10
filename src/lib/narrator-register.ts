@@ -61,16 +61,6 @@ const esc = (s: unknown) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
   );
 
-/** Grade wording varies; the leading word is what carries the verdict. */
-function gradeTone(grade: string): string {
-  const g = (grade || '').toLowerCase();
-  if (g.startsWith('thiqa') || g.startsWith('saduq')) return 'is-trusted';
-  if (g.startsWith("da'if") || g.startsWith('daif') || g.startsWith('matruk') || g.startsWith('kadhdhab'))
-    return 'is-weak';
-  if (g.startsWith('majhul') || g.startsWith('maqbul') || g.startsWith('unrated')) return 'is-unknown';
-  return '';
-}
-
 export function initNarratorRegister(): void {
   const root = document.querySelector<HTMLElement>('[data-register]');
   if (!root || root.dataset.ready === 'true') return;
@@ -115,7 +105,7 @@ export function initNarratorRegister(): void {
     const counts = [
       r.hadith_count ? `${r.hadith_count.toLocaleString()} hadith` : null,
       r.teacher_count || r.student_count ? `${r.teacher_count}T / ${r.student_count}S` : null,
-      r.statement_count ? `${r.statement_count} verdicts` : null
+      r.statement_count ? `${r.statement_count} statements` : null
     ]
       .filter(Boolean)
       .map((m) => `<span>${esc(m)}</span>`)
@@ -124,12 +114,6 @@ export function initNarratorRegister(): void {
     const picked = selected.has(r.id);
     return `
       <li class="reg-row">
-        <button type="button" class="reg-pick${picked ? ' is-picked' : ''}"
-                data-pick="${r.id}" data-name="${esc(r.name_en || r.name_ar)}"
-                aria-pressed="${picked}"
-                aria-label="${picked ? 'Remove from' : 'Add to'} comparison: ${esc(r.name_en || r.name_ar)}">
-          <span aria-hidden="true">${picked ? '−' : '+'}</span>
-        </button>
         <span class="reg-index">${index}</span>
         <a class="reg-main" href="/narrators/${r.id}">
           <span class="reg-names">
@@ -138,8 +122,14 @@ export function initNarratorRegister(): void {
           </span>
           <span class="reg-meta">${meta}</span>
         </a>
-        <span class="reg-grade ${gradeTone(r.grade)}">${esc(r.grade || 'Unrated')}</span>
+        <span class="reg-grade">${esc(r.grade || 'Unrated')}</span>
         <span class="reg-counts">${counts}</span>
+        <button type="button" class="reg-pick${picked ? ' is-picked' : ''}"
+                data-pick="${r.id}" data-name="${esc(r.name_en || r.name_ar)}"
+                aria-pressed="${picked}"
+                aria-label="${picked ? 'Remove from' : 'Add to'} comparison: ${esc(r.name_en || r.name_ar)}">
+          <span aria-hidden="true">${picked ? '−' : '+'}</span>
+        </button>
       </li>`;
   }
 
@@ -200,11 +190,14 @@ export function initNarratorRegister(): void {
   for (const group of root.querySelectorAll<HTMLElement>('[data-filter-group]')) {
     const key = group.dataset.filterGroup as ParamKey;
     group.addEventListener('click', (e) => {
-      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-value]');
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-value]');
       if (!btn) return;
+      // Filters are anchors so they work with scripting off. When this module
+      // is running it swaps the list in place instead of navigating.
+      e.preventDefault();
       for (const b of group.querySelectorAll('[data-value]')) b.classList.remove('is-active');
       btn.classList.add('is-active');
-      setState({ [key]: btn.dataset.value || DEFAULTS[key] } as Partial<Record<ParamKey, string>>);
+      setState({ [key]: btn.dataset.value ?? DEFAULTS[key] } as Partial<Record<ParamKey, string>>);
     });
     // Reflect state restored from the URL.
     const active = group.querySelector<HTMLElement>(`[data-value="${state[key]}"]`);

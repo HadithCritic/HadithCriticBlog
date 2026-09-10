@@ -123,17 +123,23 @@ try {
 const pages = Math.max(1, Math.ceil(total / size));
 const firstIndex = (page - 1) * size + 1;
 
-const gradeTone = (g: string) => {
-  const s = (g || '').toLowerCase();
-  if (s.startsWith('thiqa') || s.startsWith('saduq')) return 'is-trusted';
-  if (s.startsWith("da'if") || s.startsWith('daif') || s.startsWith('matruk')) return 'is-weak';
-  if (s.startsWith('majhul') || s.startsWith('maqbul') || s.startsWith('unrated')) return 'is-unknown';
-  return '';
+/**
+ * URL for one filter value, preserving every other active parameter.
+ * Changing a filter returns to page 1: staying on page 40 of a result set that
+ * no longer has 40 pages is how a filter appears to return nothing.
+ */
+const filterUrl = (key: string, value: string) => {
+  const u = new URLSearchParams(Astro.url.search);
+  if (!value || value === 'all') u.delete(key);
+  else u.set(key, value);
+  u.delete('page');
+  const qs = u.toString();
+  return qs ? `/narrators?${qs}` : '/narrators';
 };
 
 const heroStats = [
   { num: stats.all_narrators.toLocaleString(), label: 'Transmitters' },
-  { num: stats.graded.toLocaleString(), label: 'With Verdicts' },
+  { num: stats.graded.toLocaleString(), label: 'With Criticism' },
   { num: stats.dated.toLocaleString(), label: 'Dated' },
   { num: '33', label: 'Collections' }
 ];
@@ -141,23 +147,24 @@ const heroStats = [
 
 <BaseLayout
   title="Narrator Biographies & Rijāl Archive | HadithCritic"
-  description={`A critical register of ${stats.all_narrators.toLocaleString()} classical hadith transmitters drawn from 33 collections. Every reliability grade is an attributed verdict from a named authority.`}
+  description={`A critical register of ${stats.all_narrators.toLocaleString()} classical hadith transmitters drawn from 33 collections. Every grade shown is the recorded judgement of a named authority.`}
 >
   <div class="register-page" data-register>
     <header class="register-head">
       <div class="wrap">
+        <p class="hc-eyebrow"><a href="/">Home</a> / Rijāl register</p>
         <h1 class="register-title">The Transmitters of <span class="register-title-accent">Hadith.</span></h1>
         <p class="register-lead">
           A critical register of {stats.all_narrators.toLocaleString()} classical hadith transmitters drawn
-          from 33 collections, including all six canonical books. Every reliability grade is an
-          attributed verdict from a named authority, not an editorial summary.
+          from 33 collections, including all six canonical books. Every grade shown is the recorded
+          judgement of a named authority, not an editorial summary, and no rating of our own is applied.
         </p>
 
-        <div class="register-stat-band">
+        <div class="hc-stat-band hc-stat-band--4 register-stat-band" aria-label="Register statistics">
           {heroStats.map((s) => (
-            <div class="register-stat">
-              <span class="register-stat__num">{s.num}</span>
-              <span class="register-stat__label">{s.label}</span>
+            <div class="hc-stat">
+              <span class="hc-stat__num">{s.num}</span>
+              <span class="hc-stat__label">{s.label}</span>
             </div>
           ))}
         </div>
@@ -170,11 +177,11 @@ const heroStats = [
       ) : (
         <>
           <form class="register-controls" method="get" action="/narrators">
-            <div class="register-search">
+            <div class="hc-searchbar register-search">
               <label class="sr-only" for="register-q">Search transmitters</label>
               <input
                 id="register-q"
-                class="register-search__input"
+                class="hc-searchbar__input"
                 type="search"
                 name="q"
                 value={q}
@@ -183,29 +190,55 @@ const heroStats = [
                 autocomplete="off"
               />
               <button type="button" class="register-search__clear" data-register-clear aria-label="Clear search">×</button>
+              <button type="submit" class="hc-searchbar__submit">Search <span aria-hidden="true">→</span></button>
             </div>
+
+            {/* A search must not silently discard the filters already applied. */}
+            {generation !== 'all' && <input type="hidden" name="generation" value={generation} />}
+            {grade !== 'all' && <input type="hidden" name="grade" value={grade} />}
+            {Number.isFinite(century) && century > 0 && <input type="hidden" name="century" value={century} />}
 
             <div class="register-filters">
               <div class="register-filter">
                 <span class="register-filter__label">Generation</span>
                 <div class="register-tabs" data-filter-group="generation">
-                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  <a
+                    class={`register-tab${generation === 'all' ? ' is-active' : ''}`}
+                    href={filterUrl('generation', 'all')}
+                    data-value="all"
+                    aria-current={generation === 'all' ? 'true' : undefined}
+                  >All</a>
                   {generations.map((g) => (
-                    <button type="button" class="register-tab" data-value={g.value}>
+                    <a
+                      class={`register-tab${generation === g.value ? ' is-active' : ''}`}
+                      href={filterUrl('generation', String(g.value))}
+                      data-value={g.value}
+                      aria-current={generation === g.value ? 'true' : undefined}
+                    >
                       {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
-                    </button>
+                    </a>
                   ))}
                 </div>
               </div>
 
               <div class="register-filter">
-                <span class="register-filter__label">Verdict</span>
+                <span class="register-filter__label">Recorded grade</span>
                 <div class="register-tabs" data-filter-group="grade">
-                  <button type="button" class="register-tab is-active" data-value="all">All</button>
+                  <a
+                    class={`register-tab${grade === 'all' ? ' is-active' : ''}`}
+                    href={filterUrl('grade', 'all')}
+                    data-value="all"
+                    aria-current={grade === 'all' ? 'true' : undefined}
+                  >All</a>
                   {grades.map((g) => (
-                    <button type="button" class="register-tab" data-value={g.value}>
+                    <a
+                      class={`register-tab${grade === g.value ? ' is-active' : ''}`}
+                      href={filterUrl('grade', String(g.value))}
+                      data-value={g.value}
+                      aria-current={grade === g.value ? 'true' : undefined}
+                    >
                       {g.value.replace(/\s*\(.*\)$/, '')} <span class="register-tab__n">{g.n.toLocaleString()}</span>
-                    </button>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -213,11 +246,21 @@ const heroStats = [
               <div class="register-filter">
                 <span class="register-filter__label">Century</span>
                 <div class="register-tabs" data-filter-group="century">
-                  <button type="button" class="register-tab is-active" data-value="">All</button>
+                  <a
+                    class={`register-tab${!(Number.isFinite(century) && century > 0) ? ' is-active' : ''}`}
+                    href={filterUrl('century', '')}
+                    data-value=""
+                    aria-current={!(Number.isFinite(century) && century > 0) ? 'true' : undefined}
+                  >All</a>
                   {centuries.map((c) => (
-                    <button type="button" class="register-tab" data-value={String(c.value)}>
+                    <a
+                      class={`register-tab${century === c.value ? ' is-active' : ''}`}
+                      href={filterUrl('century', String(c.value))}
+                      data-value={String(c.value)}
+                      aria-current={century === c.value ? 'true' : undefined}
+                    >
                       {c.value} AH <span class="register-tab__n">{c.n.toLocaleString()}</span>
-                    </button>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -230,14 +273,15 @@ const heroStats = [
               <label class="register-sort">
                 <span>Sort</span>
                 <select data-register-sort name="sort">
-                  <option value="id">Narrator ID</option>
-                  <option value="name">Name (A–Z)</option>
-                  <option value="death">Death year (earliest)</option>
-                  <option value="death-desc">Death year (latest)</option>
-                  <option value="hadith">Hadith transmitted</option>
-                  <option value="criticism">Most discussed</option>
+                  <option value="id" selected={sortKey === 'id'}>Narrator ID</option>
+                  <option value="name" selected={sortKey === 'name'}>Name (A–Z)</option>
+                  <option value="death" selected={sortKey === 'death'}>Death year (earliest)</option>
+                  <option value="death-desc" selected={sortKey === 'death-desc'}>Death year (latest)</option>
+                  <option value="hadith" selected={sortKey === 'hadith'}>Hadith transmitted</option>
+                  <option value="criticism" selected={sortKey === 'criticism'}>Most discussed</option>
                 </select>
               </label>
+              <noscript><button type="submit" class="register-sort__apply">Apply sort</button></noscript>
             </div>
           </form>
 
@@ -248,18 +292,10 @@ const heroStats = [
               const counts = [
                 r.hadith_count ? `${r.hadith_count.toLocaleString()} hadith` : null,
                 r.teacher_count || r.student_count ? `${r.teacher_count}T / ${r.student_count}S` : null,
-                r.statement_count ? `${r.statement_count} verdicts` : null
+                r.statement_count ? `${r.statement_count} statements` : null
               ].filter(Boolean);
               return (
                 <li class="reg-row">
-                  <button
-                    type="button"
-                    class="reg-pick"
-                    data-pick={r.id}
-                    data-name={r.name_en || r.name_ar}
-                    aria-pressed="false"
-                    aria-label={`Add to comparison: ${r.name_en || r.name_ar}`}
-                  ><span aria-hidden="true">+</span></button>
                   <span class="reg-index">{firstIndex + i}</span>
                   <a class="reg-main" href={`/narrators/${r.id}`}>
                     <span class="reg-names">
@@ -275,7 +311,7 @@ const heroStats = [
                       ))}
                     </span>
                   </a>
-                  <span class={`reg-grade ${gradeTone(r.grade)}`}>{r.grade || 'Unrated'}</span>
+                  <span class="reg-grade">{r.grade || 'Unrated'}</span>
                   <span class="reg-counts">
                     {counts.map((m, k) => (
                       <>
@@ -284,6 +320,14 @@ const heroStats = [
                       </>
                     ))}
                   </span>
+                  <button
+                    type="button"
+                    class="reg-pick"
+                    data-pick={r.id}
+                    data-name={r.name_en || r.name_ar}
+                    aria-pressed="false"
+                    aria-label={`Add to comparison: ${r.name_en || r.name_ar}`}
+                  ><span aria-hidden="true">+</span></button>
                 </li>
               );
             })}
@@ -346,7 +390,6 @@ const heroStats = [
 
     .register-title-accent {
       color: var(--hc-gold);
-      font-style: italic;
     }
 
     .register-lead {
@@ -358,51 +401,9 @@ const heroStats = [
       color: var(--hc-text-secondary);
     }
 
+    /* Only the spacing is local; the band itself is .hc-stat-band. */
     .register-stat-band {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
       margin-top: clamp(2rem, 4vw, 3rem);
-      border-top: 1px solid var(--hc-rule);
-      border-bottom: 1px solid var(--hc-rule);
-    }
-
-    .register-stat {
-      position: relative;
-      min-width: 0;
-      padding: 1rem 1.2rem 1.05rem 0;
-    }
-
-    .register-stat + .register-stat { padding-left: 1.2rem; }
-
-    .register-stat + .register-stat::before {
-      content: "";
-      position: absolute;
-      inset-block: 0;
-      left: 0;
-      width: 1px;
-      background: var(--hc-rule-soft);
-    }
-
-    .register-stat__num {
-      display: block;
-      font-family: var(--font-body);
-      font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-      font-weight: 500;
-      line-height: 1;
-      letter-spacing: -0.025em;
-      font-variant-numeric: lining-nums tabular-nums;
-      color: var(--hc-text-primary);
-    }
-
-    .register-stat__label {
-      display: block;
-      margin-top: 0.4rem;
-      font-family: var(--font-ui);
-      font-size: 0.76rem;
-      font-weight: 600;
-      letter-spacing: 0.11em;
-      text-transform: uppercase;
-      color: var(--hc-text-tertiary);
     }
 
     .register-body { padding-top: clamp(1.75rem, 3vw, 2.5rem); }
@@ -420,35 +421,22 @@ const heroStats = [
       border-bottom: 1px solid var(--hc-rule);
     }
 
-    .register-search { position: relative; }
-
-    .register-search__input {
-      width: 100%;
-      padding: 0.7rem 2rem 0.75rem 0;
-      border: 0;
-      border-bottom: 1px solid var(--hc-rule-strong);
-      background: transparent;
-      color: var(--hc-text-primary);
-      font-family: var(--font-body);
-      font-size: 1.05rem;
-      transition: border-color 160ms ease;
-    }
-
-    .register-search__input::placeholder { color: var(--hc-text-tertiary); }
-    .register-search__input:focus { border-bottom-color: var(--hc-gold); }
-
+    /* Enhancement only: the clear control does nothing without the client
+       module, so it is hidden until that module marks the register ready. */
     .register-search__clear {
-      position: absolute;
-      right: 0;
-      bottom: 0.45rem;
-      min-width: 24px;
-      min-height: 24px;
+      display: none;
+      flex: none;
+      min-width: 44px;
       border: 0;
       background: transparent;
       color: var(--hc-text-tertiary);
-      font-size: 1.1rem;
+      font-size: 1.2rem;
+      line-height: 1;
       cursor: pointer;
+      transition: color var(--motion-fast) ease;
     }
+
+    [data-register][data-ready="true"] .register-search__clear { display: block; }
 
     .register-search__clear:hover { color: var(--hc-text-primary); }
 
@@ -484,6 +472,7 @@ const heroStats = [
     }
 
     .register-tab {
+      text-decoration: none;
       padding: 0.35rem 0 0.4rem;
       border: 0;
       border-bottom: 1px solid transparent;
@@ -605,8 +594,6 @@ const heroStats = [
     .compare-dock__clear:hover { color: var(--hc-text-primary); }
 
     @media (max-width: 700px) {
-      .register-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .register-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
       .register-filter { grid-template-columns: 1fr; gap: 0.3rem; }
       .register-filter__label { padding-top: 0; }
       .register-toolbar { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
@@ -614,7 +601,7 @@ const heroStats = [
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .register-tab, .register-search__input { transition: none; }
+      .register-tab, .register-search__clear { transition: none; }
     }
   </style>
 
@@ -647,7 +634,13 @@ const heroStats = [
         color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
     }
 
+    /* Last in the DOM so it never takes tab priority over the row's own link,
+       first in the grid so it keeps its position. Hidden until the client
+       module is ready, because comparison is script-only. */
     .reg-pick {
+      visibility: hidden;
+      grid-column: 1;
+      grid-row: 1;
       min-width: 24px;
       min-height: 24px;
       border: 1px solid var(--hc-rule);
@@ -659,6 +652,8 @@ const heroStats = [
       cursor: pointer;
       transition: color 160ms ease, border-color 160ms ease;
     }
+
+    [data-register][data-ready="true"] .reg-pick { visibility: visible; }
 
     .reg-pick:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
 
@@ -731,10 +726,6 @@ const heroStats = [
     }
 
     /* Verdict tone is the one place a second colour earns its place. */
-    .reg-grade.is-trusted { color: var(--cat-theology-text); }
-    .reg-grade.is-weak    { color: var(--cat-prophecies-text); }
-    .reg-grade.is-unknown { color: var(--hc-text-tertiary); }
-
     /* ---- pagination ---- */
     .register-pager {
       display: flex;
