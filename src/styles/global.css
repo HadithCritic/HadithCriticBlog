@@ -1820,38 +1820,47 @@ footer {
   gap: 0.4rem;
 }
 
-/* ── HERO TITLE REVEAL ────────────────────────────────────────────
-   The section's one entrance. Vocabulary borrowed from react-bits'
-   SplitText/MaskedHeading line stagger and reimplemented in plain CSS: no
-   React island exists on this site and none is being added for a title
-   animation.
+/* ── PROGRESS DRAW ────────────────────────────────────
+   The section's one entrance. Vocabulary borrowed from react-bits' line
+   stagger and reimplemented in plain CSS: no React island exists on this
+   site and none is being added for an animation.
 
-   Rules it follows, from DESIGN.md > Motion: transform and opacity only
-   (never width/height/top/left), no overshoot easing, one orchestrated
-   entrance per page and nothing else moves. The element is authored with
-   the lines already in place, so there is no layout shift and no
-   flash-of-unstyled-title if the animation never runs.
+   It is deliberately NOT on the hero title. A title fade communicates
+   nothing (no hierarchy, no orientation, no state), and animating opacity
+   on the LCP element delays the largest paint, so it fails this project's
+   own rule that motion must be motivated. A reading-position track is the
+   opposite case: the draw is what tells a reader how far into 1,564 pages
+   they are, which is orientation, and the track is nowhere near the LCP
+   element.
 
-   Usage: put .hc-title-reveal on the title and wrap each visual line in a
-   .hc-title-reveal__line span. Lines past the fourth share the fourth
-   delay rather than trailing indefinitely. */
+   The fill is authored at its final width, so with animation unavailable
+   or reduced-motion set it simply renders in place. */
 
-.hc-title-reveal__line {
+.hc-progress {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: var(--hc-rule-soft);
+}
+
+.hc-progress__fill {
   display: block;
+  height: 100%;
+  /* A page-one reading position is a fraction of a percent wide. A minimum
+     keeps it visible without misreporting: the numeric position is stated
+     next to it either way. */
+  min-width: 2px;
+  background: var(--hc-gold);
+  transform-origin: left center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .hc-title-reveal__line {
-    animation: hc-title-line var(--motion-slow) var(--ease-standard) both;
+  .hc-progress__fill {
+    animation: hc-progress-draw var(--motion-slow) var(--ease-standard) both;
   }
-
-  .hc-title-reveal__line:nth-child(1) { animation-delay: 0ms; }
-  .hc-title-reveal__line:nth-child(2) { animation-delay: 90ms; }
-  .hc-title-reveal__line:nth-child(3) { animation-delay: 180ms; }
-  .hc-title-reveal__line:nth-child(n + 4) { animation-delay: 270ms; }
 }
 
-@keyframes hc-title-line {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to   { opacity: 1; transform: none; }
+@keyframes hc-progress-draw {
+  from { transform: scaleX(0); }
+  to   { transform: none; }
 }
