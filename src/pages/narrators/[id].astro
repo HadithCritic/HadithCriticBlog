@@ -12,7 +12,7 @@ import { toPlainText } from '../../lib/format-text';
  * This page used to be prerendered via getStaticPaths, which meant it existed
  * for only 8,000 of the 20,950 narrators: Cloudflare Workers cap a deployment
  * at 20,000 files and the build was already at 17,818. Reading from D1 removes
- * both limits at once — every narrator now has a URL, and 8,000 HTML files
+ * both limits at once: every narrator now has a URL, and 8,000 HTML files
  * leave the build.
  *
  * It also fixes a data split. The criticism shards under public/ deliberately
@@ -191,8 +191,8 @@ const linkableIds = new Set(Object.keys(chainNames).map(Number));
  * The dossier already reports what the critics said about him. This is the
  * other half of the evidence, and until the corpus landed in D1 the site could
  * not show it: the register's `hadith_count` was a number with nothing behind
- * it. `hadith_narrator.narrator_id` is the same integer as `narrator.id` —
- * verified across all 20,950 shared rows — so this is one indexed lookup and
+ * it. `hadith_narrator.narrator_id` is the same integer as `narrator.id`,
+ * verified across all 20,950 shared rows, so this is one indexed lookup and
  * not a reconciliation.
  *
  * A sample is enough on this page; the full list lives at /hadith?narrator={id}.
@@ -210,7 +210,7 @@ interface Transmission {
 /**
  * The corpus tables are a separate migration from the register, so this page
  * has to survive their absence. A partly-applied import, or a rollback, would
- * otherwise take every rijal dossier down with it — D1 rejects a whole batch
+ * otherwise take every rijal dossier down with it, because D1 rejects a whole batch
  * when one statement references a missing table. The corpus sections are
  * additive, so failing to read them degrades to hiding them.
  */
@@ -260,7 +260,7 @@ const VERDICT_LABELS: Record<Verdict, string> = {
   unclassified: 'Unclassified'
 };
 
-const verdicts = [
+const assessments = [
   ['Ibn Hajar al-Asqalani', detail.rankIbnHajarEn, detail.rankIbnHajar],
   ['al-Dhahabi', detail.rankDhahabiEn, detail.rankDhahabi],
   ['Tabaqa (Taqrib al-Tahdhib)', detail.tabaqaEn, detail.tabaqa],
@@ -341,32 +341,46 @@ const narratorCrumbs = [
 >
   <article class="rijal-page">
     <header class="rijal-head">
-      <a class="rijal-back" href="/narrators">&larr; Rijāl register</a>
-      <span class="rijal-id">#{detail.id}</span>
-      <h1 class="rijal-name-en">{detail.nameEn || detail.nameAr}</h1>
-      {detail.nameAr && <p class="rijal-name-ar" dir="rtl" lang="ar">{detail.nameAr}</p>}
+      <p class="hc-eyebrow"><a href="/narrators">Rijāl register</a> / Dossier</p>
 
-      <div class="rijal-badges">
-        <span class="rijal-badge">{detail.generation}</span>
-        {detail.tabaqaNumber && <span class="rijal-badge">Tabaqa {detail.tabaqaNumber}</span>}
-        <span class="rijal-badge rijal-badge--grade">{detail.grade}</span>
-        {detail.flags?.map((f) => <span class="rijal-badge rijal-badge--flag">{f}</span>)}
+      <div class="rijal-nameblock">
+        <h1 class="rijal-name-en">{detail.nameEn || detail.nameAr}</h1>
+        {detail.nameAr && <p class="rijal-name-ar" dir="rtl" lang="ar">{detail.nameAr}</p>}
       </div>
 
-      <dl class="rijal-facts">
-        <div><dt>Died</dt><dd>{deathLine}{detail.deathPlace ? `, ${detail.deathPlace}` : ''}</dd></div>
-        <div><dt>Hadith</dt><dd>{detail.hadithCount ? detail.hadithCount.toLocaleString() : '—'}</dd></div>
-        <div><dt>Teachers</dt><dd>{detail.teachers?.length || 0}</dd></div>
-        <div><dt>Students</dt><dd>{detail.students?.length || 0}</dd></div>
+      <dl class="rijal-identity">
+        {detail.generation && (
+          <div>
+            <dt>Generation</dt>
+            <dd><a class="hc-ulink" href={`/narrators?generation=${encodeURIComponent(detail.generation)}`}>{detail.generation}</a></dd>
+          </div>
+        )}
+        {detail.tabaqaNumber && (
+          <div><dt>Tabaqa</dt><dd>{detail.tabaqaNumber}</dd></div>
+        )}
+        {detail.grade && (
+          <div><dt>Recorded grade</dt><dd>{detail.grade}</dd></div>
+        )}
+        {detail.flags?.length > 0 && (
+          <div><dt>Flags</dt><dd>{detail.flags.join(', ')}</dd></div>
+        )}
+        <div><dt>Register id</dt><dd>#{detail.id}</dd></div>
+      </dl>
+
+      <dl class="hc-stat-band hc-stat-band--4 rijal-facts">
+        <div class="hc-stat hc-stat--display"><dt class="hc-stat__label">Died</dt><dd class="hc-stat__num">{deathLine}{detail.deathPlace ? `, ${detail.deathPlace}` : ''}</dd></div>
+        <div class="hc-stat"><dt class="hc-stat__label">Hadith</dt><dd class="hc-stat__num">{detail.hadithCount ? detail.hadithCount.toLocaleString() : '—'}</dd></div>
+        <div class="hc-stat"><dt class="hc-stat__label">Teachers</dt><dd class="hc-stat__num">{detail.teachers?.length || 0}</dd></div>
+        <div class="hc-stat"><dt class="hc-stat__label">Students</dt><dd class="hc-stat__num">{detail.students?.length || 0}</dd></div>
       </dl>
     </header>
 
-    {verdicts.length > 0 && (
+    {assessments.length > 0 && (
       <section class="rijal-section">
-        <h2>Scholarly Verdicts</h2>
-        <p class="rijal-note">Each verdict is the named authority's own wording, shown in translation with the Arabic alongside.</p>
+        <h2>Attributed Assessments</h2>
+        <p class="rijal-note">Each line is the named authority's own wording, shown in translation with the Arabic alongside. No rating of our own is applied.</p>
         <div class="rijal-verdicts">
-          {verdicts.map(([who, en, ar]) => (
+          {assessments.map(([who, en, ar]) => (
             <div class="rijal-verdict">
               <span class="rijal-verdict__who">{who}</span>
               {en && <p class="rijal-verdict__en">{en}</p>}
@@ -606,82 +620,82 @@ const narratorCrumbs = [
     padding: 2.5rem 1.25rem 5rem;
   }
 
-  .rijal-back {
-    font-family: var(--font-ui);
-    font-size: 0.87rem;
-    color: var(--hc-text-tertiary);
-    text-decoration: none;
-  }
-
-  .rijal-back:hover { color: var(--hc-gold); }
-
-  .rijal-id {
-    margin-left: 0.7rem;
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-    color: var(--hc-text-tertiary);
-    font-variant-numeric: tabular-nums;
+  /* The two names are one masthead. The Arabic used to be a bare RTL block,
+     so it right-aligned to the far edge of a ~950px column and read as
+     detached from the English name it belongs to. */
+  .rijal-nameblock {
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 0.7rem;
   }
 
   .rijal-name-en {
-    margin: 0.8rem 0 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.61rem, 4vw, 2.46rem);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.6vw, 3.1rem);
+    font-weight: 500;
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+    color: var(--hc-text-primary);
     text-wrap: balance;
   }
 
   .rijal-name-ar {
-    margin: 0.4rem 0 0;
+    margin: 0.45rem 0 0;
     font-family: var(--font-arabic);
-    font-size: 1.36rem;
+    font-size: clamp(1.25rem, 2.4vw, 1.6rem);
     color: var(--hc-gold);
     direction: rtl;
-    line-height: 1.7;
+    line-height: var(--leading-arabic);
   }
 
-  .rijal-badges {
+  /* Identity metadata as ruled rows. These were inert pills, and a pill that
+     is neither a control nor a link is decoration (DESIGN.md > Shapes). The
+     one value that maps to a real register filter is a link; the rest,
+     including the recorded grade, are plain apparatus. */
+  .rijal-identity {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 1rem;
-  }
-
-  .rijal-badge {
-    padding: 0.2rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .rijal-badge--grade { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
-
-  .rijal-facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-    gap: 0.9rem;
-    margin: 1.6rem 0 0;
-    padding: 1rem 0 0;
+    gap: 0.9rem 2.2rem;
+    margin: 1.3rem 0 0;
+    padding-top: 1rem;
     border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .rijal-facts dt {
+  .rijal-identity dt {
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .rijal-facts dd {
-    margin: 0.25rem 0 0;
-    font-size: 1.06rem;
+  .rijal-identity dd {
+    margin: 0.3rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.99rem;
+    line-height: 1.4;
     color: var(--hc-text-secondary);
   }
+
+  .rijal-identity a { color: var(--hc-gold); text-decoration: none; }
+  .rijal-identity a:hover { color: var(--hc-gold-bright); }
+
+  /* .hc-stat-band renders the value above the label, but a dl has to emit the
+     label first. Reversing the cell keeps both. */
+  .rijal-facts {
+    margin: 1.6rem 0 0;
+  }
+
+  .rijal-facts .hc-stat {
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+  }
+
+  .rijal-facts .hc-stat__num { margin: 0; }
+  .rijal-facts .hc-stat__label { margin: 0.45rem 0 0; }
 
   .rijal-section {
     margin-top: 2.6rem;
@@ -689,11 +703,16 @@ const narratorCrumbs = [
     border-top: 1px solid var(--hc-rule-soft);
   }
 
+  /* The dossier is the section's most citable page and had its weakest
+     hierarchy: 1.35rem heads against the catalogue's 2.55rem. */
   .rijal-section h2 {
-    margin: 0 0 0.4rem;
-    font-family: var(--font-display, serif);
-    font-size: 1.35rem;
-    letter-spacing: -0.01em;
+    margin: 0 0 0.45rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 2.1vw, 1.75rem);
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--hc-text-primary);
   }
 
   .rijal-subhead {
@@ -722,30 +741,51 @@ const narratorCrumbs = [
     direction: rtl;
   }
 
-  .rijal-verdicts { display: flex; flex-direction: column; gap: 0.7rem; }
+  /* Ruled bilingual rows, not cards. These were bordered surface-2 boxes
+     running about 40% empty, because the English sat left and the Arabic
+     right-aligned as a separate block underneath it. English precedes Arabic
+     in the DOM and the grid pairs them on one baseline. */
+  .rijal-verdicts {
+    border-top: 1px solid var(--hc-rule-soft);
+  }
 
   .rijal-verdict {
-    padding: 0.8rem 0.95rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 6px;
-    background: var(--hc-surface-2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.3rem clamp(1.5rem, 3vw, 2.75rem);
+    padding: 0.95rem 0 1.05rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
   .rijal-verdict__who {
+    grid-column: 1 / -1;
+    grid-row: 1;
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .rijal-verdict__en { margin: 0.35rem 0 0; font-size: 1.06rem; line-height: 1.6; max-width: 68ch; }
+  .rijal-verdict__en {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0.3rem 0 0;
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    line-height: 1.6;
+    color: var(--hc-text-primary);
+  }
 
   .rijal-verdict__ar {
-    margin: 0.4rem 0 0;
+    grid-column: 2;
+    grid-row: 2;
+    margin: 0.3rem 0 0;
     font-family: var(--font-arabic);
-    font-size: 1.18rem;
-    line-height: 1.95;
+    font-size: var(--text-arabic);
+    line-height: var(--leading-arabic);
     color: var(--hc-gold);
     direction: rtl;
   }
@@ -764,7 +804,7 @@ const narratorCrumbs = [
 
   .rijal-bar__track {
     height: 6px;
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-2);
     overflow: hidden;
   }
@@ -777,7 +817,7 @@ const narratorCrumbs = [
     margin-bottom: 0.9rem;
     padding: 0.7rem 0.85rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: var(--hc-surface-2);
     overflow-x: auto;
   }
@@ -821,14 +861,12 @@ const narratorCrumbs = [
     color: var(--hc-text-secondary);
   }
 
-  .rijal-pill--jarh { color: var(--hc-danger, #c2593c); border-color: color-mix(in oklch, var(--hc-danger, #b4472e) 45%, transparent); }
-  .rijal-pill--tadil { color: var(--hc-gold); border-color: color-mix(in oklch, var(--hc-gold) 45%, transparent); }
 
   .rijal-phenomena { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
 
   .rijal-critic {
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: var(--hc-surface-2);
     margin-bottom: 0.4rem;
   }
@@ -869,8 +907,6 @@ const narratorCrumbs = [
     color: var(--hc-text-tertiary);
   }
 
-  .rijal-statement--jarh .rijal-statement__verdict { color: var(--hc-danger, #c2593c); }
-  .rijal-statement--tadil .rijal-statement__verdict { color: var(--hc-gold); }
 
   .rijal-statement cite {
     font-family: var(--font-arabic);
@@ -899,7 +935,7 @@ const narratorCrumbs = [
     gap: 0.4rem;
     padding: 0.22rem 0.55rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     background: var(--hc-surface-2);
     font-family: var(--font-arabic);
     font-size: 1.06rem;
@@ -926,7 +962,7 @@ const narratorCrumbs = [
 
   /* Narrations: what this transmitter carried, opposite what critics said of him. */
   .rijal-transmissions { list-style: none; margin: 0 0 1rem; padding: 0; }
-  .rijal-transmission { border-top: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.16)); }
+  .rijal-transmission { border-top: 1px solid var(--hc-rule); }
   .rijal-transmission a {
     display: flex;
     flex-direction: column;
@@ -936,7 +972,7 @@ const narratorCrumbs = [
     color: inherit;
   }
   .rijal-transmission__src {
-    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    font-family: var(--font-ui);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 12px;
@@ -951,7 +987,7 @@ const narratorCrumbs = [
   }
   .rijal-transmission a:hover .rijal-transmission__text { color: var(--hc-gold); }
   .rijal-transmission__meta {
-    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    font-family: var(--font-ui);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 12px;
@@ -968,16 +1004,33 @@ const narratorCrumbs = [
     align-items: baseline;
     gap: 0.8rem;
     padding: 0.35rem 0;
-    border-bottom: 1px solid var(--hc-rule, rgba(197, 160, 89, 0.12));
+    border-bottom: 1px solid var(--hc-rule);
   }
-  .rijal-form__surface { font-family: 'Amiri', serif; font-size: 1.12rem; line-height: 2.0; flex: 1 1 auto; }
+  .rijal-form__surface { font-family: var(--font-arabic); font-size: 1.12rem; line-height: var(--leading-arabic); flex: 1 1 auto; }
   .rijal-form__count { font-variant-numeric: tabular-nums; color: var(--hc-text-tertiary); font-size: 0.85rem; }
   .rijal-form__flag {
-    font-family: 'Glacial Indifference', system-ui, sans-serif;
+    font-family: var(--font-ui);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-size: 12px;
     font-weight: 600;
     color: var(--hc-gold);
+  }
+
+  /* Bilingual pairs collapse to one column with the Arabic first, matching
+     the catalogue, the edition and the record. This file had no media query
+     at all before the assessment rows became a facing pair. */
+  @media (max-width: 780px) {
+    .rijal-verdict {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.2rem;
+    }
+
+    .rijal-verdict__ar { grid-column: 1; grid-row: 2; }
+    .rijal-verdict__en { grid-column: 1; grid-row: 3; }
+  }
+
+  @media (max-width: 560px) {
+    .rijal-identity { gap: 0.75rem 1.5rem; }
   }
 </style>
