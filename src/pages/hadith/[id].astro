@@ -19,7 +19,7 @@ import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
  * What this page deliberately does not carry is a grading. The corpus stores
  * none, and none is inferred: a sahih/da'if label is a conclusion, and putting
  * one at the top of the page would settle the question the reader came to open.
- * What it shows instead is the evidence a judgement would rest on — the chain,
+ * What it shows instead is the evidence a judgement would rest on: the chain,
  * who each transmitter was, and how widely the report is attested elsewhere.
  */
 
@@ -37,7 +37,7 @@ try {
   [hadithRow, chainRows, subjectRows, glossRows] = await env.DB.batch([
     env.DB.prepare(
       `SELECT h.*, b.title_ar AS book_ar, b.title_en AS book_en,
-              b.id AS book_id, b.slug AS book_slug
+              b.id AS book_id, b.slug AS book_slug, b.hadith_count AS book_hadith_count
          FROM hadith h JOIN hadith_book b ON b.id = h.book_id WHERE h.id = ?`
     ).bind(id),
     // Chain positions carry the register's name and death year, so the isnad
@@ -83,6 +83,20 @@ for (const node of chain) {
   paths.get(node.path_idx)!.push(node);
 }
 
+let position = 0, prevId: number | undefined, nextId: number | undefined;
+try {
+  const navRes = await env.DB.batch([
+    env.DB.prepare(`SELECT COUNT(*) AS n FROM hadith WHERE book_id = ? AND id <= ?`).bind(hadith.book_id, id),
+    env.DB.prepare(`SELECT id FROM hadith WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT 1`).bind(hadith.book_id, id),
+    env.DB.prepare(`SELECT id FROM hadith WHERE book_id = ? AND id > ? ORDER BY id ASC LIMIT 1`).bind(hadith.book_id, id)
+  ]);
+  position = Number((navRes[0].results?.[0] as { n?: number } | undefined)?.n ?? 0);
+  prevId = (navRes[1].results?.[0] as { id?: number } | undefined)?.id;
+  nextId = (navRes[2].results?.[0] as { id?: number } | undefined)?.id;
+} catch (error) {
+  console.error(`Collection navigation failed for hadith ${id}`, error);
+}
+
 const chapter = toPlainText(hadith.chapter_en);
 const ref = `${hadith.book_en}${hadith.hadith_num ? ` ${hadith.hadith_num}` : ''}`;
 const title = `${ref} — Hadith ${id}`;
@@ -126,51 +140,59 @@ const totalParallels =
   ]}
 >
   <article class="hadith">
-    <!-- The banner carries the whole citation in one block: the collection in
-         Arabic, the chapter it sits under, and the reference a reader would
-         write down. Previously these were three loose lines that read as
-         unrelated. -->
-    <header class="hadith-banner">
-      <p class="hadith-banner__ar" lang="ar" dir="rtl">{hadith.book_ar}</p>
-      <h1 class="hadith-banner__title">{chapter || hadith.book_en}</h1>
-      <p class="hadith-banner__ref">
-        <a href={`/hadith/collection/${hadith.book_slug}`}>{hadith.book_en}</a>
-        {hadith.hadith_num && (
-          <>
-            <span class="hadith-sep" aria-hidden="true">·</span>
-            <span>№ {hadith.hadith_num}</span>
-          </>
-        )}
-        <span class="hadith-sep" aria-hidden="true">·</span>
-        <span>Corpus ID {id}</span>
+    <!-- The record head carries the whole citation: where the report sits in
+         the corpus, the chapter it falls under, and the reference a reader
+         would write down. It is ruled rather than boxed, and the citation
+         apparatus sits off the title's axis: this used to be a bordered
+         plaque with all three lines centred on one axis, which is the most
+         template-shaped thing a page can open with. -->
+    <header class="hadith-head">
+      <p class="hc-eyebrow">
+        <a href="/hadith">Corpus</a> / <a href={`/hadith/collection/${hadith.book_slug}`}>{hadith.book_en}</a>
       </p>
+
+      <div class="hadith-head__grid">
+        <h1 class="hadith-head__title">{chapter || hadith.book_en}</h1>
+
+        <div class="hadith-head__cite">
+          {hadith.book_ar && (
+            <p class="hadith-head__ar" lang="ar" dir="rtl">{hadith.book_ar}</p>
+          )}
+          <dl class="hadith-head__ref">
+            {hadith.hadith_num && (
+              <div>
+                <dt>Reference</dt>
+                <dd>№ {hadith.hadith_num}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Corpus ID</dt>
+              <dd>{id}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
     </header>
 
-    <ul class="hadith-stats">
+    <ul class="hc-stat-band hc-stat-band--5 hadith-stats">
       {stats.map((s) => (
-        <li class="hadith-stat">
-          <span class="hadith-stat__num">{s.value}</span>
-          <span class="hadith-stat__label">{s.label}</span>
+        <li class="hc-stat">
+          <span class="hc-stat__num">{s.value}</span>
+          <span class="hc-stat__label">{s.label}</span>
         </li>
       ))}
     </ul>
 
     {matnIsDistinct && (
       <section class="hadith-panel" aria-labelledby="matn-heading">
-        <div class="hadith-panel__head">
-          <h2 class="hadith-panel__title" id="matn-heading">Matn</h2>
+        <div class="hadith-panel__head hc-section-head--panel">
+          <h2 class="hc-section-head__title" id="matn-heading">Matn</h2>
           <p class="hadith-panel__note">
             The prophetic core with the chain of transmission removed. This is the
             unit that matn comparison works on.
           </p>
         </div>
         <div class="hadith-cols">
-          <div class="hadith-col hadith-col--ar">
-            <span class="hadith-col__label">Arabic</span>
-            <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar is-matn">
-              <Fragment set:html={renderArabic(hadith.matn_ar)} />
-            </p>
-          </div>
           <div class="hadith-col hadith-col--en">
             <span class="hadith-col__label">English</span>
             {hadith.matn_en ? (
@@ -184,24 +206,24 @@ const totalParallels =
               <p class="hadith-col__missing">No translation recorded for this matn.</p>
             )}
           </div>
+          <div class="hadith-col hadith-col--ar">
+            <span class="hadith-col__label">Arabic</span>
+            <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar is-matn">
+              <Fragment set:html={renderArabic(hadith.matn_ar)} />
+            </p>
+          </div>
         </div>
       </section>
     )}
 
     <section class="hadith-panel" aria-labelledby="report-heading">
-      <div class="hadith-panel__head">
-        <h2 class="hadith-panel__title" id="report-heading">Full Report</h2>
+      <div class="hadith-panel__head hc-section-head--panel">
+        <h2 class="hc-section-head__title" id="report-heading">Full Report</h2>
         <p class="hadith-panel__note">
           The narration as the collection prints it, chain of transmission included.
         </p>
       </div>
       <div class="hadith-cols">
-        <div class="hadith-col hadith-col--ar">
-          <span class="hadith-col__label">Arabic</span>
-          <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar">
-            <Fragment set:html={renderArabic(hadith.text_ar)} />
-          </p>
-        </div>
         <div class="hadith-col hadith-col--en">
           <span class="hadith-col__label">English</span>
           {hadith.text_en ? (
@@ -215,18 +237,24 @@ const totalParallels =
             <p class="hadith-col__missing">No translation recorded for this report.</p>
           )}
         </div>
+        <div class="hadith-col hadith-col--ar">
+          <span class="hadith-col__label">Arabic</span>
+          <p lang="ar" dir="rtl" class="hadith-col__text hadith-col__text--ar">
+            <Fragment set:html={renderArabic(hadith.text_ar)} />
+          </p>
+        </div>
       </div>
     </section>
 
     {paths.size > 0 && (
       <section class="hadith-panel" aria-labelledby="isnad-heading">
-        <div class="hadith-panel__head">
-          <h2 class="hadith-panel__title" id="isnad-heading">Chain of Transmission</h2>
+        <div class="hadith-panel__head hc-section-head--panel">
+          <h2 class="hc-section-head__title" id="isnad-heading">Chain of Transmission</h2>
           <p class="hadith-panel__note">
             Listed from the source outward: position 1 is the earliest transmitter,
             the last position is the collector. Each name links to its record in the
             register, and the year is the death date where one is known.
-            No reliability verdict is shown here — that judgement is the reader's, and
+            No reliability verdict is shown here. That judgement is the reader's, and
             the register reports what each critic said rather than settling it.
           </p>
         </div>
@@ -267,8 +295,8 @@ const totalParallels =
 
     {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
       <section class="hadith-panel hadith-panel--apparatus" aria-labelledby="apparatus-heading">
-        <div class="hadith-panel__head">
-          <h2 class="hadith-panel__title" id="apparatus-heading">Apparatus</h2>
+        <div class="hadith-panel__head hc-section-head--panel">
+          <h2 class="hc-section-head__title" id="apparatus-heading">Apparatus</h2>
         </div>
 
         <div class="apparatus">
@@ -316,6 +344,19 @@ const totalParallels =
         </div>
       </section>
     )}
+
+    <nav class="hadith-pager" aria-label="Reports in this collection">
+      {prevId
+        ? <a class="hc-back-link" href={`/hadith/${prevId}`}>← Previous report</a>
+        : <span class="hc-back-link hc-back-link--disabled hadith-pager__edge" aria-disabled="true">← Previous report</span>}
+      <span class="hadith-pager__pos">
+        {hadith.hadith_num ? `№ ${hadith.hadith_num} · ` : ''}report {position.toLocaleString()} of{' '}
+        {Number(hadith.book_hadith_count ?? position).toLocaleString()}
+      </span>
+      {nextId
+        ? <a class="hc-back-link" href={`/hadith/${nextId}`}>Next report →</a>
+        : <span class="hc-back-link hc-back-link--disabled hadith-pager__edge" aria-disabled="true">Next report →</span>}
+    </nav>
   </article>
 </BaseLayout>
 
@@ -328,101 +369,79 @@ const totalParallels =
     padding: clamp(1.5rem, 4vw, 2.75rem) 1.25rem clamp(4rem, 8vw, 6rem);
   }
 
-  .hadith-sep { color: var(--hc-rule-strong); margin: 0 0.15rem; }
-
-  /* ---- banner ---- */
-  .hadith-banner {
-    padding: clamp(1.5rem, 3vw, 2.25rem) clamp(1.25rem, 3vw, 2rem);
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: 4px;
-    text-align: center;
-  }
-
-  .hadith-banner__ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: clamp(1.25rem, 3vw, 1.6rem);
-    line-height: 2;
-    color: var(--hc-gold);
-  }
-
-  .hadith-banner__title {
-    max-width: 46ch;
-    margin: 0.5rem auto 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.4rem, 3.2vw, 2.1rem);
-    font-weight: 500;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    color: var(--hc-text-primary);
-  }
-
-  .hadith-banner__ref {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: center;
-    gap: 0.3rem;
-    margin: 1rem 0 0;
-    font-family: var(--font-ui);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .hadith-banner__ref a { color: var(--hc-gold); text-decoration: none; }
-  .hadith-banner__ref a:hover { text-decoration: underline; }
-
-  /* ---- stat band ---- */
-  .hadith-stats {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    margin: clamp(1.25rem, 2.5vw, 1.75rem) 0 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule);
+  /* ---- record head ---- */
+  /* Ruled, not boxed, and off-axis. The previous banner centred the Arabic
+     collection name, the chapter title and the reference on one vertical axis
+     inside a border, which is the shape every generated page opens with. */
+  .hadith-head {
+    padding-bottom: clamp(1.1rem, 2.2vw, 1.6rem);
     border-bottom: 1px solid var(--hc-rule);
   }
 
-  .hadith-stat {
-    position: relative;
-    min-width: 0;
-    padding: 0.85rem 1rem 0.9rem 0;
+  .hadith-head__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, auto);
+    align-items: end;
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    margin-top: 0.7rem;
   }
 
-  .hadith-stat + .hadith-stat { padding-left: 1rem; }
-
-  .hadith-stat + .hadith-stat::before {
-    content: "";
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    width: 1px;
-    background: var(--hc-rule-soft);
-  }
-
-  .hadith-stat__num {
-    display: block;
-    font-family: var(--font-body);
-    font-size: clamp(1.15rem, 2vw, 1.5rem);
+  .hadith-head__title {
+    max-width: 34ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.65rem, 3.4vw, 2.55rem);
     font-weight: 500;
-    line-height: 1;
-    font-variant-numeric: lining-nums tabular-nums;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
     color: var(--hc-text-primary);
+    text-wrap: balance;
   }
 
-  .hadith-stat__label {
-    display: block;
-    margin-top: 0.4rem;
+  .hadith-head__cite {
+    justify-self: end;
+    text-align: right;
+  }
+
+  .hadith-head__ar {
+    margin: 0 0 0.6rem;
+    font-family: var(--font-arabic);
+    font-size: clamp(1.2rem, 2.4vw, 1.5rem);
+    line-height: var(--leading-arabic);
+    color: var(--hc-gold);
+  }
+
+  /* Reference apparatus as a definition list: these are the two things a
+     reader writes down, and they are labelled rather than run together with
+     interpuncts. */
+  .hadith-head__ref {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem 1.4rem;
+    margin: 0;
+  }
+
+  .hadith-head__ref dt {
     font-family: var(--font-ui);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
+
+  .hadith-head__ref dd {
+    margin: 0.15rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    font-variant-numeric: lining-nums tabular-nums;
+    color: var(--hc-text-primary);
+    white-space: nowrap;
+  }
+
+  /* ---- stat band ---- */
+  .hadith-stats { margin: clamp(1.25rem, 2.5vw, 1.75rem) 0 0; padding: 0; list-style: none; }
 
   /* ---- panels ---- */
   .hadith-panel { margin-top: clamp(2.25rem, 5vw, 3.5rem); }
@@ -432,14 +451,8 @@ const totalParallels =
     border-bottom: 1px solid var(--hc-rule);
   }
 
-  .hadith-panel__title {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
+  .hadith-panel__head .hc-section-head__title {
+    margin-top: 0;
   }
 
   .hadith-panel__note {
@@ -452,9 +465,11 @@ const totalParallels =
   }
 
   /* ---- facing columns ---- */
-  /* Arabic is second in the DOM so it stacks under the English on a phone in
-     source-then-translation order, and is placed into the right column on wide
-     screens where a right-hand position reads correctly for RTL. */
+  /* English is first in the DOM, per DESIGN.md > Layout > Bilingual reading
+     order. The grid places English in the left column on wide screens, where a
+     right-hand position reads correctly for the Arabic, and flips the rows
+     below 780px so a phone gets source before translation. DOM order is what
+     screen readers and keyboards follow; the grid handles the picture. */
   .hadith-cols {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -488,7 +503,7 @@ const totalParallels =
   .hadith-col__text--ar {
     font-family: var(--font-arabic);
     font-size: 1.3rem;
-    line-height: 2.05;
+    line-height: var(--leading-arabic);
     color: var(--hc-text-primary);
   }
 
@@ -712,10 +727,12 @@ const totalParallels =
   }
 
   .subjects a {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
     padding: 0.3rem 0.6rem;
     border: 1px solid var(--hc-rule);
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     font-family: var(--font-ui);
     font-size: 12px;
     font-weight: 600;
@@ -725,17 +742,28 @@ const totalParallels =
 
   .subjects a:hover { border-color: var(--hc-gold); color: var(--hc-gold); }
 
-  /* Each breakpoint re-picks which cells start a row and so must lose their
-     left divider. The resets repeat the `+` sibling form of the base rule on
-     purpose: Astro scopes every compound with its own [data-astro-cid]
-     attribute, so `.hadith-stat + .hadith-stat` carries two of them and
-     outranks a single-compound `:nth-child` reset no matter the source order.
-     Matching the sibling form puts them back on equal footing. */
-  @media (max-width: 900px) {
-    .hadith-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .hadith-stat + .hadith-stat:nth-child(3n + 1) { padding-left: 0; }
-    .hadith-stat + .hadith-stat:nth-child(3n + 1)::before { content: none; }
-    .hadith-stat:nth-child(n + 4) { border-top: 1px solid var(--hc-rule-soft); }
+  .hadith-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: clamp(2.5rem, 5vw, 4rem);
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .hadith-pager__pos {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+    text-align: center;
+  }
+
+  .hadith-pager__edge {
+    color: var(--hc-text-tertiary);
+    pointer-events: none;
   }
 
   /* Facing columns need real width. Below this they stack, and the Arabic goes
@@ -744,15 +772,13 @@ const totalParallels =
     .hadith-cols { grid-template-columns: minmax(0, 1fr); gap: 1.75rem; }
     .hadith-col--ar { grid-column: 1; grid-row: 1; }
     .hadith-col--en { grid-column: 1; grid-row: 2; }
+
+    .hadith-head__grid { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; }
+    .hadith-head__cite { justify-self: start; text-align: left; }
+    .hadith-head__ref { justify-content: flex-start; }
   }
 
   @media (max-width: 560px) {
-    .hadith-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .hadith-stat + .hadith-stat:nth-child(3n + 1) { padding-left: 1rem; }
-    .hadith-stat + .hadith-stat:nth-child(3n + 1)::before { content: ""; }
-    .hadith-stat + .hadith-stat:nth-child(2n + 1) { padding-left: 0; }
-    .hadith-stat + .hadith-stat:nth-child(2n + 1)::before { content: none; }
-    .hadith-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
     .gloss { grid-template-columns: minmax(0, 1fr); gap: 0.2rem; }
     .isnad__node { grid-template-columns: 1.75rem minmax(0, 1fr); gap: 0.6rem; }
   }
