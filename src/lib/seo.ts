@@ -30,7 +30,44 @@ export const ID = {
   author: `${SITE.url}/#author`
 } as const;
 
+import { COLLECTION_CARDS } from './og-cards';
+
 const abs = (path: string) => new URL(path, SITE.url).href;
+
+/**
+ * Social preview cards.
+ *
+ * Generated at build time by scripts/build-og-images.mjs and committed under
+ * public/og. Two families so a pasted link is identifiable before it is read:
+ * corpus links get a collection masthead, rijal links get the isnad chain
+ * ornament. See that script for why these are static rather than rendered per
+ * record on demand.
+ */
+export const OG = {
+  default: '/og/default.png',
+  corpus: '/og/hadith.png',
+  register: '/og/narrators.png',
+  /** Falls back to the corpus card for a collection added after the cards were generated. */
+  collection: (slug?: string | null) =>
+    slug && COLLECTION_CARDS.has(slug) ? `/og/collection/${slug}.png` : OG.corpus,
+  narrator: (generation?: string | null) => `/og/narrator/${generationSlug(generation)}.png`
+} as const;
+
+/**
+ * The generations that have a card. Anything else, including an empty value,
+ * takes the default so a dossier never points at a missing image.
+ */
+const GENERATION_CARDS = new Set(['companion', 'follower', 'successor', 'later', 'unclassified']);
+
+/** Mirrors generationSlug in scripts/build-og-images.mjs. Keep the two in step. */
+export function generationSlug(generation?: string | null): string {
+  const slug = String(generation || '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return GENERATION_CARDS.has(slug) ? slug : 'default';
+}
 
 export type Graph = Record<string, unknown>;
 
