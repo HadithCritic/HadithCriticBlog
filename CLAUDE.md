@@ -60,6 +60,21 @@ hadith corpus and a 20,950-entry rijāl register.
 - **Chromium returns `color(srgb r g b / a)`** for anything that went through
   `color-mix()`, and those components are 0-1, not 0-255. Parsing them as bytes
   turns a pale parchment panel into near-black and invents contrast failures.
+- **Git Bash rewrites a bare `/` argument into a Windows path.**
+  `node scripts/check-contrast.mjs --route /` arrives as
+  `--route C:/Program Files/Git/`, which the script skips as unreachable and
+  then reports zero failures. That looked like a clean home page for several
+  runs while it was never being tested. Prefix with `MSYS_NO_PATHCONV=1`, or
+  check the route list rather than a single `/`.
+- **Article figures are bespoke and dark-first.** Before changing one, read the
+  `--hc-scrim` and `.hc-plate` sections of `DESIGN.md`. The short version: a
+  panel whose inner text uses tokens wants a scrim, a panel whose inner text is
+  hardcoded parchment or gold wants `hc-plate`. Getting that backwards produces
+  light ink on black or parchment on paper, and both measure around 1:1.
+- **A background declaration can span several lines.** `.article-opening` puts
+  its colours on the continuation lines of a `background:` shorthand, so a
+  line-based scan for `background:.*rgba` misses them entirely. Parse
+  declarations, not lines.
 - **The register renders rows twice**: server-side in `narrators/index.astro`
   and client-side in `narrator-register.ts`. A change to a row's markup, copy or
   classes has to be made in both, or it reverts on the first filter click.
@@ -101,10 +116,12 @@ npm run validate         # all of the above
 
 node scripts/check-contrast.mjs                # WCAG AA, both themes, key routes
 node scripts/check-contrast.mjs --all-articles # include every article body
+node scripts/check-contrast.mjs --json         # composited bg and DOM path
 ```
 
-`check-contrast.mjs` needs the dev server running. It is not in `validate` yet
-because 14 article bodies carry a known backlog; see DESIGN.md > Known Gaps.
+`check-contrast.mjs` needs the dev server running. It is clean at 0 failures
+across 93 routes in both themes, articles included; keep it there. It is not in
+`validate` only because it needs a live server rather than a build.
 
 Run `check`, `test:design` and `build` before finishing any UI change.
 

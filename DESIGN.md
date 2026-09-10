@@ -172,6 +172,51 @@ umber at lower alpha.
 `--hc-highlight` = gold at 26% (dark) / 18% (light) is the wash behind `<mark>`
 search hits. `::selection` is `--hc-gold-soft` with `--hc-text-inverse`.
 
+### Panel washes: `--hc-scrim`
+
+Long-form articles inset their own plates, ledgers and matrices with an alpha
+wash over the sheet. Written dark-first as a near-black, the same declaration
+composited to grey mud on paper and dropped body text as low as 1.02:1 across
+fourteen articles. The text colours were theme-aware all along; only the fill
+was not.
+
+`--hc-scrim` and `--hc-scrim-warm` carry that fill across themes. They are **rgb
+triplets, not colours**, so the author keeps their own alpha:
+
+```css
+background: rgba(var(--hc-scrim), 0.64);        /* neutral wash */
+background: rgba(var(--hc-scrim-warm), 0.24);   /* sepia wash   */
+```
+
+Dark: `15, 15, 16` / `32, 25, 15`. Light: `242, 236, 223` / `245, 236, 215`.
+
+Never hardcode a near-black fill in article CSS. A raw `rgba(0,0,0,.18)` is the
+same bug: it reads as an 18% black veil on paper, which is mid grey.
+
+### Fixed-dark plates: `.hc-plate`
+
+Some article figures are lamp-lit instruments rather than panels: a night sky
+behind a moon diagram, an isnād chart drawn as a dark ledger. They were composed
+on black and their own labels are written in fixed parchment and gold, so they
+stay dark in both themes.
+
+The failure mode is mixing. A plate whose fill is fixed but whose text reaches
+for `--hc-text-primary` prints dark ink on a black ground the moment the reader
+switches to paper.
+
+Put `hc-plate` on the element that carries the dark fill. It pins the palette,
+surfaces included, so the figure can go on using the ordinary token names and
+get the dark-theme values on both themes. On paper it also gets an opaque base,
+because these fills are translucent and were written to darken a black sheet;
+`rgba(17,17,17,.56)` over parchment is mid grey, not a plate, and gold on mid
+grey tops out near 2.6:1 however the gold is tuned. That base is scoped to the
+light theme: forcing it in dark mode flattened cards that were meant to sit a
+shade below the page.
+
+**Which one do you want?** Look at the text inside. Token text means the author
+meant the panel to follow the theme, so use a scrim. Hardcoded light ink means a
+fixed instrument, so use a plate.
+
 ### Contrast contract
 
 All text meets **WCAG 2.2 AA**: 4.5:1 body, 3:1 for large (≥24px, or ≥18.66px
@@ -184,17 +229,41 @@ token change. A static pass over the stylesheets is not a substitute: it
 reported 113 failures where the browser finds none, because most of them were
 light text on a legitimately dark embed.
 
-Verified boundaries (recompute with `scripts/check-contrast.mjs` after any
-token change):
+**The whole site is clean**, including every article body:
+`node scripts/check-contrast.mjs --all-articles` reports 0 across 93 routes in
+both themes. Keep it there.
 
-- `--hc-text-tertiary` clears 4.5:1 on all four surfaces in both themes
-  (worst case 4.54:1, light on `surface-3`).
-- `--hc-text-secondary` light is **4.17:1 on `surface-3`**: below the floor.
-  `surface-3` is a border/input token in light and is not used as a text ground;
-  do not start using it as one without re-picking the token.
-- `--hc-gold-dim` dark is **4.24:1 on `surface-2`** and **3.93:1 on
-  `surface-3`**. It is a border token in dark. Do not use it as a `color` on
-  elevated surfaces.
+Two things the checker learned the hard way, worth knowing before trusting a
+number it prints:
+
+- **It evaluates gradient stops**, and fails on the worst point of the range.
+  It used to treat any gradient as unmeasurable, which was not conservative but
+  blind: `.hc-article` paints a gradient behind every article, so every run
+  silently skipped the entire article body and only reported text that happened
+  to sit inside an opaque panel.
+- **A background layer only counts if it covers the box.** The animated
+  underline idiom paints an opaque `linear-gradient(gold, gold)` and confines it
+  with `background-size: 100% 1px`; counting that as the ground made every gold
+  footer link a 1:1 failure against itself.
+
+Tokens are picked against the worst ground the system actually paints, which is
+rarely a flat surface token. Two composites do the real damage:
+
+- A card can carry a category wash over the body gradient and then a chip wash
+  over that. On that triple composite the ground reaches `rgb(196,193,171)`,
+  well below `--hc-surface-3`. The light text ramp and every `--cat-*-text` are
+  measured there.
+- Article panels commonly lay a gold radial glow over their fill. On paper that
+  glow *darkens* the panel, so gold-on-gold-tinted-paper is the worst case for
+  the light gold ramp, not gold on plain parchment.
+
+Standing boundaries:
+
+- `--hc-ash` is the disabled/placeholder tier and is **not safe as content
+  text** on paper (2.61:1). Use `--hc-text-secondary` for anything a reader is
+  meant to read.
+- `--hc-gold-dim` is dual-use: 66 call sites use it as a `color`, about 20 as a
+  rule. It is now tuned to clear AA as text, so it may be used as either.
 
 ---
 
@@ -690,13 +759,6 @@ between 320px and 1920px.
 
 ## Known Gaps
 
-- **42 contrast failures remain in 14 article bodies.** Every one is bespoke
-  per-article CSS authored dark-first: a hardcoded dark panel that keeps its
-  colour in light mode while the text token flips to dark ink, or parchment
-  text placed straight on paper. Site chrome and all 12 key routes are clean in
-  both themes. Reproduce with `node scripts/check-contrast.mjs --all-articles`.
-  Each needs a per-article decision about whether the panel or the text should
-  move, so it is a separate pass rather than a mechanical fix.
 - **No named spacing scale.** Padding, gap and margin are ad hoc rem literals
   across the site. A `--space-*` scale on a 4px base would close it.
 - **Three content measures coexist** in the corpus/rijāl section: `--wrap`

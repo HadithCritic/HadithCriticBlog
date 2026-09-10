@@ -24,6 +24,8 @@
  *   node scripts/check-contrast.mjs                 # both themes, key routes
  *   node scripts/check-contrast.mjs --theme light   # one theme
  *   node scripts/check-contrast.mjs --all-articles  # every article too
+ *   node scripts/check-contrast.mjs --route /x      # one route
+ *   node scripts/check-contrast.mjs --json          # composited bg and DOM path
  *
  * Exit code is 1 when anything fails, so it can gate a build later. It is not
  * in `npm run validate` yet because the article bodies carry a known backlog:
@@ -39,6 +41,8 @@ const args = process.argv.slice(2);
 const themeArg = args.includes('--theme') ? args[args.indexOf('--theme') + 1] : null;
 const THEMES = themeArg ? [themeArg] : ['dark', 'light'];
 const ALL_ARTICLES = args.includes('--all-articles');
+const JSON_OUT = args.includes('--json');
+const ONLY = args.includes('--route') ? args[args.indexOf('--route') + 1] : null;
 
 /** The routes that carry the design system, one of each page type. */
 const ROUTES = [
@@ -89,28 +93,109 @@ const PROBE = `(() => {
 
   const ground = parse(getComputedStyle(document.documentElement).backgroundColor) || [255, 255, 255, 1];
 
-  // Returns null when the stack contains a gradient or image: the effective
-  // background is then a range of colours, and any single ratio would be a
-  // guess. Those are counted separately rather than reported as failures. The
-  // .hc-btn label sits on a gold gradient, and treating it as text on the page
-  // ground invented a 1:1 failure for a button that is perfectly legible.
+  const over = (c, base) => base.map((v, i) => Math.round(c[i] * c[3] + v * (1 - c[3])));
+
+  /**
+   * Splits a computed background-image into layers, each a list of its colour
+   * stops. Returns null only for something genuinely unknowable, a url()
+   * bitmap, where no arithmetic can recover the pixels behind the text.
+   */
+  function splitTop(value) {
+    const parts = [];
+    let depth = 0, start = 0;
+    for (let i = 0; i <= value.length; i++) {
+      const ch = value[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (i === value.length || (ch === ',' && depth === 0)) {
+        parts.push(value.slice(start, i).trim());
+        start = i + 1;
+      }
+    }
+    return parts;
+  }
+
+  /**
+   * Whether background layer i actually paints under the whole box. The
+   * animated-underline idiom paints an opaque gradient of a single colour and
+   * then confines it with 'background-size: 100% 1px', so counting it as the
+   * ground turned every gold footer link into a 1:1 failure against itself.
+   */
+  function coversBox(cs, i, box) {
+    const sizes = splitTop(cs.backgroundSize);
+    const reps = splitTop(cs.backgroundRepeat);
+    const size = sizes[i % sizes.length] || 'auto';
+    const rep = reps[i % reps.length] || 'repeat';
+    if (size === 'cover' || size === 'contain' || size === 'auto') return true;
+    const parts = size.split(/\\s+/);
+    // A gradient with an 'auto' component fills that axis.
+    const dim = (v, full) => {
+      if (!v || v === 'auto') return full;
+      if (v.endsWith('%')) return (parseFloat(v) / 100) * full;
+      if (v.endsWith('px')) return parseFloat(v);
+      return full;
+    };
+    const tiles = (r) => r === 'repeat' || r === 'round' || r === 'space';
+    const wideEnough = dim(parts[0], box.width) >= box.width - 0.5 || tiles(rep) || rep === 'repeat-x';
+    const tallEnough = dim(parts[1], box.height) >= box.height - 0.5 || tiles(rep) || rep === 'repeat-y';
+    return wideEnough && tallEnough;
+  }
+
+  function layersOf(bgImage) {
+    if (!bgImage || bgImage === 'none') return [];
+    if (/url\\(/.test(bgImage)) return null;
+    return splitTop(bgImage).map((layer) => {
+      const stops = [];
+      // 'transparent' survives in a computed gradient as rgba(0, 0, 0, 0), so
+      // it composites to a no-op rather than to black.
+      for (const m of layer.matchAll(/(?:rgba?|color)\\([^()]*\\)/g)) {
+        const c = parse(m[0]);
+        if (c) stops.push(c);
+      }
+      return stops;
+    });
+  }
+
+  /**
+   * The effective background behind an element, as the darkest and lightest
+   * colours it can actually take, so the caller can fail on the worse of the
+   * two. A gradient makes the ground a range rather than a single value, and
+   * treating that as unmeasurable was not conservative, it was blind:
+   * .hc-article paints a gradient behind every article, so every run silently
+   * skipped the entire article body and reported only the text that happened
+   * to sit inside an opaque panel.
+   */
   function bgOf(el) {
-    const stack = [];
-    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+    const chain = [];
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.push(n);
+    chain.reverse();
+
+    let lo = ground.slice(0, 3), hi = lo;
+    const apply = (cands) => {
+      const outs = [];
+      for (const c of cands) { outs.push(over(c, lo)); outs.push(over(c, hi)); }
+      let a = outs[0], b = outs[0];
+      for (const o of outs) { if (L(o) < L(a)) a = o; if (L(o) > L(b)) b = o; }
+      lo = a; hi = b;
+    };
+
+    for (const n of chain) {
       const cs = getComputedStyle(n);
-      if (cs.backgroundImage && cs.backgroundImage !== 'none' && n !== document.body && n !== document.documentElement) return null;
-      const c = parse(cs.backgroundColor);
-      if (!c || c[3] <= 0) continue;
-      stack.push([c.slice(0, 3), c[3]]);
-      if (c[3] >= 0.999) break;
+      const bc = parse(cs.backgroundColor);
+      if (bc && bc[3] > 0) apply([bc]);
+      const layers = layersOf(cs.backgroundImage);
+      if (layers === null) return null;
+      // Background layers paint with the first listed on top, so they
+      // composite back to front. Layers that do not cover the box are
+      // decoration, not ground, and are skipped.
+      const box = n.getBoundingClientRect();
+      for (let i = layers.length - 1; i >= 0; i--) {
+        if (!coversBox(cs, i, box)) continue;
+        if (!layers[i].length) return null;
+        apply(layers[i]);
+      }
     }
-    stack.push([ground.slice(0, 3), 1]);
-    let out = stack[stack.length - 1][0];
-    for (let i = stack.length - 2; i >= 0; i--) {
-      const [c, a] = stack[i];
-      out = out.map((v, j) => Math.round(c[j] * a + v * (1 - a)));
-    }
-    return out;
+    return [lo, hi];
   }
 
   const bad = [];
@@ -124,26 +209,73 @@ const PROBE = `(() => {
     if (box.width < 2 || box.height < 2) continue;
     const fg = parse(cs.color);
     if (!fg) continue;
-    const bg = bgOf(el);
-    if (!bg) { indeterminate++; continue; }
-    const eff = fg.slice(0, 3).map((v, i) => Math.round(v * fg[3] + bg[i] * (1 - fg[3])));
+    const range = bgOf(el);
+    if (!range) { indeterminate++; continue; }
     const size = parseFloat(cs.fontSize);
     const bold = (parseInt(cs.fontWeight, 10) || 400) >= 700;
     const need = (size >= 24 || (bold && size >= 18.66)) ? 3 : 4.5;
-    const got = ratio(eff, bg);
+    // Worst case across the background's range: the text has to clear AA
+    // everywhere it sits, not just over the friendliest part of a gradient.
+    let got = Infinity, bg = range[0];
+    for (const cand of range) {
+      const eff = fg.slice(0, 3).map((v, i) => Math.round(v * fg[3] + cand[i] * (1 - fg[3])));
+      const r = ratio(eff, cand);
+      if (r < got) { got = r; bg = cand; }
+    }
     if (got >= need) continue;
     const cls = typeof el.className === 'string' && el.className ? '.' + el.className.trim().split(/\\s+/).slice(0, 2).join('.') : '';
     const key = cls + '|' + cs.color + '|' + Math.round(size);
     if (seen.has(key)) continue;
     seen.add(key);
-    bad.push({ sel: (el.tagName.toLowerCase() + cls).slice(0, 48), color: cs.color, got: Math.round(got * 100) / 100, need });
+    const path = [];
+    for (let n = el; n && n.nodeType === 1 && path.length < 6; n = n.parentElement) {
+      const c = typeof n.className === 'string' && n.className ? '.' + n.className.trim().split(/\\s+/).join('.') : '';
+      path.unshift(n.tagName.toLowerCase() + c);
+      if (n.tagName === 'BODY') break;
+    }
+    bad.push({
+      sel: (el.tagName.toLowerCase() + cls).slice(0, 48),
+      color: cs.color,
+      bg: 'rgb(' + bg.join(', ') + ')',
+      path: path.join(' > '),
+      text: (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 60),
+      got: Math.round(got * 100) / 100,
+      need
+    });
   }
   return { bad: bad.sort((a, b) => a.got - b.got), indeterminate };
 })()`;
 
-const routes = ALL_ARTICLES ? [...ROUTES, ...articleRoutes()] : ROUTES;
+/**
+ * Bring the page to the state a reader actually sees before measuring.
+ *
+ * Reveal animations are driven by IntersectionObserver, so cards below the
+ * fold sit in their pre-reveal state, which on the home page is a visibly
+ * darker card. Measuring that reported a dozen failures for colours that are
+ * correct once the card has arrived, and the count moved between runs
+ * depending on how busy the machine was. Scrolling the whole page first, then
+ * freezing transitions, makes the reading both honest and repeatable.
+ */
+async function settle(page) {
+  await page.evaluate(async () => {
+    const step = Math.round(window.innerHeight * 0.8);
+    for (let y = 0; y < document.body.scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    window.scrollTo(0, 0);
+    await new Promise((r) => setTimeout(r, 250));
+    const kill = document.createElement('style');
+    kill.textContent = '*,*::before,*::after{transition:none !important;animation:none !important}';
+    document.head.appendChild(kill);
+    await new Promise((r) => requestAnimationFrame(() => r()));
+  });
+}
+
+const routes = ONLY ? [ONLY] : ALL_ARTICLES ? [...ROUTES, ...articleRoutes()] : ROUTES;
 const browser = await chromium.launch();
 let failures = 0;
+const report = [];
 
 for (const theme of THEMES) {
   // The theme has to be in localStorage before the document runs, because
@@ -159,7 +291,8 @@ for (const theme of THEMES) {
 
   for (const route of routes) {
     try {
-      await page.goto(BASE + route, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await page.goto(BASE + route, { waitUntil: 'load', timeout: 60000 });
+      await settle(page);
     } catch {
       process.stdout.write(`  skip (unreachable) ${route}
 `);
@@ -173,6 +306,8 @@ for (const theme of THEMES) {
     const { bad, indeterminate } = await page.evaluate(PROBE);
     if (bad.length) {
       failures += bad.length;
+      report.push({ theme, route, bad });
+      if (JSON_OUT) continue;
       process.stdout.write(`
 ${theme.padEnd(5)} ${route}  ${bad.length} failing (${indeterminate} on gradients, not measurable)
 `);
@@ -188,6 +323,10 @@ ${theme.padEnd(5)} ${route}  ${bad.length} failing (${indeterminate} on gradient
 }
 
 await browser.close();
+if (JSON_OUT) {
+  process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+  process.exit(failures ? 1 : 0);
+}
 process.stdout.write(
   `
 ${failures} contrast failure(s) across ${routes.length} route(s) x ${THEMES.length} theme(s)
