@@ -52,6 +52,14 @@ hadith corpus and a 20,950-entry rijāl register.
   `autocrlf`, so the index stores LF. Normalising a working-tree file to LF is
   diff-neutral. Match the file you are editing or normalise it first; a
   find-and-replace built for `\n` will silently match nothing in a CRLF file.
+- **Theme must be set before the document runs.** `BaseLayout` applies
+  `data-theme` from `localStorage` in an inline script before paint. Setting the
+  attribute after load, as an automated check naturally would, measures
+  whichever theme the previous page left behind and reports every colour
+  inverted. Use Playwright's `addInitScript`.
+- **Chromium returns `color(srgb r g b / a)`** for anything that went through
+  `color-mix()`, and those components are 0-1, not 0-255. Parsing them as bytes
+  turns a pale parchment panel into near-black and invents contrast failures.
 - **The register renders rows twice**: server-side in `narrators/index.astro`
   and client-side in `narrator-register.ts`. A change to a row's markup, copy or
   classes has to be made in both, or it reverts on the first filter click.
@@ -83,13 +91,20 @@ These are product commitments, not preferences. `DESIGN.md` carries the detail.
 
 ```bash
 npm run dev              # 127.0.0.1:4321
+npm run build:og         # regenerate the social preview cards in public/og
 npm run check            # astro check, must be 0 errors
 npm run test:design      # scripts/design-audit.mjs, fails on <12px and outline:none
 npm run lint:footnotes
 npm run test:normalize   # Arabic folding and formatting
 npm run build            # astro build + pagefind, ~208 pages
 npm run validate         # all of the above
+
+node scripts/check-contrast.mjs                # WCAG AA, both themes, key routes
+node scripts/check-contrast.mjs --all-articles # include every article body
 ```
+
+`check-contrast.mjs` needs the dev server running. It is not in `validate` yet
+because 14 article bodies carry a known backlog; see DESIGN.md > Known Gaps.
 
 Run `check`, `test:design` and `build` before finishing any UI change.
 
@@ -106,6 +121,9 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/pages/narrators/**` | Rijāl register, dossier, comparison. |
 | `src/lib/narrator-register.ts` | The register's client module. |
 | `scripts/design-audit.mjs` | The design linter wired into `validate`. |
+| `scripts/check-contrast.mjs` | Real-browser WCAG AA check against the composited background. |
+| `scripts/build-og-images.mjs` | Generates the social preview cards. |
+| `public/og/`, `src/lib/og-cards.ts` | The generated cards and their manifest. |
 
 ## Conventions
 
