@@ -55,9 +55,10 @@ import { env } from 'cloudflare:workers';
  * questions in one batch pays this once, not four times.
  */
 const withConnection = async <T>(run: (conn: Connection) => Promise<T>): Promise<T> => {
-  const url = env.TURSO_DATABASE_URL;
+  const url = env?.TURSO_DATABASE_URL || (typeof process !== 'undefined' ? process.env?.TURSO_DATABASE_URL : undefined);
   if (!url) throw new Error('TURSO_DATABASE_URL is not set');
-  const conn = connect({ url, authToken: env.TURSO_AUTH_TOKEN });
+  const authToken = env?.TURSO_AUTH_TOKEN || (typeof process !== 'undefined' ? process.env?.TURSO_AUTH_TOKEN : undefined);
+  const conn = connect({ url, authToken });
   try {
     return await run(conn);
   } finally {

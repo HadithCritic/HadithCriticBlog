@@ -42,5 +42,10 @@ export default defineConfig({
       remarkPlugins: [remarkGfm],
       rehypePlugins: [rehypeTableWrap]
     })
+  },
+  vite: {
+    optimizeDeps: {
+      exclude: ['astro:content']
+    }
   }
 });
