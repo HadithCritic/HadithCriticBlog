@@ -1,0 +1,43 @@
+export interface CanonicalBook {
+  id: number;
+  slug: string;
+  title_en: string;
+  title_ar: string;
+  hadith_count: number;
+}
+
+export const CANONICAL_BOOKS: CanonicalBook[] = [
+  { id: 1, slug: 'musannaf-ibn-abi-shaybah', title_en: 'Musannaf Ibn Abi Shaybah', title_ar: 'مصنف ابن أبي شيبة', hadith_count: 39096 },
+  { id: 2, slug: 'musnad-ahmad', title_en: 'Musnad Ahmad', title_ar: 'مسند أحمد', hadith_count: 28245 },
+  { id: 3, slug: 'al-mu-jam-al-kabir', title_en: "Al-Mu'jam al-Kabir", title_ar: 'المعجم الكبير', hadith_count: 23377 },
+  { id: 4, slug: 'sunan-al-bayhaqi-al-kubra', title_en: 'Sunan al-Bayhaqi al-Kubra', title_ar: 'سنن البيهقي الكبرى', hadith_count: 21890 },
+  { id: 5, slug: 'musannaf-abd-al-razzaq', title_en: "Musannaf 'Abd al-Razzaq", title_ar: 'مصنف عبد الرزاق', hadith_count: 21109 },
+  { id: 6, slug: 'al-sunan-al-kubra', title_en: 'Al-Sunan al-Kubra', title_ar: 'السنن الكبرى', hadith_count: 11981 },
+  { id: 7, slug: 'musnad-al-bazzar', title_en: 'Musnad al-Bazzar', title_ar: 'مسند البزار', hadith_count: 10417 },
+  { id: 8, slug: 'al-mu-jam-al-awsat', title_en: "Al-Mu'jam al-Awsat", title_ar: 'المعجم الأوسط', hadith_count: 9499 },
+  { id: 9, slug: 'al-mustadrak-ala-al-sahihayn', title_en: "Al-Mustadrak 'ala al-Sahihayn", title_ar: 'المستدرك على الصحيحين', hadith_count: 8919 },
+  { id: 10, slug: 'sahih-muslim', title_en: 'Sahih Muslim', title_ar: 'صحيح مسلم', hadith_count: 7666 },
+  { id: 11, slug: 'musnad-abi-ya-la-al-mawsili', title_en: "Musnad Abi Ya'la al-Mawsili", title_ar: 'مسند أبي يعلى الموصلي', hadith_count: 7561 },
+  { id: 12, slug: 'sahih-ibn-hibban', title_en: 'Sahih Ibn Hibban', title_ar: 'صحيح ابن حبان', hadith_count: 7499 },
+  { id: 13, slug: 'sahih-al-bukhari', title_en: 'Sahih al-Bukhari', title_ar: 'صحيح البخاري', hadith_count: 7410 },
+  { id: 14, slug: 'sharh-mushkil-al-athar', title_en: 'Sharh Mushkil al-Athar', title_ar: 'شرح مشكل الآثار', hadith_count: 7274 },
+  { id: 15, slug: 'sharh-ma-ani-al-athar', title_en: "Sharh Ma'ani al-Athar", title_ar: 'شرح معاني الآثار', hadith_count: 7051 },
+  { id: 16, slug: 'sunan-al-nasa-i', title_en: "Sunan al-Nasa'i", title_ar: 'سنن النسائي', hadith_count: 5780 },
+  { id: 17, slug: 'al-matalib-al-aliyah', title_en: "Al-Matalib al-'Aliyah", title_ar: 'المطالب العالية', hadith_count: 5603 },
+  { id: 18, slug: 'sunan-abi-dawud', title_en: 'Sunan Abi Dawud', title_ar: 'سنن أبي داود', hadith_count: 5260 },
+  { id: 19, slug: 'al-ahadith-al-mukhtarah', title_en: 'Al-Ahadith al-Mukhtarah', title_ar: 'الأحاديث المختارة', hadith_count: 4961 },
+  { id: 20, slug: 'sunan-al-daraqutni', title_en: 'Sunan al-Daraqutni', title_ar: 'سنن الدارقطني', hadith_count: 4840 },
+  { id: 21, slug: 'sunan-ibn-majah', title_en: 'Sunan Ibn Majah', title_ar: 'سنن ابن ماجه', hadith_count: 4467 },
+  { id: 22, slug: 'jami-al-tirmidhi', title_en: "Jami' al-Tirmidhi", title_ar: 'جامع الترمذي', hadith_count: 4412 },
+  { id: 23, slug: 'sunan-sa-id-ibn-mansur', title_en: "Sunan Sa'id ibn Mansur", title_ar: 'سنن سعيد بن منصور', hadith_count: 4155 },
+  { id: 24, slug: 'musnad-al-darimi', title_en: 'Musnad al-Darimi', title_ar: 'مسند الدارمي', hadith_count: 3541 },
+  { id: 25, slug: 'sahih-ibn-khuzaymah', title_en: 'Sahih Ibn Khuzaymah', title_ar: 'صحيح ابن خزيمة', hadith_count: 3413 },
+  { id: 26, slug: 'musnad-al-tayalisi', title_en: 'Musnad al-Tayalisi', title_ar: 'مسند الطيالسي', hadith_count: 2897 },
+  { id: 27, slug: 'muwatta-malik', title_en: "Muwatta' Malik", title_ar: 'موطأ مالك', hadith_count: 1781 },
+  { id: 28, slug: 'musnad-abd-ibn-humayd', title_en: "Musnad 'Abd ibn Humayd", title_ar: 'مسند عبد بن حميد', hadith_count: 1594 },
+  { id: 29, slug: 'musnad-al-humaydi', title_en: 'Musnad al-Humaydi', title_ar: 'مسند الحميدي', hadith_count: 1335 },
+  { id: 30, slug: 'al-mu-jam-al-saghir', title_en: "Al-Mu'jam al-Saghir", title_ar: 'المعجم الصغير', hadith_count: 1203 },
+  { id: 31, slug: 'al-muntaqa', title_en: 'Al-Muntaqa', title_ar: 'المنتقى', hadith_count: 1153 },
+  { id: 32, slug: 'al-marasil-li-abi-dawud', title_en: 'Al-Marasil li-Abi Dawud', title_ar: 'المراسيل لأبي داود', hadith_count: 543 },
+  { id: 33, slug: 'al-shama-il-al-muhammadiyah', title_en: 'Al-Shama\'il al-Muhammadiyah', title_ar: 'الشمائل المحمدية', hadith_count: 415 }
+];

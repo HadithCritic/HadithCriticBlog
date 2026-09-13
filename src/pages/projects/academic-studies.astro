@@ -2,9 +2,29 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { academicStudies } from '../../data/academic-studies';
 import { icmaArtDirections, defaultArtDirection } from '../../data/icma-art-directions';
+import { getCollection } from 'astro:content';
 
 const icmaStudies = academicStudies.filter((s) => s.category === 'icma');
 const otherStudies = academicStudies.filter((s) => s.category !== 'icma');
+
+// Build live article route lookup for all 27 ICMA studies
+const allArticles = await getCollection('articles');
+const articleMap = new Map<string, string>();
+for (const art of allArticles) {
+  const filename = art.id.split('/').pop()?.replace(/\.mdx?$/, '') || art.id;
+  articleMap.set(filename, `/blogs/${art.id}`);
+  articleMap.set(art.id, `/blogs/${art.id}`);
+}
+
+const familyLabels: Record<string, string> = {
+  chronology: 'Chronology',
+  polemics: 'Polemics',
+  geography: 'Sacred Geography',
+  legal: 'Legal & Penal',
+  'source-reconstruction': 'Reconstruction',
+  variants: 'Textual Variants',
+  network: 'Transmission Network'
+};
 
 
 const icmaRegister = [
@@ -83,7 +103,27 @@ const icmaRegister = [
 ];
 
 
-const motzkiStudies = [
+interface MotzkiStudy {
+  number: string;
+  visualFamily?: string;
+  year: string;
+  title: string;
+  subject: string;
+  type: string;
+  classification: string;
+  bookTitle?: string;
+  bookSubtitle?: string;
+  seriesTitle?: string;
+  publisher?: string;
+  summary: string;
+  points: string[];
+  link?: {
+    url: string;
+    label: string;
+  };
+}
+
+const motzkiStudies: MotzkiStudy[] = [
   // ── 1. 📕 Brill — The Origins of Islamic Jurisprudence (01–06) ──
   {
     number: '01',
@@ -97,13 +137,20 @@ const motzkiStudies = [
     bookSubtitle: 'Meccan Fiqh before the Classical Schools',
     seriesTitle: 'Islamic History and Civilization · Vol. 28',
     publisher: 'BRILL',
-    summary: 'Motzki asks whether ʿAbd al-Razzāq’s Muṣannaf preserves genuinely earlier material and whether its attributed chains can be trusted as evidence for first- and early second-century traditions.',
+    summary:
+      'Motzki investigates whether the 11-volume Muṣannaf of ʿAbd al-Razzāq al-Ṣanʿānī (d. 211/827) preserves authentic legal traditions from the 1st and early 2nd centuries A.H., directly confronting Joseph Schacht’s skepticism regarding early legal isnāds. Reconstructing the work’s manuscript recensions (chiefly via Isḥāq b. Ibrāhīm al-Dabarī, d. 286/899) and evaluating a statistical cross-section of 3,810 traditions across ʿAbd al-Razzāq’s primary teachers—Maʿmar b. Rāshid (32%), Ibn Jurayj (29%), Sufyān al-Thawrī (22%), and Sufyān b. ʿUyayna (4%)—Motzki demonstrates that each authority possesses an idiosyncratic transmission profile statistically irreconcilable with retrospective forgery. Corroborated by formal hallmarks like expressed uncertainty (shakk), indirect cross-citations, and independent biographical records, the study establishes that ʿAbd al-Razzāq faithfully reproduced pre-classical legal teaching corpora from Mecca, Medina, and Basra.',
     points: [
-      'Transmission profiles can be compared to test whether attribution to major informants looks deliberate and internally coherent.',
-      'Variation in genres, authorities, isnād quality, terminology, and reporting habits forms a pattern difficult to explain as wholesale fabrication.',
-      'Earlier teaching corpora can be extracted from a later compilation without assuming that a lost book survives verbatim.',
-      'Independent transmissions are needed to assess how faithfully a pupil reproduced a teacher.'
-    ]
+      'Refuting Schachtian Skepticism: Schacht accepted 2nd-century attribution to Abū Ḥanīfa while dismissing 1st-century authorities as fictive without empirical proof; Motzki demonstrates that transmission history must be tested for concrete evidence of falsification rather than dismissed a priori.',
+      'Manuscript Recension Recovery: 90% (29 of 33 books) of the extant Muṣannaf derives from a single student, Isḥāq b. Ibrāhīm al-Dabarī (d. 286/899), who audited the work under parental supervision in 210 A.H.; collation across later branches (al-Aʿrābī, al-Būsī, al-Qurṭubī) proves the text represents stable written lecture notebooks.',
+      'Quantified Informant Profiles: Statistical profiling of 3,810 traditions shows radically divergent source structures—Maʿmar relies 28% on al-Zuhrī and 25% on Qatāda with 1% personal opinion; Ibn Jurayj draws 39% from ʿAṭāʾ b. Abī Rabāḥ; al-Thawrī contains 19% personal legal reasoning (raʾy) across 161 authorities. A forger fabricating labels would never invent such distinct profiles.',
+      'Inadvertent Criteria of Authenticity: Non-deliberate textual markers—including explicit admissions of teacher doubt (e.g. "Abū Bakr was unsure about it"), indirect cross-transmissions between primary teachers (al-Thawrī → Ibn Jurayj), and specific samāʿ distinctions—preclude deliberate pseudepigraphy.',
+      'Rebuttal of Hawting & Juynboll: Refutes Hawting’s claim of late redaction by showing introductory formulae mirror student copyist practices, and dismisses Juynboll’s conjecture of hyper-sophisticated forgery designed to trick modern critics as unsupported speculation.',
+      'Historical Horizon of 1st-Century Law: Because ʿAbd al-Razzāq acquired his material between 144 and 153 A.H. from scholars recording 1st-century Meccan jurists like ʿAṭāʾ and Companions like Ibn ʿAbbās, the Muṣannaf offers genuine historical access to pre-classical Islamic jurisprudence before the formal madhāhib.'
+    ],
+    link: {
+      url: '/projects/motzki-origins-jurisprudence',
+      label: 'Read Complete Academic Chapter & Apparatus'
+    }
   },
   {
     number: '02',
@@ -507,151 +554,258 @@ const relatedMethods = [
 
     <main>
       <section class="studies-shelf hc-container" aria-labelledby="shelf-title">
-        <div class="section-intro">
-          <div>
-            <span class="section-kicker">Primary corpus</span>
+        <div class="studies-shelf__header">
+          <div class="studies-shelf__intro">
+            <span class="section-kicker">Archival Corpus · 27 Monograph Editions</span>
             <h2 id="shelf-title" class="section-title">ICMA Studies in the Archive</h2>
+            <p class="studies-shelf__lead">
+              An institutional register of research monographs applying <em>isnād-cum-matn</em> analysis (ICMA). Every study correlates transmission pathways across early regional centers with textual variant stratification to reconstruct and date the historical emergence of classical traditions.
+            </p>
           </div>
-          <div class="section-intro__index">01 / {String(icmaStudies.length).padStart(2, '0')}</div>
         </div>
 
-        <div class="studies-carousel" data-studies-carousel>
-          <div class="studies-carousel__topbar">
-            <div class="studies-carousel__eyebrow">
-              <span class="studies-carousel__kicker">Monograph Series</span>
-              <span class="studies-carousel__line" aria-hidden="true"></span>
-              <span>{String(icmaStudies.length).padStart(2, '0')} archival studies</span>
-            </div>
-            <div class="studies-carousel__counter" aria-live="polite">
-              <strong data-studies-current>01</strong><span>/</span><span>{String(icmaStudies.length).padStart(2, '0')}</span>
+        {/* ── 1. THE MONOGRAPH DOSSIER READER ── */}
+        <div class="studies-dossier-wrap" data-studies-dossier-wrap>
+          {/* Quick-Selector Ribbon: Scannable list of all 27 accession items */}
+          <div class="studies-ribbon" role="tablist" aria-label="Quick jump to monograph">
+            <div class="studies-ribbon__track" data-studies-ribbon>
+              {icmaStudies.map((study, index) => {
+                const art = icmaArtDirections[study.slug] || defaultArtDirection;
+                const num = String(index + 1).padStart(2, '0');
+                return (
+                  <button
+                    type="button"
+                    class={`studies-ribbon__item${index === 0 ? ' is-active' : ''}`}
+                    data-studies-nav={index}
+                    data-family={art.family}
+                    role="tab"
+                    aria-selected={index === 0 ? 'true' : 'false'}
+                    title={`Study ${num}: ${study.title}`}
+                  >
+                    <span class="studies-ribbon__num">{num}</span>
+                    <span class="studies-ribbon__title">{study.title}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div class="studies-carousel__stage" data-studies-stage>
-            {icmaStudies.map((study, index) => {
-              const art = icmaArtDirections[study.slug] || defaultArtDirection;
-              return (
-                <article
-                  class={`icma-card icma-card--${art.family} icma-card--texture-${art.texture}${index === 0 ? ' is-active' : ''}`}
-                  data-studies-slide={index}
-                  id={study.slug}
-                  aria-hidden={index === 0 ? 'false' : 'true'}
-                  style={`--icma-bg: ${art.palette.bg}; --icma-bg-accent: ${art.palette.bgAccent}; --icma-border: ${art.palette.border}; --icma-rule: ${art.palette.rule}; --icma-accent: ${art.palette.accent}; --icma-accent-bright: ${art.palette.accentBright}; --icma-paper: ${art.palette.paper}; --icma-muted: ${art.palette.muted};`}
-                >
-                  {/* Subtle Archival Material Texture & Watermark */}
-                  <div class="icma-card__art" aria-hidden="true">
-                    <div class="icma-card__texture" data-texture={art.texture} />
-                    <div class="icma-card__watermark">{String(index + 1).padStart(2, '0')}</div>
-                  </div>
+          <div class="studies-carousel" data-studies-carousel>
+            <div class="studies-carousel__topbar">
+              <div class="studies-carousel__eyebrow">
+                <span class="studies-carousel__kicker">Critical Edition Dossier</span>
+                <span class="studies-carousel__line" aria-hidden="true"></span>
+                <span data-active-motif-label>Sacred Geography · Syrian Regional Isnād Axis</span>
+              </div>
+              <div class="studies-carousel__counter" aria-live="polite">
+                <span>Study</span>
+                <strong data-studies-current>01</strong>
+                <span>of</span>
+                <span>{String(icmaStudies.length).padStart(2, '0')}</span>
+              </div>
+            </div>
 
-                  {/* Header: Quiet Archival Running Head */}
-                  <header class="icma-card__topline">
-                    <div class="icma-card__accession">
-                      <span class="icma-card__series-tag">ICMA Monograph Archive</span>
-                      <span class="icma-card__sep" aria-hidden="true">/</span>
-                      <span class="icma-card__index-num">Study {String(index + 1).padStart(2, '0')}</span>
-                      <span class="icma-card__sep" aria-hidden="true">·</span>
-                      <span class="icma-card__ref-code">{study.citeKey || `ICMA-${String(index + 1).padStart(2, '0')}`}</span>
-                    </div>
-                    <div class="icma-card__status-line">
-                      <span>{study.status}</span>
-                      {study.publicationDate && <span class="icma-card__pub-year">· {study.publicationDate}</span>}
-                    </div>
-                  </header>
-
-                  <div class="icma-card__rule" aria-hidden="true" />
-
-                  {/* Main Editorial Heading Block */}
-                  <div class="icma-card__heading">
-                    <div class="icma-card__kicker">
-                      <span>{art.motifLabel}</span>
-                      {study.dating && <span class="icma-card__period">· {study.dating.split('·')[0]?.trim()}</span>}
-                    </div>
-
-                    <h3 class="icma-card__title">
-                      <a href={`#${study.slug}`} class="icma-card__title-link">{study.title}</a>
-                    </h3>
-
-                    {study.subtitle && <p class="icma-card__subtitle">{study.subtitle}</p>}
-
-                    {study.arabicTitle && (
-                      <div class="icma-card__arabic" dir="rtl" lang="ar">
-                        {study.arabicTitle}
+            <div class="studies-carousel__stage" data-studies-stage>
+              {icmaStudies.map((study, index) => {
+                const art = icmaArtDirections[study.slug] || defaultArtDirection;
+                const articleUrl = articleMap.get(study.slug) || articleMap.get(study.id) || `/blogs/${study.slug}`;
+                const num = String(index + 1).padStart(2, '0');
+                const cite = study.citeKey || `ICMA-${num}`;
+                return (
+                  <article
+                    class={`icma-card icma-card--${art.family}${index === 0 ? ' is-active' : ''}`}
+                    data-studies-slide={index}
+                    data-family={art.family}
+                    data-motif-label={art.motifLabel}
+                    id={study.slug}
+                    aria-hidden={index === 0 ? 'false' : 'true'}
+                  >
+                    {/* 1. Folio Topbar: Monograph Accession & Classification */}
+                    <div class="icma-card__folio-bar">
+                      <div class="icma-card__folio-left">
+                        <span class="icma-card__folio-badge">FOLIO {num}</span>
+                        <span class="icma-card__folio-sep" aria-hidden="true">/</span>
+                        <span class="icma-card__cite-pill">{cite}</span>
+                        <span class="icma-card__folio-sep" aria-hidden="true">·</span>
+                        <span class="icma-card__series-name">ICMA Monograph Archive</span>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Abstract / Critical Synthesis */}
-                  <div class="icma-card__abstract-wrap">
-                    <p class="icma-card__abstract">{study.abstract}</p>
-                  </div>
-
-                  {/* Critical Evidence Dossier (Clean Bibliographic Register - No Boxed Tables) */}
-                  <dl class="icma-card__dossier">
-                    <div class="icma-card__dossier-item">
-                      <dt class="icma-card__dossier-term">Tradition</dt>
-                      <dd class="icma-card__dossier-desc">{study.tradition || '—'}</dd>
-                    </div>
-                    <div class="icma-card__dossier-item">
-                      <dt class="icma-card__dossier-term">Common Link</dt>
-                      <dd class="icma-card__dossier-desc">{study.commonLink || '—'}</dd>
-                    </div>
-                    <div class="icma-card__dossier-item">
-                      <dt class="icma-card__dossier-term">Dating & Provenance</dt>
-                      <dd class="icma-card__dossier-desc">{study.dating || '—'}</dd>
-                    </div>
-                  </dl>
-
-                  {/* Methodological Note (Scholarly Apparatus - No AI Side-Stripes) */}
-                  <div class="icma-card__apparatus">
-                    <p class="icma-card__apparatus-text">
-                      <strong class="icma-card__apparatus-lead">Critical Apparatus —</strong> {art.analyticalNote}
-                    </p>
-                  </div>
-
-                  {/* Footer: Archive / Citation / Download */}
-                  <div class="icma-card__footer">
-                    <div class="icma-card__citation">
-                      <span class="icma-card__cite-prefix">Archive Reference:</span>
-                      <code>HadithCritic ICMA Register · {study.citeKey || study.slug}</code>
-                    </div>
-                    <div class="icma-card__actions">
-                      {study.pdfUrl ? (
-                        <a href={study.pdfUrl} class="hc-btn hc-btn--sm" download>
-                          Download Monograph Edition <span aria-hidden="true">↓</span>
-                        </a>
-                      ) : (
-                        <span class="study-dossier-notice">
-                          <span class="study-dossier-notice__dot" aria-hidden="true" />
-                          Archival Monograph · Dossier Live
+                      <div class="icma-card__folio-right">
+                        <span class={`icma-card__family-chip icma-card__family-chip--${art.family}`}>
+                          {familyLabels[art.family] || art.family}
                         </span>
+                        {study.status && <span class="icma-card__status-dot">{study.status}</span>}
+                      </div>
+                    </div>
+
+                    {/* 2. Hero Monograph Title & Subject Focus */}
+                    <div class="icma-card__hero">
+                      <div class="icma-card__motif-line">
+                        <span class="icma-card__motif-mark" aria-hidden="true">§</span>
+                        <span class="icma-card__motif-title">{art.motifLabel}</span>
+                      </div>
+
+                      <h3 class="icma-card__title">
+                        <a href={articleUrl} class="icma-card__title-link">{study.title}</a>
+                      </h3>
+
+                      {study.subtitle && (
+                        <p class="icma-card__subtitle">{study.subtitle}</p>
                       )}
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
 
-          <div class="studies-carousel__controls">
-            <button type="button" class="studies-carousel__button" data-studies-prev aria-label="Previous monograph study">
-              ← <span>Previous</span>
-            </button>
-            <div class="studies-carousel__dots" role="tablist" aria-label="ICMA archive monograph studies">
-              {icmaStudies.map((study, index) => (
-                <button
-                  type="button"
-                  class={`studies-carousel__dot${index === 0 ? ' is-active' : ''}`}
-                  data-studies-dot={index}
-                  role="tab"
-                  aria-selected={index === 0 ? 'true' : 'false'}
-                  aria-label={`Show monograph study ${index + 1}: ${study.title}`}
-                ></button>
-              ))}
+                    {/* 3. Compact Research Content & Scholarly Specs */}
+                    <div class="icma-card__body">
+                      <div class="icma-card__col-main">
+                        <p class="icma-card__abstract">{study.abstract}</p>
+
+                        <div class="icma-card__apparatus-strip">
+                          <span class="icma-card__apparatus-tag">Apparatus Insight:</span>
+                          <p class="icma-card__apparatus-note">{art.analyticalNote}</p>
+                        </div>
+                      </div>
+
+                      <div class="icma-card__col-side">
+                        <div class="icma-card__specs">
+                          <div class="icma-card__spec-item">
+                            <span class="icma-card__spec-label">Tradition Analyzed</span>
+                            <span class="icma-card__spec-val">{study.tradition || '—'}</span>
+                          </div>
+                          <div class="icma-card__spec-item">
+                            <span class="icma-card__spec-label">Common Link Disseminator</span>
+                            <span class="icma-card__spec-val icma-card__spec-val--accent">{study.commonLink || '—'}</span>
+                          </div>
+                        </div>
+
+                        {study.keyFindings && study.keyFindings.length > 0 && (
+                          <div class="icma-card__findings">
+                            <span class="icma-card__findings-head">Empirical Variant Conclusions:</span>
+                            <ul class="icma-card__findings-list">
+                              {study.keyFindings.map((finding) => (
+                                <li>
+                                  <span class="icma-card__findings-mark" aria-hidden="true">—</span>
+                                  <span>{finding}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 4. Colophon & Direct Research Actions */}
+                    <footer class="icma-card__colophon">
+                      <div class="icma-card__cite-stamp">
+                        <span class="icma-card__stamp-label">Archival Citation:</span>
+                        <code>HadithCritic ICMA Archive · {cite}</code>
+                      </div>
+
+                      <div class="icma-card__actions">
+                        {study.pdfUrl && (
+                          <a href={study.pdfUrl} class="icma-btn icma-btn--ghost" download>
+                            Download PDF <span aria-hidden="true">↓</span>
+                          </a>
+                        )}
+                        <a href={articleUrl} class="icma-btn icma-btn--primary">
+                          Read Full Critical Study <span aria-hidden="true">→</span>
+                        </a>
+                      </div>
+                    </footer>
+                  </article>
+                );
+              })}
             </div>
-            <button type="button" class="studies-carousel__button" data-studies-next aria-label="Next monograph study">
-              <span>Next</span> →
-            </button>
+
+            <div class="studies-carousel__controls">
+              <button type="button" class="studies-carousel__button" data-studies-prev aria-label="Previous monograph study">
+                ← <span>Previous Study</span>
+              </button>
+              <div class="studies-carousel__dots" role="tablist" aria-label="ICMA archive monograph study slides">
+                {icmaStudies.map((study, index) => (
+                  <button
+                    type="button"
+                    class={`studies-carousel__dot${index === 0 ? ' is-active' : ''}`}
+                    data-studies-dot={index}
+                    role="tab"
+                    aria-selected={index === 0 ? 'true' : 'false'}
+                    aria-label={`Jump to study ${index + 1}: ${study.title}`}
+                  ></button>
+                ))}
+              </div>
+              <button type="button" class="studies-carousel__button" data-studies-next aria-label="Next monograph study">
+                <span>Next Study</span> →
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 2. THE COMPLETE ARCHIVAL INDEX LEDGER (100% visible with No-JS fallback) ── */}
+        <div class="studies-ledger" id="register-title" data-studies-ledger>
+          <header class="studies-ledger__header">
+            <div>
+              <span class="studies-ledger__kicker">Institutional Register</span>
+              <h3 class="studies-ledger__title">Complete 27-Monograph Archival Index</h3>
+            </div>
+            <span class="studies-ledger__meta">All entries citable · Cross-referenced with research editions</span>
+          </header>
+
+          <div class="studies-ledger__table-wrap">
+            <table class="studies-ledger__table">
+              <thead>
+                <tr>
+                  <th scope="col" class="th-code">Accession</th>
+                  <th scope="col" class="th-title">Monograph Title &amp; Target Tradition</th>
+                  <th scope="col" class="th-link">Common Link Disseminator</th>
+                  <th scope="col" class="th-method">Methodology</th>
+                  <th scope="col" class="th-action">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {icmaStudies.map((study, index) => {
+                  const art = icmaArtDirections[study.slug] || defaultArtDirection;
+                  const articleUrl = articleMap.get(study.slug) || articleMap.get(study.id) || `/blogs/${study.slug}`;
+                  const num = String(index + 1).padStart(2, '0');
+                  const cite = study.citeKey || `ICMA-${num}`;
+                  const haystack = `${study.title} ${study.subtitle || ''} ${study.tradition || ''} ${study.commonLink || ''} ${cite}`.toLowerCase();
+                  return (
+                    <tr class="studies-ledger__row" data-ledger-row={index} data-family={art.family} data-search-haystack={haystack}>
+                      <td class="td-code">
+                        <span class="studies-ledger__cite-code">{cite}</span>
+                      </td>
+                      <td class="td-title">
+                        <a href={articleUrl} class="studies-ledger__entry-link">
+                          <strong>{study.title}</strong>
+                        </a>
+                        {study.subtitle && <span class="studies-ledger__subtitle">{study.subtitle}</span>}
+                        <span class="studies-ledger__tradition">{study.tradition}</span>
+                      </td>
+                      <td class="td-link">
+                        <span class="studies-ledger__common-link">{study.commonLink || '—'}</span>
+                      </td>
+                      <td class="td-method">
+                        <span class={`studies-ledger__badge studies-ledger__badge--${art.family}`}>
+                          {familyLabels[art.family] || art.family}
+                        </span>
+                      </td>
+                      <td class="td-action">
+                        <div class="studies-ledger__actions">
+                          <button
+                            type="button"
+                            class="studies-ledger__inspect-btn"
+                            data-inspect-slide={index}
+                            title={`Inspect ${study.title} in dossier reader`}
+                          >
+                            Inspect
+                          </button>
+                          <a href={articleUrl} class="studies-ledger__read-link" title={`Read full investigation: ${study.title}`}>
+                            Read <span aria-hidden="true">→</span>
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -714,6 +868,17 @@ const relatedMethods = [
                   <div class="motzki-card__summary-wrap">
                     <span class="motzki-card__label">What Motzki examines</span>
                     <p class="motzki-card__summary">{study.summary}</p>
+                    {study.link && (
+                      <div class="motzki-card__action">
+                        <a href={study.link.url} class="motzki-card__action-btn">
+                          <span>{study.link.label}</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                          </svg>
+                        </a>
+                      </div>
+                    )}
                   </div>
 
                   <div class="motzki-card__points">
@@ -802,8 +967,9 @@ const relatedMethods = [
 
 <script>
   function initStudiesCarousel() {
-    const root = document.querySelector<HTMLElement>('[data-studies-carousel]');
-    if (!root || root.dataset.studiesInitialized === 'true') return;
+    const shelf = document.querySelector<HTMLElement>('.studies-shelf');
+    const root = shelf?.querySelector<HTMLElement>('[data-studies-carousel]');
+    if (!shelf || !root || root.dataset.studiesInitialized === 'true') return;
     root.dataset.studiesInitialized = 'true';
 
     const stage = root.querySelector<HTMLElement>('[data-studies-stage]');
@@ -812,15 +978,17 @@ const relatedMethods = [
     const prev = root.querySelector<HTMLButtonElement>('[data-studies-prev]');
     const next = root.querySelector<HTMLButtonElement>('[data-studies-next]');
     const current = root.querySelector<HTMLElement>('[data-studies-current]');
+    const motifLabel = root.querySelector<HTMLElement>('[data-active-motif-label]');
+
+    // Connected views
+    const ribbonButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-studies-nav]'));
+    const ledgerRows = Array.from(shelf.querySelectorAll<HTMLTableRowElement>('[data-ledger-row]'));
+    const inspectButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-inspect-slide]'));
 
     if (!stage || !slides.length) return;
+    stage.style.height = '';
 
     let index = 0;
-
-    function syncHeight() {
-      const active = slides[index];
-      if (stage && active) stage.style.height = `${active.scrollHeight}px`;
-    }
 
     function show(nextIndex: number) {
       index = (nextIndex + slides.length) % slides.length;
@@ -837,14 +1005,51 @@ const relatedMethods = [
         dot.setAttribute('aria-selected', active ? 'true' : 'false');
       });
 
+      ribbonButtons.forEach((btn, i) => {
+        const active = i === index;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+
+      ledgerRows.forEach((row, i) => {
+        row.classList.toggle('is-active', i === index);
+      });
+
       if (current) current.textContent = String(index + 1).padStart(2, '0');
+
+      const currentSlide = slides[index];
+      if (motifLabel && currentSlide?.dataset.motifLabel) {
+        motifLabel.textContent = currentSlide.dataset.motifLabel;
+      }
+
       dots[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      requestAnimationFrame(syncHeight);
+      ribbonButtons[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
 
+    // Prev / Next controls
     prev?.addEventListener('click', () => show(index - 1));
     next?.addEventListener('click', () => show(index + 1));
     dots.forEach((dot, i) => dot.addEventListener('click', () => show(i)));
+
+    // Ribbon quick-jump navigation
+    ribbonButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = Number(btn.dataset.studiesNav);
+        if (!Number.isNaN(target)) show(target);
+      });
+    });
+
+    // Ledger "Inspect" navigation
+    inspectButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = Number(btn.dataset.inspectSlide);
+        if (!Number.isNaN(target)) {
+          show(target);
+          const dossier = shelf.querySelector<HTMLElement>('[data-studies-dossier-wrap]');
+          (dossier || root).scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
 
     root.addEventListener('keydown', (event) => {
       if (event.key === 'ArrowLeft') show(index - 1);
@@ -865,7 +1070,6 @@ const relatedMethods = [
       }
     }, { passive: true });
 
-    window.addEventListener('resize', syncHeight);
     show(0);
   }
 
@@ -882,13 +1086,9 @@ const relatedMethods = [
     const current = root.querySelector<HTMLElement>('[data-motzki-current]');
 
     if (!stage || !slides.length) return;
+    stage.style.height = '';
 
     let index = 0;
-
-    function syncHeight() {
-      const active = slides[index];
-      if (stage && active) stage.style.height = `${active.scrollHeight}px`;
-    }
 
     function show(nextIndex: number) {
       index = (nextIndex + slides.length) % slides.length;
@@ -906,7 +1106,6 @@ const relatedMethods = [
       });
 
       if (current) current.textContent = String(index + 1).padStart(2, '0');
-      requestAnimationFrame(syncHeight);
     }
 
     prev?.addEventListener('click', () => show(index - 1));
@@ -918,7 +1117,6 @@ const relatedMethods = [
       if (event.key === 'ArrowRight') show(index + 1);
     });
 
-    window.addEventListener('resize', syncHeight);
     show(0);
   }
 
@@ -932,14 +1130,68 @@ const relatedMethods = [
 </script>
 
 <style>
+  /* =======================================================================
+     ACADEMIC STUDIES — INSTITUTIONAL RESEARCH REGISTER
+     Visual language: critical edition / research catalogue / digital humanities
+     No decorative theme layers; hierarchy and typography carry the identity.
+     ======================================================================= */
+
   .studies-page {
+    --studies-rail: 1px solid var(--hc-rule);
+    --studies-max: 1440px;
     min-height: 100vh;
     padding-bottom: clamp(5rem, 9vw, 8rem);
-    background:
-      radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--hc-gold) 7%, transparent), transparent 28rem),
-      linear-gradient(180deg, var(--hc-surface-0) 0%, var(--hc-surface-1) 45%, var(--hc-surface-0) 100%);
+    background: var(--hc-surface-0);
+    color: var(--hc-text-primary);
   }
 
+  .studies-page .hc-container {
+    width: min(calc(100% - 2rem), var(--studies-max));
+    margin-inline: auto;
+  }
+
+  /* -----------------------------------------------------------------------
+     Shared editorial primitives
+     ----------------------------------------------------------------------- */
+
+  .studies-page a {
+    text-underline-offset: 0.18em;
+  }
+
+  .hc-eyebrow,
+  .section-kicker,
+  .studies-ledger__kicker,
+  .motzki-card__label,
+  .motzki-card__subject,
+  .icma-card__apparatus-tag,
+  .icma-card__findings-head,
+  .hero-index__label,
+  .hero-index__code,
+  .hero-meta-line,
+  .studies-carousel__topbar,
+  .motzki-carousel__topbar {
+    font-family: var(--font-ui);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .hc-link {
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .hc-link:hover,
+  .hc-link:focus-visible {
+    color: var(--hc-gold);
+  }
+
+  /* -----------------------------------------------------------------------
+     01 — Institutional masthead
+     ----------------------------------------------------------------------- */
 
   .studies-hero {
     border-bottom: 1px solid var(--hc-rule);
@@ -947,20 +1199,27 @@ const relatedMethods = [
 
   .hero-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 260px;
-    gap: clamp(2rem, 4.5vw, 4.5rem);
-    align-items: end;
-    padding: clamp(2.75rem, 5vw, 4rem) 0 clamp(1.75rem, 3.5vw, 2.5rem);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    gap: clamp(2.5rem, 5vw, 4.5rem);
+    align-items: start;
+    padding: clamp(3rem, 6vw, 4.75rem) 0 clamp(2rem, 3.5vw, 3rem);
+  }
+
+  .studies-hero__copy {
+    min-width: 0;
   }
 
   .hero-kicker-row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.65rem;
     font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-size: 0.78rem;
     color: var(--hc-text-tertiary);
   }
 
@@ -969,20 +1228,22 @@ const relatedMethods = [
   }
 
   .hero-rule {
-    width: 28px;
+    width: 2.4rem;
     height: 1px;
     background: var(--hc-rule-strong);
+    flex: 0 0 auto;
   }
 
   .studies-title {
-    margin: 0.5rem 0 0.85rem;
-    max-width: 800px;
+    max-width: 24ch;
+    margin: 1.15rem 0 1rem;
     font-family: var(--font-display, serif);
-    font-size: clamp(2.2rem, 4.8vw, 3.6rem);
+    font-size: clamp(2.4rem, 4.5vw, 3.8rem);
     font-weight: 400;
-    line-height: 1.04;
-    letter-spacing: -0.03em;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
     color: var(--hc-text-primary);
+    text-wrap: balance;
   }
 
   .studies-title-accent {
@@ -992,29 +1253,29 @@ const relatedMethods = [
   }
 
   .studies-intro {
-    max-width: 790px;
+    max-width: 64ch;
     margin: 0;
-    font-size: clamp(1rem, 1.3vw, 1.15rem);
+    font-size: clamp(1rem, 1.25vw, 1.12rem);
     line-height: 1.75;
     color: var(--hc-text-secondary);
   }
 
   .studies-intro strong {
     color: var(--hc-text-primary);
+    font-weight: 650;
   }
 
   .hero-meta-line {
     display: flex;
-    gap: 1rem 1.4rem;
-    align-items: center;
     flex-wrap: wrap;
-    margin-top: 1.6rem;
+    gap: 0.85rem 2rem;
+    align-items: baseline;
+    max-width: 58rem;
+    margin-top: 2rem;
     padding-top: 1rem;
     border-top: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    line-height: 1.5;
     color: var(--hc-text-tertiary);
   }
 
@@ -1023,127 +1284,278 @@ const relatedMethods = [
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: none;
+    margin-left: 0.45rem;
   }
 
   .hero-index {
-    align-self: stretch;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    border-left: 1px solid var(--hc-rule);
-    padding-left: 1.4rem;
+    gap: 0.85rem;
+    min-width: 0;
+    background: var(--hc-surface-1);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs, 4px);
+    padding: 1.25rem 1.35rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 
   .hero-index__label,
   .hero-index__code {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.11em;
+    display: block;
+    font-size: 0.75rem;
+    line-height: 1.4;
     color: var(--hc-text-tertiary);
   }
 
   .hero-index__code {
-    margin-top: 0.35rem;
+    margin-top: 0.2rem;
     color: var(--hc-gold);
+    font-variant-numeric: tabular-nums;
   }
 
   .hero-index__line {
     width: 100%;
     height: 1px;
+    margin: 0.35rem 0;
     background: var(--hc-rule);
-    margin-top: 1.2rem;
   }
 
   .hero-index__list {
-    margin: auto 0 0;
-    padding: 0;
+    display: grid;
+    margin: 0;
   }
 
   .hero-index__list div {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 1rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--hc-rule);
+    align-items: baseline;
+    padding: 0.65rem 0;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .hero-index__list div:last-child {
+    border-bottom: none;
   }
 
   .hero-index__list dt,
   .hero-index__list dd {
     margin: 0;
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
   }
 
   .hero-index__list dt {
-    color: var(--hc-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
+    color: var(--hc-text-secondary);
   }
 
   .hero-index__link {
     color: inherit;
     text-decoration: none;
-    transition: color var(--motion-fast) ease;
   }
 
-  .hero-index__link:hover {
+  .hero-index__link:hover,
+  .hero-index__link:focus-visible {
     color: var(--hc-gold);
   }
 
   .hero-index__list dd {
     color: var(--hc-text-primary);
-    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* -----------------------------------------------------------------------
+     02 — Section architecture
+     ----------------------------------------------------------------------- */
+
+  .section-intro,
+  .studies-shelf__header,
+  .motzki-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem;
+    align-items: end;
   }
 
   .section-intro {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    gap: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 2.25rem;
   }
 
   .section-kicker {
     display: block;
     margin-bottom: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
     color: var(--hc-gold);
   }
 
   .section-title {
+    max-width: 22ch;
     margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3vw, 2.7rem);
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.85rem, 3.2vw, 2.6rem);
     font-weight: 400;
-    line-height: 1.05;
+    line-height: 1.1;
     letter-spacing: -0.025em;
     color: var(--hc-text-primary);
+    text-wrap: balance;
   }
 
   .section-intro__index {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.75rem;
     color: var(--hc-text-tertiary);
   }
 
-  /* ── Shelf / Study Cards ── */
   .studies-shelf {
     padding-top: clamp(4rem, 7vw, 6rem);
   }
 
-  /* ── Archive Studies Slideshow ── */
-  .studies-carousel {
-    border: 1px solid var(--hc-rule-strong);
-    background: color-mix(in srgb, var(--hc-surface-1) 82%, transparent);
+  .studies-shelf__header {
+    margin-bottom: 2.25rem;
+  }
+
+  .studies-shelf__lead {
+    max-width: 64ch;
+    margin: 0.75rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.72;
+    color: var(--hc-text-secondary);
+  }
+
+  .studies-shelf__lead em {
+    color: var(--hc-text-primary);
+  }
+
+  /* -----------------------------------------------------------------------
+     03 — Accession index
+     ----------------------------------------------------------------------- */
+
+  .studies-dossier-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 0;
+    border-top: 1px solid var(--hc-rule-strong);
+    border-bottom: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs, 4px);
+    overflow: hidden;
+  }
+
+  .studies-ribbon {
     position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border-bottom: 1px solid var(--hc-rule);
+    background: var(--hc-surface-0);
+  }
+
+  .studies-ribbon__track {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hc-rule-strong) transparent;
+  }
+
+  .studies-ribbon__track::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .studies-ribbon__track::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .studies-ribbon__track::-webkit-scrollbar-thumb {
+    background: var(--hc-rule-strong);
+  }
+
+  .studies-ribbon__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: baseline;
+    flex: 0 0 auto;
+    max-width: 20rem;
+    min-width: 13rem;
+    min-height: 3.25rem;
+    padding: 0.75rem 1.15rem;
+    border: 0;
+    border-right: 1px solid var(--hc-rule);
+    background: transparent;
+    color: var(--hc-text-secondary);
+    cursor: pointer;
+    text-align: left;
+    transition: color 150ms ease, background 150ms ease;
+  }
+
+  .studies-ribbon__item:first-child {
+    border-left: 0;
+  }
+
+  .studies-ribbon__item:hover,
+  .studies-ribbon__item:focus-visible {
+    background: var(--hc-surface-1);
+    color: var(--hc-text-primary);
+  }
+
+  .studies-ribbon__item.is-active {
+    color: var(--hc-text-primary);
+    background: var(--hc-surface-1);
+  }
+
+  .studies-ribbon__item.is-active::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: var(--hc-gold);
+  }
+
+  .studies-ribbon__item.is-hidden {
+    display: none;
+  }
+
+  .studies-ribbon__num {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--hc-text-tertiary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .studies-ribbon__item.is-active .studies-ribbon__num {
+    color: var(--hc-gold);
+  }
+
+  .studies-ribbon__title {
+    min-width: 0;
+    font-family: var(--font-display, serif);
+    font-size: 0.94rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* -----------------------------------------------------------------------
+     04 — ICMA dossier reader
+     ----------------------------------------------------------------------- */
+
+  .studies-carousel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    background: var(--hc-surface-1);
   }
 
   .studies-carousel__topbar {
@@ -1151,30 +1563,31 @@ const relatedMethods = [
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    padding: 0.8rem 1.25rem;
+    min-height: 3rem;
+    padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 0.75rem;
+    line-height: 1.4;
     color: var(--hc-text-tertiary);
   }
 
   .studies-carousel__eyebrow {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.7rem;
+    min-width: 0;
   }
 
   .studies-carousel__kicker {
     color: var(--hc-gold);
-    font-weight: 600;
+    white-space: nowrap;
+    font-weight: 700;
   }
 
   .studies-carousel__line {
-    display: inline-block;
-    width: 28px;
+    width: 2.2rem;
     height: 1px;
+    flex: 0 0 auto;
     background: var(--hc-rule-strong);
   }
 
@@ -1182,1153 +1595,1336 @@ const relatedMethods = [
     display: inline-flex;
     align-items: baseline;
     gap: 0.35rem;
+    white-space: nowrap;
   }
 
   .studies-carousel__counter strong {
-    font-size: 0.84rem;
     color: var(--hc-text-primary);
+    font-variant-numeric: tabular-nums;
   }
 
   .studies-carousel__stage {
     position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
-    transition: height 280ms ease;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     ICMA ARCHIVAL MONOGRAPH CARDS (SISTER SYSTEM TO MOTZKI CARDS)
-     Full-card editorial research compositions representing historical criticism
-     ═══════════════════════════════════════════════════════════════════════ */
-
-  /* Base ICMA Card Architecture */
   .icma-card {
-    position: absolute;
-    inset: 0;
+    grid-area: 1 / 1 / 2 / 2;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    min-width: 0;
-    padding: clamp(1.6rem, 2.8vw, 2.3rem) clamp(1.8rem, 3.2vw, 2.6rem);
+    gap: 1.5rem;
+    min-height: 0;
+    padding: clamp(1.75rem, 4vw, 2.75rem);
     opacity: 0;
-    transform: translateX(24px);
-    pointer-events: none;
+    transform: translateY(8px);
     visibility: hidden;
-    isolation: isolate;
-    overflow: hidden;
-    box-sizing: border-box;
-    transition: opacity 240ms ease, transform 280ms ease;
-
-    /* Authentic Academic Monograph Bookcloth Ground */
-    background:
-      radial-gradient(ellipse at 50% 10%, rgba(255, 245, 230, 0.06), transparent 70%),
-      linear-gradient(180deg, var(--icma-bg, #14171d) 0%, var(--icma-bg-accent, #0a0c10) 100%);
-    color: var(--icma-paper, #f7f3ea);
-    border: 1px solid var(--icma-border, rgba(216, 186, 130, 0.32));
-    outline: 1px solid var(--icma-rule, rgba(216, 186, 130, 0.16));
-    outline-offset: -7px;
-    box-shadow: inset 0 0 95px rgba(0, 0, 0, 0.55), 0 10px 32px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 220ms ease;
   }
 
   .icma-card.is-active {
-    position: relative;
     opacity: 1;
-    transform: translateX(0);
-    pointer-events: auto;
+    transform: translateY(0);
     visibility: visible;
+    pointer-events: auto;
+    z-index: 2;
   }
 
-  /* Archival Material Texture & Watermark Layer */
-  .icma-card__art {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
-    overflow: hidden;
+  /* Family modifiers remain semantic hooks */
+  .icma-card--polemics,
+  .icma-card--geography,
+  .icma-card--chronology,
+  .icma-card--legal,
+  .icma-card--source-reconstruction,
+  .icma-card--variants,
+  .icma-card--network {
+    background: transparent;
   }
 
-  .icma-card__texture {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  /* Tactile Material Textures */
-  .icma-card__texture[data-texture="laid"],
-  .icma-card--texture-laid .icma-card__texture {
-    background: repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(255, 255, 255, 0.018) 28px);
-  }
-
-  .icma-card__texture[data-texture="buckram"],
-  .icma-card--texture-buckram .icma-card__texture {
-    background-image:
-      linear-gradient(0deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px);
-    background-size: 16px 16px;
-  }
-
-  .icma-card__texture[data-texture="morocco"],
-  .icma-card--texture-morocco .icma-card__texture {
-    background:
-      radial-gradient(circle at 85% 15%, rgba(255, 240, 220, 0.04), transparent 50%),
-      radial-gradient(circle at 15% 85%, rgba(0, 0, 0, 0.35), transparent 60%);
-  }
-
-  .icma-card__texture[data-texture="ledger"],
-  .icma-card--texture-ledger .icma-card__texture {
-    background: repeating-linear-gradient(180deg, transparent, transparent 38px, var(--icma-rule) 39px);
-    opacity: 0.32;
-  }
-
-  .icma-card__texture[data-texture="vellum"],
-  .icma-card--texture-vellum .icma-card__texture {
-    background: radial-gradient(ellipse at 45% 45%, rgba(255, 248, 235, 0.035), transparent 70%);
-  }
-
-  .icma-card__watermark {
-    position: absolute;
-    right: 2.2rem;
-    top: 1.8rem;
-    font-family: "Gentium Plus", var(--font-display);
-    font-size: clamp(6.5rem, 14vw, 11rem);
-    font-weight: 700;
-    line-height: 0.8;
-    color: var(--icma-accent, var(--hc-gold));
-    opacity: 0.04;
-    user-select: none;
-    pointer-events: none;
-    z-index: 1;
-    letter-spacing: -0.04em;
-  }
-
-  /* Card content sits safely on top of texture layer */
-  .icma-card > *:not(.icma-card__art) {
-    position: relative;
-    z-index: 3;
-  }
-
-  /* Archive Topline */
-  .icma-card__topline {
+  .icma-card__folio-bar {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 1rem;
+    gap: 1.25rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .icma-card__folio-left,
+  .icma-card__folio-right {
+    display: flex;
+    align-items: baseline;
     flex-wrap: wrap;
+    gap: 0.45rem 0.65rem;
+    min-width: 0;
+  }
+
+  .icma-card__folio-right {
+    justify-content: flex-end;
+  }
+
+  .icma-card__folio-badge,
+  .icma-card__cite-pill,
+  .icma-card__series-name,
+  .icma-card__family-chip,
+  .icma-card__status-dot {
     font-family: var(--font-ui);
     font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    color: var(--icma-muted, rgba(250, 245, 235, 0.72));
-  }
-
-  .icma-card__accession {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-  }
-
-  .icma-card__series-tag {
-    color: var(--icma-accent, var(--hc-gold));
-    font-weight: 600;
-    text-transform: uppercase;
+    line-height: 1.35;
     letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
-  .icma-card__index-num {
-    color: var(--icma-paper, #ffffff);
+  .icma-card__folio-badge {
+    color: var(--hc-text-primary);
+    font-weight: 700;
+  }
+
+  .icma-card__cite-pill {
+    color: var(--hc-gold);
+    font-variant-numeric: tabular-nums;
     font-weight: 600;
   }
 
-  .icma-card__sep {
-    color: var(--icma-rule, rgba(255, 255, 255, 0.25));
+  .icma-card__series-name,
+  .icma-card__family-chip,
+  .icma-card__status-dot {
+    color: var(--hc-text-tertiary);
   }
 
-  .icma-card__ref-code {
-    font-family: var(--font-ui);
-    color: var(--icma-paper, #f7f4ea);
+  .icma-card__folio-sep {
+    color: var(--hc-rule-strong);
   }
 
-  .icma-card__status-line {
-    color: var(--icma-accent, var(--hc-gold));
-    font-weight: 500;
-    letter-spacing: 0.06em;
+  .icma-card__family-chip,
+  .icma-card__status-dot {
+    padding: 0;
+    border: 0;
+    background: transparent;
   }
 
-  .icma-card__rule {
-    height: 1px;
-    background: var(--icma-rule, rgba(216, 186, 130, 0.2));
-    margin: 0.8rem 0 1rem;
+  .icma-card__hero {
+    max-width: 72rem;
+    padding: 0.5rem 0 0.5rem;
   }
 
-  /* Main Editorial Heading Block */
-  .icma-card__heading {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    max-width: 950px;
-  }
-
-  .icma-card__kicker {
+  .icma-card__motif-line {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.55rem;
+    margin-bottom: 0.75rem;
     font-family: var(--font-ui);
     font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--icma-accent, var(--hc-gold));
-    font-weight: 600;
+    color: var(--hc-text-tertiary);
   }
 
-  .icma-card__period {
-    color: var(--icma-muted, rgba(247, 243, 234, 0.65));
-    font-weight: 400;
+  .icma-card__motif-mark {
+    display: inline-block;
+    color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .icma-card__motif-title {
+    color: var(--hc-text-secondary);
   }
 
   .icma-card__title {
-    margin: 0.15rem 0 0;
-    font-family: "Gentium Plus", var(--font-display);
-    font-size: clamp(1.45rem, 2.4vw, 2.1rem);
-    font-weight: 700;
+    max-width: 30ch;
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+    font-weight: 400;
     line-height: 1.15;
-    letter-spacing: -0.01em;
-    color: var(--icma-paper, #ffffff);
+    letter-spacing: -0.025em;
     text-wrap: balance;
   }
 
   .icma-card__title-link {
-    color: inherit;
+    color: var(--hc-text-primary);
     text-decoration: none;
-    transition: color 180ms ease;
   }
 
-  .icma-card__title-link:hover {
-    color: var(--icma-accent-bright, var(--hc-gold));
+  .icma-card__title-link:hover,
+  .icma-card__title-link:focus-visible {
+    color: var(--hc-gold);
   }
 
   .icma-card__subtitle {
-    margin: 0.15rem 0 0;
-    font-size: 0.94rem;
-    line-height: 1.45;
+    max-width: 58ch;
+    margin: 0.65rem 0 0;
+    font-family: var(--font-display, serif);
+    font-size: 1.02rem;
     font-style: italic;
-    color: var(--icma-muted, rgba(247, 243, 234, 0.82));
+    line-height: 1.5;
+    color: var(--hc-text-secondary);
   }
 
-  .icma-card__arabic {
-    margin-top: 0.35rem;
-    font-family: var(--font-arabic);
-    font-size: 1.25rem;
-    line-height: 1.35;
-    color: var(--icma-accent, var(--hc-gold));
-    text-align: right;
-  }
-
-  /* Abstract & Critical Synthesis */
-  .icma-card__abstract-wrap {
-    margin-top: 1rem;
-    max-width: 860px;
-  }
-
-  .icma-card__abstract {
-    margin: 0;
-    font-size: 0.92rem;
-    line-height: 1.68;
-    color: var(--icma-paper, rgba(255, 255, 255, 0.92));
-    opacity: 0.94;
-  }
-
-  /* Critical Evidence Dossier (Clean Bibliographic Register - No Boxed Tables) */
-  .icma-card__dossier {
+  .icma-card__body {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin: 1.25rem 0 0;
-    padding: 0.9rem 0;
-    border-top: 1px solid var(--icma-rule, rgba(216, 186, 130, 0.2));
-    border-bottom: 1px solid var(--icma-rule, rgba(216, 186, 130, 0.2));
-  }
-
-  .icma-card__dossier-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
+    gap: 1.5rem clamp(2rem, 5vw, 4rem);
+    align-items: start;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
   }
 
-  .icma-card__dossier-term {
+  .icma-card__col-main,
+  .icma-card__col-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+
+  .icma-card__abstract {
+    max-width: 66ch;
+    margin: 0;
+    font-size: 0.96rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .icma-card__specs {
+    display: grid;
+    background: color-mix(in srgb, var(--hc-surface-2) 40%, transparent);
+    padding: 0.25rem 1rem;
+    border-radius: var(--radius-xs, 4px);
+    border: 1px solid var(--hc-rule);
+  }
+
+  .icma-card__spec-item {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .icma-card__spec-item:last-child {
+    border-bottom: none;
+  }
+
+  .icma-card__spec-label {
     font-family: var(--font-ui);
     font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
+    font-weight: 700;
     letter-spacing: 0.1em;
-    color: var(--icma-accent, var(--hc-gold));
-    opacity: 0.9;
-  }
-
-  .icma-card__dossier-desc {
-    margin: 0;
-    font-size: 0.86rem;
-    line-height: 1.45;
-    font-weight: 500;
-    color: var(--icma-paper, #ffffff);
-  }
-
-  /* Methodological Apparatus (Quiet Scholarly Note - No AI Side-Stripes) */
-  .icma-card__apparatus {
-    margin-top: 1rem;
-    padding: 0.4rem 0 0;
-  }
-
-  .icma-card__apparatus-text {
-    margin: 0;
-    font-size: 0.83rem;
-    line-height: 1.58;
-    color: var(--icma-muted, rgba(250, 245, 235, 0.78));
-  }
-
-  .icma-card__apparatus-lead {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
+    line-height: 1.4;
     text-transform: uppercase;
-    letter-spacing: 0.09em;
-    color: var(--icma-accent, var(--hc-gold));
+    color: var(--hc-text-tertiary);
   }
 
-  /* Card Footer (Archive / Citation / Download) */
-  .icma-card__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1.2rem;
-    margin-top: 1.3rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--icma-rule, rgba(216, 186, 130, 0.2));
-    font-family: var(--font-ui);
+  .icma-card__spec-val {
+    font-family: var(--font-display, serif);
+    font-size: 0.98rem;
+    line-height: 1.35;
+    color: var(--hc-text-primary);
+  }
+
+  .icma-card__spec-val--accent {
+    color: var(--hc-gold);
+  }
+
+  .icma-card__apparatus-strip {
+    margin-top: 0.5rem;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .icma-card__apparatus-tag,
+  .icma-card__findings-head {
+    display: block;
+    margin-bottom: 0.45rem;
     font-size: 0.75rem;
-    flex-wrap: wrap;
+    font-weight: 700;
+    color: var(--hc-gold);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
-  .icma-card__citation {
-    display: flex;
-    align-items: baseline;
+  .icma-card__apparatus-note {
+    max-width: 66ch;
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .icma-card__findings {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .icma-card__findings-list {
+    display: grid;
     gap: 0.5rem;
-    color: var(--icma-muted, rgba(255, 255, 255, 0.75));
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .icma-card__citation code {
+  .icma-card__findings-list li {
+    display: grid;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    gap: 0.4rem;
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--hc-text-secondary);
+  }
+
+  .icma-card__findings-mark {
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+  }
+
+  .icma-card__colophon {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem 2rem;
+    align-items: end;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid var(--hc-rule-strong);
+  }
+
+  .icma-card__cite-stamp {
+    min-width: 0;
+  }
+
+  .icma-card__stamp-label {
+    display: block;
+    margin-bottom: 0.3rem;
     font-family: var(--font-ui);
     font-size: 0.75rem;
-    color: var(--icma-accent-bright, var(--hc-gold));
-    background: rgba(0, 0, 0, 0.25);
-    padding: 0.15rem 0.45rem;
-    border: 1px solid var(--icma-rule, rgba(255, 255, 255, 0.15));
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .icma-card__cite-stamp code {
+    display: block;
+    overflow-wrap: anywhere;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--hc-text-secondary);
   }
 
   .icma-card__actions {
     display: flex;
+    justify-content: flex-end;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 1.25rem;
   }
 
-  /* ═══════════════════════════════════════════════════════════════════════
-     ICMA VISUAL FAMILIES (Subtle Scholarly Architectural Accents)
-     ═══════════════════════════════════════════════════════════════════════ */
-
-  .icma-card--legal {
-    outline-offset: -9px;
-  }
-
-  .icma-card--polemics {
-    box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.65), 0 10px 32px rgba(0, 0, 0, 0.45);
-  }
-
-  /* Carousel Controls */
-  .studies-carousel__controls {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+  .icma-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 0.8rem;
-    padding: 0.75rem 1rem;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .studies-carousel__button {
+    gap: 0.4rem;
+    min-height: 2rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-xs, 4px);
     background: transparent;
-    border: 1px solid var(--hc-rule-strong);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .icma-btn--ghost {
+    color: var(--hc-text-secondary);
+    border: 1px solid var(--hc-rule);
+  }
+
+  .icma-btn--primary {
+    color: var(--hc-gold);
+    border: 1px solid var(--hc-gold);
+    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
+  }
+
+  .icma-btn--ghost:hover,
+  .icma-btn--ghost:focus-visible {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-rule-strong);
+  }
+
+  .icma-btn--primary:hover,
+  .icma-btn--primary:focus-visible {
+    color: #ffffff;
+    background: var(--hc-gold);
+  }
+
+  /* -----------------------------------------------------------------------
+     05 — Dossier controls
+     ----------------------------------------------------------------------- */
+
+  .studies-carousel__controls,
+  .motzki-carousel__controls {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.85rem 1.25rem;
+    border-top: 1px solid var(--hc-rule);
+    background: var(--hc-surface-1);
+  }
+
+  .studies-carousel__button,
+  .motzki-carousel__button {
+    justify-self: start;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs, 4px);
+    background: transparent;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
-    padding: 0.45rem 0.8rem;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: all var(--motion-fast) ease;
   }
 
-  .studies-carousel__button:hover {
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
+  .studies-carousel__button:last-child,
+  .motzki-carousel__button:last-child {
+    justify-self: end;
   }
 
-  .studies-carousel__dots {
+  .studies-carousel__button:hover,
+  .studies-carousel__button:focus-visible,
+  .motzki-carousel__button:hover,
+  .motzki-carousel__button:focus-visible {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-rule-strong);
+  }
+
+  .studies-carousel__dots,
+  .motzki-carousel__dots {
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     gap: 0.35rem;
+    min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding: 0.35rem 0.5rem;
-    max-width: 100%;
   }
 
-  .studies-carousel__dots::-webkit-scrollbar {
+  .studies-carousel__dots::-webkit-scrollbar,
+  .motzki-carousel__dots::-webkit-scrollbar {
     display: none;
   }
 
-  .studies-carousel__dot {
-    flex: 0 0 auto;
-    width: 14px;
+  .studies-carousel__dot,
+  .motzki-carousel__dot {
+    width: 1.65rem;
     height: 3px;
+    flex: 0 0 auto;
     padding: 0;
-    border: 1px solid var(--hc-rule);
-    background: transparent;
+    border: 0;
+    border-radius: 1px;
+    background: var(--hc-rule);
     cursor: pointer;
-    transition: width 180ms ease, background 180ms ease, border-color 180ms ease;
+    transition: background 150ms ease;
   }
 
-  .studies-carousel__dot:hover {
-    border-color: var(--hc-gold-dim);
+  .studies-carousel__dot:hover,
+  .studies-carousel__dot.is-active,
+  .motzki-carousel__dot:hover,
+  .motzki-carousel__dot.is-active {
+    background: var(--hc-gold);
   }
 
-  .studies-carousel__dot.is-active {
-    width: 28px;
+  /* -----------------------------------------------------------------------
+     06 — Complete archival ledger
+     ----------------------------------------------------------------------- */
+
+  .studies-ledger {
+    margin-top: clamp(3.5rem, 7vw, 6rem);
+    border-top: 1px solid var(--hc-rule-strong);
+  }
+
+  .studies-ledger__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2rem;
+    align-items: end;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .studies-ledger__kicker {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--hc-gold);
+  }
+
+  .studies-ledger__title {
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
+  }
+
+  .studies-ledger__meta {
+    max-width: 36ch;
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--hc-text-tertiary);
+    text-align: right;
+  }
+
+  .studies-ledger__table-wrap {
+    overflow-x: auto;
+  }
+
+  .studies-ledger__table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+  }
+
+  .studies-ledger__table th {
+    padding: 0.85rem 0.85rem;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+    text-align: left;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    white-space: nowrap;
+  }
+
+  .studies-ledger__table td {
+    padding: 1rem 0.85rem;
+    border-bottom: 1px solid var(--hc-rule);
+    vertical-align: top;
+  }
+
+  .studies-ledger__row {
+    transition: background 120ms ease;
+  }
+
+  .studies-ledger__row:hover,
+  .studies-ledger__row.is-active {
+    background: var(--hc-surface-1);
+  }
+
+  .studies-ledger__row.is-hidden {
+    display: none;
+  }
+
+  .studies-ledger__cite-code {
+    display: inline-block;
+    min-width: 4.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    color: var(--hc-gold);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .studies-ledger__entry-link {
+    display: block;
+    color: var(--hc-text-primary);
+    text-decoration: none;
+  }
+
+  .studies-ledger__entry-link strong {
+    display: block;
+    max-width: 54ch;
+    font-family: var(--font-display, serif);
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+
+  .studies-ledger__entry-link:hover strong,
+  .studies-ledger__entry-link:focus-visible strong {
+    color: var(--hc-gold);
+  }
+
+  .studies-ledger__subtitle,
+  .studies-ledger__arabic,
+  .studies-ledger__tradition {
+    display: block;
+    margin-top: 0.28rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--hc-text-tertiary);
+  }
+
+  .studies-ledger__common-link {
+    font-family: var(--font-display, serif);
+    font-size: 0.94rem;
+    line-height: 1.4;
+    color: var(--hc-text-secondary);
+  }
+
+  .studies-ledger__badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs, 4px);
+    background: color-mix(in srgb, var(--hc-surface-2) 50%, transparent);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--hc-text-secondary);
+    white-space: nowrap;
+  }
+
+  .th-action,
+  .td-action {
+    text-align: right;
+  }
+
+  .studies-ledger__actions {
+    display: inline-flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+  }
+
+  .studies-ledger__inspect-btn,
+  .studies-ledger__read-link {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs, 4px);
+    background: transparent;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .studies-ledger__read-link {
+    color: var(--hc-gold);
+    border-color: var(--hc-rule-strong);
+  }
+
+  .studies-ledger__inspect-btn:hover,
+  .studies-ledger__inspect-btn:focus-visible {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-rule-strong);
+  }
+
+  .studies-ledger__read-link:hover,
+  .studies-ledger__read-link:focus-visible {
+    color: #ffffff;
     background: var(--hc-gold);
     border-color: var(--hc-gold);
   }
 
-  /* ── Motzki Case Files ── */
-  .motzki-section { padding-top: clamp(4.5rem, 8vw, 7rem); }
-  .motzki-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; margin-bottom: 1.4rem; }
-  .motzki-lead { max-width: 760px; margin: .8rem 0 0; font-size: .92rem; line-height: 1.68; color: var(--hc-text-secondary); }
+  /* -----------------------------------------------------------------------
+     07 — Motzki research dossier
+     ----------------------------------------------------------------------- */
 
-  .motzki-carousel { border: 1px solid var(--hc-rule-strong); background: color-mix(in srgb, var(--hc-surface-1) 82%, transparent); }
-  .motzki-carousel__topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid var(--hc-rule); font-family: var(--font-ui); font-size: .76rem; text-transform: uppercase; letter-spacing: .1em; color: var(--hc-text-tertiary); }
-  .motzki-carousel__eyebrow { display: flex; align-items: center; gap: .65rem; }
-  .motzki-carousel__line { display: inline-block; width: 28px; height: 1px; background: var(--hc-rule-strong); }
-  .motzki-carousel__eyebrow span:first-child { color: var(--hc-gold); }
-  .motzki-carousel__counter { display: inline-flex; align-items: baseline; gap: .35rem; }
-  .motzki-carousel__counter strong { font-size: .82rem; color: var(--hc-text-primary); }
-
-  .motzki-carousel__stage { position: relative; overflow: hidden; transition: height 280ms var(--ease, ease); }
-  .motzki-card {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    padding: 1.25rem 1.35rem 1.2rem;
-    opacity: 0;
-    transform: translateX(22px);
-    pointer-events: none;
-    visibility: hidden;
-    background: color-mix(in srgb, var(--hc-surface-1) 88%, transparent);
-    transition: opacity 220ms ease, transform 260ms ease;
-  }
-  .motzki-card.is-active { position: relative; opacity: 1; transform: translateX(0); pointer-events: auto; visibility: visible; }
-  .motzki-card__topline { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; }
-  .motzki-card__meta { display: flex; gap: .5rem .75rem; flex-wrap: wrap; justify-content: flex-end; font-family: var(--font-ui); font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; color: var(--hc-text-tertiary); text-align: right; }
-  .motzki-card__meta span + span::before { content: '·'; margin-right: .75rem; color: var(--hc-rule-strong); }
-  .motzki-card__rule { height: 1px; background: var(--hc-rule); margin: .72rem 0 .85rem; }
-  .motzki-card__heading { display: flex; flex-direction: column; gap: .28rem; }
-  .motzki-card__subject, .motzki-card__label { font-family: var(--font-ui); font-size: .76rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--hc-gold); }
-  .motzki-card h3 { max-width: 980px; margin: 0; font-family: "Gentium Plus", serif; font-size: clamp(1.35rem, 2.25vw, 2rem); line-height: 1.15; font-weight: 700; color: var(--hc-text-primary); }
-  .motzki-card__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); gap: 1.25rem 2rem; margin-top: 1rem; }
-  .motzki-card__summary-wrap { min-width: 0; }
-  .motzki-card__label { display: block; margin-bottom: .45rem; color: var(--hc-text-tertiary); }
-  .motzki-card__summary { margin: 0; max-width: 760px; font-size: .88rem; line-height: 1.65; color: var(--hc-text-secondary); }
-  .motzki-card__points { min-width: 0; padding-left: 1.15rem; border-left: 1px solid var(--hc-rule); }
-  .motzki-card__points-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: .45rem; font-family: var(--font-ui); font-size: .76rem; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--hc-text-tertiary); }
-  .motzki-card__points-head span:last-child { color: var(--hc-gold); }
-  .motzki-card__points ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .34rem; }
-  .motzki-card__points li { display: grid; grid-template-columns: 13px minmax(0,1fr); gap: .4rem; font-size: .84rem; line-height: 1.5; color: var(--hc-text-secondary); }
-  .motzki-point-mark { color: var(--hc-gold); font-family: var(--font-ui); font-weight: 700; }
-
-  /* ═══════════════════════════════════════════════════════════════════════
-     MOTZKI PUBLICATION FAMILIES
-     Directly reflecting the 5 physical book editions:
-     1. 📕 The Origins of Islamic Jurisprudence (Brill, 2002) - 01 to 06
-     2. 📗 Analysing Muslim Traditions (Brill, 2010) - 07 to 09
-     3. 📘 The Biography of Muḥammad (Brill, 2000) - 10
-     4. 📙 Reconstruction of a Source of Ibn Isḥāq… (Gorgias, 2017) - 11
-     5. 📓 Ḥadīth: Origins and Developments (Routledge, 2004) - 12
-     ═══════════════════════════════════════════════════════════════════════ */
-
-  /* Common elements for edition-styled cards */
-  .motzki-card__series-strip {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    margin-bottom: 0.6rem;
-    color: var(--hc-gold);
-    opacity: 0.92;
+  .motzki-section {
+    padding-top: clamp(4.5rem, 8vw, 7rem);
   }
 
-  .motzki-card__footer {
+  .motzki-header {
+    margin-bottom: 2.25rem;
+  }
+
+  .motzki-lead {
+    max-width: 66ch;
+    margin: 0.8rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .motzki-carousel {
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs, 4px);
+    background: var(--hc-surface-1);
+    overflow: hidden;
+  }
+
+  .motzki-carousel__topbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
-    margin-top: 1.35rem;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-  }
-
-  .motzki-card__edition-title {
-    font-family: var(--font-display);
-    font-size: 0.88rem;
-    font-style: italic;
-    letter-spacing: 0.02em;
-    opacity: 0.88;
-  }
-
-  .motzki-card__edition-sub {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    opacity: 0.7;
-    letter-spacing: 0.05em;
-  }
-
-  .motzki-card__publisher-tag {
-    font-family: var(--font-display);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    opacity: 0.9;
-  }
-
-  /* ───────────────────────────────────────────────────────────────────────
-     1. 📕 Brill — The Origins of Islamic Jurisprudence (01–06)
-     Cover: Bold crimson ground, authentic Brill gold foil framing lines,
-     refined ivory typography, gold series tag.
-     ─────────────────────────────────────────────────────────────────────── */
-  .motzki-card--origins-jurisprudence {
-    --brill-red-top: #8a1322;
-    --brill-red-mid: #6f0c1b;
-    --brill-red-deep: #500612;
-    --brill-ivory: #faf5ea;
-    --brill-gold: #dfbe7d;
-    --brill-rule: rgba(223, 190, 125, 0.28);
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1.5rem 1.85rem 1.4rem;
-    color: var(--brill-ivory);
-    background:
-      radial-gradient(ellipse at 50% 15%, rgba(255, 235, 205, 0.08), transparent 60%),
-      linear-gradient(180deg, var(--brill-red-top) 0%, var(--brill-red-mid) 50%, var(--brill-red-deep) 100%);
-    box-shadow: inset 0 0 85px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(223, 190, 125, 0.35);
-    outline: 1px solid rgba(223, 190, 125, 0.16);
-    outline-offset: -6px;
-  }
-  .motzki-card--origins-jurisprudence .motzki-card__series-strip { color: var(--brill-gold); letter-spacing: 0.18em; }
-  .motzki-card--origins-jurisprudence .motzki-card__meta { color: rgba(250, 245, 234, 0.74); }
-  .motzki-card--origins-jurisprudence .motzki-card__meta span + span::before { color: rgba(223, 190, 125, 0.4); }
-  .motzki-card--origins-jurisprudence .motzki-card__rule { background: var(--brill-rule); }
-  .motzki-card--origins-jurisprudence .motzki-card__subject { color: var(--brill-gold); letter-spacing: 0.14em; }
-  .motzki-card--origins-jurisprudence h3 { font-family: "Gentium Plus", serif; font-weight: 700; color: #ffffff; text-wrap: balance; }
-  .motzki-card--origins-jurisprudence .motzki-card__label { color: rgba(250, 245, 234, 0.68); letter-spacing: 0.12em; }
-  .motzki-card--origins-jurisprudence .motzki-card__summary,
-  .motzki-card--origins-jurisprudence .motzki-card__points li { color: rgba(255, 250, 242, 0.94); }
-  .motzki-card--origins-jurisprudence .motzki-card__points { border-left-color: var(--brill-rule); }
-  .motzki-card--origins-jurisprudence .motzki-card__points-head { color: rgba(250, 245, 234, 0.72); }
-  .motzki-card--origins-jurisprudence .motzki-card__points-head span:last-child,
-  .motzki-card--origins-jurisprudence .motzki-point-mark { color: var(--brill-gold); }
-  .motzki-card--origins-jurisprudence .motzki-card__footer { border-top-color: var(--brill-rule); color: rgba(250, 245, 234, 0.88); }
-  .motzki-card--origins-jurisprudence .motzki-card__publisher-tag { letter-spacing: 0.26em; color: #ffffff; }
-
-  /* ───────────────────────────────────────────────────────────────────────
-     2. 📗 Brill — Analysing Muslim Traditions (07–09)
-     Cover: Deep wine/ruby ground, left spine ribbon with vertical gold/ivory
-     series text, stately typography and gold accents.
-     ─────────────────────────────────────────────────────────────────────── */
-  .motzki-card--analysing-traditions {
-    --analysing-wine-top: #781726;
-    --analysing-wine-mid: #61101d;
-    --analysing-wine-deep: #480812;
-    --analysing-cream: #faf4e8;
-    --analysing-gold: #d8ba82;
-    --analysing-rule: rgba(250, 244, 232, 0.22);
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1.5rem 1.85rem 1.4rem 3.8rem;
-    color: var(--analysing-cream);
-    background:
-      radial-gradient(ellipse at 50% 18%, rgba(255, 235, 215, 0.07), transparent 65%),
-      linear-gradient(180deg, var(--analysing-wine-top) 0%, var(--analysing-wine-mid) 50%, var(--analysing-wine-deep) 100%);
-    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(216, 186, 130, 0.35);
-  }
-  .motzki-card--analysing-traditions::before {
-    content: 'ISLAMIC HISTORY AND CIVILIZATION · STUDIES AND TEXTS';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 2.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    white-space: nowrap;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--analysing-gold);
-    background: rgba(30, 4, 8, 0.55);
-    border-right: 1px solid rgba(216, 186, 130, 0.35);
-    z-index: 2;
-    padding: 1.5rem 0;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.35);
-  }
-  .motzki-card--analysing-traditions > * { position: relative; z-index: 1; }
-  .motzki-card--analysing-traditions .motzki-card__series-strip { color: var(--analysing-gold); }
-  .motzki-card--analysing-traditions .motzki-card__meta { color: rgba(250, 244, 232, 0.74); }
-  .motzki-card--analysing-traditions .motzki-card__meta span + span::before { color: rgba(250, 244, 232, 0.32); }
-  .motzki-card--analysing-traditions .motzki-card__rule { background: var(--analysing-rule); }
-  .motzki-card--analysing-traditions .motzki-card__subject { color: var(--analysing-gold); }
-  .motzki-card--analysing-traditions h3 { font-family: "Gentium Plus", serif; font-weight: 700; color: #ffffff; text-wrap: balance; }
-  .motzki-card--analysing-traditions .motzki-card__label { color: rgba(250, 244, 232, 0.65); }
-  .motzki-card--analysing-traditions .motzki-card__summary,
-  .motzki-card--analysing-traditions .motzki-card__points li { color: rgba(255, 249, 240, 0.94); }
-  .motzki-card--analysing-traditions .motzki-card__points { border-left-color: var(--analysing-rule); }
-  .motzki-card--analysing-traditions .motzki-card__points-head { color: rgba(250, 244, 232, 0.68); }
-  .motzki-card--analysing-traditions .motzki-card__points-head span:last-child,
-  .motzki-card--analysing-traditions .motzki-point-mark { color: var(--analysing-gold); }
-  .motzki-card--analysing-traditions .motzki-card__footer { border-top-color: var(--analysing-rule); color: rgba(250, 244, 232, 0.85); }
-  .motzki-card--analysing-traditions .motzki-card__publisher-tag { color: var(--analysing-gold); letter-spacing: 0.24em; }
-
-  /* ───────────────────────────────────────────────────────────────────────
-     3. 📘 Brill — The Biography of Muḥammad: The Issue of the Sources (10)
-     Cover: Vibrant scarlet crimson ground, gold foil framing lines,
-     dual horizontal rules framing subtitle "— The Issue of the Sources —".
-     ─────────────────────────────────────────────────────────────────────── */
-  .motzki-card--biography-muhammad {
-    --bio-red-top: #991626;
-    --bio-red-mid: #7e0f1e;
-    --bio-red-deep: #5d0714;
-    --bio-cream: #fbf6ec;
-    --bio-gold: #ebd092;
-    --bio-rule: rgba(235, 208, 146, 0.28);
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1.5rem 1.85rem 1.4rem;
-    color: var(--bio-cream);
-    background:
-      radial-gradient(ellipse at 50% 15%, rgba(255, 255, 255, 0.09), transparent 60%),
-      linear-gradient(180deg, var(--bio-red-top) 0%, var(--bio-red-mid) 50%, var(--bio-red-deep) 100%);
-    box-shadow: inset 0 0 85px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(235, 208, 146, 0.35);
-    outline: 1px solid rgba(235, 208, 146, 0.16);
-    outline-offset: -6px;
-  }
-  .motzki-card--biography-muhammad .motzki-card__series-strip { color: var(--bio-gold); letter-spacing: 0.18em; }
-  .motzki-card--biography-muhammad .motzki-card__meta { color: rgba(251, 246, 236, 0.74); }
-  .motzki-card--biography-muhammad .motzki-card__meta span + span::before { color: rgba(235, 208, 146, 0.4); }
-  .motzki-card--biography-muhammad .motzki-card__rule { background: var(--bio-rule); }
-  .motzki-card--biography-muhammad .motzki-card__subject { color: var(--bio-gold); }
-  .motzki-card--biography-muhammad h3 { font-family: "Gentium Plus", serif; font-weight: 700; color: #ffffff; text-wrap: balance; }
-  .motzki-card--biography-muhammad .motzki-card__sources-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    margin-top: 0.3rem;
-    font-family: var(--font-display);
-    font-size: 0.98rem;
-    font-style: italic;
-    color: rgba(251, 246, 236, 0.92);
-  }
-  .motzki-card--biography-muhammad .motzki-card__dash {
-    color: var(--bio-gold);
-    font-style: normal;
-  }
-  .motzki-card--biography-muhammad .motzki-card__label { color: rgba(251, 246, 236, 0.68); }
-  .motzki-card--biography-muhammad .motzki-card__summary,
-  .motzki-card--biography-muhammad .motzki-card__points li { color: rgba(255, 250, 242, 0.94); }
-  .motzki-card--biography-muhammad .motzki-card__points { border-left-color: var(--bio-rule); }
-  .motzki-card--biography-muhammad .motzki-card__points-head { color: rgba(251, 246, 236, 0.72); }
-  .motzki-card--biography-muhammad .motzki-card__points-head span:last-child,
-  .motzki-card--biography-muhammad .motzki-point-mark { color: var(--bio-gold); }
-  .motzki-card--biography-muhammad .motzki-card__footer { border-top-color: var(--bio-rule); color: rgba(251, 246, 236, 0.88); }
-  .motzki-card--biography-muhammad .motzki-card__publisher-tag { letter-spacing: 0.26em; color: #ffffff; }
-
-  /* ───────────────────────────────────────────────────────────────────────
-     4. 📙 Gorgias Press — Reconstruction of a Source of Ibn Isḥāq… (11)
-     Cover: Deep sea-teal ground, bold terracotta/amber spine stripe
-     "ISLAMIC HISTORY AND THOUGHT", and solid black Gorgias Press badge.
-     ─────────────────────────────────────────────────────────────────────── */
-  .motzki-card--reconstruction-ishaq {
-    --ishaq-teal-top: #0f4f55;
-    --ishaq-teal-mid: #0b3e43;
-    --ishaq-teal-deep: #07292c;
-    --ishaq-terracotta: #d27221;
-    --ishaq-cream: #f6efe2;
-    --ishaq-rule: rgba(246, 239, 226, 0.2);
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1.5rem 1.85rem 1.4rem 3.9rem;
-    color: var(--ishaq-cream);
-    background:
-      radial-gradient(ellipse at 60% 20%, rgba(255, 255, 255, 0.06), transparent 65%),
-      linear-gradient(180deg, var(--ishaq-teal-top) 0%, var(--ishaq-teal-mid) 50%, var(--ishaq-teal-deep) 100%);
-    box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(210, 114, 33, 0.35);
-  }
-  .motzki-card--reconstruction-ishaq::before {
-    content: 'ISLAMIC HISTORY AND THOUGHT';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 2.35rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    white-space: nowrap;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: #ffffff;
-    background: linear-gradient(180deg, #db7b24 0%, #be5f14 100%);
-    border-right: 1px solid rgba(0, 0, 0, 0.3);
-    z-index: 2;
-    padding: 1.5rem 0;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.35);
-  }
-  .motzki-card--reconstruction-ishaq > * { position: relative; z-index: 1; }
-  .motzki-card--reconstruction-ishaq .motzki-card__series-strip { color: #f0a359; }
-  .motzki-card--reconstruction-ishaq .motzki-card__meta { color: rgba(246, 239, 226, 0.74); }
-  .motzki-card--reconstruction-ishaq .motzki-card__meta span + span::before { color: rgba(246, 239, 226, 0.32); }
-  .motzki-card--reconstruction-ishaq .motzki-card__rule { background: var(--ishaq-rule); }
-  .motzki-card--reconstruction-ishaq .motzki-card__subject { color: #ecc490; }
-  .motzki-card--reconstruction-ishaq h3 { font-family: "Gentium Plus", serif; font-weight: 700; color: #ffffff; text-wrap: balance; }
-  .motzki-card--reconstruction-ishaq .motzki-card__label { color: rgba(246, 239, 226, 0.65); }
-  .motzki-card--reconstruction-ishaq .motzki-card__summary,
-  .motzki-card--reconstruction-ishaq .motzki-card__points li { color: rgba(255, 251, 245, 0.94); }
-  .motzki-card--reconstruction-ishaq .motzki-card__points { border-left-color: var(--ishaq-rule); }
-  .motzki-card--reconstruction-ishaq .motzki-card__points-head { color: rgba(246, 239, 226, 0.68); }
-  .motzki-card--reconstruction-ishaq .motzki-card__points-head span:last-child,
-  .motzki-card--reconstruction-ishaq .motzki-point-mark { color: #f0a359; }
-  .motzki-card--reconstruction-ishaq .motzki-card__footer { border-top-color: var(--ishaq-rule); color: rgba(246, 239, 226, 0.85); }
-  .motzki-card--reconstruction-ishaq .motzki-card__publisher-tag {
-    background: #000000;
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    padding: 0.25rem 0.75rem;
-    letter-spacing: 0.26em;
-  }
-
-  /* ───────────────────────────────────────────────────────────────────────
-     5. 📓 Routledge — Ḥadīth: Origins and Developments (12)
-     Cover: Deep plum/aubergine buckram cloth weave, double-lined gold frame box,
-     stately typography in metallic gold, Routledge insignia styling.
-     ─────────────────────────────────────────────────────────────────────── */
-  .motzki-card--hadith-origins {
-    --routledge-plum-top: #521624;
-    --routledge-plum-mid: #3c0e18;
-    --routledge-plum-deep: #26070e;
-    --routledge-gold: #d4af37;
-    --routledge-gold-bright: #ebd282;
-    --routledge-paper: #f7eed8;
-    --routledge-rule: rgba(212, 175, 55, 0.3);
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1.65rem 2rem 1.45rem;
-    color: var(--routledge-paper);
-    background:
-      radial-gradient(circle at 50% 25%, rgba(212, 175, 55, 0.08), transparent 65%),
-      repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px),
-      repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.035) 0 1px, transparent 1px 3px),
-      linear-gradient(180deg, var(--routledge-plum-top) 0%, var(--routledge-plum-mid) 50%, var(--routledge-plum-deep) 100%);
-    box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.5);
-  }
-  .motzki-card--hadith-origins::before {
-    content: '';
-    position: absolute;
-    inset: 0.65rem;
-    border: 1.5px solid rgba(212, 175, 55, 0.6);
-    outline: 1px solid rgba(212, 175, 55, 0.28);
-    outline-offset: -5px;
-    pointer-events: none;
-    z-index: 1;
-    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.3);
-  }
-  .motzki-card--hadith-origins > * { position: relative; z-index: 2; }
-  .motzki-card--hadith-origins .motzki-card__series-strip {
-    color: var(--routledge-gold-bright);
-    letter-spacing: 0.2em;
-  }
-  .motzki-card--hadith-origins .motzki-card__meta { color: rgba(247, 238, 216, 0.74); }
-  .motzki-card--hadith-origins .motzki-card__meta span + span::before { color: rgba(212, 175, 55, 0.4); }
-  .motzki-card--hadith-origins .motzki-card__rule { background: var(--routledge-rule); }
-  .motzki-card--hadith-origins .motzki-card__subject { color: var(--routledge-gold); letter-spacing: 0.14em; }
-  .motzki-card--hadith-origins h3 {
-    font-family: "Gentium Plus", serif;
-    font-weight: 700;
-    color: var(--routledge-gold-bright);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-    text-wrap: balance;
-  }
-  .motzki-card--hadith-origins .motzki-card__label { color: rgba(247, 238, 216, 0.68); letter-spacing: 0.12em; }
-  .motzki-card--hadith-origins .motzki-card__summary,
-  .motzki-card--hadith-origins .motzki-card__points li { color: rgba(255, 248, 235, 0.94); }
-  .motzki-card--hadith-origins .motzki-card__points { border-left-color: var(--routledge-rule); }
-  .motzki-card--hadith-origins .motzki-card__points-head { color: rgba(247, 238, 216, 0.72); }
-  .motzki-card--hadith-origins .motzki-card__points-head span:last-child,
-  .motzki-card--hadith-origins .motzki-point-mark { color: var(--routledge-gold); }
-  .motzki-card--hadith-origins .motzki-card__footer { border-top-color: var(--routledge-rule); color: rgba(247, 238, 216, 0.88); }
-  .motzki-card--hadith-origins .motzki-card__publisher-tag { color: var(--routledge-gold); letter-spacing: 0.28em; }
-
-  .motzki-carousel__controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem; padding: .65rem 1rem; border-top: 1px solid var(--hc-rule); background: color-mix(in srgb, var(--hc-surface-0) 50%, transparent); }
-  .motzki-carousel__button { display: inline-flex; align-items: center; gap: .45rem; width: max-content; padding: .35rem .55rem; border: 1px solid transparent; background: transparent; color: var(--hc-text-secondary); font-family: var(--font-ui); font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
-  .motzki-carousel__button:hover { color: var(--hc-gold); border-color: var(--hc-rule); background: color-mix(in srgb, var(--hc-surface-2) 50%, transparent); }
-  .motzki-carousel__button:last-child { justify-self: end; }
-  .motzki-carousel__dots { display: flex; align-items: center; justify-content: center; gap: .35rem; }
-  .motzki-carousel__dot { width: 18px; height: 3px; padding: 0; border: 1px solid var(--hc-rule); background: transparent; cursor: pointer; transition: width 180ms ease, background 180ms ease, border-color 180ms ease; }
-  .motzki-carousel__dot:hover { border-color: var(--hc-gold-dim); }
-  .motzki-carousel__dot.is-active { width: 30px; background: var(--hc-gold); border-color: var(--hc-gold); }
-
-
-  /* ── Adjacent Scholarship ── */
-  .related-section {
-    padding-top: clamp(5rem, 9vw, 8rem);
-  }
-
-  .related-method-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .related-method {
-    position: relative;
-    padding: 1.4rem 1.2rem 1.5rem;
-    border-right: 1px solid var(--hc-rule);
+    padding: 0.85rem 1.25rem;
     border-bottom: 1px solid var(--hc-rule);
-    background: color-mix(in srgb, var(--hc-surface-1) 50%, transparent);
-    transition: background var(--motion-fast) ease;
-  }
-
-  .related-method:first-child {
-    border-left: 1px solid var(--hc-rule);
-  }
-
-  .related-method:hover {
-    background: color-mix(in srgb, var(--hc-surface-2) 65%, transparent);
-  }
-
-  .related-method__meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .related-method__label {
-    display: block;
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
+    font-size: 0.75rem;
     color: var(--hc-text-tertiary);
   }
 
-  .related-method__year {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    color: var(--hc-gold);
+  .motzki-carousel__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
   }
 
-  .related-method h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    line-height: 1.3;
-    font-weight: 500;
+  .motzki-carousel__eyebrow span:first-child {
+    color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .motzki-carousel__line {
+    width: 2.4rem;
+    height: 1px;
+    background: var(--hc-rule-strong);
+  }
+
+  .motzki-carousel__counter {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .motzki-carousel__counter strong {
     color: var(--hc-text-primary);
   }
 
-  .related-method p {
-    margin: 0.5rem 0 0;
+  .motzki-carousel__stage {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .motzki-card {
+    grid-area: 1 / 1 / 2 / 2;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: clamp(1.75rem, 4vw, 2.75rem);
+    opacity: 0;
+    transform: translateY(8px);
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 220ms ease;
+  }
+
+  .motzki-card.is-active {
+    opacity: 1;
+    transform: translateY(0);
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 2;
+  }
+
+  .motzki-card--origins-jurisprudence,
+  .motzki-card--analysing-traditions,
+  .motzki-card--biography-muhammad,
+  .motzki-card--reconstruction-ishaq,
+  .motzki-card--hadith-origins {
+    background: transparent;
+    color: inherit;
+  }
+
+  .motzki-card__topline {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .motzki-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem 0.75rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    text-align: right;
+  }
+
+  .motzki-card__meta span + span::before {
+    content: '·';
+    margin-right: 0.75rem;
+    color: var(--hc-rule-strong);
+  }
+
+  .motzki-card__rule {
+    height: 1px;
+    margin: 0.25rem 0 0.5rem;
+    background: var(--hc-rule);
+  }
+
+  .motzki-card__heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .motzki-card__subject,
+  .motzki-card__label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    color: var(--hc-gold);
+  }
+
+  .motzki-card h3 {
+    max-width: 32ch;
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.65rem, 2.8vw, 2.35rem);
+    font-weight: 400;
+    line-height: 1.18;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+
+  .motzki-card__sources-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 0.25rem;
+    font-family: var(--font-display, serif);
+    font-size: 0.98rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .motzki-card__dash {
+    color: var(--hc-rule-strong);
+  }
+
+  .motzki-card__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr);
+    gap: 1.5rem clamp(2rem, 5vw, 4rem);
+    align-items: start;
+    margin-top: 0.5rem;
+  }
+
+  .motzki-card__summary-wrap {
+    min-width: 0;
+  }
+
+  .motzki-card__summary {
+    max-width: 68ch;
+    margin: 0.55rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.78;
+    color: var(--hc-text-secondary);
+  }
+
+  .motzki-card__points {
+    min-width: 0;
+    padding-left: 1.5rem;
+    border-left: 1px solid var(--hc-rule);
+  }
+
+  .motzki-card__points-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.55rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .motzki-card__points-head span:last-child {
+    color: var(--hc-gold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .motzki-card__points ul {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .motzki-card__points li {
+    display: grid;
+    grid-template-columns: 0.75rem minmax(0, 1fr);
+    gap: 0.55rem;
     font-size: 0.84rem;
     line-height: 1.6;
     color: var(--hc-text-secondary);
   }
 
-  .other-works {
-    margin-top: 1.5rem;
+  .motzki-point-mark {
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+  }
+
+  .motzki-card__action {
+    margin-top: 1.25rem;
+  }
+
+  .motzki-card__action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--hc-gold);
+    border-radius: var(--radius-xs, 4px);
+    background: color-mix(in srgb, var(--hc-gold) 8%, transparent);
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .motzki-card__action-btn:hover,
+  .motzki-card__action-btn:focus-visible {
+    color: #ffffff;
+    background: var(--hc-gold);
+  }
+
+  .motzki-card__action-btn svg {
+    transition: transform 150ms ease;
+  }
+
+  .motzki-card__action-btn:hover svg,
+  .motzki-card__action-btn:focus-visible svg {
+    transform: translateX(3px);
+  }
+
+  .motzki-card__series-strip {
+    padding-bottom: 0.5rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .motzki-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    margin-top: auto;
+    padding-top: 0.9rem;
     border-top: 1px solid var(--hc-rule);
+  }
+
+  .motzki-card__edition-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    font-family: var(--font-display, serif);
+    font-size: 0.88rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .motzki-card__edition-title {
+    color: var(--hc-text-primary);
+  }
+
+  .motzki-card__edition-sub {
+    color: var(--hc-text-tertiary);
+  }
+
+  .motzki-card__publisher-tag {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  /* -----------------------------------------------------------------------
+     08 — Related scholarship / bibliography
+     ----------------------------------------------------------------------- */
+
+  .related-section {
+    padding-top: clamp(4.5rem, 8vw, 7rem);
+  }
+
+  .related-method-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--hc-rule-strong);
+  }
+
+  .related-method {
+    display: grid;
+    align-content: start;
+    min-width: 0;
+    padding: 1.3rem 0 1.45rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .related-method:nth-child(odd) {
+    padding-right: 2rem;
+  }
+
+  .related-method:nth-child(even) {
+    padding-left: 2rem;
+    border-left: 1px solid var(--hc-rule);
+  }
+
+  .related-method__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.55rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    line-height: 1.4;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .related-method__year {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .related-method h3 {
+    max-width: 30ch;
+    margin: 0;
+    font-family: var(--font-display, serif);
+    font-size: clamp(1.25rem, 2vw, 1.65rem);
+    font-weight: 400;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .related-method p {
+    max-width: 62ch;
+    margin: 0.65rem 0 0;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    color: var(--hc-text-secondary);
+  }
+
+  .other-works {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule);
   }
 
   .other-works__head {
     display: flex;
     justify-content: space-between;
-    align-items: center;
     gap: 1rem;
-    padding-top: 1rem;
+    align-items: baseline;
+    padding: 0.9rem 0;
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    text-transform: uppercase;
+    font-size: 0.75rem;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--hc-text-tertiary);
-    flex-wrap: wrap;
   }
 
   .other-works__head a {
-    color: var(--hc-gold);
+    color: var(--hc-text-secondary);
     text-decoration: none;
-    transition: color var(--motion-fast) ease;
   }
 
-  .other-works__head a:hover {
-    text-decoration: underline;
+  .other-works__head a:hover,
+  .other-works__head a:focus-visible {
+    color: var(--hc-gold);
   }
 
-  /* ── Light Mode Calibration ── */
-  :root[data-theme="light"] .studies-page {
-    background:
-      radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--hc-gold) 12%, transparent), transparent 28rem),
-      linear-gradient(180deg, var(--hc-surface-0) 0%, var(--hc-surface-1) 50%, var(--hc-surface-0) 100%);
-  }
+  /* -----------------------------------------------------------------------
+     09 — Focus states / reduced motion
+     ----------------------------------------------------------------------- */
 
-  :root[data-theme="light"] .archival-cover-stage {
-    background: linear-gradient(155deg, #22201d 0%, #171514 60%, #0d0c0b 100%);
-    color: #f7f3ea;
-  }
-
-  :root[data-theme="light"] .archival-cover-border {
-    border-color: rgba(216, 177, 102, 0.45);
-  }
-
-
-  /* ── Responsive ── */
-  @media (max-width: 980px) {
-    .hero-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .hero-index {
-      min-height: auto;
-      border-left: 0;
-      border-top: 1px solid var(--hc-rule);
-      padding: 1.2rem 0 0;
-    }
-
-    .hero-index__list {
-      margin-top: 1rem;
-    }
-
-    .icma-card {
-      padding: 1.4rem 1.6rem;
-    }
-
-    .icma-card__art-diagram {
-      width: clamp(200px, 38%, 340px);
-      opacity: 0.16;
-    }
-
-    .icma-card__art-watermark {
-      font-size: clamp(5rem, 10vw, 7.5rem);
-      top: 1rem;
-      right: 1.2rem;
-    }
-
-    .register-row {
-      grid-template-columns: 190px minmax(0, 1fr) 80px;
-    }
-
-    .register-row--head span:nth-child(3),
-    .register-classification {
-      display: none;
-    }
-
-
-    .related-method-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .related-method:nth-child(2n + 1) {
-      border-left: 1px solid var(--hc-rule);
-    }
-  }
-
-  @media (max-width: 720px) {
-    .studies-title {
-      font-size: clamp(1.95rem, 8vw, 2.65rem);
-    }
-
-    .section-intro,
-    .register-header {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-
-    .icma-card {
-      padding: 1.25rem 1.15rem;
-    }
-
-    .icma-card__art-diagram {
-      display: none;
-    }
-
-    .icma-card__art-watermark {
-      font-size: 5rem;
-      top: 0.5rem;
-      right: 0.6rem;
-      opacity: 0.04;
-    }
-
-    .icma-card__title {
-      font-size: clamp(1.25rem, 4.8vw, 1.55rem);
-    }
-
-    .icma-card__arabic {
-      font-size: 1.1rem;
-    }
-
-    .icma-card__dossier {
-      grid-template-columns: 1fr;
-      gap: 0.8rem;
-    }
-
-    .icma-card__footer {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.75rem;
-    }
-
-    .studies-carousel__topbar {
-      align-items: flex-start;
-    }
-
-    .studies-carousel__controls {
-      grid-template-columns: auto 1fr auto;
-    }
-
-    .studies-carousel__dots {
-      overflow: auto;
-      justify-content: flex-start;
-      scrollbar-width: none;
-    }
-
-    .studies-carousel__dots::-webkit-scrollbar {
-      display: none;
-    }
-
-    .studies-carousel__dot {
-      flex: 0 0 auto;
-    }
-
-    .studies-carousel__button span {
-      display: none;
-    }
-
-    .register-toolbar {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .register-search-wrap {
-      max-width: none;
-    }
-
-    .register-row {
-      grid-template-columns: 1fr;
-      gap: 0.8rem;
-    }
-
-    .register-row--head {
-      display: none;
-    }
-
-    .register-action {
-      justify-content: flex-start;
-    }
-
-
-    .related-method-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .related-method:first-child,
-    .related-method:nth-child(2n + 1) {
-      border-left: 1px solid var(--hc-rule);
-    }
-
-    .related-method {
-      border-right: 1px solid var(--hc-rule);
-    }
-  }
-
-
-  @media (max-width: 900px) {
-    .motzki-card__body { grid-template-columns: 1fr; }
-    .motzki-card__points { padding-left: 0; border-left: 0; padding-top: .9rem; border-top: 1px solid var(--hc-rule); }
-  }
-
-  @media (max-width: 720px) {
-    .motzki-header { align-items: flex-start; flex-direction: column; }
-    .motzki-carousel__topbar { align-items: flex-start; }
-    .motzki-card { padding: 1.15rem 1rem; }
-    .motzki-card--origins-jurisprudence,
-    .motzki-card--biography-muhammad {
-      padding: 1.15rem 1rem;
-    }
-    .motzki-card--analysing-traditions,
-    .motzki-card--reconstruction-ishaq {
-      padding-left: 2.5rem;
-      padding-right: 1.15rem;
-    }
-    .motzki-card--analysing-traditions::before,
-    .motzki-card--reconstruction-ishaq::before {
-      width: 1.75rem;
-    }
-    .motzki-card--hadith-origins {
-      padding: 1.25rem 1.15rem;
-    }
-    .motzki-card--hadith-origins::before {
-      inset: 0.4rem;
-      outline-offset: -3px;
-    }
-    .motzki-card__meta { font-size: .76rem; }
-    .motzki-carousel__controls { grid-template-columns: auto 1fr auto; }
-    .motzki-carousel__dots { overflow: auto; justify-content: flex-start; scrollbar-width: none; }
-    .motzki-carousel__dots::-webkit-scrollbar { display: none; }
-    .motzki-carousel__dot { flex: 0 0 auto; }
-    .motzki-carousel__button span { display: none; }
+  .studies-page :focus-visible {
+    outline: 2px solid var(--hc-gold);
+    outline-offset: 3px;
   }
 
   @media (prefers-reduced-motion: reduce) {
     .icma-card,
-    .motzki-card {
+    .motzki-card,
+    .studies-carousel__stage,
+    .motzki-carousel__stage,
+    .motzki-card__action-btn svg {
       transition: none !important;
       transform: none !important;
     }
   }
 
+  /* -----------------------------------------------------------------------
+     Responsive editorial collapse
+     ----------------------------------------------------------------------- */
+
+  @media (max-width: 1000px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .hero-index {
+      padding: 1.25rem;
+    }
+
+    .hero-index__line {
+      margin: 0.35rem 0;
+    }
+
+    .hero-index__list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .hero-index__list div {
+      border-top: 0;
+      border-right: 1px solid var(--hc-rule);
+      padding: 0;
+    }
+
+    .hero-index__list div:last-child {
+      border-right: 0;
+      border-bottom: 0;
+    }
+
+    .studies-title {
+      max-width: 18ch;
+    }
+
+    .icma-card__body,
+    .motzki-card__body {
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+
+    .icma-card__colophon {
+      grid-template-columns: 1fr;
+    }
+
+    .icma-card__actions {
+      justify-content: flex-start;
+    }
+
+    .motzki-card__points {
+      padding-left: 0;
+      padding-top: 1rem;
+      border-left: 0;
+      border-top: 1px solid var(--hc-rule);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .studies-page .hc-container {
+      width: min(calc(100% - 1.25rem), var(--studies-max));
+    }
+
+    .hero-grid {
+      padding-top: 2.5rem;
+    }
+
+    .studies-title {
+      font-size: clamp(2rem, 9vw, 3rem);
+    }
+
+    .hero-meta-line {
+      gap: 0.5rem 1.25rem;
+    }
+
+    .hero-index__list {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-index__list div {
+      padding: 0.65rem 0;
+      border-right: 0;
+      border-top: 1px solid var(--hc-rule);
+    }
+
+    .hero-index__list div:first-child {
+      border-top: 0;
+    }
+
+    .section-intro,
+    .studies-shelf__header,
+    .motzki-header,
+    .studies-ledger__header {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .section-title {
+      max-width: 18ch;
+    }
+
+    .studies-ribbon__item {
+      max-width: 16rem;
+      min-width: 12rem;
+    }
+
+    .studies-carousel__topbar,
+    .motzki-carousel__topbar {
+      align-items: flex-start;
+    }
+
+    .icma-card {
+      padding: 1.35rem 1rem;
+    }
+
+    .icma-card__folio-bar {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .icma-card__folio-right {
+      justify-content: flex-start;
+    }
+
+    .icma-card__title {
+      max-width: 20ch;
+      font-size: clamp(1.5rem, 6.5vw, 2.1rem);
+    }
+
+    .icma-card__colophon {
+      margin-top: auto;
+      padding-top: 1.25rem;
+    }
+
+    .studies-carousel__controls,
+    .motzki-carousel__controls {
+      grid-template-columns: auto 1fr auto;
+    }
+
+    .studies-carousel__dots,
+    .motzki-carousel__dots {
+      justify-content: flex-start;
+    }
+
+    .studies-carousel__dot,
+    .motzki-carousel__dot {
+      flex: 0 0 1.2rem;
+    }
+
+    .studies-carousel__button span,
+    .motzki-carousel__button span {
+      display: none;
+    }
+
+    .motzki-card {
+      padding: 1.35rem 1rem;
+    }
+
+    .motzki-card__topline {
+      justify-content: flex-start;
+    }
+
+    .motzki-card__meta {
+      justify-content: flex-start;
+      text-align: left;
+    }
+
+    .motzki-card h3 {
+      max-width: 20ch;
+      font-size: clamp(1.45rem, 6.5vw, 2rem);
+    }
+
+    .motzki-card__footer {
+      margin-top: auto;
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .related-method-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .related-method:nth-child(odd),
+    .related-method:nth-child(even) {
+      padding-inline: 0;
+      border-left: 0;
+    }
+
+    .other-works__head {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .studies-title-accent {
+      display: block;
+      margin-top: 0.1em;
+    }
+
+    .hero-meta-line {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .hero-meta-line strong {
+      margin-bottom: 0.35rem;
+    }
+
+    .icma-card__hero {
+      padding-top: 1.65rem;
+    }
+
+    .icma-card__title {
+      font-size: clamp(1.95rem, 11.5vw, 3rem);
+    }
+
+    .studies-ledger__meta {
+      text-align: left;
+    }
+  }
 </style>

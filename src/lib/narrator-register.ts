@@ -8,6 +8,8 @@
  * are now the database's job, so a page of results is a few KB.
  */
 
+import { searchNarratorsClient } from './corpus-client';
+
 export interface NarratorRow {
   id: number;
   name_en: string;
@@ -92,6 +94,14 @@ export function initNarratorRegister(): void {
     history.replaceState(null, '', qs ? `${location.pathname}?${qs}` : location.pathname);
   }
 
+  const gradeTone = (g: string) => {
+    const s = (g || '').toLowerCase();
+    if (s.startsWith('thiqa') || s.startsWith('saduq')) return 'is-trusted';
+    if (s.startsWith("da'if") || s.startsWith('daif') || s.startsWith('matruk')) return 'is-weak';
+    if (s.startsWith('majhul') || s.startsWith('maqbul') || s.startsWith('unrated')) return 'is-unknown';
+    return '';
+  };
+
   function rowMarkup(r: NarratorRow, index: number): string {
     const meta = [
       r.generation,
@@ -112,8 +122,16 @@ export function initNarratorRegister(): void {
       .join('<span class="reg-sep" aria-hidden="true">·</span>');
 
     const picked = selected.has(r.id);
+    const gradeCls = gradeTone(r.grade);
+
     return `
       <li class="reg-row">
+        <button type="button" class="reg-pick${picked ? ' is-picked' : ''}"
+                data-pick="${r.id}" data-name="${esc(r.name_en || r.name_ar)}"
+                aria-pressed="${picked}"
+                aria-label="${picked ? 'Remove from' : 'Add to'} comparison: ${esc(r.name_en || r.name_ar)}">
+          <span aria-hidden="true">${picked ? '−' : '+'}</span>
+        </button>
         <span class="reg-index">${index}</span>
         <a class="reg-main" href="/narrators/${r.id}">
           <span class="reg-names">
@@ -122,14 +140,8 @@ export function initNarratorRegister(): void {
           </span>
           <span class="reg-meta">${meta}</span>
         </a>
-        <span class="reg-grade">${esc(r.grade || 'Unrated')}</span>
+        <span class="reg-grade ${gradeCls}">${esc(r.grade || 'Unrated')}</span>
         <span class="reg-counts">${counts}</span>
-        <button type="button" class="reg-pick${picked ? ' is-picked' : ''}"
-                data-pick="${r.id}" data-name="${esc(r.name_en || r.name_ar)}"
-                aria-pressed="${picked}"
-                aria-label="${picked ? 'Remove from' : 'Add to'} comparison: ${esc(r.name_en || r.name_ar)}">
-          <span aria-hidden="true">${picked ? '−' : '+'}</span>
-        </button>
       </li>`;
   }
 
@@ -157,9 +169,23 @@ export function initNarratorRegister(): void {
     status.textContent = 'Searching…';
 
     try {
-      const res = await fetch(`/api/narrators?${qs}`, { signal: inflight.signal });
-      if (!res.ok) throw new Error(`Register query failed (${res.status})`);
-      const data = (await res.json()) as QueryResponse;
+      let data: QueryResponse;
+      try {
+        data = (await searchNarratorsClient({
+          q: state.q,
+          generation: state.generation,
+          grade: state.grade,
+          century: state.century ? parseInt(state.century, 10) : undefined,
+          sort: state.sort,
+          page: parseInt(state.page, 10) || 1,
+          size: parseInt(state.size, 10) || 50,
+          graded: state.graded === '1'
+        })) as unknown as QueryResponse;
+      } catch {
+        const res = await fetch(`/api/narrators?${qs}`, { signal: inflight.signal });
+        if (!res.ok) throw new Error(`Register query failed (${res.status})`);
+        data = (await res.json()) as QueryResponse;
+      }
 
       const first = (data.page - 1) * data.size + 1;
       list.innerHTML = data.results.map((r, i) => rowMarkup(r, first + i)).join('');

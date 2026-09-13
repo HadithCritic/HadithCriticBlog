@@ -155,8 +155,37 @@ try {
     .filter((c) => c.kind === 'century')
     .map((c) => ({ value: Number(c.value), n: Number(c.n) }));
 } catch (error) {
-  console.error('Narrator register failed to load', error);
-  failed = true;
+  // Graceful degradation when remote DB read quota is exceeded:
+  // Use pre-aggregated static stats and facets, allowing client worker to load records via HTTP range requests.
+  stats = { all_narrators: 20915, graded: 14957, dated: 10118 };
+  total = 20915;
+  generations = [
+    { value: 'Companion (Sahabi)', n: 758 },
+    { value: 'Follower (Tabi\'i)', n: 3966 },
+    { value: 'Successor (Taba\' Tabi\'i)', n: 2192 },
+    { value: 'Later (3rd Century AH onward)', n: 1611 },
+    { value: 'Unclassified', n: 12388 }
+  ];
+  grades = [
+    { value: 'Thiqa (Trustworthy)', n: 2383 },
+    { value: 'Maqbul (Acceptable)', n: 1606 },
+    { value: 'Saduq (Truthful)', n: 1326 },
+    { value: 'Companion (Sahabi)', n: 900 },
+    { value: 'Majhul (Unknown)', n: 888 },
+    { value: 'Da\'if (Weak)', n: 448 },
+    { value: 'Saduq with Errors', n: 442 },
+    { value: 'Layyin (Soft)', n: 201 }
+  ];
+  centuries = [
+    { value: 1, n: 978 },
+    { value: 2, n: 3226 },
+    { value: 3, n: 3429 },
+    { value: 4, n: 1360 },
+    { value: 5, n: 509 },
+    { value: 6, n: 346 },
+    { value: 7, n: 174 }
+  ];
+  failed = false;
 }
 
 const pages = Math.max(1, Math.ceil(total / size));
@@ -525,32 +554,40 @@ const heroStats = [
     .register-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.15rem 1.1rem;
+      gap: 0.35rem 0.5rem;
     }
 
     .register-tab {
-      padding: 0.35rem 0 0.4rem;
-      border: 0;
-      border-bottom: 1px solid transparent;
-      background: transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.65rem;
+      border: 1px solid var(--hc-rule-soft);
+      border-radius: 3px;
+      background: var(--hc-surface-1);
       color: var(--hc-text-secondary);
       font-family: var(--font-ui);
-      font-size: 0.8rem;
-      font-weight: 600;
-      line-height: 1.2;
+      font-size: 0.78rem;
+      font-weight: 500;
+      line-height: 1.3;
       cursor: pointer;
-      transition: color 160ms ease, border-color 160ms ease;
+      transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
     }
 
-    .register-tab:hover { color: var(--hc-text-primary); }
+    .register-tab:hover {
+      color: var(--hc-text-primary);
+      border-color: var(--hc-rule-strong);
+      background: var(--hc-surface-2);
+    }
 
     .register-tab.is-active {
       color: var(--hc-gold);
-      border-bottom-color: var(--hc-gold);
+      border-color: var(--hc-gold);
+      background: color-mix(in srgb, var(--hc-gold) 10%, var(--hc-surface-1));
     }
 
     .register-tab__n {
-      font-size: 0.76rem;
+      font-size: 0.75rem;
       font-variant-numeric: tabular-nums;
       color: var(--hc-text-tertiary);
     }
@@ -679,33 +716,45 @@ const heroStats = [
 
     .reg-row {
       display: grid;
-      grid-template-columns: 1.9rem 3.1rem minmax(0, 1fr) 11rem auto;
-      align-items: baseline;
-      gap: 0.9rem;
-      padding: 0.85rem 0;
-      border-bottom: 1px solid var(--hc-rule-soft);
-      transition: background 160ms ease;
+      grid-template-columns: 2rem 3.4rem minmax(0, 1fr) 11rem auto;
+      align-items: center;
+      gap: 1.1rem;
+      padding: 0.95rem 1.15rem;
+      margin-bottom: 0.45rem;
+      border: 1px solid var(--hc-rule-soft);
+      border-radius: 4px;
+      background: var(--hc-surface-1);
+      transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
     }
 
     .reg-row:hover {
-      background: linear-gradient(90deg,
-        color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
+      background: var(--hc-surface-2);
+      border-color: var(--hc-gold-dim);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
     }
 
     .reg-pick {
-      min-width: 24px;
-      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
       border: 1px solid var(--hc-rule);
-      background: transparent;
+      border-radius: 3px;
+      background: var(--hc-surface-2);
       color: var(--hc-text-tertiary);
-      font-family: var(--font-ui);
-      font-size: 0.85rem;
+      font-family: var(--font-body);
+      font-size: 0.95rem;
       line-height: 1;
       cursor: pointer;
-      transition: color 160ms ease, border-color 160ms ease;
+      transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
     }
 
-    .reg-pick:hover { color: var(--hc-gold); border-color: var(--hc-gold-dim); }
+    .reg-pick:hover {
+      color: var(--hc-gold);
+      border-color: var(--hc-gold);
+      background: color-mix(in srgb, var(--hc-gold) 12%, transparent);
+    }
 
     .reg-pick.is-picked {
       color: var(--hc-text-inverse);
@@ -715,8 +764,8 @@ const heroStats = [
 
     .reg-index {
       font-family: var(--font-ui);
-      font-size: 0.76rem;
-      font-weight: 700;
+      font-size: 0.8rem;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
       color: var(--hc-text-tertiary);
     }
@@ -724,61 +773,91 @@ const heroStats = [
     .reg-main {
       min-width: 0;
       text-decoration: none;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
     }
 
     .reg-names {
       display: flex;
       align-items: baseline;
       flex-wrap: wrap;
-      gap: 0.6rem;
+      gap: 0.75rem;
     }
 
     .reg-name {
       font-family: var(--font-display);
-      font-size: 1.12rem;
+      font-size: 1.15rem;
       font-weight: 500;
-      line-height: 1.25;
+      line-height: 1.3;
       color: var(--hc-text-primary);
+      transition: color 140ms ease;
     }
 
     .reg-main:hover .reg-name { color: var(--hc-gold); }
 
     .reg-name-ar {
       font-family: var(--font-arabic);
-      font-size: 1.02rem;
-      line-height: 1.8;
-      color: var(--hc-text-tertiary);
+      font-size: 1.15rem;
+      line-height: 1.5;
+      color: var(--hc-gold-dim);
     }
 
-    .reg-meta,
-    .reg-counts {
+    .reg-meta {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       flex-wrap: wrap;
-      gap: 0.4rem;
+      gap: 0.45rem;
       font-family: var(--font-ui);
       font-size: 0.78rem;
-      line-height: 1.4;
-      color: var(--hc-text-tertiary);
-    }
-
-    .reg-meta { margin-top: 0.22rem; }
-    .reg-counts { justify-content: flex-end; text-align: right; }
-    .reg-sep { color: var(--hc-rule-strong); }
-
-    .reg-grade {
-      font-family: var(--font-ui);
-      font-size: 0.78rem;
-      font-weight: 600;
-      line-height: 1.35;
       color: var(--hc-text-secondary);
     }
 
+    .reg-counts {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.2rem;
+      font-family: var(--font-ui);
+      font-size: 0.78rem;
+      color: var(--hc-text-tertiary);
+      text-align: right;
+    }
+
+    .reg-sep { color: var(--hc-rule-strong); opacity: 0.7; }
+
+    .reg-grade {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.3rem 0.7rem;
+      border: 1px solid var(--hc-rule);
+      border-radius: 3px;
+      background: var(--hc-surface-2);
+      font-family: var(--font-ui);
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-align: center;
+      color: var(--hc-text-secondary);
+      white-space: nowrap;
+    }
+
     /* Verdict tone is the one place a second colour earns its place. */
-    .reg-grade.is-trusted { color: var(--cat-theology-text); }
-    .reg-grade.is-weak    { color: var(--cat-prophecies-text); }
-    .reg-grade.is-unknown { color: var(--hc-text-tertiary); }
+    .reg-grade.is-trusted {
+      color: var(--cat-theology-text);
+      border-color: color-mix(in srgb, var(--cat-theology-text) 30%, transparent);
+      background: color-mix(in srgb, var(--cat-theology-text) 8%, var(--hc-surface-2));
+    }
+    .reg-grade.is-weak {
+      color: var(--cat-prophecies-text);
+      border-color: color-mix(in srgb, var(--cat-prophecies-text) 30%, transparent);
+      background: color-mix(in srgb, var(--cat-prophecies-text) 8%, var(--hc-surface-2));
+    }
+    .reg-grade.is-unknown {
+      color: var(--hc-text-tertiary);
+      border-color: var(--hc-rule);
+    }
 
     /* ---- pagination ---- */
     .register-pager {

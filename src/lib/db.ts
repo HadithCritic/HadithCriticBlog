@@ -29,6 +29,26 @@ import { env } from 'cloudflare:workers';
  * D1, not less: they now save latency as well as quota.
  */
 
+async function queryLocalBridge<T = Record<string, unknown>>(
+  statements: { sql: string; args?: unknown[] }[]
+): Promise<QueryResult<T>[] | null> {
+  try {
+    const res = await fetch('http://127.0.0.1:4322/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ statements }),
+      signal: AbortSignal.timeout(600)
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { results: T[] }[];
+      return data.map((d) => ({ results: d.results, success: true }));
+    }
+  } catch {
+    // Bridge not running or request timed out
+  }
+  return null;
+}
+
 /**
  * Run one operation on a connection of its own, and close it afterwards.
  *
@@ -93,17 +113,23 @@ export class Statement {
   }
 
   async all<T = Record<string, unknown>>(): Promise<QueryResult<T>> {
+    const bridgeRes = await queryLocalBridge<T>([{ sql: this.sql, args: this.args }]);
+    if (bridgeRes?.[0]) return bridgeRes[0];
     const rows = await withConnection((conn) => conn.all(this.sql, ...this.args));
     return { results: rows as T[], success: true };
   }
 
   /** First row, or null when nothing matched — D1's contract, not `undefined`. */
   async first<T = Record<string, unknown>>(): Promise<T | null> {
+    const bridgeRes = await queryLocalBridge<T>([{ sql: this.sql, args: this.args }]);
+    if (bridgeRes?.[0]) return (bridgeRes[0].results[0] as T | undefined) ?? null;
     const row = await withConnection((conn) => conn.get(this.sql, ...this.args));
     return (row as T | undefined) ?? null;
   }
 
   async run(): Promise<QueryResult> {
+    const bridgeRes = await queryLocalBridge([{ sql: this.sql, args: this.args }]);
+    if (bridgeRes?.[0]) return { results: [], success: true };
     await withConnection((conn) => conn.run(this.sql, ...this.args));
     return { results: [], success: true };
   }
@@ -127,6 +153,11 @@ export const db = {
   batch: async <T = Record<string, unknown>>(
     statements: Statement[]
   ): Promise<QueryResult<T>[]> => {
+    const bridgeRes = await queryLocalBridge<T>(
+      statements.map((s) => ({ sql: s.sql, args: s.args }))
+    );
+    if (bridgeRes) return bridgeRes;
+
     const results = await withConnection((conn) =>
       conn.batch(
         statements.map((s) => ({ sql: s.sql, args: s.args })),
@@ -139,3 +170,4 @@ export const db = {
     }));
   }
 };
+

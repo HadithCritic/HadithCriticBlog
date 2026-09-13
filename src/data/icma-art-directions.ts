@@ -2,6 +2,7 @@
  * ICMA Archive Art Directions & Visual Profiles
  * Refined, minimalist scholarly archive system focusing on authentic
  * bookbinding textures and restrained, deep academic color palettes.
+ * Tailored for all 27 ICMA monograph investigations in the archive.
  */
 
 export interface ICMAArtDirection {
@@ -63,8 +64,8 @@ export const icmaArtDirections: Record<string, ICMAArtDirection> = {
   "3-origins-mahdi-hadith-ibn-al-zubayr": {
     family: "chronology",
     palette: {
-      bg: "#340d16",
-      bgAccent: "#1a050a",
+      bg: "#2b0d15",
+      bgAccent: "#15050a",
       border: "rgba(223, 190, 125, 0.35)",
       rule: "rgba(223, 190, 125, 0.2)",
       accent: "#dfb873",
@@ -78,7 +79,7 @@ export const icmaArtDirections: Record<string, ICMAArtDirection> = {
   },
 
   // 03 · Bedouins Building Tall Buildings
-  "6-bedouins-building-tall-buildings-prophecy": {
+  "5-debunking-the-hadith-prophecy-of-bedouins-building-tall-buildings": {
     family: "network",
     palette: {
       bg: "#13171f",
@@ -95,435 +96,435 @@ export const icmaArtDirections: Record<string, ICMAArtDirection> = {
     analyticalNote: "Traces the Jibrīl hadith’s architectural clause across early Iraqi and Medinan branches, identifying al-Zuhrī and Abū Hurayrah lines as critical transmission convergence points."
   },
 
-  // 04 · Call to Prayer Adhan Origin
-  "9-call-to-prayer-adhan-dream-origin": {
-    family: "variants",
+  // 04 · The First Revelation Story
+  "8-the-first-revelation-story-a-zubayrid-call-narrative": {
+    family: "source-reconstruction",
     palette: {
-      bg: "#121d15",
-      bgAccent: "#08100b",
+      bg: "#191512",
+      bgAccent: "#0c0a09",
       border: "rgba(216, 186, 130, 0.32)",
       rule: "rgba(216, 186, 130, 0.18)",
-      accent: "#cdb070",
-      accentBright: "#edd092",
-      paper: "#f6f4eb",
-      muted: "rgba(246, 244, 235, 0.72)"
+      accent: "#d8ba82",
+      accentBright: "#f3cf88",
+      paper: "#faf5ea",
+      muted: "rgba(250, 245, 234, 0.72)"
     },
-    texture: "ledger",
-    motifLabel: "Matn Variants · Ritual Origin Narratives",
-    analyticalNote: "Compares competing dream narratives (ʿAbd Allāh b. Zayd vs. ʿUmar b. al-Khaṭṭāb) to chart how liturgical practices were legitimized through retrospective narrative expansion."
+    texture: "buckram",
+    motifLabel: "Biographical Source Reconstruction",
+    analyticalNote: "Deconstructs the ʿUrwa-al-Zuhrī narrative of the cave of Ḥirāʾ, demonstrating how family memory and Zubayrid political interests shaped early prophetic biographies."
   },
 
-  // 05 · Slandering the Dead
-  "11-slandering-the-dead-muammar-ibn-al-muthanna": {
-    family: "legal",
+  // 05 · The Hasanid Mahdi
+  "15-the-hasanid-mahdi-a-mahdi-fabricated-by-asim-teacher-of-quran-reciter-hafs": {
+    family: "polemics",
     palette: {
-      bg: "#241610",
-      bgAccent: "#130a06",
-      border: "rgba(220, 182, 130, 0.32)",
-      rule: "rgba(220, 182, 130, 0.18)",
-      accent: "#d2a762",
-      accentBright: "#f5caa8",
+      bg: "#1c1214",
+      bgAccent: "#0e080a",
+      border: "rgba(224, 185, 135, 0.32)",
+      rule: "rgba(224, 185, 135, 0.18)",
+      accent: "#dfb776",
+      accentBright: "#f8d598",
       paper: "#faf5ec",
       muted: "rgba(250, 245, 236, 0.72)"
     },
-    texture: "buckram",
-    motifLabel: "Juridical Transmission · Early Iraqi Corpus",
-    analyticalNote: "Reconstructs early Baṣran isnād networks in the Muṣannaf of ʿAbd al-Razzāq to test the integrity of single-strand transmission claims before classical hadith canonization."
+    texture: "morocco",
+    motifLabel: "Dynastic Polemics · Kufan Transmission",
+    analyticalNote: "Identifies ʿĀṣim b. Bahdalah as the common link responsible for interpolating the patronymic «whose father’s name matches my father’s name» to legitimize Muḥammad al-Nafs al-Zakiyyah."
   },
 
-  // 06 · Pen and Paper Incident
-  "12-the-pen-and-paper-incident-calamity-of-thursday": {
+  // 06 · The Kaysanite Mahdi
+  "16-the-kaysanite-mahdi-the-obscure-3rd-son-of-ali": {
     family: "polemics",
     palette: {
-      bg: "#230e20",
-      bgAccent: "#120611",
-      border: "rgba(225, 195, 148, 0.32)",
-      rule: "rgba(225, 195, 148, 0.18)",
-      accent: "#deb682",
-      accentBright: "#fadab0",
-      paper: "#fcf7f1",
-      muted: "rgba(252, 247, 241, 0.72)"
+      bg: "#16121f",
+      bgAccent: "#0a0812",
+      border: "rgba(218, 188, 140, 0.32)",
+      rule: "rgba(218, 188, 140, 0.18)",
+      accent: "#d7b475",
+      accentBright: "#f5d697",
+      paper: "#f8f5ee",
+      muted: "rgba(248, 245, 238, 0.72)"
     },
-    texture: "morocco",
-    motifLabel: "Sectarian Redaction Strata · Thursday Report",
-    analyticalNote: "Maps textual divergences across Ibn ʿAbbās variants regarding the Prophet’s final illness, disentangling early proto-Sunnī and Shīʿī theological polemics."
+    texture: "ledger",
+    motifLabel: "Proto-Shiʿi Eschatology · Kufan Stratum",
+    analyticalNote: "Traces traditions identifying Ibn al-Ḥanafiyyah as Mahdī to Abū al-Ṭufayl and early Kaysānite partisans reacting to the aftermath of Karbalāʾ and al-Mukhtār’s rebellion."
   },
 
-  // 07 · Poisoning at Khaybar
-  "13-the-prophet-poisoning-at-khaybar": {
-    family: "chronology",
-    palette: {
-      bg: "#2b0f13",
-      bgAccent: "#150608",
-      border: "rgba(222, 185, 128, 0.32)",
-      rule: "rgba(222, 185, 128, 0.18)",
-      accent: "#dcb776",
-      accentBright: "#f9d799",
-      paper: "#faf4eb",
-      muted: "rgba(250, 244, 235, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "Historical Stratification · Maghāzī Chronology",
-    analyticalNote: "Traces the talking-poisoned-mutton tradition across al-Zuhrī and Ibn Isḥāq to distinguish historical reminiscence from supernatural apologetic embellishments."
-  },
-
-  // 08 · First Revelation (Iqra)
-  "14-the-first-revelation-iqra-khadija-waraqa": {
-    family: "source-reconstruction",
-    palette: {
-      bg: "#0f1622",
-      bgAccent: "#070c12",
-      border: "rgba(223, 190, 125, 0.34)",
-      rule: "rgba(223, 190, 125, 0.18)",
-      accent: "#dfbe7d",
-      accentBright: "#f7dc9d",
-      paper: "#f9f6ef",
-      muted: "rgba(249, 246, 239, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "Source Reconstruction · al-Zuhrī Stratum",
-    analyticalNote: "Reconstructs Ibn Shihāb al-Zuhrī’s composite narrative through parallel recensions of Maʿmar, ʿUqayl, and Yūnus, recovering the earliest identifiable narrative kernel."
-  },
-
-  // 09 · Hasanid Mahdi Fabrication
-  "15-the-hasanid-mahdi-fabrication-asim-hafs": {
+  // 07 · The Bewitched Prophet Report
+  "21-hadith-the-prophet-was-bewitched-by-a-jew": {
     family: "variants",
     palette: {
-      bg: "#101e16",
-      bgAccent: "#08100b",
+      bg: "#151b18",
+      bgAccent: "#0a0e0c",
+      border: "rgba(215, 190, 135, 0.32)",
+      rule: "rgba(215, 190, 135, 0.18)",
+      accent: "#d4b574",
+      accentBright: "#f3d796",
+      paper: "#f7f5ec",
+      muted: "rgba(247, 245, 236, 0.72)"
+    },
+    texture: "laid",
+    motifLabel: "Textual Matn Discrepancy · Epistemic Tension",
+    analyticalNote: "Maps the divergent transmission lines through Hishām b. ʿUrwa across Iraqi and Medinan students, isolating theological contamination and folklorization."
+  },
+
+  // 08 · The Abbasid Mahdi & Black Banners
+  "22-the-abbasid-mahdi-the-black-banners-abu-abbas-al-saffah": {
+    family: "polemics",
+    palette: {
+      bg: "#111215",
+      bgAccent: "#08080a",
+      border: "rgba(220, 185, 125, 0.35)",
+      rule: "rgba(220, 185, 125, 0.2)",
+      accent: "#dbb672",
+      accentBright: "#f6d695",
+      paper: "#f9f6ed",
+      muted: "rgba(249, 246, 237, 0.74)"
+    },
+    texture: "morocco",
+    motifLabel: "Revolutionary Propaganda · Khurasani Millenarianism",
+    analyticalNote: "Identifies pro-Abbasid dāʿī transmission networks fabricating black-banner eschatology to underwrite the overthrow of the Umayyad caliphate in 132 AH."
+  },
+
+  // 09 · The Fire from Hijaz
+  "24-fabricated-hadith-prophecy-the-fire-from-hijaz-the-eruption-of-641-ad": {
+    family: "chronology",
+    palette: {
+      bg: "#25110d",
+      bgAccent: "#120705",
+      border: "rgba(228, 185, 120, 0.35)",
+      rule: "rgba(228, 185, 120, 0.2)",
+      accent: "#e0b870",
+      accentBright: "#f9d892",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.74)"
+    },
+    texture: "vellum",
+    motifLabel: "Event-Dating Terminus · Volcanic Memory",
+    analyticalNote: "Correlates the Busra-camel-neck illumination motif with historical volcanic eruptions in the Ḥarrat Rahat field, tracing the transmission hub to al-Zuhrī."
+  },
+
+  // 10 · The Siege of Baghdad & Banu Qantura
+  "25-fabricated-hadith-prophecy-the-siege-of-baghdad": {
+    family: "geography",
+    palette: {
+      bg: "#18151f",
+      bgAccent: "#0b0a10",
+      border: "rgba(218, 188, 138, 0.32)",
+      rule: "rgba(218, 188, 138, 0.18)",
+      accent: "#d7b373",
+      accentBright: "#f6d595",
+      paper: "#f8f5ee",
+      muted: "rgba(248, 245, 238, 0.72)"
+    },
+    texture: "ledger",
+    motifLabel: "Basran Frontier Anxieties · Central Asian Threats",
+    analyticalNote: "Examines Saʿīd b. Jumhān’s transmission bottleneck in Baṣra, demonstrating how 8th-century Türgesh and Khazar military conflicts were cast as end-times prophecies."
+  },
+
+  // 11 · Return to Green Arabia
+  "27-fabricated-hadith-prophecy-return-to-green-arabia": {
+    family: "chronology",
+    palette: {
+      bg: "#111b15",
+      bgAccent: "#070d0a",
+      border: "rgba(215, 192, 135, 0.32)",
+      rule: "rgba(215, 192, 135, 0.18)",
+      accent: "#d3b674",
+      accentBright: "#f2d897",
+      paper: "#f7f6ec",
+      muted: "rgba(247, 246, 236, 0.72)"
+    },
+    texture: "laid",
+    motifLabel: "Umayyad Agricultural Stratum · Ecological Eschatology",
+    analyticalNote: "Contextualizes the tradition within Umayyad canalization and oasis estates in the Ḥijāz, pinpointing Suhayl b. Abī Ṣāliḥ as the single transmitting bottleneck."
+  },
+
+  // 12 · The Killing of Umar and the Afflictions
+  "28-fabricated-hadith-prophecy-the-killing-of-umar-the-afflictions": {
+    family: "polemics",
+    palette: {
+      bg: "#201217",
+      bgAccent: "#0f080b",
+      border: "rgba(224, 186, 132, 0.32)",
+      rule: "rgba(224, 186, 132, 0.18)",
+      accent: "#dfb774",
+      accentBright: "#f8d596",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.72)"
+    },
+    texture: "morocco",
+    motifLabel: "Kufan Fitna Memory · Closed-Door Allegory",
+    analyticalNote: "Traces the isnād branches converging on al-Aʿmash in Kūfa, demonstrating how the traumatic memory of the First Fitna was retrojected as a prophecy of ʿUmar’s death."
+  },
+
+  // 13 · The Return of Dhu al-Khalasa
+  "29-fabricated-prophecy-the-prophecied-return-of-dhul-khalasa": {
+    family: "geography",
+    palette: {
+      bg: "#1a1713",
+      bgAccent: "#0d0b09",
+      border: "rgba(218, 186, 130, 0.32)",
+      rule: "rgba(218, 186, 130, 0.18)",
+      accent: "#d8ba82",
+      accentBright: "#f4cf88",
+      paper: "#f9f5ea",
+      muted: "rgba(249, 245, 234, 0.72)"
+    },
+    texture: "buckram",
+    motifLabel: "Shrine Politics · South Arabian Tribal Rivalries",
+    analyticalNote: "Analyzes the anti-Daws polemical strand in Medinan hadith, demonstrating how residual pagan sanctuary memories were deployed against Yamānī tribal influence."
+  },
+
+  // 14 · The Six Signs of the Hour
+  "32-fabricated-hadith-prophecy-hold-on-to-these-6-things-that-will-occur-in-the-future": {
+    family: "chronology",
+    palette: {
+      bg: "#141a24",
+      bgAccent: "#090e15",
+      border: "rgba(216, 188, 134, 0.32)",
+      rule: "rgba(216, 188, 134, 0.18)",
+      accent: "#d5b472",
+      accentBright: "#f4d695",
+      paper: "#f8f5ee",
+      muted: "rgba(248, 245, 238, 0.72)"
+    },
+    texture: "vellum",
+    motifLabel: "Syrian Military Matrix · Amwas Plague Terminus",
+    analyticalNote: "Identifies the Syrian military lineage through ʿAwf b. Mālik as an ex-post compilation codifying the conquest of Jerusalem and the devastating Plague of ʿAmwās (18 AH)."
+  },
+
+  // 15 · The Thirty-Year Caliphate
+  "33-fabricated-hadith-prophecy-the-thirty-year-reign": {
+    family: "polemics",
+    palette: {
+      bg: "#241215",
+      bgAccent: "#110709",
+      border: "rgba(226, 186, 130, 0.34)",
+      rule: "rgba(226, 186, 130, 0.18)",
+      accent: "#deb673",
+      accentBright: "#f7d595",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.74)"
+    },
+    texture: "morocco",
+    motifLabel: "Dynastic Delegitimation · Anti-Umayyad Chronology",
+    analyticalNote: "Exposes Saʿīd b. Jumhān’s sole-transmitter bottleneck from Safīnah, engineering an exact 30-year boundary to reclassify the Umayyad state from caliphate to illegitimate biting kingship."
+  },
+
+  // 16 · The Constantinople Prophecies
+  "35-fabricated-hadith-prophecy-the-conquest-of-constantinople": {
+    family: "geography",
+    palette: {
+      bg: "#101726",
+      bgAccent: "#060b14",
+      border: "rgba(215, 186, 132, 0.32)",
+      rule: "rgba(215, 186, 132, 0.18)",
+      accent: "#d4b26f",
+      accentBright: "#f4d593",
+      paper: "#f8f5ee",
+      muted: "rgba(248, 245, 238, 0.72)"
+    },
+    texture: "laid",
+    motifLabel: "Imperial Jihad Ideology · Umayyad Fleet Campaigns",
+    analyticalNote: "Dissects Syrian and Egyptian military isnāds manufactured during the caliphates of Muʿāwiyah and Sulaymān b. ʿAbd al-Malik to recruit soldiers for the massive maritime sieges."
+  },
+
+  // 17 · The Keeper of Secrets Myth
+  "43-hudhayfah-ibn-al-yaman-the-false-story-of-the-keeper-of-secrets": {
+    family: "source-reconstruction",
+    palette: {
+      bg: "#17161b",
+      bgAccent: "#0a090e",
+      border: "rgba(218, 188, 138, 0.32)",
+      rule: "rgba(218, 188, 138, 0.18)",
+      accent: "#d7b475",
+      accentBright: "#f5d697",
+      paper: "#f8f5ee",
+      muted: "rgba(248, 245, 238, 0.72)"
+    },
+    texture: "buckram",
+    motifLabel: "Factional Weaponization · Secret Knowledge Topos",
+    analyticalNote: "Reconstructs how Kūfan sectarian circles converted Ḥudhayfah into a keeper of esoteric rosters to cast suspicion upon prominent Companions and state officials."
+  },
+
+  // 18 · The Origin of Islamic Apostasy
+  "45-the-origin-of-islamic-apostasy-the-slave-of-ibn-abbas": {
+    family: "legal",
+    palette: {
+      bg: "#1c1512",
+      bgAccent: "#0e0907",
+      border: "rgba(224, 186, 130, 0.34)",
+      rule: "rgba(224, 186, 130, 0.18)",
+      accent: "#dfb772",
+      accentBright: "#f8d594",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.74)"
+    },
+    texture: "ledger",
+    motifLabel: "Juristic Capital Penalties · Kharijite Polemics",
+    analyticalNote: "Demonstrates that the capital apostasy ruling originates entirely with ʿIkrimah mawlā Ibn ʿAbbās, conflicting with early Quranic evidence and parallel Medinan legal practice."
+  },
+
+  // 19 · Fabricating Against Husaynid Mourners
+  "50-how-masruq-wrote-a-hadith-against-the-mourners-of-husayn": {
+    family: "polemics",
+    palette: {
+      bg: "#250f14",
+      bgAccent: "#120609",
+      border: "rgba(225, 185, 128, 0.34)",
+      rule: "rgba(225, 185, 128, 0.18)",
+      accent: "#deb570",
+      accentBright: "#f8d592",
+      paper: "#faf5ea",
+      muted: "rgba(250, 245, 234, 0.74)"
+    },
+    texture: "morocco",
+    motifLabel: "State Suppression · Post-Karbala Political Laments",
+    analyticalNote: "Pinpoints Masrūq b. al-Ajdaʿ in early Umayyad Kūfa formulating anti-mourning traditions to silence popular grief demonstrations following the massacre of al-Ḥusayn."
+  },
+
+  // 20 · The Ten Promised Paradise
+  "55-the-myth-of-the-ten-promised-paradise-hadith": {
+    family: "polemics",
+    palette: {
+      bg: "#18131d",
+      bgAccent: "#0c0810",
+      border: "rgba(220, 186, 135, 0.32)",
+      rule: "rgba(220, 186, 135, 0.18)",
+      accent: "#d9b574",
+      accentBright: "#f6d696",
+      paper: "#f9f5ee",
+      muted: "rgba(249, 245, 238, 0.72)"
+    },
+    texture: "vellum",
+    motifLabel: "Creedal Canonization · Kufan Anti-Alid Response",
+    analyticalNote: "Traces the formation of the al-ʿAsharah al-Mubashsharah report across Ḥumayd b. ʿAbd al-Raḥmān’s cluster, revealing it as a second-century Sunni compromise formula."
+  },
+
+  // 21 · Whitewashing al-Zuhri
+  "64-whitewashing-al-zuhri-and-why-it-fails": {
+    family: "source-reconstruction",
+    palette: {
+      bg: "#18191d",
+      bgAccent: "#0a0b0e",
       border: "rgba(216, 186, 130, 0.32)",
       rule: "rgba(216, 186, 130, 0.18)",
-      accent: "#d5b06a",
-      accentBright: "#f5d392",
+      accent: "#d8ba82",
+      accentBright: "#f3cf88",
+      paper: "#faf5ea",
+      muted: "rgba(250, 245, 234, 0.72)"
+    },
+    texture: "buckram",
+    motifLabel: "Court Bureaucracy · Dynastic Historiography",
+    analyticalNote: "Examines al-Zuhrī’s direct stipends and editorial commissions under ʿAbd al-Malik and Hishām, testing where state patronage compromised his isnād attributions."
+  },
+
+  // 22 · The Judge’s Double Reward
+  "69-how-the-legal-islamic-class-invented-their-own-divine-reward": {
+    family: "legal",
+    palette: {
+      bg: "#191814",
+      bgAccent: "#0b0a08",
+      border: "rgba(218, 188, 134, 0.32)",
+      rule: "rgba(218, 188, 134, 0.18)",
+      accent: "#d6b472",
+      accentBright: "#f4d594",
+      paper: "#f8f5eb",
+      muted: "rgba(248, 245, 235, 0.72)"
+    },
+    texture: "ledger",
+    motifLabel: "Juristic Guild Immunity · Professional Self-Protection",
+    analyticalNote: "Deconstructs the transmission network behind the judicial indemnity hadith, showing how second-century qāḍīs secured spiritual protection for erroneous judicial rulings."
+  },
+
+  // 23 · The Baghdad Matrix Re-examined
+  "72-more-on-the-fabricated-baghdad-hadith-prophecy": {
+    family: "network",
+    palette: {
+      bg: "#12161e",
+      bgAccent: "#080a0f",
+      border: "rgba(216, 186, 132, 0.32)",
+      rule: "rgba(216, 186, 132, 0.18)",
+      accent: "#d5b370",
+      accentBright: "#f4d492",
+      paper: "#f7f4ea",
+      muted: "rgba(247, 244, 234, 0.72)"
+    },
+    texture: "laid",
+    motifLabel: "Transmission Network Topology · Iraqi Cross-Attribution",
+    analyticalNote: "Presents formal isnād topological diagrams mapping the Baghdad city prophecies, isolating systematic chain-spreader interventions in third-century Baṣra and Kūfa."
+  },
+
+  // 24 · The Green Arabia Translation Shift
+  "73-green-arabia-hadith-sunnah-com-translation-change-fabrication": {
+    family: "variants",
+    palette: {
+      bg: "#111815",
+      bgAccent: "#070b09",
+      border: "rgba(215, 190, 135, 0.32)",
+      rule: "rgba(215, 190, 135, 0.18)",
+      accent: "#d3b573",
+      accentBright: "#f2d795",
       paper: "#f7f5ec",
       muted: "rgba(247, 245, 236, 0.72)"
     },
     texture: "ledger",
-    motifLabel: "Matn Variants · Kūfan Genealogical Interpolation",
-    analyticalNote: "Demonstrates how the phrase 'from the sons of al-Ḥasan' was systematically interpolated into original Ḥusaynid and general Fāṭimid Mahdī traditions during ʿAbbāsid-era polemics."
+    motifLabel: "Modern Redactional Shifts · Digital Miracle Industry",
+    analyticalNote: "Traces the philological translation drift of «ḥattā taʿūda» from its classical meaning of cyclical pasture growth to a modern scientific-miracle claim of ancient lush climate."
   },
 
-  // 10 · Three Consecutive Generations
-  "16-three-consecutive-generations-best-generations": {
-    family: "network",
+  // 25 · Faces Like Hammered Shields
+  "77-faces-like-hammered-shields-the-turks-hadith-clusters": {
+    family: "geography",
     palette: {
-      bg: "#101824",
-      bgAccent: "#080d14",
-      border: "rgba(215, 185, 130, 0.3)",
-      rule: "rgba(215, 185, 130, 0.18)",
-      accent: "#c8a865",
-      accentBright: "#ebcd8e",
-      paper: "#f8f5ed",
-      muted: "rgba(248, 245, 237, 0.72)"
-    },
-    texture: "buckram",
-    motifLabel: "Transmission Network · Formulaic Isnād Chains",
-    analyticalNote: "Analyzes isnād collapse and narrator harmonization in the 'best generation' traditions, isolating late 2nd-century canonizers who retrojected later theological periodization."
-  },
-
-  // 11 · Splitting of the Moon
-  "17-splitting-of-the-moon-miracle-quran-54": {
-    family: "source-reconstruction",
-    palette: {
-      bg: "#1f0f24",
-      bgAccent: "#0f0612",
-      border: "rgba(223, 188, 124, 0.32)",
-      rule: "rgba(223, 188, 124, 0.18)",
-      accent: "#dfba7a",
-      accentBright: "#f8d89e",
-      paper: "#faf5ef",
-      muted: "rgba(250, 245, 239, 0.72)"
-    },
-    texture: "vellum",
-    motifLabel: "Exegetical Source Strata · Sūrah 54 Analysis",
-    analyticalNote: "Uncovers the historic transition from an eschatological reading of Q 54:1 ('the hour has drawn near') to a retrospective physical miracle narrative in late 1st-century traditions."
-  },
-
-  // 12 · Flight from the Leper
-  "18-the-flight-from-the-leper-contagion": {
-    family: "legal",
-    palette: {
-      bg: "#221711",
-      bgAccent: "#120a07",
-      border: "rgba(220, 180, 128, 0.32)",
-      rule: "rgba(220, 180, 128, 0.18)",
-      accent: "#cca45f",
-      accentBright: "#edd090",
-      paper: "#f9f6ee",
-      muted: "rgba(249, 246, 238, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "Legal Transmission · Theological Harmonization",
-    analyticalNote: "Correlates contradictory prophetic pronouncements on contagion ('no contagion' vs. 'flee from the leper') with competing theological schools in early Baṣra and Medina."
-  },
-
-  // 13 · Dating the Stoning Penalty
-  "19-dating-stoning-penalty-adultery-sunnah-quran": {
-    family: "legal",
-    palette: {
-      bg: "#300d15",
-      bgAccent: "#18050a",
-      border: "rgba(224, 192, 134, 0.35)",
-      rule: "rgba(224, 192, 134, 0.2)",
-      accent: "#dfb873",
-      accentBright: "#f7d697",
-      paper: "#faf6ee",
-      muted: "rgba(250, 246, 238, 0.74)"
+      bg: "#1b1416",
+      bgAccent: "#0c0809",
+      border: "rgba(222, 186, 132, 0.32)",
+      rule: "rgba(222, 186, 132, 0.18)",
+      accent: "#deb673",
+      accentBright: "#f7d595",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.72)"
     },
     texture: "morocco",
-    motifLabel: "Juridical Evolution · Rajm Transmission Lines",
-    analyticalNote: "Traces isnād bundles attributing the stoning penalty to ʿUmar and ʿAlī, demonstrating that procedural justifications arose to harmonize non-Qurʾanic practice with prophetic precedent."
+    motifLabel: "Central Asian Front · Five Regional Bottlenecks",
+    analyticalNote: "Isolates five distinct regional transmission bottlenecks across Baṣra, Kūfa, and Khurāsān, reflecting frontline traumatic encounters with Türgesh cavalry."
   },
 
-  // 14 · The Satanic Verses (Gharaniq)
-  "20-the-satanic-verses-incident-gharaniq": {
-    family: "source-reconstruction",
-    palette: {
-      bg: "#14151a",
-      bgAccent: "#090a0d",
-      border: "rgba(215, 185, 125, 0.3)",
-      rule: "rgba(215, 185, 125, 0.18)",
-      accent: "#d2ae6a",
-      accentBright: "#f3d18e",
-      paper: "#f8f4ec",
-      muted: "rgba(248, 244, 236, 0.72)"
-    },
-    texture: "vellum",
-    motifLabel: "Sīra Reconstruction · The Gharānīq Incident",
-    analyticalNote: "Demonstrates that the Gharānīq story was universally attested across all early Sīra authorities (ʿUrwah, al-Zuhrī, Qatādah, Ibn Isḥāq) before its theological suppression in later dogma."
-  },
-
-  // 15 · Whoever Changes His Religion
-  "21-whoever-changes-his-religion-kill-him-apostasy": {
-    family: "legal",
-    palette: {
-      bg: "#261015",
-      bgAccent: "#13060a",
-      border: "rgba(222, 185, 130, 0.32)",
-      rule: "rgba(222, 185, 130, 0.18)",
-      accent: "#deb570",
-      accentBright: "#fad896",
-      paper: "#fbf7f0",
-      muted: "rgba(251, 247, 240, 0.72)"
-    },
-    texture: "buckram",
-    motifLabel: "Penal Jurisprudence · Riddah Transmission",
-    analyticalNote: "Examines the single-strand bottleneck through ʿIkrimah from Ibn ʿAbbās, contrasting early contextual apostasy-in-warfare traditions with absolute legal mandates."
-  },
-
-  // 16 · Urwa b. al-Zubayr Maghazi
-  "22-urwa-ibn-al-zubayr-maghazi-source-reconstruction": {
-    family: "source-reconstruction",
-    palette: {
-      bg: "#0e1a14",
-      bgAccent: "#070e0a",
-      border: "rgba(218, 188, 128, 0.32)",
-      rule: "rgba(218, 188, 128, 0.18)",
-      accent: "#cfae6b",
-      accentBright: "#eed08f",
-      paper: "#f6f4ec",
-      muted: "rgba(246, 244, 236, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "1st-Century Maghāzī Source Reconstruction",
-    analyticalNote: "Reconstructs ʿUrwah b. al-Zubayr’s letters to the Umayyad caliph ʿAbd al-Malik, demonstrating the presence of written 1st-century historical narratives beneath later compilations."
-  },
-
-  // 17 · Surraq Debtors Tradition
-  "23-surraq-debtors-tradition-late-attestation": {
-    family: "chronology",
-    palette: {
-      bg: "#0f1922",
-      bgAccent: "#070d12",
-      border: "rgba(216, 185, 130, 0.32)",
-      rule: "rgba(216, 185, 130, 0.18)",
-      accent: "#d7b370",
-      accentBright: "#f5d494",
-      paper: "#f8f5ee",
-      muted: "rgba(248, 245, 238, 0.72)"
-    },
-    texture: "ledger",
-    motifLabel: "Chronological Evaluation · Late Attestation",
-    analyticalNote: "Applies Harald Motzki’s critique of the argument from silence, demonstrating that late appearance in extant collections does not inherently establish late fabrication."
-  },
-
-  // 18 · Fitna & Tribulations
-  "24-fitna-tribulations-traditions-second-century": {
-    family: "chronology",
-    palette: {
-      bg: "#2f0c15",
-      bgAccent: "#17050a",
-      border: "rgba(223, 190, 125, 0.35)",
-      rule: "rgba(223, 190, 125, 0.2)",
-      accent: "#dbae66",
-      accentBright: "#f9d08e",
-      paper: "#faf6ef",
-      muted: "rgba(250, 246, 239, 0.74)"
-    },
-    texture: "morocco",
-    motifLabel: "Apocalyptic Stratification · Fitnah Literature",
-    analyticalNote: "Disentangles chronological layers of civil-war apocalyptic literature, showing how predictions were repeatedly revised forward following each successive crisis."
-  },
-
-  // 19 · Siege of Baghdad Hadith
-  "25-siege-of-baghdad-mongol-invasion-fabrication": {
+  // 26 · The Scroll and the Sword
+  "78-the-scroll-and-the-sword-the-polemical-use-of-alis-authority": {
     family: "polemics",
     palette: {
-      bg: "#14161a",
-      bgAccent: "#0a0b0d",
-      border: "rgba(216, 185, 128, 0.3)",
-      rule: "rgba(216, 185, 128, 0.18)",
-      accent: "#d4b16e",
-      accentBright: "#f3d292",
-      paper: "#f7f5ed",
-      muted: "rgba(247, 245, 237, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "Anachronism Analysis · Medieval Retrocognition",
-    analyticalNote: "Isolates blatant anachronisms in hadiths predicting the 1258 CE Mongol sack of Baghdad, establishing late transmission origins despite chains fabricated to look early."
-  },
-
-  // 20 · Seven Ahruf Variants
-  "26-the-seven-ahruf-variant-readings-tradition": {
-    family: "variants",
-    palette: {
-      bg: "#200e22",
-      bgAccent: "#100611",
-      border: "rgba(225, 195, 145, 0.32)",
-      rule: "rgba(225, 195, 145, 0.18)",
-      accent: "#ddb779",
-      accentBright: "#fad69c",
-      paper: "#faf6f0",
-      muted: "rgba(250, 246, 240, 0.72)"
-    },
-    texture: "ledger",
-    motifLabel: "Codex & Matn Variants · The Aḥruf Traditions",
-    analyticalNote: "Maps the isnād convergence around Ubayy b. Kaʿb and ʿUmar, explaining how variant textual readings of the Qurʾān were normalized through retrospective theological formulas."
-  },
-
-  // 21 · Fire from Hijaz Prophecy
-  "27-fire-from-hijaz-eruption-of-641-prophecy": {
-    family: "chronology",
-    palette: {
-      bg: "#29130e",
-      bgAccent: "#140806",
-      border: "rgba(224, 186, 130, 0.32)",
+      bg: "#1d1314",
+      bgAccent: "#0e0708",
+      border: "rgba(224, 186, 130, 0.34)",
       rule: "rgba(224, 186, 130, 0.18)",
-      accent: "#e0b772",
-      accentBright: "#fbd896",
-      paper: "#faf4eb",
-      muted: "rgba(250, 244, 235, 0.72)"
-    },
-    texture: "vellum",
-    motifLabel: "Volcanic Chronicle · Provenance Stratification",
-    analyticalNote: "Traces reports of the Medina volcanic eruption (654 AH / 1256 CE) retrojected into classical collections, distinguishing genuine early strata from post-event accretions."
-  },
-
-  // 22 · Return to Green Arabia
-  "28-return-to-green-arabia-ecological-eschatology": {
-    family: "geography",
-    palette: {
-      bg: "#0c1a13",
-      bgAccent: "#060d09",
-      border: "rgba(215, 185, 125, 0.32)",
-      rule: "rgba(215, 185, 125, 0.18)",
-      accent: "#d1af69",
-      accentBright: "#f2d18d",
-      paper: "#f6f4eb",
-      muted: "rgba(246, 244, 235, 0.72)"
+      accent: "#dfb772",
+      accentBright: "#f8d594",
+      paper: "#faf5eb",
+      muted: "rgba(250, 245, 235, 0.74)"
     },
     texture: "buckram",
-    motifLabel: "Ecological Eschatology · Transmission Provenance",
-    analyticalNote: "Analyzes the transmission of prophetic ecological descriptions of Arabia through Baṣran and Syrian branches, evaluating historical regional climate memories."
+    motifLabel: "Proto-Sunni / Shiʿi Disputation · Written Document Topos",
+    analyticalNote: "Demonstrates how rival legal schools claimed the contents of ʿAlī’s sword-sheath scroll to legitimize competing blood-money tariffs and non-Muslim wergild standards."
   },
 
-  // 23 · Conquest of Constantinople
-  "29-the-conquest-of-constantinople-hadith": {
-    family: "geography",
-    palette: {
-      bg: "#0d1723",
-      bgAccent: "#060b11",
-      border: "rgba(218, 188, 132, 0.32)",
-      rule: "rgba(218, 188, 132, 0.18)",
-      accent: "#cbb071",
-      accentBright: "#edd395",
-      paper: "#f7f5ed",
-      muted: "rgba(247, 245, 237, 0.72)"
-    },
-    texture: "laid",
-    motifLabel: "Byzantine Frontier · Military Oracles",
-    analyticalNote: "Tracks the emergence of maritime jihad and siege prophecies during the Umayyad campaigns against Constantinople, correlating isnād common links with expedition leadership."
-  },
-
-  // 24 · Abu Hanifa False Attributions
-  "30-abu-hanifa-false-attributions-fiqh-origins": {
+  // 27 · The Kharijite and the Beast
+  "80-the-kharijite-and-the-beast": {
     family: "legal",
     palette: {
-      bg: "#23140e",
-      bgAccent: "#120906",
-      border: "rgba(222, 185, 128, 0.32)",
-      rule: "rgba(222, 185, 128, 0.18)",
-      accent: "#dcb36d",
-      accentBright: "#f9d592",
-      paper: "#faf5ed",
-      muted: "rgba(250, 245, 237, 0.72)"
-    },
-    texture: "morocco",
-    motifLabel: "Kūfan Jurisprudence · Attribution Strata",
-    analyticalNote: "Tests the transmission integrity of early Ḥanafī legal opinions, demonstrating how students like Abū Yūsuf and al-Shaybānī formalized disparate verbal rulings into authoritative corpora."
-  },
-
-  // 25 · Women Deficient in Intellect
-  "31-women-deficient-in-intellect-and-religion": {
-    family: "variants",
-    palette: {
-      bg: "#2c0c14",
-      bgAccent: "#160509",
-      border: "rgba(224, 192, 134, 0.35)",
-      rule: "rgba(224, 192, 134, 0.2)",
-      accent: "#dfb975",
-      accentBright: "#f8d89a",
-      paper: "#fbf7f0",
-      muted: "rgba(251, 247, 240, 0.74)"
-    },
-    texture: "ledger",
-    motifLabel: "Matn Variants · Legal Accretion & Eid Sermon",
-    analyticalNote: "Maps the isnād bundle originating in ʿAbd Allāh b. ʿUmar and Abū Saʿīd al-Khudrī, charting the evolution of a general ethical admonition into a standardized legal disqualifier."
-  },
-
-  // 26 · Black Banners of Khurasan
-  "32-the-black-banners-of-khurasan-abbasid-propaganda": {
-    family: "polemics",
-    palette: {
-      bg: "#0e1117",
-      bgAccent: "#06070a",
-      border: "rgba(215, 185, 125, 0.3)",
-      rule: "rgba(215, 185, 125, 0.18)",
-      accent: "#caa764",
-      accentBright: "#ebcb88",
-      paper: "#f8f5ee",
-      muted: "rgba(248, 245, 238, 0.72)"
+      bg: "#1a1512",
+      bgAccent: "#0d0907",
+      border: "rgba(220, 186, 132, 0.32)",
+      rule: "rgba(220, 186, 132, 0.18)",
+      accent: "#dbb672",
+      accentBright: "#f7d594",
+      paper: "#f9f5eb",
+      muted: "rgba(249, 245, 235, 0.72)"
     },
     texture: "laid",
-    motifLabel: "Dynastic Apologetics · ʿAbbāsid Revolution",
-    analyticalNote: "Isolates the revolutionary propaganda circulated by the Hāshimiyyah daʿwah in Khurāsān, dating the creation of black banner traditions precisely to the 120s–130s AH."
-  },
-
-  // 27 · Dajjal and the Donkey
-  "33-dajjal-and-the-donkey-eschatological-variants": {
-    family: "variants",
-    palette: {
-      bg: "#1d0f21",
-      bgAccent: "#0e0610",
-      border: "rgba(222, 188, 128, 0.32)",
-      rule: "rgba(222, 188, 128, 0.18)",
-      accent: "#d5b272",
-      accentBright: "#f5d496",
-      paper: "#faf5ef",
-      muted: "rgba(250, 245, 239, 0.72)"
-    },
-    texture: "vellum",
-    motifLabel: "Eschatological Imagery · Folktale Accretion",
-    analyticalNote: "Traces grotesque eschatological motifs through regional Iraqi transmitters, showing how popular storytelling (quṣṣāṣ) enriched sparse biblical parallels over multiple generations."
+    motifLabel: "Extreme Penal Codification · Ikrimah Bottleneck",
+    analyticalNote: "Traces the severe ruling demanding the death of both human and animal back to ʿIkrimah, revealing early juristic resistance and its rejection by Imām al-Shāfiʿī."
   }
 };

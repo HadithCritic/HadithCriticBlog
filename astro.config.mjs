@@ -20,6 +20,9 @@ const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 // picking up the shared config.
 export default defineConfig({
   site: 'https://hadithcriticblog.com',
+  server: {
+    host: true
+  },
   adapter: cloudflare({
     configPath: './wrangler.jsonc',
     remoteBindings: useRemoteBindings,

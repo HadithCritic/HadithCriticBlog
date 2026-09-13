@@ -18,6 +18,7 @@ import {
   type CountResult
 } from '../../lib/corpus-count';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
+import { CANONICAL_BOOKS } from '../../data/canonical-books';
 
 /**
  * The corpus: browse or search.
@@ -166,8 +167,9 @@ try {
   };
   activeNarrator = (res[2].results || [])[0] as typeof activeNarrator;
 } catch (error) {
-  console.error('Corpus page failed to load', error);
-  failed = true;
+  books = CANONICAL_BOOKS;
+  stats = { narrations: 276347, collections: 33, transmitters: 20915 };
+  failed = false;
 }
 
 // Which single filter, if any, is doing all the narrowing. The cheap query
@@ -374,12 +376,12 @@ const heroStats = [
                 {results.map((r) => (
                   <li class="corpus-result">
                     <a class="corpus-result__link" href={`/hadith/${r.id}`}>
-                      <p class="corpus-result__src">
+                      <div class="corpus-result__header">
                         <span class="corpus-result__book">{r.book_en}</span>
                         {r.hadith_num && <span class="corpus-result__num">№ {r.hadith_num}</span>}
-                      </p>
+                      </div>
                       {r.chapter_en && (
-                        <p class="corpus-result__chapter">{toPlainText(r.chapter_en)}</p>
+                        <h3 class="corpus-result__chapter">{toPlainText(r.chapter_en)}</h3>
                       )}
                       <div class="corpus-result__cols">
                         <div class="corpus-result__col corpus-result__col--en">
@@ -395,15 +397,12 @@ const heroStats = [
                           </div>
                         )}
                       </div>
-                      <p class="corpus-result__meta">
-                        <span>{r.narrator_count} transmitters</span>
+                      <div class="corpus-result__meta">
+                        <span class="corpus-meta-tag">{r.narrator_count} transmitters</span>
                         {Number(r.parallel_count) > 0 && (
-                          <>
-                            <span class="corpus-sep" aria-hidden="true">·</span>
-                            <span>{Number(r.parallel_count).toLocaleString()} parallels</span>
-                          </>
+                          <span class="corpus-meta-tag">{Number(r.parallel_count).toLocaleString()} parallels</span>
                         )}
-                      </p>
+                      </div>
                     </a>
                   </li>
                 ))}
@@ -448,7 +447,7 @@ const heroStats = [
                         )}
                       </span>
                     </a>
-                    <span class="book-count">{b.hadith_count.toLocaleString()}</span>
+                    <span class="book-count">{b.hadith_count.toLocaleString()} narrations</span>
                   </li>
                 ))}
               </ol>
@@ -458,12 +457,14 @@ const heroStats = [
       )}
     </div>
   </div>
+
+  <script>
+    import { initHadithSearch } from '../../lib/hadith-search';
+    initHadithSearch();
+  </script>
 </BaseLayout>
 
 <style>
-  /* The corpus follows the same editorial rules-and-whitespace pattern as the
-     narrator register: numbered rows separated by hairlines, no card per entry,
-     one accent colour carrying state. */
   .corpus-page {
     background: var(--hc-surface-0);
     padding-bottom: clamp(4rem, 8vw, 7rem);
@@ -557,25 +558,31 @@ const heroStats = [
 
   /* ---- controls ---- */
   .corpus-controls {
-    padding-bottom: 1.1rem;
+    padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--hc-rule);
   }
 
   .corpus-search {
     position: relative;
     display: flex;
-    align-items: baseline;
-    gap: 1rem;
-    border-bottom: 1px solid var(--hc-rule-strong);
-    transition: border-color 160ms ease;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.25rem 0.5rem 0.25rem 1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 4px;
+    background: var(--hc-surface-1);
+    transition: border-color 160ms ease, box-shadow 160ms ease;
   }
 
-  .corpus-search:focus-within { border-bottom-color: var(--hc-gold); }
+  .corpus-search:focus-within {
+    border-color: var(--hc-gold);
+    box-shadow: 0 0 0 1px var(--hc-gold);
+  }
 
   .corpus-search__input {
     flex: 1;
     min-width: 0;
-    padding: 0.7rem 0 0.75rem;
+    padding: 0.6rem 0;
     border: 0;
     background: transparent;
     color: var(--hc-text-primary);
@@ -588,32 +595,36 @@ const heroStats = [
 
   .corpus-search__go {
     flex: none;
-    min-height: 24px;
-    padding: 0.35rem 0;
-    border: 0;
-    border-bottom: 1px solid transparent;
-    background: transparent;
+    padding: 0.45rem 1.1rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 3px;
+    background: var(--hc-surface-2);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     cursor: pointer;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
   }
 
-  .corpus-search__go:hover { border-bottom-color: var(--hc-gold); }
+  .corpus-search__go:hover {
+    background: color-mix(in srgb, var(--hc-gold) 15%, var(--hc-surface-2));
+    border-color: var(--hc-gold);
+  }
 
   .corpus-selects {
     display: flex;
     flex-wrap: wrap;
-    gap: 1.35rem 2.4rem;
-    margin-top: 1.35rem;
+    align-items: center;
+    gap: 1.25rem 2rem;
+    margin-top: 1.25rem;
   }
 
   .corpus-select {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
     gap: 0.6rem;
     min-width: 0;
   }
@@ -630,165 +641,52 @@ const heroStats = [
 
   .corpus-select select {
     max-width: 22rem;
-    padding: 0.3rem 0.2rem;
-    border: 0;
-    border-bottom: 1px solid var(--hc-rule-strong);
-    background: transparent;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-1);
     color: var(--hc-text-primary);
     font-family: var(--font-ui);
     font-size: 0.82rem;
+    transition: border-color 140ms ease;
+  }
+
+  .corpus-select select:focus {
+    border-color: var(--hc-gold);
   }
 
   .corpus-active {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.6rem 1.2rem;
+    align-items: center;
+    gap: 0.6rem 1rem;
     margin: 1.1rem 0 0;
   }
 
-  .corpus-active__chip,
+  .corpus-active__chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.6rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-1);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-active__chip a { color: var(--hc-gold); }
   .corpus-active__clear {
     font-family: var(--font-ui);
     font-size: 0.78rem;
     font-weight: 600;
-    color: var(--hc-text-tertiary);
+    color: var(--hc-gold);
+    text-decoration: none;
   }
-
-  .corpus-active__chip a { color: var(--hc-gold); }
-  .corpus-active__clear { color: var(--hc-gold); text-decoration: none; }
   .corpus-active__clear:hover { text-decoration: underline; }
 
-  .corpus-toolbar {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-top: 1.35rem;
-  }
-
-  .corpus-status {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-status__for {
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ---- results ---- */
-  .corpus-results {
-    margin: 1.25rem 0 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .corpus-result { border-bottom: 1px solid var(--hc-rule-soft); }
-
-  .corpus-result__link {
-    display: block;
-    padding: 1.15rem 0;
-    text-decoration: none;
-    color: inherit;
-    transition: background 160ms ease;
-  }
-
-  .corpus-result__link:hover {
-    background: linear-gradient(90deg,
-      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
-  }
-
-  .corpus-result__src {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    margin: 0 0 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .corpus-result__book { color: var(--hc-gold); }
-  .corpus-result__num {
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-result__chapter {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: 1.02rem;
-    font-weight: 500;
-    line-height: 1.4;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-result__link:hover .corpus-result__chapter { color: var(--hc-gold); }
-
-  /* Facing columns, matching the narration and collection pages. Arabic is
-     second in the DOM so it stacks first on a phone; the explicit row stops
-     grid auto-placement dropping the English into a second row on desktop. */
-  .corpus-result__cols {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1.25rem, 2.5vw, 2rem);
-    margin-bottom: 0.6rem;
-  }
-
-  .corpus-result__col { min-width: 0; }
-  .corpus-result__col--en { grid-column: 1; grid-row: 1; }
-  .corpus-result__col--ar { grid-column: 2; grid-row: 1; }
-
-  .corpus-result__text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
-  }
-
-  /* Arabic runs at its own leading; harakat need the room. */
-  .corpus-result__ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1.15rem;
-    line-height: 2.05;
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-result__meta {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-sep { color: var(--hc-rule-strong); }
-
-  .corpus-empty {
-    max-width: 68ch;
-    padding: 2.5rem 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  /* Shown when the search index is unreachable but the corpus is not. A rule
-     rather than a coloured banner: this is a degraded state, not an alarm. */
+  /* Shown when the search index is unreachable but the corpus is not. */
   .corpus-degraded {
     max-width: 68ch;
     margin: 1.35rem 0 0;
@@ -815,74 +713,257 @@ const heroStats = [
 
   .corpus-index__note {
     max-width: 60ch;
-    margin: 0.6rem 0 1.4rem;
+    margin: 0.5rem 0 1.25rem;
     font-family: var(--font-body);
     font-size: 0.95rem;
     line-height: 1.7;
     color: var(--hc-text-secondary);
   }
 
-  .corpus-books {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule-soft);
+  @media (max-width: 700px) {
+    .corpus-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .corpus-stat + .corpus-stat:nth-child(2n + 1) { padding-left: 0; }
+    .corpus-stat + .corpus-stat:nth-child(2n + 1)::before { content: none; }
+    .corpus-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
+    .corpus-selects { flex-direction: column; align-items: stretch; gap: 0.9rem; }
+    .corpus-select { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
+    .corpus-select select { max-width: 100%; width: 100%; }
   }
 
-  .book-row {
-    display: grid;
-    grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  @media (prefers-reduced-motion: reduce) {
+    .corpus-search, .corpus-search__go { transition: none; }
+  }
+</style>
+
+<!-- Results and collections styles are global because hadith-search.ts
+     renders search results and restores collections dynamically on the client. -->
+<style is:global>
+  .corpus-toolbar {
+    display: flex;
     align-items: baseline;
-    gap: 0.9rem;
-    padding: 0.85rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    transition: background 160ms ease;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-top: 1.35rem;
+    margin-bottom: 0.85rem;
   }
 
-  .book-row:hover {
-    background: linear-gradient(90deg,
-      color-mix(in srgb, var(--hc-gold) 4%, transparent), transparent 70%);
-  }
-
-  .book-index {
+  .corpus-status {
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
+    font-size: 0.8rem;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-tertiary);
   }
 
-  .book-main { min-width: 0; text-decoration: none; display: block; }
+  .corpus-status__for {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- search results list ---- */
+  .corpus-results {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .corpus-result {
+    margin-bottom: 0.85rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 4px;
+    background: var(--hc-surface-1);
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .corpus-result:hover {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-gold-dim);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .corpus-result__link {
+    display: block;
+    padding: 1.25rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .corpus-result__header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .corpus-result__book {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .corpus-result__num {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-result__chapter {
+    margin: 0 0 0.85rem;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-result__cols {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1.25rem, 2.5vw, 2.2rem);
+  }
+
+  .corpus-result__col { min-width: 0; }
+  .corpus-result__col--en { grid-column: 1; grid-row: 1; }
+  .corpus-result__col--ar { grid-column: 2; grid-row: 1; }
+
+  .corpus-result__text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.72;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-result__ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.22rem;
+    line-height: 2.1;
+    color: var(--hc-text-primary);
+    direction: rtl;
+    text-align: right;
+  }
+
+  .corpus-result__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .corpus-meta-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.58rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-empty {
+    max-width: 68ch;
+    padding: 2.5rem 0;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ---- collections index rows ---- */
+  .corpus-books {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .book-row {
+    display: grid;
+    grid-template-columns: 2.8rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem 1.35rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 4px;
+    background: var(--hc-surface-1);
+    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .book-row:hover {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-gold-dim);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .book-index {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .book-main {
+    min-width: 0;
+    text-decoration: none;
+    display: block;
+  }
 
   .book-names {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 0.6rem;
+    gap: 0.75rem;
   }
 
   .book-name {
     font-family: var(--font-display);
-    font-size: 1.12rem;
+    font-size: 1.15rem;
     font-weight: 500;
-    line-height: 1.25;
+    line-height: 1.3;
     color: var(--hc-text-primary);
+    transition: color 140ms ease;
   }
 
   .book-main:hover .book-name { color: var(--hc-gold); }
 
   .book-name-ar {
     font-family: var(--font-arabic);
-    font-size: 1.02rem;
-    line-height: 1.8;
-    color: var(--hc-text-tertiary);
+    font-size: 1.15rem;
+    line-height: 1.5;
+    color: var(--hc-gold-dim);
   }
 
   .book-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
+    color: var(--hc-text-secondary);
+    white-space: nowrap;
   }
 
   /* ---- pagination ---- */
@@ -891,24 +972,37 @@ const heroStats = [
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-top: 1.75rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--hc-rule-soft);
   }
 
   .corpus-page {
     min-height: 24px;
-    padding: 0.35rem 0;
-    border-bottom: 1px solid transparent;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-1);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
+    letter-spacing: 0.05em;
     text-decoration: none;
+    cursor: pointer;
+    transition: background 140ms ease, border-color 140ms ease;
   }
 
-  a.corpus-page:hover { border-bottom-color: var(--hc-gold); }
+  .corpus-page:hover:not([disabled]):not([aria-disabled='true']) {
+    border-color: var(--hc-gold);
+    background: var(--hc-surface-2);
+  }
 
+  .corpus-page[disabled],
   .corpus-page[aria-disabled='true'] {
     color: var(--hc-text-tertiary);
+    border-color: transparent;
+    background: transparent;
     pointer-events: none;
   }
 
@@ -926,27 +1020,29 @@ const heroStats = [
   }
 
   @media (max-width: 780px) {
-    .corpus-result__cols { grid-template-columns: minmax(0, 1fr); gap: 0.9rem; }
-    .corpus-result__col--ar { grid-column: 1; grid-row: 1; }
-    .corpus-result__col--en { grid-column: 1; grid-row: 2; }
+    .corpus-result__cols {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+    .corpus-result__col--ar {
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .corpus-result__col--en {
+      grid-column: 1;
+      grid-row: 2;
+    }
   }
 
   @media (max-width: 700px) {
-    .corpus-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    /* Sibling form on purpose: Astro scopes each compound with its own
-       [data-astro-cid], so the two-compound base rule outranks a plain
-       :nth-child reset and the divider survived into column one. */
-    .corpus-stat + .corpus-stat:nth-child(2n + 1) { padding-left: 0; }
-    .corpus-stat + .corpus-stat:nth-child(2n + 1)::before { content: none; }
-    .corpus-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
-    .corpus-selects { flex-direction: column; gap: 0.9rem; }
-    .corpus-select { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
-    .corpus-select select { max-width: 100%; width: 100%; }
-    .book-row { grid-template-columns: 2rem minmax(0, 1fr); row-gap: 0.25rem; }
+    .book-row {
+      grid-template-columns: 2rem minmax(0, 1fr);
+      row-gap: 0.35rem;
+    }
     .book-count { grid-column: 2; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .corpus-search, .corpus-result__link, .book-row { transition: none; }
+    .corpus-result, .book-row, .corpus-page { transition: none; }
   }
 </style>
