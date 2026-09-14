@@ -1,12 +1,12 @@
 ---
 export const prerender = false;
 
-import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { OG } from '../../../lib/seo';
-import { db } from '../../../lib/db';
-import { toPlainText, renderArabic } from '../../../lib/format-text';
-import { CORPUS_CACHE_CONTROL } from '../../../lib/edge-cache';
-import { CANONICAL_BOOKS } from '../../../data/canonical-books';
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { OG } from "../../../lib/seo";
+import { db } from "../../../lib/db";
+import { toPlainText, renderArabic } from "../../../lib/format-text";
+import { CORPUS_CACHE_CONTROL } from "../../../lib/edge-cache";
+import { CANONICAL_BOOKS } from "../../../data/canonical-books";
 
 /**
  * Digital Source Edition for a Single Hadith Compilation.
@@ -16,12 +16,12 @@ import { CANONICAL_BOOKS } from '../../../data/canonical-books';
 
 const { slug } = Astro.params;
 const p = Astro.url.searchParams;
-const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
+const page = Math.max(1, parseInt(p.get("page") || "1", 10) || 1);
 const size = 25;
 const offset = (page - 1) * size;
 
-const after = parseInt(p.get('after') || '', 10);
-const before = parseInt(p.get('before') || '', 10);
+const after = parseInt(p.get("after") || "", 10);
+const before = parseInt(p.get("before") || "", 10);
 const seekAfter = Number.isFinite(after) && after > 0 ? after : null;
 const seekBefore = Number.isFinite(before) && before > 0 ? before : null;
 
@@ -57,18 +57,21 @@ let failed = false;
 function withTimeout<T>(promise: Promise<T>, ms = 1000): Promise<T> {
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), ms),
+    ),
   ]);
 }
 
 try {
   const found = (await withTimeout(
-    db.prepare(
-      'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?'
-    )
+    db
+      .prepare(
+        "SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?",
+      )
       .bind(slug)
       .first(),
-    1000
+    1000,
   )) as Book | null;
   book = found ?? undefined;
 
@@ -79,7 +82,7 @@ try {
       ? db
           .prepare(
             `SELECT ${COLUMNS} FROM hadith
-              WHERE book_id = ? AND id > ? ORDER BY id LIMIT ?`
+              WHERE book_id = ? AND id > ? ORDER BY id LIMIT ?`,
           )
           .bind(book.id, seekAfter, size)
           .all()
@@ -87,12 +90,14 @@ try {
         ? db
             .prepare(
               `SELECT ${COLUMNS} FROM hadith
-                WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT ?`
+                WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT ?`,
             )
             .bind(book.id, seekBefore, size)
             .all()
         : db
-            .prepare(`SELECT ${COLUMNS} FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`)
+            .prepare(
+              `SELECT ${COLUMNS} FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`,
+            )
             .bind(book.id, size, offset)
             .all();
     const res = await withTimeout(queryPromise, 1500);
@@ -111,14 +116,14 @@ if (!book) {
 }
 
 if (!book) {
-  return new Response('Collection not found', { status: 404 });
+  return new Response("Collection not found", { status: 404 });
 }
 
 const total = book?.hadith_count ?? 0;
 const pages = Math.max(1, Math.ceil(total / size));
 
 if (!failed && book) {
-  Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
+  Astro.response.headers.set("Cache-Control", CORPUS_CACHE_CONTROL);
 }
 
 const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
@@ -126,52 +131,63 @@ const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
 const first = rows[0]?.id;
 const last = rows[rows.length - 1]?.id;
 const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);
-const prevUrl = first ? `${pageUrl(page - 1)}&before=${first}` : pageUrl(page - 1);
+const prevUrl = first
+  ? `${pageUrl(page - 1)}&before=${first}`
+  : pageUrl(page - 1);
 
 const preview = (text: string, limit: number) => {
-  const clean = (text || '').trim();
+  const clean = (text || "").trim();
   if (clean.length <= limit) return { text: clean, cut: false };
-  const space = clean.lastIndexOf(' ', limit);
-  return { text: clean.slice(0, space > limit * 0.6 ? space : limit), cut: true };
+  const space = clean.lastIndexOf(" ", limit);
+  return {
+    text: clean.slice(0, space > limit * 0.6 ? space : limit),
+    cut: true,
+  };
 };
 
-let lastChapter = '';
+let lastChapter = "";
 let chapterOrdinal = 0;
 const slugifyChapter = (text: string) =>
   text
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 48);
 
 const withHeadings = rows.map((r) => {
-  const chapter = toPlainText(r.chapter_en) || '';
-  const isNew = chapter !== '' && chapter !== lastChapter;
+  const chapter = toPlainText(r.chapter_en) || "";
+  const isNew = chapter !== "" && chapter !== lastChapter;
   if (isNew) {
     lastChapter = chapter;
     chapterOrdinal += 1;
   }
-  const base = isNew ? slugifyChapter(chapter) : '';
+  const base = isNew ? slugifyChapter(chapter) : "";
   return {
     row: r,
     heading: isNew
-      ? { en: chapter, ar: (r.chapter_ar || '').trim(), id: `ch-${chapterOrdinal}-${base}` }
-      : null
+      ? {
+          en: chapter,
+          ar: (r.chapter_ar || "").trim(),
+          id: `ch-${chapterOrdinal}-${base}`,
+        }
+      : null,
   };
 });
 ---
 
 <BaseLayout
-  title={book ? `${book.title_en} · Source Edition | HadithCritic` : 'Collection | HadithCritic'}
+  title={book
+    ? `${book.title_en} · Source Edition | HadithCritic`
+    : "Collection | HadithCritic"}
   description={book
     ? `Explore all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in bilingual facing critical format with complete transmission apparatus.`
-    : 'Hadith collection edition'}
+    : "Hadith collection edition"}
   image={OG.collection(slug)}
-  imageAlt={book ? `${book.title_en} | HadithCritic` : 'Hadith collection'}
+  imageAlt={book ? `${book.title_en} | HadithCritic` : "Hadith collection"}
   crumbs={[
-    { name: 'Home', url: '/' },
-    { name: 'Corpus', url: '/hadith' },
-    { name: book?.title_en || 'Collection', url: `/hadith/collection/${slug}` }
+    { name: "Home", url: "/" },
+    { name: "Corpus", url: "/hadith" },
+    { name: book?.title_en || "Collection", url: `/hadith/collection/${slug}` },
   ]}
 >
   <div class="edition-view">
@@ -189,23 +205,33 @@ const withHeadings = rows.map((r) => {
         <div class="edition-head__mast">
           <div class="edition-head__titles">
             <h1 class="edition-title">{book.title_en}</h1>
-            {book.title_ar && (
-              <p class="edition-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
-            )}
+            {
+              book.title_ar && (
+                <p class="edition-title-ar" lang="ar" dir="rtl">
+                  {book.title_ar}
+                </p>
+              )
+            }
           </div>
 
           <div class="edition-stats-ledger">
             <div class="edition-stat-entry">
               <span class="edition-stat-entry__label">Volume Extent</span>
-              <strong class="edition-stat-entry__val">{book.hadith_count.toLocaleString()} Narrations</strong>
+              <strong class="edition-stat-entry__val"
+                >{book.hadith_count.toLocaleString()} Narrations</strong
+              >
             </div>
             <div class="edition-stat-entry">
               <span class="edition-stat-entry__label">Sequence Mode</span>
-              <span class="edition-stat-entry__val">Printed Canonical Order</span>
+              <span class="edition-stat-entry__val"
+                >Printed Canonical Order</span
+              >
             </div>
             <div class="edition-stat-entry">
               <span class="edition-stat-entry__label">Critical Text</span>
-              <span class="edition-stat-entry__val">Bilingual Facing Edition</span>
+              <span class="edition-stat-entry__val"
+                >Bilingual Facing Edition</span
+              >
             </div>
           </div>
         </div>
@@ -214,10 +240,19 @@ const withHeadings = rows.map((r) => {
         <div class="edition-search-plate">
           <form class="edition-search-form" method="get" action="/hadith">
             <input type="hidden" name="book" value={book.id} />
-            <label class="sr-only" for="edition-q">Search within {book.title_en}</label>
+            <label class="sr-only" for="edition-q"
+              >Search within {book.title_en}</label
+            >
             <div class="edition-search-bar">
               <span class="edition-search-icon" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
@@ -230,12 +265,19 @@ const withHeadings = rows.map((r) => {
                 placeholder={`Search phrases or transmitters within ${book.title_en}…`}
                 autocomplete="off"
               />
-              <button type="submit" class="edition-search-btn">Search Source</button>
+              <button type="submit" class="edition-search-btn"
+                >Search Source</button
+              >
             </div>
             <div class="edition-search-context">
               <span class="edition-search-dot" aria-hidden="true"></span>
-              <span>Query scope restricted to <strong>{book.title_en}</strong>.</span>
-              <a class="edition-search-reset" href="/hadith">Search full corpus instead</a>
+              <span
+                >Query scope restricted to <strong>{book.title_en}</strong
+                >.</span
+              >
+              <a class="edition-search-reset" href="/hadith"
+                >Search full corpus instead</a
+              >
             </div>
           </form>
         </div>
@@ -244,151 +286,216 @@ const withHeadings = rows.map((r) => {
 
     <!-- Source Body / Narrations Sequence -->
     <div class="wrap edition-body">
-      {rows.length > 0 ? (
-        <>
-          <div class="edition-records-stream">
-            {withHeadings.map(({ row: r, heading }, i) => {
-              const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
-              const en = preview(toPlainText(r.matn_en || r.text_en), PREVIEW_EN);
-              return (
-                <>
-                  {heading && (
-                    <header class="chapter-landmark" id={heading.id}>
-                      <div class="chapter-landmark__rule" aria-hidden="true"></div>
-                      <div class="chapter-landmark__content">
-                        {heading.ar && (
-                          <p class="chapter-landmark__ar" lang="ar" dir="rtl">{heading.ar}</p>
-                        )}
-                        <h2 class="chapter-landmark__en">
-                          <a class="chapter-landmark__anchor" href={`#${heading.id}`}>
-                            <span class="chapter-landmark__symbol">§</span>
-                            <span>{heading.en}</span>
-                          </a>
-                        </h2>
-                      </div>
-                    </header>
-                  )}
-
-                  <article class="narration-record hc-reveal" style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}>
-                    <a class="narration-record__hitlink" href={`/hadith/${r.id}`}>
-                      <div class="narration-record__meta-header">
-                        <div class="narration-record__docket">
-                          <span class="narration-record__num">
-                            {r.hadith_num ? `№ ${r.hadith_num}` : `ID #${r.id}`}
-                          </span>
-                          <span class="narration-record__source">{book?.title_en}</span>
-                        </div>
-                        <span class="narration-record__detail-cta">
-                          <span>Inspect Apparatus</span>
-                          <span class="narration-record__arrow">→</span>
-                        </span>
-                      </div>
-
-                      <div class="narration-record__spread">
-                        <div class="narration-record__col narration-record__col--en">
-                          {en.text ? (
-                            <p class="narration-record__prose-en">{en.text}{en.cut ? ' …' : ''}</p>
-                          ) : (
-                            <p class="narration-record__missing">Translation not yet registered for this entry.</p>
+      {
+        rows.length > 0 ? (
+          <>
+            <div class="edition-records-stream">
+              {withHeadings.map(({ row: r, heading }, i) => {
+                const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
+                const en = preview(
+                  toPlainText(r.matn_en || r.text_en),
+                  PREVIEW_EN,
+                );
+                return (
+                  <>
+                    {heading && (
+                      <header class="chapter-landmark" id={heading.id}>
+                        <div
+                          class="chapter-landmark__rule"
+                          aria-hidden="true"
+                        />
+                        <div class="chapter-landmark__content">
+                          {heading.ar && (
+                            <p class="chapter-landmark__ar" lang="ar" dir="rtl">
+                              {heading.ar}
+                            </p>
                           )}
+                          <h2 class="chapter-landmark__en">
+                            <a
+                              class="chapter-landmark__anchor"
+                              href={`#${heading.id}`}
+                            >
+                              <span class="chapter-landmark__symbol">§</span>
+                              <span>{heading.en}</span>
+                            </a>
+                          </h2>
                         </div>
+                      </header>
+                    )}
 
-                        <div class="narration-record__col narration-record__col--ar">
-                          <p class="narration-record__prose-ar" lang="ar" dir="rtl">
-                            <Fragment set:html={renderArabic(ar.text)} />{ar.cut ? ' …' : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div class="narration-record__apparatus-strip">
-                        <div class="narration-record__tags">
-                          <span class="apparatus-tag">
-                            <span class="apparatus-tag__label">Chains:</span>
-                            <strong>{r.narrator_count} Transmitters</strong>
-                          </span>
-                          {Number(r.parallel_count) > 0 && (
-                            <span class="apparatus-tag apparatus-tag--gold">
-                              <span class="apparatus-tag__label">Witnesses:</span>
-                              <strong>{Number(r.parallel_count).toLocaleString()} Parallels</strong>
+                    <article
+                      class="narration-record hc-reveal"
+                      style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}
+                    >
+                      <a
+                        class="narration-record__hitlink"
+                        href={`/hadith/${r.id}`}
+                      >
+                        <div class="narration-record__meta-header">
+                          <div class="narration-record__docket">
+                            <span class="narration-record__num">
+                              {r.hadith_num
+                                ? `№ ${r.hadith_num}`
+                                : `ID #${r.id}`}
                             </span>
-                          )}
+                            <span class="narration-record__source">
+                              {book?.title_en}
+                            </span>
+                          </div>
+                          <span class="narration-record__detail-cta">
+                            <span>Inspect Apparatus</span>
+                            <span class="narration-record__arrow">→</span>
+                          </span>
                         </div>
-                        <span class="narration-record__corpus-ref">Corpus Record #{r.id}</span>
-                      </div>
-                    </a>
-                  </article>
-                </>
-              );
-            })}
-          </div>
 
-          <nav class="edition-pager" aria-label="Collection sequential navigation">
-            {page > 1 ? (
-              <a class="edition-pager__link" href={prevUrl}>← Previous Page</a>
-            ) : (
-              <span class="edition-pager__link is-disabled" aria-disabled="true">← Previous Page</span>
-            )}
-            <span class="edition-pager__counter">
-              Page <strong>{page.toLocaleString()}</strong> of <strong>{pages.toLocaleString()}</strong>
-            </span>
-            {page < pages ? (
-              <a class="edition-pager__link" href={nextUrl}>Next Page →</a>
-            ) : (
-              <span class="edition-pager__link is-disabled" aria-disabled="true">Next Page →</span>
-            )}
-          </nav>
-        </>
-      ) : (
-        <div
-          id="coll-client-container"
-          data-book-id={book.id}
-          data-slug={slug}
-          data-page={page}
-          data-size={size}
-          data-seek-after={seekAfter || ''}
-          data-seek-before={seekBefore || ''}
-          data-total={total}
-        >
-          <div class="coll-loading">
-            <span class="coll-spinner" aria-hidden="true"></span>
-            <p>Querying client archive for {book.title_en} narrations…</p>
+                        <div class="narration-record__spread">
+                          <div class="narration-record__col narration-record__col--en">
+                            {en.text ? (
+                              <p class="narration-record__prose-en">
+                                {en.text}
+                                {en.cut ? " …" : ""}
+                              </p>
+                            ) : (
+                              <p class="narration-record__missing">
+                                Translation not yet registered for this entry.
+                              </p>
+                            )}
+                          </div>
+
+                          <div class="narration-record__col narration-record__col--ar">
+                            <p
+                              class="narration-record__prose-ar"
+                              lang="ar"
+                              dir="rtl"
+                            >
+                              <Fragment set:html={renderArabic(ar.text)} />
+                              {ar.cut ? " …" : ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="narration-record__apparatus-strip">
+                          <div class="narration-record__tags">
+                            <span class="apparatus-tag">
+                              <span class="apparatus-tag__label">Chains:</span>
+                              <strong>{r.narrator_count} Transmitters</strong>
+                            </span>
+                            {Number(r.parallel_count) > 0 && (
+                              <span class="apparatus-tag apparatus-tag--gold">
+                                <span class="apparatus-tag__label">
+                                  Witnesses:
+                                </span>
+                                <strong>
+                                  {Number(r.parallel_count).toLocaleString()}{" "}
+                                  Parallels
+                                </strong>
+                              </span>
+                            )}
+                          </div>
+                          <span class="narration-record__corpus-ref">
+                            Corpus Record #{r.id}
+                          </span>
+                        </div>
+                      </a>
+                    </article>
+                  </>
+                );
+              })}
+            </div>
+
+            <nav
+              class="edition-pager"
+              aria-label="Collection sequential navigation"
+            >
+              {page > 1 ? (
+                <a class="edition-pager__link" href={prevUrl}>
+                  ← Previous Page
+                </a>
+              ) : (
+                <span
+                  class="edition-pager__link is-disabled"
+                  aria-disabled="true"
+                >
+                  ← Previous Page
+                </span>
+              )}
+              <span class="edition-pager__counter">
+                Page <strong>{page.toLocaleString()}</strong> of{" "}
+                <strong>{pages.toLocaleString()}</strong>
+              </span>
+              {page < pages ? (
+                <a class="edition-pager__link" href={nextUrl}>
+                  Next Page →
+                </a>
+              ) : (
+                <span
+                  class="edition-pager__link is-disabled"
+                  aria-disabled="true"
+                >
+                  Next Page →
+                </span>
+              )}
+            </nav>
+          </>
+        ) : (
+          <div
+            id="coll-client-container"
+            data-book-id={book.id}
+            data-slug={slug}
+            data-page={page}
+            data-size={size}
+            data-seek-after={seekAfter || ""}
+            data-seek-before={seekBefore || ""}
+            data-total={total}
+          >
+            <div class="coll-loading">
+              <span class="coll-spinner" aria-hidden="true" />
+              <p>Querying client archive for {book.title_en} narrations…</p>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
     </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { getCorpusWorker } from '../../../lib/corpus-client';
-  import { toPlainText } from '../../../lib/format-text';
+  import { getCorpusWorker } from "../../../lib/corpus-client";
+  import { toPlainText } from "../../../lib/format-text";
 
-  const container = document.getElementById('coll-client-container');
+  const container = document.getElementById("coll-client-container");
   if (container) {
     const bookId = Number(container.dataset.bookId);
-    const slug = container.dataset.slug || '';
+    const slug = container.dataset.slug || "";
     const page = Math.max(1, Number(container.dataset.page) || 1);
     const size = Number(container.dataset.size) || 25;
-    const seekAfter = container.dataset.seekAfter ? Number(container.dataset.seekAfter) : null;
-    const seekBefore = container.dataset.seekBefore ? Number(container.dataset.seekBefore) : null;
+    const seekAfter = container.dataset.seekAfter
+      ? Number(container.dataset.seekAfter)
+      : null;
+    const seekBefore = container.dataset.seekBefore
+      ? Number(container.dataset.seekBefore)
+      : null;
     const total = Number(container.dataset.total) || 0;
     const pages = Math.max(1, Math.ceil(total / size));
     const offset = (page - 1) * size;
 
     const preview = (text: string, limit: number) => {
-      const clean = (text || '').trim();
+      const clean = (text || "").trim();
       if (clean.length <= limit) return { text: clean, cut: false };
-      const space = clean.lastIndexOf(' ', limit);
-      return { text: clean.slice(0, space > limit * 0.6 ? space : limit), cut: true };
+      const space = clean.lastIndexOf(" ", limit);
+      return {
+        text: clean.slice(0, space > limit * 0.6 ? space : limit),
+        cut: true,
+      };
     };
 
     const escapeHtml = (str: string) =>
-      (str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      (str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
     async function loadCollection() {
       const el = container;
@@ -397,7 +504,8 @@ const withHeadings = rows.map((r) => {
       try {
         const worker = await getCorpusWorker();
         if (!worker) {
-          el.innerHTML = '<p class="coll-error">Unable to initialize client archive worker.</p>';
+          el.innerHTML =
+            '<p class="coll-error">Unable to initialize client archive worker.</p>';
           return;
         }
 
@@ -421,19 +529,24 @@ const withHeadings = rows.map((r) => {
         if (seekBefore && rows) rows.reverse();
 
         if (!rows || rows.length === 0) {
-          el.innerHTML = '<p class="coll-empty">No narrations recorded for this collection.</p>';
+          el.innerHTML =
+            '<p class="coll-empty">No narrations recorded for this collection.</p>';
           return;
         }
 
-        let lastChapter = '';
+        let lastChapter = "";
         let chapterOrdinal = 0;
         let listHtml = '<div class="edition-records-stream">';
         const slugifyChapter = (text: string) =>
-          text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
+          text
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 48);
 
         for (const r of rows) {
-          const chapter = toPlainText(r.chapter_en || '');
-          const isNew = chapter !== '' && chapter !== lastChapter;
+          const chapter = toPlainText(r.chapter_en || "");
+          const isNew = chapter !== "" && chapter !== lastChapter;
           if (isNew) {
             lastChapter = chapter;
             chapterOrdinal += 1;
@@ -442,7 +555,7 @@ const withHeadings = rows.map((r) => {
               <header class="chapter-landmark" id="${chId}">
                 <div class="chapter-landmark__rule" aria-hidden="true"></div>
                 <div class="chapter-landmark__content">
-                  ${r.chapter_ar ? `<p class="chapter-landmark__ar" lang="ar" dir="rtl">${escapeHtml(r.chapter_ar.trim())}</p>` : ''}
+                  ${r.chapter_ar ? `<p class="chapter-landmark__ar" lang="ar" dir="rtl">${escapeHtml(r.chapter_ar.trim())}</p>` : ""}
                   <h2 class="chapter-landmark__en">
                     <a class="chapter-landmark__anchor" href="#${chId}">
                       <span class="chapter-landmark__symbol">§</span>
@@ -454,9 +567,11 @@ const withHeadings = rows.map((r) => {
             `;
           }
 
-          const ar = preview(r.matn_ar || r.text_ar || '', 420);
-          const en = preview(toPlainText(r.matn_en || r.text_en || ''), 380);
-          const numLabel = r.hadith_num ? `№ ${escapeHtml(r.hadith_num)}` : `ID #${r.id}`;
+          const ar = preview(r.matn_ar || r.text_ar || "", 420);
+          const en = preview(toPlainText(r.matn_en || r.text_en || ""), 380);
+          const numLabel = r.hadith_num
+            ? `№ ${escapeHtml(r.hadith_num)}`
+            : `ID #${r.id}`;
 
           listHtml += `
             <article class="narration-record">
@@ -472,10 +587,10 @@ const withHeadings = rows.map((r) => {
                 </div>
                 <div class="narration-record__spread">
                   <div class="narration-record__col narration-record__col--en">
-                    ${en.text ? `<p class="narration-record__prose-en">${escapeHtml(en.text)}${en.cut ? ' …' : ''}</p>` : `<p class="narration-record__missing">Translation not recorded.</p>`}
+                    ${en.text ? `<p class="narration-record__prose-en">${escapeHtml(en.text)}${en.cut ? " …" : ""}</p>` : `<p class="narration-record__missing">Translation not recorded.</p>`}
                   </div>
                   <div class="narration-record__col narration-record__col--ar">
-                    <p class="narration-record__prose-ar" lang="ar" dir="rtl">${ar.text}${ar.cut ? ' …' : ''}</p>
+                    <p class="narration-record__prose-ar" lang="ar" dir="rtl">${ar.text}${ar.cut ? " …" : ""}</p>
                   </div>
                 </div>
                 <div class="narration-record__apparatus-strip">
@@ -484,11 +599,15 @@ const withHeadings = rows.map((r) => {
                       <span class="apparatus-tag__label">Chains:</span>
                       <strong>${r.narrator_count} Transmitters</strong>
                     </span>
-                    ${Number(r.parallel_count) > 0 ? `
+                    ${
+                      Number(r.parallel_count) > 0
+                        ? `
                       <span class="apparatus-tag apparatus-tag--gold">
                         <span class="apparatus-tag__label">Witnesses:</span>
                         <strong>${Number(r.parallel_count).toLocaleString()} Parallels</strong>
-                      </span>` : ''}
+                      </span>`
+                        : ""
+                    }
                   </div>
                   <span class="narration-record__corpus-ref">Corpus Record #${r.id}</span>
                 </div>
@@ -496,13 +615,17 @@ const withHeadings = rows.map((r) => {
             </article>
           `;
         }
-        listHtml += '</div>';
+        listHtml += "</div>";
 
         const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
         const first = rows[0]?.id;
         const last = rows[rows.length - 1]?.id;
-        const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);
-        const prevUrl = first ? `${pageUrl(page - 1)}&before=${first}` : pageUrl(page - 1);
+        const nextUrl = last
+          ? `${pageUrl(page + 1)}&after=${last}`
+          : pageUrl(page + 1);
+        const prevUrl = first
+          ? `${pageUrl(page - 1)}&before=${first}`
+          : pageUrl(page - 1);
 
         listHtml += `
           <nav class="edition-pager" aria-label="Collection sequential navigation">
@@ -514,8 +637,9 @@ const withHeadings = rows.map((r) => {
 
         el.innerHTML = listHtml;
       } catch (err) {
-        console.error('Failed to load collection from worker:', err);
-        el.innerHTML = '<p class="coll-error">Unable to render source archive records.</p>';
+        console.error("Failed to load collection from worker:", err);
+        el.innerHTML =
+          '<p class="coll-error">Unable to render source archive records.</p>';
       }
     }
 
@@ -534,7 +658,11 @@ const withHeadings = rows.map((r) => {
   .edition-head {
     padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(1.75rem, 3vw, 2.5rem);
     border-bottom: 1px solid var(--hc-rule);
-    background: radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--hc-gold) 5%, transparent) 0%, transparent 65%);
+    background: radial-gradient(
+      circle at 90% 10%,
+      color-mix(in srgb, var(--hc-gold) 5%, transparent) 0%,
+      transparent 65%
+    );
   }
 
   .edition-head__nav {
@@ -551,7 +679,7 @@ const withHeadings = rows.map((r) => {
     border-radius: var(--radius-xs);
     background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -660,10 +788,6 @@ const withHeadings = rows.map((r) => {
     color: var(--hc-text-primary);
   }
 
-  .edition-search-input:focus {
-    outline: none;
-  }
-
   .edition-search-btn {
     padding: 0 1.25rem;
     height: 100%;
@@ -678,7 +802,9 @@ const withHeadings = rows.map((r) => {
     letter-spacing: 0.05em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+    transition:
+      background var(--motion-fast) ease,
+      color var(--motion-fast) ease;
   }
 
   .edition-search-btn:hover {
@@ -749,7 +875,9 @@ const withHeadings = rows.map((r) => {
   }
 
   @keyframes coll-spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .coll-empty,
@@ -780,7 +908,12 @@ const withHeadings = rows.map((r) => {
 
   .chapter-landmark__rule {
     height: 1px;
-    background: linear-gradient(90deg, var(--hc-gold-dim), var(--hc-rule-soft) 40%, transparent);
+    background: linear-gradient(
+      90deg,
+      var(--hc-gold-dim),
+      var(--hc-rule-soft) 40%,
+      transparent
+    );
     margin-bottom: 1.25rem;
   }
 
@@ -827,7 +960,10 @@ const withHeadings = rows.map((r) => {
     border: 1px solid var(--hc-rule-soft);
     border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
-    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+    transition:
+      background var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease;
   }
 
   .narration-record:hover {
@@ -868,7 +1004,7 @@ const withHeadings = rows.map((r) => {
 
   .narration-record__source {
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     letter-spacing: 0.04em;
     color: var(--hc-text-tertiary);
   }
@@ -878,12 +1014,14 @@ const withHeadings = rows.map((r) => {
     align-items: center;
     gap: 0.35rem;
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
-    transition: color var(--motion-fast) ease, gap var(--motion-fast) ease;
+    transition:
+      color var(--motion-fast) ease,
+      gap var(--motion-fast) ease;
   }
 
   .narration-record:hover .narration-record__detail-cta {
@@ -953,13 +1091,13 @@ const withHeadings = rows.map((r) => {
     border-radius: 2px;
     background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.74rem;
+    font-size: 0.75rem;
     color: var(--hc-text-secondary);
   }
 
   .apparatus-tag__label {
     text-transform: uppercase;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--hc-text-tertiary);
   }
 
@@ -969,7 +1107,7 @@ const withHeadings = rows.map((r) => {
 
   .narration-record__corpus-ref {
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     letter-spacing: 0.04em;
     color: var(--hc-text-tertiary);
   }
@@ -996,7 +1134,9 @@ const withHeadings = rows.map((r) => {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-decoration: none;
-    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+    transition:
+      background var(--motion-fast) ease,
+      border-color var(--motion-fast) ease;
   }
 
   .edition-pager__link:hover:not(.is-disabled) {
@@ -1038,6 +1178,9 @@ const withHeadings = rows.map((r) => {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .narration-record, .edition-pager__link { transition: none; }
+    .narration-record,
+    .edition-pager__link {
+      transition: none;
+    }
   }
 </style>
