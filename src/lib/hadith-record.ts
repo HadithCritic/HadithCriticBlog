@@ -109,7 +109,7 @@ function heroMarkup(detail: HadithDetail, id: number, pathCount: number, totalPa
             type="button"
             class="edition-cite-btn"
             id="edition-cite-btn"
-            data-citation="${escapeHtml(`${referenceLabel(detail)}, HadithCritic Corpus Record #${id}`)}"
+            data-citation="${escapeHtml(`${referenceLabel(detail)} (HadithCritic Corpus Record #${id})`)}"
             hidden
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

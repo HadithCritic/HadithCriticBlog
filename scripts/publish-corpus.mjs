@@ -210,12 +210,32 @@ async function publishToR2(build, args) {
 async function main() {
   const args = parseArgs();
   const version = typeof args.version === 'string' ? args.version : corpusVersion();
-  const build = buildPaths(version);
   const target = typeof args.target === 'string' ? args.target : 'public';
+
+  /**
+   * `--from` points at a directory of versioned builds other than dist-db, so
+   * the committed test fixture under tests/fixtures/corpus is published by this
+   * script rather than by a second one that would drift from it.
+   */
+  const build =
+    typeof args.from === 'string'
+      ? (() => {
+          const dir = path.join(path.resolve(ROOT, args.from), version);
+          return {
+            version,
+            dir,
+            db: path.join(dir, 'hadith.db'),
+            chunksDir: path.join(dir, 'chunks'),
+            manifest: path.join(dir, 'manifest.json'),
+            meta: path.join(dir, 'corpus-meta.json')
+          };
+        })()
+      : buildPaths(version);
 
   if (!existsSync(build.manifest)) {
     throw new Error(
       `No built corpus for version ${version}.\n` +
+        `Expected ${build.manifest}.\n` +
         `Run: node scripts/build-corpus.mjs --version ${version}`
     );
   }

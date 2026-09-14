@@ -15,13 +15,23 @@ import { isCacheablePath, wantsEdgeCache } from './lib/edge-cache';
  * as it is under `astro dev`, the page still renders and simply is not stored.
  */
 export const onRequest = defineMiddleware(async (context, next) => {
+  // Middleware also runs while Astro prerenders, and there is no request to
+  // read there: touching `context.request.headers` during a build logs
+  // "`Astro.request.headers` is not available on prerendered pages" once per
+  // page. Most of the site is prerendered now, including all 33 collection
+  // editions, so the old evaluation order printed that warning 33 times per
+  // build. Bail out before reading anything off the request.
+  if (context.isPrerendered) return next();
+
   const cache = (globalThis as { caches?: CacheStorage & { default?: Cache } }).caches?.default;
+  if (!cache) return next();
+
   const eligible =
     context.request.method === 'GET' &&
     isCacheablePath(context.url.pathname) &&
     !context.request.headers.has('Cookie');
 
-  if (!cache || !eligible) return next();
+  if (!eligible) return next();
 
   // Keyed on the URL alone. The rendered page varies by path and query string
   // and by nothing else, so a bare GET is the whole identity of the request.

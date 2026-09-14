@@ -17,7 +17,11 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          # Matches the floor in package.json. The corpus scripts use node:sqlite
+          # without a flag and strip types from an imported .ts, both of which
+          # need 24; running CI on an older major means a script can be broken
+          # here and nobody finds out until someone cuts a corpus release.
+          node-version: '24'
           cache: 'npm'
 
       - run: npm ci
@@ -36,20 +40,40 @@ jobs:
 
       - run: npm run test:design
 
+      # The real build, from the committed corpus metadata. This is what
+      # deploys, so it is checked on its own before anything is swapped out.
       - run: npm run build
+
+      # The corpus itself is 1.62 GB and is not in git, so the e2e run serves a
+      # miniature corpus cut from it (tests/fixtures/corpus, ~2.6 MB, committed)
+      # and rebuilds the site against that corpus's own metadata. Without this
+      # the corpus suite could only skip, and the browser-side data layer would
+      # have no coverage here at all. tests/corpus-data.spec.ts, which names
+      # real narrations and real totals, skips itself against the fixture.
+      #
+      # The rebuild also points the site at the corpus file server rather than
+      # its own assets, because `astro preview` is wrangler and Cloudflare
+      # static assets answer a range request with 200 and the whole file. That
+      # is the same reason production serves the corpus from R2, so this is the
+      # deployed arrangement rather than a test-only one.
+      - run: npm run build:e2e:fixture
+
+      - run: npx playwright install --with-deps chromium
 
       # tests/ holds the checks that cover what PRODUCT.md actually promises:
       # one main landmark per page, no horizontal overflow at 390px, focus
       # returned after the mobile menu closes, reduced motion leaving content
-      # visible, and Pagefind returning a real article. They need the built
-      # dist/, so they run last.
-      - run: npx playwright install --with-deps chromium
-
+      # visible, Pagefind returning a real article, and the corpus answering
+      # searches from static chunks without touching a database. They need the
+      # built dist/, so they run last.
       - run: npm run test:e2e
 
       - if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
+          if-no-files-found: ignore

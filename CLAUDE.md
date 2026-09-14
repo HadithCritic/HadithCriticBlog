@@ -85,6 +85,37 @@ No database server is in the request path for any public page.
   attribute. Every rule for markup the corpus modules emit lives in an
   `is:global` block. Moving one back into a scoped block silently unstyles the
   page, and nothing fails: it renders, in the wrong typeface, at the wrong size.
+- **`:global()` inside an `is:global` block ships as a literal selector.** Astro
+  only rewrites `:global()` in a *scoped* block. In a global one it passes
+  through, lightningcss logs "'global' is not recognized as a valid
+  pseudo-class", and the built CSS contains `.facing-prose :global(.folio){...}`,
+  which matches nothing. That shipped: emphasis, bold and folio marks inside
+  every narration were unstyled, with a build warning as the only sign. Unwrap
+  every `:global()` when you convert a block.
+- **Middleware runs while Astro prerenders.** `src/middleware.ts` reads
+  `context.request.headers`, and there is no request during a build. Touching it
+  logs "`Astro.request.headers` is not available on prerendered pages" once per
+  page, which was 33 warnings per build once the collection editions were
+  prerendered. It returns early on `context.isPrerendered`; keep any new header
+  read below that guard.
+- **Small corpus chunks silently lose rows.** The VFS grows its read window as
+  it scans and maps each read to one chunk file, so a read wider than a chunk is
+  clamped and only the pages that arrived get stored. Nothing errors: queries
+  just return fewer rows than the file holds. Measured at 64 KiB chunks, a term
+  in seven narrations returned none. `chunk-db.mjs` refuses anything under
+  1 MiB; production uses 10 MiB.
+- **Never republish a corpus version in place.** Chunks are served `immutable`
+  for a year, so new bytes at an old URL leave browsers pairing the old manifest
+  with the new chunks, which loses rows the same silent way. Corpus versions are
+  dated plus a commit; the test fixture is named for a hash of its own contents.
+  The manifest is deliberately short-cached so a rollback can take effect.
+- **`astro preview` cannot serve the corpus.** It is wrangler, and Cloudflare
+  static assets answer a range request with `200` and the whole file, which
+  makes SQLite read pages from the wrong offsets. `openCorpus()` refuses rather
+  than returning wrong narrations, so the corpus is served from its own origin
+  by `scripts/corpus-file-server.mjs` in tests, exactly as production serves it
+  from R2. Build for that with `npm run build:e2e`, never plain `npm run build`,
+  when you intend to exercise the corpus end to end.
 - **A corpus page is a shell until the corpus answers.** Any check that waits
   for `load` is measuring a spinner. `scripts/check-contrast.mjs` waits for real
   content per route and fails the route if it never arrives; anything new that
@@ -124,6 +155,10 @@ npm run build:corpus     # build + chunk + verify a corpus release (needs the ma
 npm run publish:corpus   # stage it where `npm run dev` serves it
 npm run verify:corpus    # row counts, chunk reassembly, query parity vs the master
 
+npm run build:corpus:fixture  # recut the committed CI fixture from the real corpus
+npm run build:e2e        # build with the corpus on its own origin, then test:e2e
+npm run test:e2e:corpus  # both corpus suites, data assertions included
+
 npm run dev              # 127.0.0.1:4321
 npm run build:og         # regenerate the social preview cards in public/og
 npm run check            # astro check, must be 0 errors
@@ -162,7 +197,9 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/lib/hadith-search.ts`, `hadith-record.ts`, `collection-edition.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
 | `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
 | `scripts/build-corpus.mjs` | The corpus release pipeline. |
-| `tests/corpus.spec.ts` | Corpus acceptance suite, including "no database traffic". |
+| `tests/corpus.spec.ts` | Corpus behaviour, against any corpus. Includes "no database traffic". |
+| `tests/corpus-data.spec.ts` | What the real corpus contains. Skips against the fixture. |
+| `tests/fixtures/corpus/` | The miniature corpus CI serves. Generated, committed, 2.6 MB. |
 | `scripts/design-audit.mjs` | The design linter wired into `validate`. |
 | `scripts/check-contrast.mjs` | Real-browser WCAG AA check against the composited background. |
 | `scripts/build-og-images.mjs` | Generates the social preview cards. |

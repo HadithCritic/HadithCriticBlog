@@ -20,16 +20,23 @@ interface Field {
   get: (record: NarratorRecord) => string;
 }
 
+/**
+ * What an empty cell says. "not recorded" rather than a dash, because a dash in
+ * a comparison table is ambiguous between "the sources do not say" and "we did
+ * not look", and this table is read as evidence.
+ */
+const ABSENT = 'not recorded';
+
 const FIELDS: Field[] = [
-  { label: 'Arabic', arabic: true, get: (r) => r.name_ar || ', ' },
-  { label: 'Generation', get: (r) => r.generation || ', ' },
+  { label: 'Arabic', arabic: true, get: (r) => r.name_ar || ABSENT },
+  { label: 'Generation', get: (r) => r.generation || ABSENT },
   { label: 'Verdict', get: (r) => r.grade || 'Unrated' },
-  { label: 'Tabaqa', get: (r) => (r.tabaqa_number ? String(r.tabaqa_number) : ', ') },
+  { label: 'Tabaqa', get: (r) => (r.tabaqa_number ? String(r.tabaqa_number) : ABSENT) },
   {
     label: 'Died',
-    get: (r) => (r.death_hijri ? `${r.death_hijri} AH / ${r.death_gregorian} CE` : 'not recorded')
+    get: (r) => (r.death_hijri ? `${r.death_hijri} AH / ${r.death_gregorian} CE` : ABSENT)
   },
-  { label: 'Place', get: (r) => r.death_place || r.places_en?.[0] || ', ' },
+  { label: 'Place', get: (r) => r.death_place || r.places_en?.[0] || ABSENT },
   { label: 'Hadith', get: (r) => r.hadith_count.toLocaleString() },
   { label: 'Teachers', get: (r) => String(r.teacher_count) },
   { label: 'Students', get: (r) => String(r.student_count) },

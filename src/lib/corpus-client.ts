@@ -91,6 +91,26 @@ export class CorpusUnavailableError extends Error {
   }
 }
 
+/**
+ * Thrown when the corpus is open and answered a query with an error.
+ *
+ * Kept distinct from `CorpusUnavailableError` because the two need different
+ * messages and different fixes. Conflating them told a reader "the corpus could
+ * not be loaded" while the corpus was loaded and a query had failed, which sent
+ * the investigation at the network for an hour. The underlying SQLite message
+ * is logged rather than shown: it is diagnostic, not something a reader can act
+ * on.
+ */
+export class CorpusQueryError extends Error {
+  constructor(
+    readonly sql: string,
+    readonly cause?: unknown
+  ) {
+    super('The corpus could not answer that query.');
+    this.name = 'CorpusQueryError';
+  }
+}
+
 type StatusListener = (status: CorpusStatus, error?: CorpusUnavailableError) => void;
 
 let status: CorpusStatus = 'idle';
@@ -275,7 +295,10 @@ async function query<T = Record<string, unknown>>(sql: string, args: unknown[] =
   try {
     return (await worker.db.query(sql, args)) as T[];
   } catch (cause) {
-    throw new CorpusUnavailableError('The corpus rejected a query.', cause);
+    // The SQLite message is the only thing that identifies which query broke,
+    // and it never reaches the page, so it goes to the console.
+    console.error('Corpus query failed:', cause, '\nSQL:', sql, '\nArgs:', args);
+    throw new CorpusQueryError(sql, cause);
   }
 }
 

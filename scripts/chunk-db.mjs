@@ -30,6 +30,7 @@ import path from 'node:path';
 import {
   CHUNK_BASENAME,
   CHUNK_URL_PREFIX,
+  ROOT,
   buildPaths,
   corpusVersion,
   fileSize,
@@ -50,6 +51,22 @@ const FILE_BUDGET_FOR_CHUNKS = 15000;
 
 const DEFAULT_CHUNK_SIZE = 10 * MIB;
 
+/**
+ * Chunks must be large compared to the VFS read-ahead.
+ *
+ * `sql.js-httpvfs` grows its read window as it walks pages sequentially, and
+ * maps a read to exactly one chunk file. A read wider than a chunk gets clamped
+ * to that chunk's end, and the library fills only the pages that arrived. The
+ * result is not an error: it is a database that answers queries with fewer rows
+ * than it holds. Measured with 64 KiB chunks on a 2.5 MB fixture, a term
+ * present in seven narrations returned none, and one present in nine returned
+ * two, while the same query on the same file returned seven and nine locally.
+ *
+ * 1 MiB is the floor because nothing smaller leaves room for the read-ahead to
+ * grow into. Production uses 10 MiB, which is nowhere near it.
+ */
+const MIN_CHUNK_SIZE = MIB;
+
 function parseSize(value) {
   if (value === undefined || value === true) return DEFAULT_CHUNK_SIZE;
   const match = String(value).trim().match(/^(\d+(?:\.\d+)?)\s*(b|kib|mib|k|m)?$/i);
@@ -61,7 +78,23 @@ function parseSize(value) {
 async function main() {
   const args = parseArgs();
   const version = typeof args.version === 'string' ? args.version : corpusVersion();
-  const build = buildPaths(version);
+  const defaults = buildPaths(version);
+
+  /**
+   * `--db` and `--out` exist so the fixture builder can chunk through this
+   * script rather than reimplementing it. The fixture is only worth having if
+   * it is addressed exactly the way the real corpus is.
+   */
+  const build =
+    typeof args.out === 'string'
+      ? {
+          ...defaults,
+          db: typeof args.db === 'string' ? path.resolve(ROOT, args.db) : defaults.db,
+          dir: path.resolve(ROOT, args.out),
+          chunksDir: path.join(path.resolve(ROOT, args.out), 'chunks'),
+          manifest: path.join(path.resolve(ROOT, args.out), 'manifest.json')
+        }
+      : { ...defaults, db: typeof args.db === 'string' ? path.resolve(ROOT, args.db) : defaults.db };
 
   if (!existsSync(build.db)) {
     throw new Error(
@@ -74,6 +107,14 @@ async function main() {
   if (chunkSize > CLOUDFLARE_MAX_ASSET_BYTES) {
     throw new Error(
       `--chunk-size ${megabytes(chunkSize)} exceeds Cloudflare's ${megabytes(CLOUDFLARE_MAX_ASSET_BYTES)} per-asset limit.`
+    );
+  }
+  if (chunkSize < MIN_CHUNK_SIZE && !args['allow-small-chunks']) {
+    throw new Error(
+      `--chunk-size ${megabytes(chunkSize)} is below the ${megabytes(MIN_CHUNK_SIZE)} floor. ` +
+        'Smaller chunks let the read-ahead span a chunk boundary, which returns short ' +
+        'reads and makes the corpus answer queries with missing rows rather than fail. ' +
+        'Pass --allow-small-chunks only to measure that.'
     );
   }
 

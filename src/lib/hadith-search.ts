@@ -4,9 +4,8 @@
  * /hadith is a prerendered shell: a catalogue of the thirty-three compilations
  * and a form. This module is what turns a query in that form into results,
  * reading the static SQLite corpus over HTTP range requests. No request reaches
- * a database server, and none ever did reach one from here after a search, the
- * page used to be server rendered against a hosted database, and this is what
- * replaced it.
+ * a database server. The page used to be server rendered against a hosted one,
+ * and this module is what replaced it.
  *
  * Three behaviours are load-bearing and easy to lose:
  *

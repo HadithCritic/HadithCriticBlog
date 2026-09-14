@@ -196,6 +196,42 @@ The last two are on demand only because their ids are unbounded, 276,347 and
 20,950 is past what Cloudflare will hold as assets. They read nothing at request
 time; they render a frame with the id in it and cost a Worker invocation.
 
+## Testing it
+
+The corpus is not in git, so CI has no corpus. The suite would therefore have
+had to skip there, which would have left the browser-side data layer, all six
+renderers and the range-request path with no automated coverage at all. A suite
+that always skips protects nothing.
+
+So there are two suites and a committed fixture.
+
+| | Runs against | Asserts |
+|---|---|---|
+| `tests/corpus.spec.ts` | any corpus, real or fixture | behaviour, with counts read from the served `corpus-meta.json` |
+| `tests/corpus-data.spec.ts` | the real corpus only | the totals and the particular records a release is expected to carry |
+
+`tests/fixtures/corpus/` is a miniature corpus cut out of the real one by
+`npm run build:corpus:fixture`: 48 narrations, 161 transmitters, 4 collections,
+41 chunks, about 2.6 MB, committed. Same schema, same derived tables, same
+Arabic fold, chunked by the same script. The subset is chosen rather than
+random, so it contains the records the data suite names and both spellings of
+the folded-Arabic cases.
+
+CI builds twice. Once from the committed metadata, which is what deploys, and
+once after `npm run use:corpus-fixture` swaps in the fixture's own metadata, so
+the page totals and the corpus it is served agree. `npm run use:corpus-real`
+puts the tracked files back.
+
+Locally, against the real corpus:
+
+```bash
+npm run publish:corpus     # stage the real corpus for the dev server
+npm run test:e2e:corpus    # both suites, including the data assertions
+```
+
+The data suite skips itself when the served corpus announces itself as
+`fixture`, so it cannot quietly pass against the wrong one.
+
 ## Traps
 
 **Client-rendered markup gets no scope hash.** Astro scopes a page's `<style>`
@@ -203,9 +239,48 @@ to `[data-astro-cid-*]`, and a node created by script never carries that
 attribute. Every rule for markup these modules emit lives in an `is:global`
 block. Moving a rule back into a scoped block silently unstyles the page.
 
+**`:global()` inside an `is:global` block ships as a literal selector.** Astro
+only rewrites `:global()` in a scoped block; in a global one it passes through,
+lightningcss logs "'global' is not recognized as a valid pseudo-class", and the
+emitted CSS contains `.facing-prose :global(.folio){...}`, which matches
+nothing. That reached production: emphasis, bold and folio references inside
+narration text were unstyled on every record page, with a build warning as the
+only sign. When converting a block to `is:global`, unwrap every `:global()` in
+it.
+
+**Middleware runs while Astro prerenders.** `src/middleware.ts` reads
+`context.request.headers` to decide cacheability, and there is no request during
+a build: touching it logs "`Astro.request.headers` is not available on
+prerendered pages" once per page, which became 33 warnings once the collection
+editions were prerendered. It now returns early on `context.isPrerendered`.
+
 **`requestChunkSize` must equal the database page size.** A mismatch makes every
 SQLite page read span two range requests. `chunk-db.mjs` reads `PRAGMA page_size`
 from the file rather than assuming, and the acceptance suite asserts it.
+
+**Chunks must be large compared to the read-ahead, or the corpus loses rows.**
+The VFS grows its read window as it walks pages sequentially and maps each read
+to exactly one chunk file. A read wider than a chunk is clamped to that chunk's
+end, and only the pages that arrived get stored. Nothing errors. Measured on a
+2.5 MB fixture chunked at 64 KiB: a term present in seven narrations returned
+none, and one present in nine returned two, while the same queries on the same
+file returned seven and nine locally. `chunk-db.mjs` now refuses a chunk size
+below 1 MiB. Production's 10 MiB is nowhere near the floor.
+
+The read window doubles on every sequential hit and is not bounded by the chunk
+size, so a long enough table scan would eventually outgrow even a 10 MiB chunk.
+That is one more reason the query shapes in `corpus-count.ts` matter: the site
+does not scan. Counts stop at 10,000, ranking happens on the index before the
+join, and stored totals are read rather than recomputed.
+
+**A version is immutable, so never rebuild one in place.** The chunks are served
+`immutable` for a year. Republishing different bytes at the same URLs leaves a
+browser holding the old manifest and the new chunks, which is the same failure
+as above: a database that answers with missing rows rather than failing. This
+bit the test fixture while it was named `fixture`; it is now named for a hash of
+its own contents, so a rebuild publishes somewhere new. The manifest itself is
+deliberately *not* immutable, for the same reason and so a rollback can take
+effect.
 
 **A check that waits for `load` measures a spinner.** Corpus pages are shells
 until the corpus answers. `scripts/check-contrast.mjs` waits for real content

@@ -7,16 +7,16 @@
  * built here from the static corpus.
  *
  * A faithful port of what the page used to render server side, class for class,
- * because the stylesheet is the same stylesheet, moved in the same change from
- * the page's scoped block to `is:global`, since a node created by script never
- * carries the page's `data-astro-cid` attribute.
+ * because the stylesheet is the same stylesheet. It moved in the same change
+ * from the page's scoped block to `is:global`, since a node created by script
+ * never carries the page's `data-astro-cid` attribute.
  *
  * The product rule this page exists under is unchanged and absolute: nothing
  * here grades anyone. Classical verdicts and jarḥ/taʿdīl statements are printed
  * as attributed source data, in neutral apparatus ink, with the critic and the
  * citation attached. There is no score, no badge and no colour doing evaluative
- * work, `rijal-stmt-verdict--jarh` and `--tadil` label whose category a
- * statement belongs to, not whether the transmitter is to be believed.
+ * work: `rijal-stmt-verdict--jarh` and `--tadil` say which category a statement
+ * belongs to, not whether the transmitter is to be believed.
  */
 
 import {

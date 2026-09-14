@@ -111,6 +111,8 @@ Once the development server is running, open your browser and navigate to:
 | `npm run build:corpus`  | Build, chunk, verify and stage a corpus release from the master database (local only)                    |
 | `npm run verify:corpus` | Row counts, chunk integrity and query parity between the distribution and the master                     |
 | `npm run publish:corpus`| Stage the built corpus where `npm run dev` can serve it                                                  |
+| `npm run build:e2e`     | Build with the corpus on its own byte-serving origin, which the end-to-end run needs                     |
+| `npm run test:e2e:corpus` | Both corpus suites, including the assertions about what the real corpus contains                       |
 
 *Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
 
@@ -127,6 +129,9 @@ The `scripts/` directory contains various Node.js pipelines to maintain the site
 | `build-quran-data.cjs`                  | Generates Quranic verse JSON data for quick citations within blog articles.                      |
 | `convert_to_mdx.cjs`                    | Utility to convert legacy content formats into standardized MDX.                                 |
 | `build-corpus.mjs`                      | Runs the four stages below in order. The normal way to cut a corpus release.                     |
+| `build-corpus-fixture.mjs`              | Cuts the miniature corpus CI serves out of the real one. Output is committed.                    |
+| `corpus-file-server.mjs`                | Serves corpus chunks with real byte ranges, which `astro preview` cannot. Used by the e2e run.  |
+| `build-for-e2e.mjs`                     | Builds the site pointed at that server, optionally against the fixture.                          |
 | `build-distribution-db.mjs`             | Master to distribution: ANALYZE, VACUUM, integrity check.                                        |
 | `chunk-db.mjs`                          | Splits the distribution database into 10 MiB chunks and writes the manifest.                     |
 | `build-corpus-meta.mjs`                 | Generates`src/data/corpus-meta.json` and the narrator sitemap ids. Both are committed.          |
