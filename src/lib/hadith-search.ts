@@ -1,19 +1,221 @@
 /**
- * Client-side interactive search for the Hadith corpus.
+ * Corpus search, running in the reader's browser.
  *
- * Runs full-text and filtered searches in-browser using sql.js-httpvfs range
- * requests, updating results dynamically without triggering full-page SSR
- * reloads or consuming remote database read quotas.
+ * /hadith is a prerendered shell: a catalogue of the thirty-three compilations
+ * and a form. This module is what turns a query in that form into results,
+ * reading the static SQLite corpus over HTTP range requests. No request reaches
+ * a database server, and none ever did reach one from here after a search, the
+ * page used to be server rendered against a hosted database, and this is what
+ * replaced it.
+ *
+ * Three behaviours are load-bearing and easy to lose:
+ *
+ *   **The URL is the state.** Every search writes a shareable URL, and every
+ *   load reads one. /hadith?q=عائشة&book=27&page=3 has to survive a refresh, a
+ *   paste into another tab, and the back button, because those links are cited
+ *   in articles.
+ *
+ *   **The pager is anchors.** They carry a real href to the same URL the module
+ *   would push, so middle-click and "open in new tab" work and the control is a
+ *   link rather than a div with a listener.
+ *
+ *   **The markup matches what the server used to emit.** The rules for these
+ *   classes live in the page's `is:global` block, because a node created here
+ *   never carries the page's `data-astro-cid` attribute and a scoped rule would
+ *   not reach it.
  */
 
-import { searchHadithClient, type HadithRecord, type HadithSearchResponse } from './corpus-client';
-import { makeSnippet } from './snippet';
+import {
+  CorpusUnavailableError,
+  getNarratorsByIds,
+  onCorpusStatus,
+  searchHadith,
+  type HadithSearchResult,
+  type HadithSearchRow,
+  type SearchScope
+} from './corpus-client';
+import { CORPUS_META } from './corpus-config';
+import { escapeHtml, makeSnippet } from './snippet';
 import { toPlainText } from './format-text';
 
-const esc = (s: unknown) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string
-  );
+const SCOPES: readonly SearchScope[] = ['all', 'matn', 'arabic', 'english'];
+const PAGE_SIZE = 25;
+
+interface SearchState {
+  q: string;
+  scope: SearchScope;
+  phrase: boolean;
+  book: number;
+  narrator: number;
+  subject: string;
+  page: number;
+}
+
+const readState = (search: string): SearchState => {
+  const p = new URLSearchParams(search);
+  const scope = (p.get('scope') || 'all') as SearchScope;
+  return {
+    q: (p.get('q') || '').trim(),
+    scope: SCOPES.includes(scope) ? scope : 'all',
+    phrase: p.get('phrase') === '1',
+    book: Math.max(0, parseInt(p.get('book') || '', 10) || 0),
+    narrator: Math.max(0, parseInt(p.get('narrator') || '', 10) || 0),
+    subject: (p.get('subject') || '').trim(),
+    page: Math.max(1, parseInt(p.get('page') || '1', 10) || 1)
+  };
+};
+
+const hasFilter = (state: SearchState) =>
+  Boolean(state.q) || state.book > 0 || state.narrator > 0 || Boolean(state.subject);
+
+function stateToSearch(state: SearchState): string {
+  const p = new URLSearchParams();
+  if (state.q) p.set('q', state.q);
+  if (state.scope !== 'all') p.set('scope', state.scope);
+  if (state.phrase) p.set('phrase', '1');
+  if (state.book > 0) p.set('book', String(state.book));
+  if (state.narrator > 0) p.set('narrator', String(state.narrator));
+  if (state.subject) p.set('subject', state.subject);
+  if (state.page > 1) p.set('page', String(state.page));
+  const query = p.toString();
+  return query ? `/hadith?${query}` : '/hadith';
+}
+
+/* -------------------------------------------------------------------------- */
+/* Markup                                                                      */
+/* -------------------------------------------------------------------------- */
+
+function recordCard(row: HadithSearchRow, query: string, index: number, revealCap: number): string {
+  const chapter = toPlainText(row.chapter_en || '');
+  const snippetEn =
+    row.snippet_en ?? makeSnippet(toPlainText(row.matn_en || row.text_en || ''), query, { window: 260 });
+  const snippetAr = row.snippet_ar ?? makeSnippet(row.matn_ar || row.text_ar || '', query, { window: 200 });
+
+  return `
+    <li class="corpus-result hc-reveal" style="--reveal-delay:${Math.min(index, revealCap)}">
+      <article class="corpus-record-card">
+        <a class="corpus-record-card__hitarea" href="/hadith/${row.id}">
+          <div class="corpus-record-card__top">
+            <div class="corpus-record-card__breadcrumbs">
+              <span class="corpus-record-card__book">${escapeHtml(row.book_en)}</span>
+              <span class="corpus-record-card__num">${
+                row.hadith_num ? `Report № ${escapeHtml(row.hadith_num)}` : `ID #${row.id}`
+              }</span>
+            </div>
+            <span class="corpus-record-card__action">
+              <span>Open Record</span>
+              <span class="corpus-record-card__arrow">→</span>
+            </span>
+          </div>
+
+          ${chapter ? `<h2 class="corpus-record-card__chapter">${escapeHtml(chapter)}</h2>` : ''}
+
+          <div class="corpus-record-card__spread">
+            <div class="corpus-record-card__col corpus-record-card__col--en">
+              <div class="corpus-record-card__snippet-meta">
+                <span class="corpus-badge-indicator corpus-badge-indicator--en"></span>
+                <span>English Translation</span>
+              </div>
+              <p class="corpus-record-card__text">${snippetEn}</p>
+            </div>
+
+            <div class="corpus-record-card__col corpus-record-card__col--ar">
+              <div class="corpus-record-card__snippet-meta corpus-record-card__snippet-meta--ar">
+                <span class="corpus-badge-indicator corpus-badge-indicator--ar"></span>
+                <span lang="ar" dir="rtl">النص الأصلي</span>
+              </div>
+              <p lang="ar" dir="rtl" class="corpus-record-card__ar">${snippetAr}</p>
+            </div>
+          </div>
+
+          <div class="corpus-record-card__footer">
+            <div class="corpus-record-card__pills">
+              <span class="corpus-pill">
+                <span class="corpus-pill__label">Transmitters:</span>
+                <strong class="corpus-pill__num">${row.narrator_count}</strong>
+              </span>
+              ${
+                Number(row.parallel_count) > 0
+                  ? `<span class="corpus-pill">
+                       <span class="corpus-pill__label">Parallels:</span>
+                       <strong class="corpus-pill__num">${Number(row.parallel_count).toLocaleString()}</strong>
+                     </span>`
+                  : ''
+              }
+            </div>
+            <span class="corpus-record-card__id-meta">Corpus ID: #${row.id}</span>
+          </div>
+        </a>
+      </article>
+    </li>`;
+}
+
+function pagerMarkup(state: SearchState, data: HadithSearchResult): string {
+  if (data.pages <= 1) return '';
+  const href = (page: number) => escapeHtml(stateToSearch({ ...state, page }));
+
+  const back =
+    state.page > 1
+      ? `<a class="corpus-pager__btn" href="${href(state.page - 1)}" data-page="${state.page - 1}">← Previous Page</a>`
+      : '<span class="corpus-pager__btn is-disabled" aria-disabled="true">← Previous Page</span>';
+  const forward =
+    state.page < data.pages
+      ? `<a class="corpus-pager__btn" href="${href(state.page + 1)}" data-page="${state.page + 1}">Next Page →</a>`
+      : '<span class="corpus-pager__btn is-disabled" aria-disabled="true">Next Page →</span>';
+
+  return `
+    <nav class="corpus-pager" aria-label="Query pagination">
+      ${back}
+      <span class="corpus-pager__info">
+        Page <strong>${state.page.toLocaleString()}</strong> of <strong>${data.pages.toLocaleString()}</strong>
+      </span>
+      ${forward}
+    </nav>`;
+}
+
+function filterChips(state: SearchState, narratorName: string | null): string {
+  if (!hasFilter(state)) return '';
+  const book = state.book ? CORPUS_META.collections.find((b) => b.id === state.book) : undefined;
+  const chips: string[] = [];
+
+  if (state.q) {
+    chips.push(
+      `<span class="filter-chip"><span class="filter-chip__key">Query:</span>
+         <strong class="filter-chip__val">“${escapeHtml(state.q)}”</strong></span>`
+    );
+  }
+  if (book) {
+    chips.push(
+      `<span class="filter-chip"><span class="filter-chip__key">Collection:</span>
+         <strong class="filter-chip__val">${escapeHtml(book.title_en)}</strong></span>`
+    );
+  }
+  if (state.narrator > 0) {
+    chips.push(
+      `<span class="filter-chip"><span class="filter-chip__key">Transmitter:</span>
+         <a class="filter-chip__link" href="/narrators/${state.narrator}">${escapeHtml(
+           narratorName || `#${state.narrator}`
+         )}</a></span>`
+    );
+  }
+  if (state.subject) {
+    chips.push(
+      `<span class="filter-chip"><span class="filter-chip__key">Subject:</span>
+         <strong class="filter-chip__val">${escapeHtml(state.subject)}</strong></span>`
+    );
+  }
+
+  return `
+    <span class="corpus-active-filters__label">Active Constraints:</span>
+    <div class="corpus-active-filters__list">
+      ${chips.join('')}
+      <a class="filter-chip-clear" href="/hadith">Clear All Filters</a>
+    </div>`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Wiring                                                                      */
+/* -------------------------------------------------------------------------- */
 
 export function initHadithSearch(): void {
   const form = document.querySelector('form.corpus-controls') as HTMLFormElement | null;
@@ -21,184 +223,199 @@ export function initHadithSearch(): void {
   if (!form || !body || form.dataset.searchReady === 'true') return;
   form.dataset.searchReady = 'true';
 
-  const formEl = form;
-  const bodyEl = body;
+  // Asserted rather than union-typed: the guard below is the runtime check,
+  // and a hoisted function declaration does not inherit the narrowing.
+  const results = body.querySelector('.corpus-results-wrap') as HTMLElement;
+  const catalogue = body.querySelector('.corpus-index') as HTMLElement | null;
+  const activeFilters = body.querySelector('.corpus-active-filters') as HTMLElement | null;
+  if (!results) return;
 
-  const searchInput = formEl.querySelector('#corpus-q') as HTMLInputElement | null;
-  const scopeSelect = formEl.querySelector('select[name="scope"]') as HTMLSelectElement | null;
-  const bookSelect = formEl.querySelector('select[name="book"]') as HTMLSelectElement | null;
+  const input = form.querySelector('#corpus-q') as HTMLInputElement | null;
+  const scopeSelect = form.querySelector('select[name="scope"]') as HTMLSelectElement | null;
+  const bookSelect = form.querySelector('select[name="book"]') as HTMLSelectElement | null;
+  const phraseBox = form.querySelector('input[name="phrase"]') as HTMLInputElement | null;
+  const narratorField = form.querySelector('input[name="narrator"]') as HTMLInputElement | null;
+  const subjectField = form.querySelector('input[name="subject"]') as HTMLInputElement | null;
 
-  let resultsContainer = bodyEl.querySelector('.corpus-results-wrap') as HTMLElement | null;
-  let collectionsSection = bodyEl.querySelector('.corpus-index') as HTMLElement | null;
+  const revealCap = 8;
+  let token = 0;
 
-  // If results wrap doesn't exist yet, create a mount container
-  if (!resultsContainer) {
-    resultsContainer = document.createElement('div');
-    resultsContainer.className = 'corpus-results-wrap';
-    bodyEl.appendChild(resultsContainer);
+  /** Put the controls in step with a state, so a deep link shows its own filters. */
+  function applyToForm(state: SearchState) {
+    if (input) input.value = state.q;
+    if (scopeSelect) scopeSelect.value = state.scope;
+    if (bookSelect) bookSelect.value = state.book > 0 ? String(state.book) : '';
+    if (phraseBox) phraseBox.checked = state.phrase;
+    // Disabled fields are not submitted, which is how an absent filter stays
+    // absent from the next query string rather than arriving as an empty one.
+    if (narratorField) {
+      narratorField.value = state.narrator > 0 ? String(state.narrator) : '';
+      narratorField.disabled = state.narrator <= 0;
+    }
+    if (subjectField) {
+      subjectField.value = state.subject;
+      subjectField.disabled = !state.subject;
+    }
   }
 
-  // Preserve initial collections HTML so we can restore when search is cleared
-  const initialCollectionsHtml = collectionsSection ? collectionsSection.outerHTML : '';
-
-  let inflight = false;
-
-  function resultRowMarkup(r: HadithRecord, q: string): string {
-    const snippetEn = r.snippet_en || makeSnippet(toPlainText(r.matn_en || r.text_en), q, { window: 240 });
-    const snippetAr = r.snippet_ar || (r.matn_ar || r.text_ar ? makeSnippet(r.matn_ar || r.text_ar, q, { window: 180 }) : null);
-
-    return `
-      <li class="corpus-result">
-        <a class="corpus-result__link" href="/hadith/${r.id}">
-          <div class="corpus-result__header">
-            <span class="corpus-result__book">${esc(r.book_en)}</span>
-            ${r.hadith_num ? `<span class="corpus-result__num">№ ${esc(r.hadith_num)}</span>` : ''}
-          </div>
-          ${r.chapter_en ? `<h3 class="corpus-result__chapter">${esc(toPlainText(r.chapter_en))}</h3>` : ''}
-          <div class="corpus-result__cols">
-            <div class="corpus-result__col corpus-result__col--en">
-              <p class="corpus-result__text">${snippetEn}</p>
-            </div>
-            ${snippetAr ? `
-              <div class="corpus-result__col corpus-result__col--ar">
-                <p lang="ar" dir="rtl" class="corpus-result__ar">${snippetAr}</p>
-              </div>` : ''}
-          </div>
-          <div class="corpus-result__meta">
-            <span class="corpus-meta-tag">${r.narrator_count} transmitters</span>
-            ${Number(r.parallel_count) > 0 ? `
-              <span class="corpus-meta-tag">${Number(r.parallel_count).toLocaleString()} parallels</span>` : ''}
-          </div>
-        </a>
-      </li>`;
+  function readForm(page = 1): SearchState {
+    const scope = (scopeSelect?.value || 'all') as SearchScope;
+    return {
+      q: (input?.value || '').trim(),
+      scope: SCOPES.includes(scope) ? scope : 'all',
+      phrase: Boolean(phraseBox?.checked),
+      book: Math.max(0, parseInt(bookSelect?.value || '', 10) || 0),
+      narrator: Math.max(0, parseInt(narratorField?.value || '', 10) || 0),
+      subject: (subjectField?.value || '').trim(),
+      page
+    };
   }
 
-  function pagerMarkup(data: HadithSearchResponse): string {
-    if (data.pages <= 1) return '';
-    const page = data.page;
-    return `
-      <nav class="corpus-pager" aria-label="Result pages">
-        ${page > 1
-          ? `<button type="button" class="corpus-page" data-page="${page - 1}">← Previous</button>`
-          : `<span class="corpus-page" aria-disabled="true">← Previous</span>`}
-        <span class="corpus-page-of">
-          Page ${page.toLocaleString()} of ${data.pages.toLocaleString()}
-        </span>
-        ${page < data.pages
-          ? `<button type="button" class="corpus-page" data-page="${page + 1}">Next →</button>`
-          : `<span class="corpus-page" aria-disabled="true">Next →</span>`}
-      </nav>`;
+  function showCatalogue(show: boolean) {
+    if (catalogue) catalogue.hidden = !show;
   }
 
-  async function performSearch(page = 1) {
-    if (inflight) return;
-    const q = (searchInput?.value || '').trim();
-    const scope = (scopeSelect?.value || 'all') as any;
-    const book = bookSelect?.value ? parseInt(bookSelect.value, 10) : undefined;
+  function setFilters(state: SearchState, narratorName: string | null) {
+    if (!activeFilters) return;
+    const markup = filterChips(state, narratorName);
+    activeFilters.innerHTML = markup;
+    activeFilters.hidden = !markup;
+  }
 
-    // If query is empty and no book filter, restore collections view
-    if (!q && !book) {
-      if (resultsContainer) resultsContainer.innerHTML = '';
-      if (!collectionsSection && initialCollectionsHtml) {
-        const temp = document.createElement('div');
-        temp.innerHTML = initialCollectionsHtml;
-        collectionsSection = temp.firstElementChild as HTMLElement;
-        bodyEl.appendChild(collectionsSection);
-      }
-      if (collectionsSection) collectionsSection.style.display = '';
-      history.replaceState(null, '', '/hadith');
+  async function render(state: SearchState, push: boolean) {
+    applyToForm(state);
+
+    if (!hasFilter(state)) {
+      results.innerHTML = '';
+      setFilters(state, null);
+      showCatalogue(true);
+      if (push) history.pushState(null, '', '/hadith');
       return;
     }
 
-    if (collectionsSection) collectionsSection.style.display = 'none';
-    const degradedEl = bodyEl.querySelector('.corpus-degraded') as HTMLElement | null;
-    if (degradedEl) degradedEl.style.display = 'none';
+    showCatalogue(false);
+    setFilters(state, null);
 
-    if (resultsContainer) {
-      resultsContainer.setAttribute('aria-busy', 'true');
-      resultsContainer.innerHTML = '<div class="corpus-toolbar"><span class="corpus-status">Searching corpus…</span></div>';
-    }
-
-    inflight = true;
+    const mine = ++token;
+    results.setAttribute('aria-busy', 'true');
+    results.innerHTML =
+      '<div class="corpus-toolbar"><span class="corpus-status" aria-live="polite">Reading the corpus…</span></div>';
 
     try {
-      const data = await searchHadithClient({
-        q,
-        scope,
-        book,
-        page,
-        size: 25
+      const data = await searchHadith({
+        q: state.q,
+        scope: state.scope,
+        phrase: state.phrase,
+        book: state.book || undefined,
+        narrator: state.narrator || undefined,
+        subject: state.subject || undefined,
+        page: state.page,
+        size: PAGE_SIZE
       });
 
-      if (!resultsContainer) return;
+      // A later search overtook this one. Its results are the current truth.
+      if (mine !== token) return;
 
-      const resultsList = data.results.map((r) => resultRowMarkup(r, q)).join('');
-      const statusText = data.total === 0
-        ? 'Nothing matched.'
-        : `${data.total.toLocaleString()} ${data.total === 1 ? 'narration' : 'narrations'}`;
+      if (state.narrator > 0) {
+        getNarratorsByIds([state.narrator])
+          .then(([narrator]) => {
+            if (mine === token) setFilters(state, narrator?.name_en || null);
+          })
+          .catch(() => {
+            // The chip falls back to the id, which is still a working link.
+          });
+      }
 
-      resultsContainer.innerHTML = `
-        <div class="corpus-toolbar">
-          <span class="corpus-status" aria-live="polite">
-            ${statusText} ${q ? `<span class="corpus-status__for">for “${esc(q)}”</span>` : ''}
-          </span>
-        </div>
-        ${data.results.length > 0 ? `
-          <ol class="corpus-results">
-            ${resultsList}
-          </ol>
-          ${pagerMarkup(data)}` : `
-          <p class="corpus-empty">
-            Nothing matched. Arabic is folded for spelling variation, so عائشة and عايشة find the same records; try fewer words rather than different ones.
-          </p>`}
-      `;
+      const total = `${data.total.toLocaleString()}${data.approximate ? '+' : ''}`;
+      const noun = data.total === 1 ? 'archival record' : 'archival records';
 
-      // Update URL without page reload
-      const nextUrl = new URL(location.href);
-      if (q) nextUrl.searchParams.set('q', q);
-      else nextUrl.searchParams.delete('q');
-      if (scope && scope !== 'all') nextUrl.searchParams.set('scope', scope);
-      else nextUrl.searchParams.delete('scope');
-      if (book) nextUrl.searchParams.set('book', String(book));
-      else nextUrl.searchParams.delete('book');
-      if (page > 1) nextUrl.searchParams.set('page', String(page));
-      else nextUrl.searchParams.delete('page');
+      results.innerHTML = `
+        <section class="corpus-results-section" aria-label="Search Results">
+          <div class="corpus-toolbar">
+            <div class="corpus-status" aria-live="polite">
+              <span class="corpus-status__count">${total} ${noun} found</span>
+              ${
+                state.q
+                  ? `<span class="corpus-status__context">for query <em>“${escapeHtml(state.q)}”</em></span>`
+                  : ''
+              }
+            </div>
+            ${state.q ? '<div class="corpus-ranking-note">Ranked by BM25 Textual Relevance</div>' : ''}
+          </div>
 
-      history.pushState(null, '', nextUrl.toString());
-    } catch (err) {
-      console.warn('In-browser search error, submitting to server:', err);
-      formEl.submit();
+          ${
+            data.results.length
+              ? `<ol class="corpus-results">${data.results
+                  .map((row, i) => recordCard(row, state.q, i, revealCap))
+                  .join('')}</ol>${pagerMarkup(state, data)}`
+              : `<div class="corpus-empty-card">
+                   <div class="corpus-empty-card__icon" aria-hidden="true">∅</div>
+                   <h3 class="corpus-empty-card__title">No Textual Matches Discovered</h3>
+                   <p class="corpus-empty-card__text">
+                     No narrations met the search parameters. Arabic diacritics and alternate
+                     spellings (for example عائشة and عايشة) are normalized automatically.
+                     Consider broadening your scope or querying specific root keywords.
+                   </p>
+                   <a class="filter-chip-clear" href="/hadith">Reset Search Filters</a>
+                 </div>`
+          }
+        </section>`;
+
+      const url = stateToSearch(state);
+      if (push) history.pushState(null, '', url);
+      else history.replaceState(null, '', url);
+    } catch (error) {
+      if (mine !== token) return;
+      const unavailable = error instanceof CorpusUnavailableError;
+      results.innerHTML = `
+        <div class="corpus-notice corpus-notice--error">
+          <p>
+            ${
+              unavailable
+                ? 'The corpus could not be loaded, so search is unavailable right now. Everything else on the site still works.'
+                : 'That search could not be completed.'
+            }
+          </p>
+          <p><button type="button" class="filter-chip-clear" data-corpus-retry>Try again</button></p>
+        </div>`;
+      results.querySelector('[data-corpus-retry]')?.addEventListener('click', () => {
+        render(state, false);
+      });
     } finally {
-      inflight = false;
-      resultsContainer?.removeAttribute('aria-busy');
+      if (mine === token) results.removeAttribute('aria-busy');
     }
   }
 
-  // Intercept form submission
-  formEl.addEventListener('submit', (e) => {
-    e.preventDefault();
-    performSearch(1);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    render(readForm(1), true);
   });
 
-  // Handle select filter changes
-  scopeSelect?.addEventListener('change', () => performSearch(1));
-  bookSelect?.addEventListener('change', () => performSearch(1));
+  scopeSelect?.addEventListener('change', () => render(readForm(1), true));
+  bookSelect?.addEventListener('change', () => render(readForm(1), true));
+  phraseBox?.addEventListener('change', () => render(readForm(1), true));
 
-  // Handle pagination button clicks
-  resultsContainer?.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest('button.corpus-page') as HTMLButtonElement | null;
-    if (!btn || !btn.dataset.page) return;
-    e.preventDefault();
-    const targetPage = parseInt(btn.dataset.page, 10);
-    if (targetPage > 0) {
-      performSearch(targetPage);
-      window.scrollTo({ top: formEl.offsetTop - 40, behavior: 'smooth' });
-    }
+  results.addEventListener('click', (event) => {
+    const link = (event.target as HTMLElement).closest('a.corpus-pager__btn') as HTMLAnchorElement | null;
+    if (!link?.dataset.page) return;
+    // Let a modified click do what the reader asked: open a real URL elsewhere.
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    render({ ...readForm(1), page: parseInt(link.dataset.page, 10) }, true);
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
-  // If arriving on page with query params, run search client-side
-  const currentParams = new URLSearchParams(location.search);
-  if (currentParams.has('q') || currentParams.has('book')) {
-    performSearch(parseInt(currentParams.get('page') || '1', 10) || 1);
-  }
+  window.addEventListener('popstate', () => {
+    render(readState(location.search), false);
+  });
+
+  // A slow first query is the corpus starting up, not a stalled search; say so.
+  onCorpusStatus((status) => {
+    const banner = results.querySelector('.corpus-status');
+    if (status === 'loading' && banner) banner.textContent = 'Opening the corpus…';
+  });
+
+  const initial = readState(location.search);
+  if (hasFilter(initial)) render(initial, false);
+  else applyToForm(initial);
 }

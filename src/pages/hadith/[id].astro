@@ -2,591 +2,114 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { entityPage, OG } from '../../lib/seo';
-import { db } from '../../lib/db';
-import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
- * Flagship Critical Edition Record for a Single Narration.
- * Features an authentic archival plate, sticky section navigation with active scrollspy,
- * facing primary text, a connected isnād transmission graph with biographical dossier
- * integration, and a tripartite critical apparatus.
+ * Critical edition record for one narration.
+ *
+ * A shell, and deliberately so. There are 276,347 narrations, which is far past
+ * what can be prerendered, and there is no longer a database behind the site to
+ * ask at request time. So the Worker renders the frame and the identity of the
+ * record it is going to show, and src/lib/hadith-record.ts fills it from the
+ * static corpus in the browser: the narration, its facing texts, its isnad
+ * branches and its apparatus.
+ *
+ * This route stays on-demand rather than prerendered only because the id is
+ * unbounded. It performs no I/O of any kind -- no database, no fetch, nothing
+ * to fail -- so it costs a Worker invocation and nothing else.
+ *
+ * The consequence to be aware of: a crawler that does not run JavaScript sees
+ * the shell rather than the narration. That is the price of serving a 1.6 GB
+ * corpus from static files, and it is paid knowingly.
  */
 
-const id = Number(Astro.params.id);
-if (!Number.isFinite(id) || id <= 0) {
+const raw = Astro.params.id ?? '';
+const id = Number(raw);
+const valid = /^\d+$/.test(raw) && Number.isFinite(id) && id > 0;
+
+if (!valid) {
   return new Response('Not found', { status: 404 });
 }
 
-let hadithRow, chainRows, subjectRows, glossRows;
-let dbError = false;
+const pageTitle = `Hadith ${id} | HadithCritic Critical Edition`;
 
-try {
-  [hadithRow, chainRows, subjectRows, glossRows] = await db.batch([
-    db.prepare(
-      `SELECT h.*, b.title_ar AS book_ar, b.title_en AS book_en,
-              b.id AS book_id, b.slug AS book_slug
-         FROM hadith h JOIN hadith_book b ON b.id = h.book_id WHERE h.id = ?`
-    ).bind(id),
-    db.prepare(
-      `SELECT c.path_idx, c.pos, c.narrator_id, c.name,
-              n.name_en, n.death_hijri
-         FROM hadith_chain c
-         LEFT JOIN narrator n ON n.id = c.narrator_id
-        WHERE c.hadith_id = ? ORDER BY c.path_idx, c.pos`
-    ).bind(id),
-    db.prepare('SELECT label_ar, label_en FROM hadith_subject WHERE hadith_id = ?').bind(id),
-    db.prepare('SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?').bind(id)
-  ]);
-} catch (error) {
-  console.error(`Hadith ${id} failed to load`, error);
-  dbError = true;
-}
-
-const hadith = hadithRow?.results?.[0] as Record<string, any> | undefined;
-
-if (!dbError && !hadith) {
-  return new Response('Hadith not found', { status: 404 });
-}
-
-if (!dbError) {
-  Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
-}
-
-interface ChainNode {
-  path_idx: number;
-  pos: number;
-  narrator_id: number | null;
-  name: string;
-  name_en: string | null;
-  death_hijri: number | null;
-}
-
-const chain = (chainRows?.results || []) as unknown as ChainNode[];
-const rawSubjects = (subjectRows?.results || []) as unknown as { label_ar: string; label_en: string }[];
-const glosses = (glossRows?.results || []) as unknown as { word_ar: string; word_en: string }[];
-
-// Deduplicate subject taxonomy
-const subjects = [...new Map(rawSubjects.map((s) => [s.label_en.trim(), s])).values()];
-
-// Group transmission branches
-const paths = new Map<number, ChainNode[]>();
-for (const node of chain) {
-  if (!paths.has(node.path_idx)) paths.set(node.path_idx, []);
-  paths.get(node.path_idx)!.push(node);
-}
-
-const chapter = hadith ? toPlainText(hadith.chapter_en) : '';
-const ref = hadith ? `${hadith.book_en}${hadith.hadith_num ? ` № ${hadith.hadith_num}` : ''}` : `Hadith #${id}`;
-const pageTitle = hadith ? `${ref} · Hadith ${id} | HadithCritic Critical Edition` : `Hadith #${id} | HadithCritic`;
-const summary = hadith ? toPlainText(hadith.matn_en || hadith.text_en).slice(0, 180) : '';
-
-const matnIsDistinct = hadith
-  ? Boolean(hadith.matn_ar) && String(hadith.matn_ar).trim() !== String(hadith.text_ar).trim()
-  : false;
-
-const totalParallels = hadith
-  ? Number(hadith.parallel_count || 0) +
-    Number(hadith.witness_count || 0) +
-    Number(hadith.variant_count || 0)
-  : 0;
+// The shell depends on the id and the deployment, and on nothing that can
+// fail, so it is unconditionally storable at the edge.
+Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 ---
 
 <BaseLayout
   title={pageTitle}
-  description={summary || 'A primary source narration in Arabic and English from the Hadith Critical Archive.'}
-  image={hadith ? OG.collection(hadith.book_slug) : undefined}
-  imageAlt={hadith ? `${hadith.book_en}${hadith.hadith_num ? ` ${hadith.hadith_num}` : ''} · Hadith ${id}` : undefined}
+  description="A primary source narration in Arabic and English from the HadithCritic corpus, with its transmission chain and critical apparatus."
   crumbs={[
     { name: 'Home', url: '/' },
     { name: 'Corpus', url: '/hadith' },
-    ...(hadith ? [{ name: hadith.book_en, url: `/hadith/collection/${hadith.book_slug}` }] : []),
-    { name: ref, url: `/hadith/${id}` }
+    { name: `Hadith ${id}`, url: `/hadith/${id}` }
   ]}
-  schema={hadith ? [
-    entityPage({
-      url: `${Astro.site}hadith/${id}`,
-      title: pageTitle,
-      description: summary,
-      entityId: `${Astro.site}hadith/${id}#hadith`
-    })
-  ] : []}
 >
-  <div class="hadith-container">
-    {dbError || !hadith ? (
+  <div class="hadith-container" data-hadith-id={id}>
+    <div class="record-loading" data-record-loading>
+      <span class="record-spinner" aria-hidden="true"></span>
+      <p>Reading narration #{id} from the corpus...</p>
+    </div>
+    <noscript>
       <div class="hadith-degraded">
-        <span class="hadith-degraded__badge">Database Unavailable</span>
-        <h1 class="hadith-degraded__title">Narration #{id} Temporarily Unreachable</h1>
+        <span class="hadith-degraded__badge">JavaScript required</span>
+        <h1 class="hadith-degraded__title">Narration #{id}</h1>
         <p class="hadith-degraded__text">
-          The corpus database is handling elevated load. The report can still be accessed directly via collection registers or the offline worker index.
+          Narrations are read from a static SQLite corpus inside your browser,
+          which needs JavaScript. The written research on this site does not.
         </p>
         <div class="hadith-degraded__actions">
-          <a class="hc-btn" href="/hadith">← Return to Corpus Index</a>
+          <a class="hc-btn" href="/hadith">Return to the corpus index</a>
         </div>
       </div>
-    ) : (
-      <>
-        <!-- Archival Critical Edition Plate -->
-        <header class="edition-hero">
-          <div class="edition-hero__topbar">
-            <a class="hc-back-link" href={`/hadith/collection/${hadith.book_slug}`}>
-              <span>←</span>
-              <span>{hadith.book_en}</span>
-            </a>
-
-            <div class="edition-hero__badges">
-              {hadith.hadith_num && (
-                <span class="edition-ref-tag edition-ref-tag--gold">№ {hadith.hadith_num}</span>
-              )}
-              <span class="edition-ref-tag">Record ID #{id}</span>
-              <span class="edition-ref-tag edition-ref-tag--status">Critical Edition</span>
-            </div>
-          </div>
-
-          <div class="edition-hero__titles">
-            {hadith.book_ar && (
-              <p class="edition-hero__title-ar" lang="ar" dir="rtl">{hadith.book_ar}</p>
-            )}
-            <h1 class="edition-hero__title-en">{chapter || hadith.book_en}</h1>
-          </div>
-
-          <!-- Structured Research Ledger -->
-          <div class="edition-ledger-grid">
-            <div class="ledger-block">
-              <span class="ledger-block__label">Bibliographic Citation</span>
-              <div class="ledger-block__value">
-                <a href={`/hadith/collection/${hadith.book_slug}`} class="ledger-link">
-                  {hadith.book_en}
-                </a>
-                {hadith.hadith_num && <span class="ledger-meta">· Report № {hadith.hadith_num}</span>}
-              </div>
-            </div>
-
-            <div class="ledger-block">
-              <span class="ledger-block__label">Transmission Topology</span>
-              <div class="ledger-block__value">
-                <span>{paths.size} Lineage {paths.size === 1 ? 'Path' : 'Paths'}</span>
-                <span class="ledger-meta">· {hadith.narrator_count} Transmitters</span>
-              </div>
-            </div>
-
-            <div class="ledger-block">
-              <span class="ledger-block__label">Apparatus Circulation</span>
-              <div class="ledger-block__value">
-                <span>{totalParallels.toLocaleString()} Cross-Attestations</span>
-                <span class="ledger-meta">· {hadith.parallel_count || 0} Parallels</span>
-              </div>
-            </div>
-
-            <div class="ledger-block ledger-block--action">
-              <span class="ledger-block__label">Permanent Reference</span>
-              <button
-                type="button"
-                class="edition-cite-btn"
-                id="edition-cite-btn"
-                data-citation={`${ref} — HadithCritic Corpus Record #${id}`}
-                hidden
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                </svg>
-                <span data-cite-label>Copy Citation</span>
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <!-- Sticky Interactive Section Navigation -->
-        <nav class="edition-nav-dock" aria-label="Record Sections" id="edition-jump-bar">
-          <div class="edition-nav-dock__inner">
-            <span class="edition-nav-dock__label">Sections:</span>
-            <div class="edition-nav-dock__links">
-              {matnIsDistinct && (
-                <a href="#matn-heading" class="dock-link">
-                  <span>Substantive Matn</span>
-                  <span class="dock-link__ar" lang="ar">المتن</span>
-                </a>
-              )}
-              <a href="#report-heading" class="dock-link">
-                <span>Full Transmission</span>
-                <span class="dock-link__ar" lang="ar">الرواية الكاملة</span>
-              </a>
-              {paths.size > 0 && (
-                <a href="#isnad-heading" class="dock-link">
-                  <span>Isnād Transmission Graph</span>
-                  <span class="dock-link__count">{paths.size}</span>
-                </a>
-              )}
-              {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
-                <a href="#apparatus-heading" class="dock-link">
-                  <span>Critical Apparatus</span>
-                </a>
-              )}
-            </div>
-          </div>
-        </nav>
-
-        <!-- Prophetic Matn (Substantive Speech) -->
-        {matnIsDistinct && (
-          <section class="record-section" aria-labelledby="matn-heading">
-            <div class="record-section__header">
-              <div class="record-section__kicker">
-                <span class="hc-eyebrow">Textual Artifact · Primary Speech</span>
-              </div>
-              <h2 class="record-section__title" id="matn-heading">Substantive Matn (المتن)</h2>
-              <p class="record-section__desc">
-                The operative verdict or substantive prophetic utterance, isolated from introductory transmission formulas for comparative text-critical analysis.
-              </p>
-            </div>
-
-            <div class="critical-spread critical-spread--matn">
-              <div class="critical-col critical-col--en">
-                <div class="critical-col__header">
-                  <div class="critical-col__tag">
-                    <span class="critical-col__dot critical-col__dot--en" aria-hidden="true"></span>
-                    <span>English Translation</span>
-                  </div>
-                  <span class="critical-col__caveat">Descriptive machine rendering · Unreviewed</span>
-                </div>
-                <div class="critical-col__prose">
-                  {hadith.matn_en ? (
-                    <div class="facing-prose facing-prose--en">
-                      <Fragment set:html={renderRich(hadith.matn_en)} />
-                    </div>
-                  ) : (
-                    <p class="facing-prose--empty">No distinct translation recorded for this matn isolation.</p>
-                  )}
-                </div>
-              </div>
-
-              <div class="critical-col critical-col--ar">
-                <div class="critical-col__header">
-                  <div class="critical-col__tag">
-                    <span class="critical-col__dot critical-col__dot--ar" aria-hidden="true"></span>
-                    <span lang="ar" dir="rtl">نص المتن المجرد</span>
-                  </div>
-                  <span class="critical-col__folio">النص المعتمد</span>
-                </div>
-                <div class="critical-col__prose">
-                  <div class="facing-prose facing-prose--ar" lang="ar" dir="rtl">
-                    <Fragment set:html={renderArabic(hadith.matn_ar)} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        <!-- Full Formulation & Transmission Context -->
-        <section class="record-section" aria-labelledby="report-heading">
-          <div class="record-section__header">
-            <div class="record-section__kicker">
-              <span class="hc-eyebrow">Manuscript Formulation</span>
-            </div>
-            <h2 class="record-section__title" id="report-heading">Full Formulation &amp; Opening Formulas</h2>
-            <p class="record-section__desc">
-              The narration as committed to manuscript: includes compiler opening verbs, transmission preambles (حدثنا / أخبرنا), transmitter chains, and substantive text.
-            </p>
-          </div>
-
-          <div class="critical-spread">
-            <div class="critical-col critical-col--en">
-              <div class="critical-col__header">
-                <div class="critical-col__tag">
-                  <span class="critical-col__dot critical-col__dot--en" aria-hidden="true"></span>
-                  <span>English Translation</span>
-                </div>
-                <span class="critical-col__caveat">Complete manuscript text</span>
-              </div>
-              <div class="critical-col__prose">
-                {hadith.text_en ? (
-                  <div class="facing-prose facing-prose--en">
-                    <Fragment set:html={renderRich(hadith.text_en)} />
-                  </div>
-                ) : (
-                  <p class="facing-prose--empty">Translation not registered for this manuscript formulation.</p>
-                )}
-              </div>
-            </div>
-
-            <div class="critical-col critical-col--ar">
-              <div class="critical-col__header">
-                <div class="critical-col__tag">
-                  <span class="critical-col__dot critical-col__dot--ar" aria-hidden="true"></span>
-                  <span lang="ar" dir="rtl">الرواية المسندة في المصنف</span>
-                </div>
-                <span class="critical-col__folio">الأصل العربي</span>
-              </div>
-              <div class="critical-col__prose">
-                <div class="facing-prose facing-prose--ar" lang="ar" dir="rtl">
-                  <Fragment set:html={renderArabic(hadith.text_ar)} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Isnād Lineage (Transmission Graph) -->
-        {paths.size > 0 && (
-          <section class="record-section" aria-labelledby="isnad-heading">
-            <div class="record-section__header">
-              <div class="record-section__kicker">
-                <span class="hc-eyebrow">Transmitter Lineage</span>
-              </div>
-              <h2 class="record-section__title" id="isnad-heading">Transmission Graph &amp; Rijal Register (الإسناد)</h2>
-              <p class="record-section__desc">
-                Ordered chronologically from earliest authority outward to compiler. Click any transmitter to examine their biographical dossier, teacher/student associations, and historical evaluations.
-              </p>
-            </div>
-
-            <div class="isnad-graph-stack">
-              {[...paths.entries()].map(([idx, nodes]) => (
-                <div class="isnad-path-card">
-                  <div class="isnad-path-card__header">
-                    <div class="isnad-path-card__title-wrap">
-                      <span class="isnad-path-badge">Lineage Branch {idx + 1}</span>
-                      <span class="isnad-path-count">{nodes.length} Transmitters in Direct Succession</span>
-                    </div>
-
-                    <div class="isnad-flow-legend">
-                      <span class="legend-step legend-step--source">Earliest Authority</span>
-                      <span class="legend-sep">↓</span>
-                      <span class="legend-step">Intermediate Links</span>
-                      <span class="legend-sep">↓</span>
-                      <span class="legend-step legend-step--compiler">Final Collector</span>
-                    </div>
-                  </div>
-
-                  <ol class="isnad-chain-ladder">
-                    {nodes.map((node, i) => {
-                      const isFirst = i === 0;
-                      const isLast = i === nodes.length - 1;
-
-                      return (
-                        <li
-                          class:list={['ladder-node hc-reveal', { 'is-source': isFirst, 'is-compiler': isLast }]}
-                          style={`--reveal-delay:${Math.min(i, 8)}`}
-                        >
-                          <div class="ladder-spine">
-                            <span class="ladder-spine__circle">{i + 1}</span>
-                            {!isLast && (
-                              <div class="ladder-spine__connector" aria-hidden="true">
-                                <span class="ladder-spine__line"></span>
-                                <span class="ladder-verb" lang="ar" title="Transmission connection formula">عن</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div class="ladder-card">
-                            <div class="ladder-card__content">
-                              <div class="ladder-card__role">
-                                {isFirst ? (
-                                  <span class="role-pill role-pill--source">Earliest Authority · Source</span>
-                                ) : isLast ? (
-                                  <span class="role-pill role-pill--compiler">Compiler · Collector</span>
-                                ) : (
-                                  <span class="role-pill">Intermediate Transmitter #{i + 1}</span>
-                                )}
-                              </div>
-
-                              {node.narrator_id ? (
-                                <a class="ladder-card__name" href={`/narrators/${node.narrator_id}`}>
-                                  {node.name_en || node.name}
-                                </a>
-                              ) : (
-                                <div class="ladder-card__unresolved">
-                                  <span class="ladder-card__name is-unlinked">{node.name || 'Unidentified Transmitter'}</span>
-                                  <span class="unresolved-badge">Unresolved in Register</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div class="ladder-card__meta">
-                              {node.death_hijri && (
-                                <span class="death-tag">d. {node.death_hijri} AH</span>
-                              )}
-                              {node.narrator_id && (
-                                <a class="dossier-button" href={`/narrators/${node.narrator_id}`}>
-                                  <span>Dossier</span>
-                                  <span class="dossier-arrow">→</span>
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <!-- Critical Apparatus & Indexing -->
-        {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
-          <section class="record-section" aria-labelledby="apparatus-heading">
-            <div class="record-section__header">
-              <div class="record-section__kicker">
-                <span class="hc-eyebrow">Text-Critical Apparatus</span>
-              </div>
-              <h2 class="record-section__title" id="apparatus-heading">Apparatus, Lexicon &amp; Taxonomy</h2>
-              <p class="record-section__desc">
-                Cross-attestation statistics indicate circulation across canonical compilations. Vocabulary notes isolate archaic terminology.
-              </p>
-            </div>
-
-            <div class="apparatus-grid">
-              {totalParallels > 0 && (
-                <div class="apparatus-card hc-reveal" style="--reveal-delay:0">
-                  <div class="apparatus-card__header">
-                    <h3 class="apparatus-card__title">Cross-Attestation Network</h3>
-                    <span class="apparatus-card__count">{totalParallels.toLocaleString()} Occurrences</span>
-                  </div>
-                  <p class="apparatus-card__note">
-                    Documented circulation of this narration across parallel paths and corroborating witnesses:
-                  </p>
-
-                  <div class="circulation-list">
-                    <div class="circulation-item">
-                      <div class="circulation-item__meta">
-                        <span class="circulation-item__title">Parallels (متابعات)</span>
-                        <span class="circulation-item__desc">Identical companion report transmitted through alternate transmission branches</span>
-                      </div>
-                      <span class="circulation-item__num">{Number(hadith.parallel_count || 0).toLocaleString()}</span>
-                    </div>
-
-                    <div class="circulation-item">
-                      <div class="circulation-item__meta">
-                        <span class="circulation-item__title">Witnesses (شواهد)</span>
-                        <span class="circulation-item__desc">Corroborating reports transmitted through distinct companion witnesses</span>
-                      </div>
-                      <span class="circulation-item__num">{Number(hadith.witness_count || 0).toLocaleString()}</span>
-                    </div>
-
-                    <div class="circulation-item">
-                      <div class="circulation-item__meta">
-                        <span class="circulation-item__title">Manuscript Variants (روايات وألفاظ)</span>
-                        <span class="circulation-item__desc">Recorded wording, expansion, and phrasing variants across codices</span>
-                      </div>
-                      <span class="circulation-item__num">{Number(hadith.variant_count || 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {glosses.length > 0 && (
-                <div class="apparatus-card hc-reveal" style="--reveal-delay:1">
-                  <div class="apparatus-card__header">
-                    <h3 class="apparatus-card__title">Gharīb Vocabulary (غريب الحديث)</h3>
-                    <span class="apparatus-card__count">{glosses.length} Terms</span>
-                  </div>
-                  <p class="apparatus-card__note">Lexicographical commentary on archaic or specialized terms:</p>
-
-                  <dl class="lexicon-ledger">
-                    {glosses.map((g) => (
-                      <div class="lexicon-entry">
-                        <dt lang="ar" dir="rtl" class="lexicon-entry__ar">{g.word_ar}</dt>
-                        <dd class="lexicon-entry__en">{g.word_en}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-
-              {subjects.length > 0 && (
-                <div class="apparatus-card hc-reveal" style="--reveal-delay:2">
-                  <div class="apparatus-card__header">
-                    <h3 class="apparatus-card__title">Controlled Subject Taxonomy</h3>
-                    <span class="apparatus-card__count">{subjects.length} Categories</span>
-                  </div>
-                  <p class="apparatus-card__note">Thematic categories indexed for textual cross-referencing:</p>
-
-                  <div class="subject-tags-grid">
-                    {subjects.map((s) => (
-                      <a class="subject-pill" href={`/hadith?subject=${encodeURIComponent(s.label_en)}`}>
-                        <span>{s.label_en}</span>
-                        <span class="subject-pill__arrow">→</span>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-      </>
-    )}
+    </noscript>
   </div>
 </BaseLayout>
 
 <script>
-  // Progressive enhancement: In-page navigation scrollspy and citation clipboard
-  const jumpBar = document.getElementById('edition-jump-bar');
-  if (jumpBar) {
-    const links = Array.from(jumpBar.querySelectorAll<HTMLAnchorElement>('.dock-link'));
-    const targets = links
-      .map((link) => document.querySelector<HTMLElement>(link.getAttribute('href') || ''))
-      .filter((el): el is HTMLElement => Boolean(el));
-
-    if (targets.length) {
-      const setActive = (targetId: string) => {
-        for (const link of links) {
-          link.classList.toggle('is-active', link.getAttribute('href') === `#${targetId}`);
-        }
-      };
-
-      const observer = new IntersectionObserver(
-        (entries) => {
-          const visible = entries
-            .filter((e) => e.isIntersecting)
-            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-          if (visible[0]) setActive(visible[0].target.id);
-        },
-        { rootMargin: '-35% 0px -45% 0px', threshold: 0 }
-      );
-      targets.forEach((el) => observer.observe(el));
-    }
-
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    for (const link of links) {
-      link.addEventListener('click', (e) => {
-        const targetId = link.getAttribute('href')?.slice(1);
-        const target = targetId ? document.getElementById(targetId) : null;
-        if (!target) return;
-        e.preventDefault();
-        target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-        history.pushState(null, '', `#${targetId}`);
-      });
-    }
-  }
-
-  const citeBtn = document.getElementById('edition-cite-btn') as HTMLButtonElement | null;
-  if (citeBtn && navigator.clipboard) {
-    citeBtn.hidden = false;
-    const label = citeBtn.querySelector('[data-cite-label]');
-    const originalLabel = label?.textContent || 'Copy Citation';
-    citeBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(citeBtn.dataset.citation || '');
-        citeBtn.dataset.copied = 'true';
-        if (label) label.textContent = 'Copied to Clipboard ✓';
-        setTimeout(() => {
-          citeBtn.dataset.copied = 'false';
-          if (label) label.textContent = originalLabel;
-        }, 2200);
-      } catch {
-        // Fallback gracefully
-      }
-    });
-  }
+  import { initHadithRecord } from '../../lib/hadith-record';
+  initHadithRecord();
 </script>
 
-<style>
-  :global(html) {
+<style is:global>
+  html {
     scroll-behavior: smooth;
+  }
+
+  /* The shell's own state, before src/lib/hadith-record.ts has anything to show. */
+  .record-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: clamp(3rem, 12vh, 7rem) 1rem;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--hc-text-secondary);
+    text-align: center;
+  }
+
+  .record-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--hc-rule-soft);
+    border-top-color: var(--hc-gold);
+    border-radius: 50%;
+    animation: record-spin 900ms linear infinite;
+  }
+
+  @keyframes record-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .record-spinner {
+      animation: none;
+    }
   }
 
   .hadith-container {

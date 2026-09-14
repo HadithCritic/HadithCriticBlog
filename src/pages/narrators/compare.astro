@@ -1,85 +1,23 @@
 ---
-export const prerender = false;
-
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { db } from '../../lib/db';
 
 /**
  * Side-by-side comparison of selected transmitters.
  *
  * The previous register had this as a modal workspace, which meant a comparison
- * could not be linked, shared or cited. Here the selection lives in the URL
+ * could not be linked, shared or cited. The selection lives in the URL
  * (?ids=3,2779,2472), so a comparison is a real address a researcher can put in
  * a footnote or send to someone.
+ *
+ * Prerendered, and filled from the static corpus in the browser: the table
+ * depends only on the query string, which a static page keeps, and there are
+ * 20,950 transmitters to draw from. `noindex` because a comparison is a
+ * workspace rather than a document, which is why losing server-rendered HTML
+ * here costs nothing.
  */
 
+/** As many columns as stay readable on a wide screen. */
 const MAX = 6;
-
-const ids = (Astro.url.searchParams.get('ids') || '')
-  .split(',')
-  .map((s) => parseInt(s.trim(), 10))
-  .filter((n) => Number.isFinite(n) && n >= 0)
-  .slice(0, MAX);
-
-interface Row {
-  id: number;
-  name_en: string;
-  name_ar: string;
-  generation: string;
-  grade: string;
-  tabaqa_number: number | null;
-  death_hijri: number | null;
-  death_gregorian: number | null;
-  death_place: string;
-  places_en: string;
-  hadith_count: number;
-  teacher_count: number;
-  student_count: number;
-  critic_count: number;
-  statement_count: number;
-  jarh_count: number;
-  tadil_count: number;
-}
-
-let rows: Row[] = [];
-let failed = false;
-
-if (ids.length) {
-  try {
-    const res = await db.prepare(
-      `SELECT id,name_en,name_ar,generation,grade,tabaqa_number,death_hijri,death_gregorian,
-              death_place,places_en,hadith_count,teacher_count,student_count,
-              critic_count,statement_count,jarh_count,tadil_count
-         FROM narrator WHERE id IN (${ids.map(() => '?').join(',')})`
-    )
-      .bind(...ids)
-      .all();
-    // Preserve the order the researcher selected them in.
-    const byId = new Map((res.results as unknown as Row[]).map((r) => [r.id, r]));
-    rows = ids.map((i) => byId.get(i)).filter(Boolean) as Row[];
-  } catch (error) {
-    console.error('Comparison query failed', error);
-    failed = true;
-  }
-}
-
-const fields: { label: string; get: (r: Row) => string }[] = [
-  { label: 'Arabic', get: (r) => r.name_ar || '—' },
-  { label: 'Generation', get: (r) => r.generation || '—' },
-  { label: 'Verdict', get: (r) => r.grade || 'Unrated' },
-  { label: 'Tabaqa', get: (r) => (r.tabaqa_number ? String(r.tabaqa_number) : '—') },
-  {
-    label: 'Died',
-    get: (r) => (r.death_hijri ? `${r.death_hijri} AH / ${r.death_gregorian} CE` : 'not recorded')
-  },
-  { label: 'Place', get: (r) => r.death_place || (JSON.parse(r.places_en || '[]')[0] ?? '—') },
-  { label: 'Hadith', get: (r) => r.hadith_count.toLocaleString() },
-  { label: 'Teachers', get: (r) => String(r.teacher_count) },
-  { label: 'Students', get: (r) => String(r.student_count) },
-  { label: 'Critics', get: (r) => String(r.critic_count) },
-  { label: 'Statements', get: (r) => String(r.statement_count) },
-  { label: "Jarh / Ta'dil", get: (r) => `${r.jarh_count} / ${r.tadil_count}` }
-];
 ---
 
 <BaseLayout
@@ -95,49 +33,31 @@ const fields: { label: string; get: (r: Row) => string }[] = [
 
       <h1 class="compare-title">Compare Transmitters</h1>
 
-      {failed && <p class="compare-empty">The comparison could not be loaded. Please try again.</p>}
+      <div data-compare-mount data-max={MAX}>
+        <p class="compare-empty">Reading the register…</p>
+      </div>
 
-      {!failed && rows.length === 0 && (
+      <noscript>
         <p class="compare-empty">
-          No transmitters selected. Open the <a href="/narrators">register</a> and add up to {MAX} with
-          the <strong>+</strong> control on each row.
+          Comparisons are assembled from a static SQLite corpus inside your
+          browser, which needs JavaScript. Each transmitter also has their own
+          page in the <a href="/narrators">register</a>.
         </p>
-      )}
-
-      {rows.length > 0 && (
-        <div class="compare-scroll">
-          <table class="compare-table">
-            <caption class="sr-only">Comparison of {rows.length} transmitters</caption>
-            <thead>
-              <tr>
-                <th scope="col">Field</th>
-                {rows.map((r) => (
-                  <th scope="col">
-                    <a href={`/narrators/${r.id}`}>{r.name_en || r.name_ar}</a>
-                    <span class="compare-id">#{r.id}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {fields.map((f) => (
-                <tr>
-                  <th scope="row">{f.label}</th>
-                  {rows.map((r) => (
-                    <td lang={f.label === 'Arabic' ? 'ar' : undefined} dir={f.label === 'Arabic' ? 'rtl' : undefined}>
-                      {f.get(r)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      </noscript>
     </div>
   </div>
 
-  <style>
+  <script>
+    import { initNarratorCompare } from '../../lib/narrator-compare';
+    initNarratorCompare();
+  </script>
+
+  <style is:global>
+    /*
+      Global rather than scoped: the table below is created by
+      src/lib/narrator-compare.ts once the corpus answers, and a node created by
+      script never carries the page's data-astro-cid attribute.
+    */
     .compare-page {
       background: var(--hc-surface-0);
       padding: clamp(2rem, 4vw, 3.5rem) 0 clamp(4rem, 8vw, 7rem);

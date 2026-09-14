@@ -256,6 +256,39 @@ const PROBE = `(() => {
  * depending on how busy the machine was. Scrolling the whole page first, then
  * freezing transitions, makes the reading both honest and repeatable.
  */
+/**
+ * Corpus pages are shells until the static SQLite corpus answers.
+ *
+ * `waitUntil: 'load'` fires while the page still shows a spinner, so without
+ * this the checker would measure a loading state, find two colours on it, and
+ * report the route clean. That is the same failure as the `--route /` path
+ * mangling in CLAUDE.md: a check that passes because it never ran.
+ *
+ * Each selector is the first thing its renderer writes. A route that never
+ * produces one is reported rather than silently skipped.
+ */
+const CORPUS_CONTENT = [
+  [/^\/hadith\/\d+/, '.edition-hero, .hadith-degraded'],
+  [/^\/hadith\/collection\//, '.narration-record, .coll-error, .coll-empty'],
+  [/^\/hadith(\?|$)/, '.book-card, .corpus-record-card'],
+  [/^\/narrators\/compare/, '.compare-table, .compare-empty'],
+  [/^\/narrators\/\d+/, '.rijal-hero, .rijal-degraded'],
+  [/^\/narrators(\?|$)/, '.reg-row, .register-error']
+];
+
+async function awaitCorpus(page, route) {
+  const match = CORPUS_CONTENT.find(([pattern]) => pattern.test(route));
+  if (!match) return true;
+  try {
+    // Generous: a cold corpus has to fetch the wasm module and walk the b-tree
+    // over the network before the first row exists.
+    await page.waitForSelector(match[1], { state: 'attached', timeout: 45000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function settle(page) {
   await page.evaluate(async () => {
     const step = Math.round(window.innerHeight * 0.8);
@@ -292,10 +325,19 @@ for (const theme of THEMES) {
   for (const route of routes) {
     try {
       await page.goto(BASE + route, { waitUntil: 'load', timeout: 60000 });
+      if (!(await awaitCorpus(page, route))) {
+        process.stdout.write(`  FAIL (corpus never rendered) ${route}\n`);
+        failures += 1;
+        continue;
+      }
       await settle(page);
-    } catch {
-      process.stdout.write(`  skip (unreachable) ${route}
-`);
+    } catch (error) {
+      // Printed, and counted. A swallowed error here is how a run reports
+      // "0 contrast failures" having measured nothing at all — which is the
+      // same class of mistake as the `--route /` path mangling in CLAUDE.md,
+      // and looks identical to a clean sweep.
+      process.stdout.write(`  FAIL (${error.message.split('\n')[0]}) ${route}\n`);
+      failures += 1;
       continue;
     }
     const applied = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));

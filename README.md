@@ -22,9 +22,9 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 
 ## Tech Stack & Architecture
 
-- **Framework**: [Astro 7](https://astro.build). Articles are prerendered; the corpus and register routes opt into on-demand rendering with `export const prerender = false` because they read a database.
+- **Framework**: [Astro 7](https://astro.build). Almost everything is prerendered, the corpus included. Only `/hadith/[id]` and `/narrators/[id]` render on demand, because their ids are unbounded; they read nothing at request time.
 - **Content Formatting**: MDX (`@astrojs/mdx`)
-- **Database**: [Turso](https://turso.tech) (libSQL), reached through `src/lib/db.ts`. See **[DATABASE.md](DATABASE.md)** — it is required reading before touching a query, because reads are metered per row.
+- **Corpus**: a 1.62 GB SQLite database published as immutable static chunks and queried in the reader's browser over HTTP range requests. No database server is in the request path for any public page. See **[docs/static-corpus.md](docs/static-corpus.md)**, which is required reading before touching a corpus query, and **[DATABASE.md](DATABASE.md)** for how it got here.
 - **Search**: [Pagefind](https://pagefind.app/) for articles, FTS5 for the corpus
 - **Deployment**: **Cloudflare Workers** via the `@astrojs/cloudflare` adapter and `wrangler.jsonc`.
 
@@ -53,7 +53,7 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 │   ├── pages/             # Astro application routes
 │   │   ├── hadith/        # Corpus: browse, search, collection, narration
 │   │   ├── narrators/     # Rijāl register and dossiers
-│   │   └── api/           # JSON endpoints backing the register and corpus
+│   │   └── api/           # Subscription and admin endpoints only
 │   └── styles/            # Global visual system and article-specific styles
 ```
 
@@ -108,8 +108,9 @@ Once the development server is running, open your browser and navigate to:
 | `npm run build`         | Build the site to`./dist/` and generate the Pagefind search index                                      |
 | `npm run preview`       | Preview the production build locally at`http://127.0.0.1:4321` (required to test search functionality) |
 | `npm run validate`      | Full suite: footnote lint, unit tests, Arabic normalization parity, type check, design audit, build      |
-| `npm run verify:corpus` | 38 checks against the database — row counts, FTS integrity, Arabic search recall                        |
-| `npm run stats:check`   | Report whether the precomputed totals have drifted from the rows                                         |
+| `npm run build:corpus`  | Build, chunk, verify and stage a corpus release from the master database (local only)                    |
+| `npm run verify:corpus` | Row counts, chunk integrity and query parity between the distribution and the master                     |
+| `npm run publish:corpus`| Stage the built corpus where `npm run dev` can serve it                                                  |
 
 *Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
 
@@ -125,11 +126,14 @@ The `scripts/` directory contains various Node.js pipelines to maintain the site
 | `optimize-images.cjs`                   | Automatically converts heavy PNG/JPG files in the`public/` directory to optimized WebP format. |
 | `build-quran-data.cjs`                  | Generates Quranic verse JSON data for quick citations within blog articles.                      |
 | `convert_to_mdx.cjs`                    | Utility to convert legacy content formats into standardized MDX.                                 |
-| `migrate-turso.mjs`                     | Applies`migrations/*.sql` to Turso as one transaction per file.                                |
-| `refresh-stats.mjs`                     | Recomputes the precomputed totals and facet counts. Run after any import.                        |
-| `verify-corpus.mjs`                     | Post-import verification: counts, FTS integrity, no truncation, search recall.                   |
-| `fill-hadith-fts.mjs`                   | Builds the FTS5 index over the corpus, in id ranges.                                             |
-| `d1-to-turso.mjs`, `upload-turso.mjs` | The one-off migration off Cloudflare D1. Kept as the record of how the corpus moved.             |
+| `build-corpus.mjs`                      | Runs the four stages below in order. The normal way to cut a corpus release.                     |
+| `build-distribution-db.mjs`             | Master to distribution: ANALYZE, VACUUM, integrity check.                                        |
+| `chunk-db.mjs`                          | Splits the distribution database into 10 MiB chunks and writes the manifest.                     |
+| `build-corpus-meta.mjs`                 | Generates`src/data/corpus-meta.json` and the narrator sitemap ids. Both are committed.          |
+| `verify-distribution.mjs`               | Row counts, chunk reassembly and query parity against the master. Fails the release, not the page. |
+| `publish-corpus.mjs`                    | Publishes one version to`public/`, to`dist/`, or to R2.                                        |
+| `build-static-db.py`                    | Builds the master database from the seed dumps. Local, occasional, and the only Python here.     |
+| `migrate-turso.mjs`, `refresh-stats.mjs`, `verify-corpus.mjs`, `fill-hadith-fts.mjs`, `d1-to-turso.mjs`, `upload-turso.mjs` | The hosted-corpus era. Kept as the record of how the corpus moved; none is part of a current workflow. |
 | `seed-narrators-d1.mjs`                 | Turns`data/generated/` into SQL batches for the register.                                      |
 | `design-audit.mjs`                      | Enforces the design conventions in DESIGN.md at build time.                                      |
 
@@ -141,6 +145,7 @@ The platform deploys to **Cloudflare Workers**.
 
 1. Push changes to the main branch.
 2. Cloudflare builds the project (`npm run build`) via the `@astrojs/cloudflare` adapter and the settings in `wrangler.jsonc`.
-3. Prerendered pages are served as static assets; the corpus and register routes run on demand and read Turso.
+3. Prerendered pages are served as static assets. `/hadith/[id]` and `/narrators/[id]` run on demand and perform no I/O.
+4. The corpus is published separately from the site: `npm run publish:corpus:dist` after the build, or `npm run publish:corpus:r2` to a data hostname. Which one a deployment uses is the `PUBLIC_CORPUS_BASE_URL` variable and nothing else.
 
-The database connection is supplied as two secrets, `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, set with `wrangler secret put` and mirrored locally in an untracked `.dev.vars`. Neither is in `wrangler.jsonc`.
+The corpus needs no credentials: it is public static files. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` remain as secrets for the article notification ledger alone, which is not the corpus.

@@ -1,0 +1,20 @@
+# Cloudflare response headers.
+#
+# The Astro Cloudflare adapter appends its own immutable rule for /_astro/* to
+# this file at build time. Everything here is hand-written.
+
+# Corpus chunks live under a versioned directory and are never rewritten in
+# place, so a chunk at a given URL is the same bytes forever. Caching them for a
+# year is what makes a second search on a page cost almost nothing: without it
+# every range request revalidates, and the corpus is read in 4 KiB pieces.
+/data/corpus/*/chunks/*
+  Cache-Control: public, max-age=31536000, immutable
+  Content-Type: application/octet-stream
+
+# The manifest is versioned too, but a rollback should not be held up by a
+# year-long cache, so it revalidates at the edge instead.
+/data/corpus/*/manifest.json
+  Cache-Control: public, max-age=300, s-maxage=3600
+
+/data/corpus/*/corpus-meta.json
+  Cache-Control: public, max-age=300, s-maxage=3600

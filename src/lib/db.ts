@@ -2,52 +2,28 @@ import { connect, type Connection } from '@tursodatabase/serverless';
 import { env } from 'cloudflare:workers';
 
 /**
- * The corpus database, on Turso.
+ * The site's small operational database, on Turso.
  *
- * Why not D1: the corpus is 1.74 GB and D1 allows 500 MB per database on the
- * free plan, which refused writes outright and left the FTS index rebuild
- * stuck. Turso's free plan allows 5 GB and 500M row reads a month. See
- * DATABASE.md.
+ * What is left here is the article notification ledger — which articles have
+ * been announced to subscribers, written by the admin route and read by
+ * nothing else. It is a handful of rows and a few queries a month.
+ *
+ * **The corpus is not here any more.** The 1.6 GB hadith and rijāl corpus is
+ * published as a static, versioned SQLite file and read in the reader's
+ * browser over HTTP range requests; see src/lib/corpus-client.ts and
+ * docs/static-corpus.md. Nothing under /hadith or /narrators imports this
+ * module, and nothing should start: a page that needs corpus data has a
+ * client-side path to it, and adding a query here would put a metered database
+ * back in front of public reads, which is the exact failure the migration
+ * removed. See DATABASE.md for the history.
  *
  * `@tursodatabase/serverless` is the package Turso documents for Cloudflare
- * Workers: it speaks only `fetch`, with no native dependencies. The older
- * `@libsql/client` also works, but Turso now points new code here, and its
- * WebSocket transports are the ones being retired.
+ * Workers: it speaks only `fetch`, with no native dependencies.
  *
  * This wraps it in D1's own call shape — `prepare(sql).bind(...).all()` and
- * `batch([...])` — rather than rewriting forty-eight call sites. That is a
- * deliberate trade. The interface is not better than the SDK's; it is the one
- * the pages are already written against, and a mechanical port of that many
- * queries is where a transcription bug hides. The shim is small enough to read
- * in one sitting, and it keeps the backend swappable from one file.
- *
- * What the move costs: Turso's embedded replicas need a filesystem and a
- * long-lived process, so they are unavailable on Workers. Every query is an
- * HTTPS round trip to aws-us-east-1 instead of a call inside Cloudflare's
- * network. That is why the row-read budgeting in src/lib/corpus-count.ts and
- * the edge cache in src/lib/edge-cache.ts matter more here than they did on
- * D1, not less: they now save latency as well as quota.
+ * `batch([...])` — which is the shape the remaining call sites were written
+ * against. It keeps the backend swappable from one file.
  */
-
-async function queryLocalBridge<T = Record<string, unknown>>(
-  statements: { sql: string; args?: unknown[] }[]
-): Promise<QueryResult<T>[] | null> {
-  try {
-    const res = await fetch('http://127.0.0.1:4322/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ statements }),
-      signal: AbortSignal.timeout(600)
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { results: T[] }[];
-      return data.map((d) => ({ results: d.results, success: true }));
-    }
-  } catch {
-    // Bridge not running or request timed out
-  }
-  return null;
-}
 
 /**
  * Run one operation on a connection of its own, and close it afterwards.
@@ -113,23 +89,17 @@ export class Statement {
   }
 
   async all<T = Record<string, unknown>>(): Promise<QueryResult<T>> {
-    const bridgeRes = await queryLocalBridge<T>([{ sql: this.sql, args: this.args }]);
-    if (bridgeRes?.[0]) return bridgeRes[0];
     const rows = await withConnection((conn) => conn.all(this.sql, ...this.args));
     return { results: rows as T[], success: true };
   }
 
   /** First row, or null when nothing matched — D1's contract, not `undefined`. */
   async first<T = Record<string, unknown>>(): Promise<T | null> {
-    const bridgeRes = await queryLocalBridge<T>([{ sql: this.sql, args: this.args }]);
-    if (bridgeRes?.[0]) return (bridgeRes[0].results[0] as T | undefined) ?? null;
     const row = await withConnection((conn) => conn.get(this.sql, ...this.args));
     return (row as T | undefined) ?? null;
   }
 
   async run(): Promise<QueryResult> {
-    const bridgeRes = await queryLocalBridge([{ sql: this.sql, args: this.args }]);
-    if (bridgeRes?.[0]) return { results: [], success: true };
     await withConnection((conn) => conn.run(this.sql, ...this.args));
     return { results: [], success: true };
   }
@@ -141,23 +111,18 @@ export const db = {
   /**
    * Run several statements in one round trip, results in order.
    *
-   * That round trip is the point on Turso: the narration page asks four
-   * questions at once, and four separate requests to aws-us-east-1 would be
-   * four times the latency.
+   * The round trip is the point on Turso: every query is an HTTPS call to
+   * aws-us-east-1, so two questions asked separately cost twice the latency of
+   * two asked together.
    *
    * `deferred` rather than `read` or `write` because the same helper carries
-   * the read-only page batches and the one that writes a notification;
-   * deferred takes whichever lock the statements turn out to need. Like D1's
-   * `batch()` this is one transaction — if a statement fails, none applied.
+   * the read-only batches and the one that writes a notification; deferred
+   * takes whichever lock the statements turn out to need. Like D1's `batch()`
+   * this is one transaction — if a statement fails, none applied.
    */
   batch: async <T = Record<string, unknown>>(
     statements: Statement[]
   ): Promise<QueryResult<T>[]> => {
-    const bridgeRes = await queryLocalBridge<T>(
-      statements.map((s) => ({ sql: s.sql, args: s.args }))
-    );
-    if (bridgeRes) return bridgeRes;
-
     const results = await withConnection((conn) =>
       conn.batch(
         statements.map((s) => ({ sql: s.sql, args: s.args })),

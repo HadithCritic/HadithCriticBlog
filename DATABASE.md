@@ -1,8 +1,18 @@
 # The corpus database
 
-The hadith corpus runs on **Turso**. It was on Cloudflare D1 and outgrew it.
-This note records the measurements and the migration so neither has to be
-rediscovered.
+> **The corpus no longer runs on a database server.** It is a versioned SQLite
+> file served as immutable static chunks and queried in the reader's browser
+> over HTTP range requests. **[docs/static-corpus.md](docs/static-corpus.md)**
+> describes the system that is actually running.
+>
+> This note is the history: what D1 cost, what Turso cost, and the measurements
+> that made a static corpus the only arrangement that is free at this size. It
+> is kept because those numbers are the argument, and because the query shapes
+> they produced are still in `src/lib/corpus-count.ts` — the cost changed units
+> from billed rows to network round trips, not magnitude.
+>
+> Turso still holds one table, `article_notifications`, behind the admin
+> notification route. That is all that is left of it.
 
 ## Where it lives
 

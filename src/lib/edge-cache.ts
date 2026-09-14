@@ -1,23 +1,27 @@
 /**
- * Edge caching for the on-demand corpus pages.
+ * Edge caching for the two on-demand corpus shells.
  *
- * The corpus routes are server rendered because they read D1, and D1 bills
- * rows read. That makes repeat traffic — a crawler walking the collections, a
- * reader paging back and forth — pure cost for a byte-identical page. Cutting
- * the wasteful counts (src/lib/corpus-count.ts) fixed the per-request price;
- * this stops the same request being paid for twice.
+ * Only /hadith/[id] and /narrators/[id] reach the Worker now. Everything else
+ * under /hadith and /narrators is prerendered and served as a static asset,
+ * which never runs this. Those two routes are on demand because their ids are
+ * unbounded — 276,347 narrations and 20,950 transmitters cannot be prerendered
+ * — not because they need anything at request time. They read no database and
+ * perform no I/O at all; the record itself is fetched from the static corpus in
+ * the reader's browser.
+ *
+ * So what is cached here is a shell that depends on the URL and the deployment
+ * and nothing else. It was worth caching before because a miss cost billed
+ * database rows; it is worth caching now because a hit costs no Worker
+ * invocation. The failure mode that shaped the original rule is gone with the
+ * database: there is no longer a "temporarily unavailable" variant of these
+ * pages that could be stored by mistake.
  *
  * Cloudflare does not cache HTML from a Worker on its own, so `s-maxage` alone
- * changes nothing here and the Cache API has to be addressed directly.
- *
- * A page opts in by setting its own `Cache-Control` with an `s-maxage`, and
- * only on a successful read. That keeps the decision next to the query it
- * protects and, more importantly, means a page that fell back to "temporarily
- * unavailable" is never the thing that gets stored: caching a quota failure
- * would turn a few bad minutes into a bad hour.
+ * changes nothing and the Cache API has to be addressed directly. A page opts
+ * in by setting its own `Cache-Control` with an `s-maxage`.
  */
 
-/** How long a corpus page stays served from the edge. */
+/** How long a corpus shell stays served from the edge. */
 export const CORPUS_TTL = 600;
 
 /** The opt-in header. Browsers revalidate; the edge holds it for `CORPUS_TTL`. */

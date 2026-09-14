@@ -7,6 +7,7 @@ import cloudflare from '@astrojs/cloudflare';
 import { unified } from '@astrojs/markdown-remark';
 import remarkGfm from 'remark-gfm';
 import { rehypeTableWrap } from './src/lib/rehype-table-wrap.mjs';
+import { corpusDevServer } from './scripts/lib/corpus-dev-server.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 
@@ -47,6 +48,12 @@ export default defineConfig({
     })
   },
   vite: {
+    // The 1.6 GB static corpus is not in public/, because publicDir is copied
+    // wholesale into dist/ on every build. In development it is served from
+    // dist-db/builds/ by this plugin, with the range support sql.js-httpvfs
+    // requires; for a deployment it is copied into the build output once, by
+    // `npm run publish:corpus:dist`. See docs/static-corpus.md.
+    plugins: [corpusDevServer()],
     optimizeDeps: {
       exclude: ['astro:content']
     }

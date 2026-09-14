@@ -1,21 +1,27 @@
 /**
  * Row-read budgeting for the corpus queries.
  *
- * D1 bills every row a query touches, index rows included, and the corpus is
- * 276,347 narrations. An unqualified `COUNT(*) FROM hadith` therefore costs a
- * quarter of a million reads to produce one integer, and it was being run on
- * every view of /hadith and every call to /api/hadith. Sixteen page views
- * exhausted the whole account's daily allowance, after which every other
- * query — including the cheap 25-row reads behind a collection page — was
- * refused with "exceeded D1's free tier daily row read limit". That is what
- * put "This collection is temporarily unavailable" on collection pages that
- * were themselves costing almost nothing. See DATABASE.md.
+ * These shapes were written when the corpus was on D1, which bills every row a
+ * query touches. An unqualified `COUNT(*) FROM hadith` cost a quarter of a
+ * million reads to produce one integer, and it ran on every view of /hadith.
+ * Sixteen page views exhausted the account's daily allowance, after which even
+ * the cheap 25-row reads behind a collection page were refused. See
+ * DATABASE.md.
+ *
+ * That bill is gone. The corpus is now a static SQLite file the browser reads
+ * over HTTP range requests, and nothing is metered. The arithmetic is kept
+ * because the cost simply changed units. Every row SQLite touches that is not
+ * already in the page cache is a 4 KiB range request over the network, so a
+ * scan that cost 276,347 billed rows now costs an unbounded series of round
+ * trips on someone's phone. If anything the ceilings matter more here: a
+ * quota failure was a bad afternoon, and this is a reader watching a spinner.
  *
  * Two rules come out of that, and both are applied here:
  *
  *   1. A total that is already stored is never recounted. `hadith_book`
- *      carries `hadith_count` per collection, so corpus and per-collection
- *      totals come off 33 rows instead of a scan.
+ *      carries `hadith_count` per collection, and src/data/corpus-meta.json
+ *      carries the corpus and register totals, so those come off stored data
+ *      rather than a scan.
  *   2. A total that must be counted is counted to a ceiling. Past a few
  *      hundred results the exact figure is not information a reader uses, and
  *      "10,000+" is both honest and bounded.
@@ -28,9 +34,9 @@
 export const COUNT_CAP = 10_000;
 
 /**
- * Deepest page the result pager will offer. D1 walks and discards every row an
- * OFFSET skips, so page 401 of a 25-row page costs 10,000 reads before it
- * returns anything. Refine the query instead — this is the same ceiling
+ * Deepest page the result pager will offer. SQLite walks and discards every row
+ * an OFFSET skips, so page 401 of a 25-row page costs 10,000 reads before it
+ * returns anything. Refine the query instead. This is the same ceiling
  * search engines apply, for the same reason.
  */
 export const MAX_PAGES = Math.floor(COUNT_CAP / 25);
@@ -41,7 +47,7 @@ export const MAX_PAGES = Math.floor(COUNT_CAP / 25);
  * Wrapping the row source in a `LIMIT`ed subquery is what bounds the cost:
  * SQLite stops feeding rows at the limit, so the count touches at most
  * `COUNT_CAP + 1` of them however many actually match. The extra row is the
- * signal — a result of exactly `COUNT_CAP + 1` means "at least this many",
+ * signal: a result of exactly `COUNT_CAP + 1` means "at least this many",
  * which is what `readCount` reports back.
  */
 export const boundedCountSql = (from: string, clause: string) =>
@@ -51,9 +57,10 @@ export const boundedCountSql = (from: string, clause: string) =>
  * Count matches for a full-text query without touching `hadith` at all.
  *
  * The generic form above counts rows of the *joined* result, so it drags
- * `hadith` and `hadith_book` in behind the FTS scan: 30,002 rows read where
- * the index alone answers in 10,000. Measured, not assumed — see
- * scripts/measure-reads.mjs.
+ * `hadith` and `hadith_book` in behind the FTS scan: 30,002 rows touched where
+ * the index alone answers in 10,000. Over range requests that ratio is the
+ * difference between reading the posting list and reading the narration text
+ * of every match. Measured, not assumed; see scripts/measure-reads.mjs.
  *
  * Only valid when the query is the single filter. With a book or narrator
  * clause as well, this would count matches the reader is not being shown.
@@ -64,9 +71,9 @@ export const ftsCountSql = () =>
 /**
  * Count the narrations a narrator appears in, from the chain index alone.
  *
- * The generic form scans `hadith` and evaluates an EXISTS per row — 197,064
- * rows read, 441 ms — because `ORDER BY h.id` with an EXISTS filter walks the
- * table. Driven from `idx_hn_narrator (narrator_id, hadith_id)` instead it is
+ * The generic form scans `hadith` and evaluates an EXISTS per row, 197,064
+ * rows touched and 441 ms, because `ORDER BY h.id` with an EXISTS filter walks
+ * the table. Driven from `idx_hn_narrator (narrator_id, hadith_id)` instead it is
  * 10,131 rows and 11 ms for the same answer.
  *
  * `DISTINCT` is required, not tidiness: a narrator can occupy several
@@ -84,8 +91,8 @@ export const narratorCountSql = () =>
  * has to score every match, and with the join in place SQLite materialises the
  * text of all of them into a temp b-tree before sorting. For a term matching
  * 18,565 narrations that measured 74,260 rows read and 2,190 ms. Ranking
- * inside a CTE first — where there is nothing to materialise but a rowid and a
- * score — then joining the 25 survivors, is 37,180 rows and 22 ms for
+ * inside a CTE first, where there is nothing to materialise but a rowid and a
+ * score, then joining the 25 survivors, is 37,180 rows and 22 ms for
  * byte-identical output.
  *
  * A hundredfold on latency is the point. Search felt slow because it was.

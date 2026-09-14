@@ -1,34 +1,25 @@
-export const prerender = false;
-
 import type { APIRoute } from 'astro';
-import { db } from '../lib/db';
-import { SITE, NARRATOR_SITEMAP_PAGE_SIZE, narratorSitemapWhere } from '../lib/seo';
+import { SITE, NARRATOR_SITEMAP_PAGE_SIZE } from '../lib/seo';
+import sitemap from '../data/narrator-sitemap.json';
 
 /**
- * Sitemap index for the rijal corpus.
+ * Sitemap index for the rijāl corpus.
  *
- * @astrojs/sitemap only emits prerendered routes, so the entire narrator
- * register (rendered on demand from the database) was invisible to crawlers. This index
- * and its paginated children close that gap.
+ * @astrojs/sitemap only emits prerendered routes, and the register's dossiers
+ * are rendered in the browser from the static corpus, so they are invisible to
+ * it. This index and its paginated children close that gap.
  *
- * Serving an index rather than one flat file keeps us inside the 50,000-URL
- * limit no matter how far the corpus grows.
+ * Built from src/data/narrator-sitemap.json, which scripts/build-corpus-meta.mjs
+ * generates alongside a corpus release. It used to be a count against a hosted
+ * database on every request; the answer only changes when the corpus does, and
+ * there is no database to ask any more.
+ *
+ * An index rather than one flat file keeps this inside the 50,000-URL limit
+ * however far the corpus grows.
  */
-export const GET: APIRoute = async () => {
-  let pages = 1;
+const pages = Math.max(1, Math.ceil(sitemap.ids.length / NARRATOR_SITEMAP_PAGE_SIZE));
 
-  try {
-    const row = await db.prepare(
-      `SELECT COUNT(*) AS n FROM narrator WHERE ${narratorSitemapWhere}`
-    ).first<{ n: number }>();
-    pages = Math.max(1, Math.ceil((row?.n ?? 0) / NARRATOR_SITEMAP_PAGE_SIZE));
-  } catch (error) {
-    // An unseeded or unreachable D1 must not produce a 500 here: a broken
-    // sitemap teaches crawlers to stop asking. An index with one empty child
-    // is a truthful "nothing to list yet".
-    console.error('Narrator sitemap index failed', error);
-  }
-
+export const GET: APIRoute = () => {
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${Array.from(

@@ -6,23 +6,28 @@ this file covers everything else you would otherwise have to re-derive.
 ## What this is
 
 HadithCritic: an Astro site combining long-form research articles (MDX) with
-two live databases rendered on demand from Cloudflare D1: a 276,347-narration
-hadith corpus and a 20,950-entry rijāl register.
+two research databases: a 276,347-narration hadith corpus and a 20,950-entry
+rijāl register. Both are one versioned SQLite file, published as immutable
+static chunks and queried in the reader's browser over HTTP range requests.
+No database server is in the request path for any public page.
 
 ## Stack facts that change how you work
 
-- **Astro 7 on the Cloudflare adapter.** Static by default. Corpus and register
-  routes opt out with `export const prerender = false` and read D1 through
-  `import { env } from 'cloudflare:workers'`.
+- **Astro 7 on the Cloudflare adapter.** Static by default, and the corpus is
+  now static with it. Only `/hadith/[id]` and `/narrators/[id]` set
+  `export const prerender = false`, because their ids are unbounded; they read
+  nothing at request time and exist to emit a shell the client fills. Read
+  `docs/static-corpus.md` before touching anything under `/hadith` or
+  `/narrators`.
 - **No UI framework anywhere.** No React, Preact, Svelte or Vue, and no islands.
   Interactivity is server-rendered HTML plus a small vanilla module
   (`src/lib/narrator-register.ts`). `gsap` is the only client-side dependency.
   Do not add a framework to solve a styling or animation problem.
-- **The local D1 is fully populated** at
-  `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite` (~1.7 GB). You can
-  render and measure every page against real data. Read it directly with
-  `node:sqlite` in read-only mode when you need to check a value or a
-  distribution before making a claim about it.
+- **The corpus is on disk** at `dist-db/builds/<version>/hadith.db` (1.62 GB),
+  built from `dist-db/silsilah.db` by `npm run build:corpus`. Read it directly
+  with `node:sqlite` in read-only mode when you need to check a value or a
+  distribution before making a claim about it. Neither file is in git; the site
+  builds from `src/data/corpus-meta.json`, which is generated and committed.
 - **`npm run dev` serves on 127.0.0.1:4321.** Corpus pages take a few seconds on
   first compile. If a page appears to hang for minutes after an edit, it is
   usually dev-server recompilation backlog, not your code: re-request before
@@ -75,9 +80,19 @@ hadith corpus and a 20,950-entry rijāl register.
   its colours on the continuation lines of a `background:` shorthand, so a
   line-based scan for `background:.*rgba` misses them entirely. Parse
   declarations, not lines.
-- **The register renders rows twice**: server-side in `narrators/index.astro`
-  and client-side in `narrator-register.ts`. A change to a row's markup, copy or
-  classes has to be made in both, or it reverts on the first filter click.
+- **Corpus markup gets no scope hash.** Astro scopes a page's `<style>` to
+  `[data-astro-cid-*]`, and a node created by script never carries that
+  attribute. Every rule for markup the corpus modules emit lives in an
+  `is:global` block. Moving one back into a scoped block silently unstyles the
+  page, and nothing fails: it renders, in the wrong typeface, at the wrong size.
+- **A corpus page is a shell until the corpus answers.** Any check that waits
+  for `load` is measuring a spinner. `scripts/check-contrast.mjs` waits for real
+  content per route and fails the route if it never arrives; anything new that
+  inspects these pages has to do the same, or it passes by not running.
+- **The collection shell is one document for every page of a collection.**
+  `?page=2` must be read from the URL, never from a data attribute baked into
+  the prerendered HTML. This shipped wrong once: the right twenty-five records,
+  with the pager insisting it was page one.
 
 ## Rules that are not negotiable
 
@@ -105,6 +120,10 @@ These are product commitments, not preferences. `DESIGN.md` carries the detail.
 ## Commands
 
 ```bash
+npm run build:corpus     # build + chunk + verify a corpus release (needs the master db)
+npm run publish:corpus   # stage it where `npm run dev` serves it
+npm run verify:corpus    # row counts, chunk reassembly, query parity vs the master
+
 npm run dev              # 127.0.0.1:4321
 npm run build:og         # regenerate the social preview cards in public/og
 npm run check            # astro check, must be 0 errors
@@ -119,9 +138,9 @@ node scripts/check-contrast.mjs --all-articles # include every article body
 node scripts/check-contrast.mjs --json         # composited bg and DOM path
 ```
 
-`check-contrast.mjs` needs the dev server running. It is clean at 0 failures
-across 93 routes in both themes, articles included; keep it there. It is not in
-`validate` only because it needs a live server rather than a build.
+`check-contrast.mjs` needs the dev server running, and the corpus staged
+(`npm run publish:corpus`) or the corpus routes fail as "never rendered". It is
+not in `validate` only because it needs a live server rather than a build.
 
 Run `check`, `test:design` and `build` before finishing any UI change.
 
@@ -136,7 +155,14 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/styles/motion.css` | A stub kept only for its reduced-motion block. |
 | `src/pages/hadith/**` | Corpus catalogue, collection edition, hadith record. |
 | `src/pages/narrators/**` | Rijāl register, dossier, comparison. |
+| `docs/static-corpus.md` | The static corpus: build, publish, measure, traps. |
+| `src/lib/corpus-config.ts` | Which corpus version, served from where. |
+| `src/lib/corpus-client.ts` | Every corpus query, and the worker's lifecycle. |
 | `src/lib/narrator-register.ts` | The register's client module. |
+| `src/lib/hadith-search.ts`, `hadith-record.ts`, `collection-edition.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
+| `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
+| `scripts/build-corpus.mjs` | The corpus release pipeline. |
+| `tests/corpus.spec.ts` | Corpus acceptance suite, including "no database traffic". |
 | `scripts/design-audit.mjs` | The design linter wired into `validate`. |
 | `scripts/check-contrast.mjs` | Real-browser WCAG AA check against the composited background. |
 | `scripts/build-og-images.mjs` | Generates the social preview cards. |

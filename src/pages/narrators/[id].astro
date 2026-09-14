@@ -2,769 +2,112 @@
 export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { person, entityPage, OG } from '../../lib/seo';
-import { db } from '../../lib/db';
-import { toPlainText } from '../../lib/format-text';
+import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
- * Rijal dossier, rendered on demand from the database.
- * Supports SSR with local SQLite dev bridge & graceful fallback.
+ * Rijal dossier for one transmitter.
+ *
+ * A shell. There are 20,950 transmitters, past what Cloudflare will hold as
+ * prerendered assets, and there is no database behind the site to ask at
+ * request time, so the Worker renders the frame and src/lib/narrator-dossier.ts
+ * fills it from the static corpus in the browser.
+ *
+ * This route stays on-demand rather than prerendered only because the id is
+ * unbounded. It performs no I/O of any kind, so it costs a Worker invocation
+ * and nothing else.
+ *
+ * The consequence to be aware of: a crawler that does not run JavaScript sees
+ * the shell rather than the dossier. That is the price of serving a 1.6 GB
+ * corpus from static files, and it is paid knowingly.
  */
 
-type Verdict = 'jarh' | 'tadil' | 'mixed' | 'unclassified';
+const raw = Astro.params.id ?? '';
+const id = Number(raw);
+const valid = /^\d+$/.test(raw) && Number.isFinite(id) && id >= 0;
 
-interface Relation {
-  id: number;
-  name: string;
-  count: number;
+if (!valid) {
+  return Astro.redirect('/narrators', 302);
 }
 
-interface Statement {
-  text: string;
-  citation: string;
-  pageId: number | null;
-  verdict: Verdict;
-}
+const pageTitle = `Transmitter #${id} | Rijal Dossier | HadithCritic`;
 
-interface Detail {
-  id: number;
-  nameEn: string;
-  nameAr: string;
-  fullName: string;
-  kunya: string;
-  nickname: string;
-  lineage: string;
-  relation: string;
-  generation: string;
-  grade: string;
-  tabaqa: string;
-  tabaqaEn: string;
-  tabaqaNumber: number | null;
-  rankIbnHajar: string;
-  rankIbnHajarEn: string;
-  rankDhahabi: string;
-  rankDhahabiEn: string;
-  madhhab: string;
-  madhhabEn: string;
-  flags: string[];
-  deathPlace: string;
-  placesEn: string[];
-  placesAr: string[];
-  deathDate: string;
-  deathHijri: string;
-  deathGregorian: string;
-  hadithCount: number;
-  aliasCount: number;
-  aliases: { form: string; count: number }[];
-  teachers: Relation[];
-  students: Relation[];
-  books: { book: string; count: number }[];
-  positions: { pos: number; count: number }[];
-  sampleChains: { book: string; number: string; path: number[] }[];
-}
-
-interface Criticism {
-  criticCount: number;
-  statementCount: number;
-  tally: Record<Verdict, number>;
-  critics: { critic: string; statements: Statement[] }[];
-  phenomena: { key: string; label: string; statements: Statement[] }[];
-}
-
-const id = Number(Astro.params.id);
-if (!Number.isFinite(id) || id < 0) return Astro.redirect('/narrators', 302);
-
-interface StatementRow {
-  critic: string;
-  text: string;
-  citation: string;
-  page_id: number | null;
-  verdict: Verdict;
-  phenomenon_key: string | null;
-  phenomenon_label: string | null;
-}
-
-let detailPayload: { payload?: string } | undefined;
-let statementRows: { results?: StatementRow[] } = {};
-let dbError = false;
-
-try {
-  const [detailRes, stmtRes] = await db.batch([
-    db.prepare('SELECT payload FROM narrator_detail WHERE id = ?').bind(id),
-    db.prepare(
-      `SELECT critic, text, citation, page_id, verdict, phenomenon_key, phenomenon_label
-         FROM criticism_statement WHERE narrator_id = ? ORDER BY ord`
-    ).bind(id)
-  ]);
-  detailPayload = detailRes.results?.[0] as { payload?: string } | undefined;
-  statementRows = stmtRes as unknown as { results?: StatementRow[] };
-} catch (err) {
-  console.error('Database query failed for narrator', id, err);
-  dbError = true;
-}
-
-if (!dbError && !detailPayload?.payload) {
-  return new Response('Narrator not found', { status: 404 });
-}
-
-let detail: Detail | null = null;
-if (detailPayload?.payload) {
-  try {
-    detail = JSON.parse(detailPayload.payload) as Detail;
-  } catch (err) {
-    console.error('Failed to parse narrator detail payload', id, err);
-    dbError = true;
-  }
-}
-
-const rows = (statementRows.results || []) as unknown as StatementRow[];
-let criticism: Criticism | null = null;
-
-if (rows.length) {
-  const byCritic = new Map<string, Statement[]>();
-  const byPhenomenon = new Map<string, { key: string; label: string; statements: Statement[] }>();
-  const tally: Record<Verdict, number> = { jarh: 0, tadil: 0, mixed: 0, unclassified: 0 };
-
-  for (const r of rows) {
-    const statement: Statement = {
-      text: r.text,
-      citation: r.citation,
-      pageId: r.page_id,
-      verdict: r.verdict
-    };
-    if (!byCritic.has(r.critic)) byCritic.set(r.critic, []);
-    byCritic.get(r.critic)!.push(statement);
-
-    if (tally[r.verdict] !== undefined) tally[r.verdict] += 1;
-
-    if (r.phenomenon_key) {
-      if (!byPhenomenon.has(r.phenomenon_key)) {
-        byPhenomenon.set(r.phenomenon_key, {
-          key: r.phenomenon_key,
-          label: r.phenomenon_label || r.phenomenon_key,
-          statements: []
-        });
-      }
-      byPhenomenon.get(r.phenomenon_key)!.statements.push(statement);
-    }
-  }
-
-  criticism = {
-    criticCount: byCritic.size,
-    statementCount: rows.length,
-    tally,
-    critics: [...byCritic].map(([critic, statements]) => ({ critic, statements })),
-    phenomena: [...byPhenomenon.values()]
-  };
-}
-
-const referenced = [
-  ...(detail?.sampleChains || []).flatMap((c) => c.path),
-  ...(detail?.teachers || []).map((t) => t.id),
-  ...(detail?.students || []).map((t) => t.id)
-];
-const uniqueIds = [...new Set(referenced)].filter((n) => Number.isFinite(n));
-
-const chainNames: Record<string, string> = {};
-if (uniqueIds.length && !dbError) {
-  try {
-    const placeholders = uniqueIds.map(() => '?').join(',');
-    const named = await db.prepare(
-      `SELECT id, name_en, name_ar FROM narrator WHERE id IN (${placeholders})`
-    )
-      .bind(...uniqueIds)
-      .all<{ id: number; name_en: string; name_ar: string }>();
-    for (const row of named.results || []) {
-      chainNames[row.id] = row.name_en || row.name_ar;
-    }
-  } catch (err) {
-    console.warn('Could not resolve chain narrator names:', err);
-  }
-}
-
-const linkableIds = new Set(Object.keys(chainNames).map(Number));
-
-interface Transmission {
-  id: number;
-  hadith_num: string;
-  book_en: string;
-  matn_en: string | null;
-  pos: number;
-  narrator_count: number;
-  parallel_count: number;
-}
-
-let transmissions: Transmission[] = [];
-let transmissionCount = 0;
-let attestedForms: { surface: string; n_mentions: number; is_display: number }[] = [];
-
-if (detail && !dbError) {
-  try {
-    const [transmissionRes, transmissionCountRes, aliasRes] = await db.batch([
-      db.prepare(
-        `SELECT h.id, h.hadith_num, h.matn_en, h.narrator_count, h.parallel_count,
-                (SELECT MIN(hn.pos) FROM hadith_narrator hn
-                  WHERE hn.narrator_id = t.narrator_id AND hn.hadith_id = h.id) AS pos,
-                b.title_en AS book_en
-           FROM narrator_top_hadith t
-           JOIN hadith h ON h.id = t.hadith_id
-           JOIN hadith_book b ON b.id = h.book_id
-          WHERE t.narrator_id = ?
-          ORDER BY t.ord`
-      ).bind(id),
-      db.prepare(
-        'SELECT COUNT(DISTINCT hadith_id) AS n FROM hadith_narrator WHERE narrator_id = ?'
-      ).bind(id),
-      db.prepare(
-        `SELECT surface, n_mentions, is_display FROM narrator_alias
-          WHERE narrator_id = ? ORDER BY n_mentions DESC LIMIT 8`
-      ).bind(id)
-    ]);
-
-    transmissions = (transmissionRes.results || []) as unknown as Transmission[];
-    transmissionCount = Number(
-      (transmissionCountRes.results?.[0] as { n?: number } | undefined)?.n ?? 0
-    );
-    attestedForms = (aliasRes.results || []) as unknown as typeof attestedForms;
-  } catch (error) {
-    console.error('Corpus lookup failed for narrator', id, error);
-  }
-}
-
-const VERDICT_LABELS: Record<Verdict, string> = {
-  jarh: 'Jarḥ',
-  tadil: "Taʿdīl",
-  mixed: 'Mixed',
-  unclassified: 'Unclassified'
-};
-
-const verdicts = detail
-  ? [
-      ['Ibn Ḥajar al-ʿAsqalānī', detail.rankIbnHajarEn, detail.rankIbnHajar],
-      ['al-Dhahabī', detail.rankDhahabiEn, detail.rankDhahabi],
-      ['Ṭabaqa (Taqrīb al-Tahdhīb)', detail.tabaqaEn, detail.tabaqa],
-      ['Creedal Attribution', detail.madhhabEn, detail.madhhab]
-    ].filter(([, en, ar]) => en || ar)
-  : [];
-
-const nameRows = detail
-  ? [
-      ['Full name', detail.fullName],
-      ['Kunyah', detail.kunya],
-      ['Nickname', detail.nickname],
-      ['Lineage', detail.lineage],
-      ['Relations', detail.relation]
-    ].filter(([, v]) => v)
-  : [];
-
-const journey = detail ? (detail.placesEn?.length ? detail.placesEn : detail.placesAr || []) : [];
-
-const deathLine = detail
-  ? detail.deathHijri
-    ? `${detail.deathHijri} AH / ${detail.deathGregorian} CE`
-    : 'Date not recorded'
-  : '';
-
-const critics = [...(criticism?.critics || [])].sort(
-  (a, b) => b.statements.length - a.statements.length
-);
-
-const maxBook = detail?.books?.[0]?.count || 1;
-const maxPos = Math.max(1, ...(detail?.positions || []).map((p) => p.count));
-
-const pageTitle = detail
-  ? `${detail.nameEn || detail.nameAr} | Rijāl Dossier | HadithCritic`
-  : `Transmitter #${id} | HadithCritic`;
-
-const pageDescription = detail
-  ? [
-      `${detail.nameEn}${detail.nameAr ? ` (${detail.nameAr})` : ''}, ${deathLine}.`,
-      detail.rankIbnHajarEn ? `Ibn Hajar: ${detail.rankIbnHajarEn}` : '',
-      detail.hadithCount ? `${detail.hadithCount} hadith across the corpus.` : '',
-      criticism ? `${criticism.statementCount} recorded statements from ${criticism.criticCount} critics.` : ''
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .slice(0, 300)
-  : `Biographical entry for transmitter #${id} in the Rijāl Register.`;
-
-const dossierUrl = new URL(`/narrators/${id}`, Astro.site).href;
-const personNode = detail
-  ? person({
-      url: dossierUrl,
-      nameEn: detail.nameEn,
-      nameAr: detail.nameAr,
-      fullName: detail.fullName,
-      kunya: detail.kunya,
-      description: pageDescription,
-      deathYearCE: detail.deathGregorian,
-      deathPlace: detail.deathPlace,
-      places: detail.placesEn,
-      generation: detail.generation,
-      id: detail.id
-    })
-  : null;
-
-const narratorSchema = personNode
-  ? [
-      entityPage({
-        url: dossierUrl,
-        title: pageTitle,
-        description: pageDescription,
-        entityId: personNode['@id'] as string
-      }),
-      personNode
-    ]
-  : [];
-
-const narratorCrumbs = [
-  { name: 'Home', url: '/' },
-  { name: 'Rijāl Register', url: '/narrators' },
-  { name: detail ? detail.nameEn || detail.nameAr : `#${id}`, url: `/narrators/${id}` }
-];
+// The shell depends on the id and the deployment, and on nothing that can
+// fail, so it is unconditionally storable at the edge.
+Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 ---
 
 <BaseLayout
   title={pageTitle}
-  description={pageDescription}
-  image={detail ? OG.narrator(detail.generation) : undefined}
-  imageAlt={detail ? `${detail.nameEn || detail.nameAr} | Rijāl Register` : undefined}
+  description="A biographical entry in the HadithCritic rijal register: attributed classical verdicts, transmission network, and recorded narrations."
   canonical={`/narrators/${id}`}
-  schema={narratorSchema}
-  crumbs={narratorCrumbs}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Rijāl Register', url: '/narrators' },
+    { name: `#${id}`, url: `/narrators/${id}` }
+  ]}
 >
-  <article class="rijal-page">
-    {dbError || !detail ? (
+  <article class="rijal-page" data-narrator-id={id}>
+    <div class="rijal-loading" data-dossier-loading>
+      <span class="rijal-spinner" aria-hidden="true"></span>
+      <p>Reading transmitter #{id} from the corpus...</p>
+    </div>
+    <noscript>
       <div class="rijal-degraded">
-        <div class="rijal-degraded__badge">Database Unavailable</div>
-        <h1 class="rijal-degraded__title">Biographical Record #{id}</h1>
+        <div class="rijal-degraded__badge">JavaScript required</div>
+        <h1 class="rijal-degraded__title">Transmitter #{id}</h1>
         <p class="rijal-degraded__text">
-          The database is currently experiencing high demand or rate limiting.
-          The complete transmitter register remains accessible from the index, and
-          narrations are available in the Hadith Corpus.
+          Dossiers are read from a static SQLite corpus inside your browser,
+          which needs JavaScript. The written research on this site does not.
         </p>
         <div class="rijal-degraded__actions">
-          <a class="rijal-btn" href="/narrators">← Return to Rijāl Register</a>
-          <a class="rijal-btn rijal-btn--gold" href={`/hadith?narrator=${id}`}>Search Narrations for #{id}</a>
+          <a class="rijal-btn" href="/narrators">Return to the register</a>
         </div>
       </div>
-    ) : (
-      <>
-        <header class="rijal-hero">
-          <div class="rijal-hero__top">
-            <a class="rijal-back" href="/narrators">
-              <span class="rijal-back__arrow">←</span>
-              <span>Rijāl Register</span>
-            </a>
-            <span class="rijal-id-pill">Transmitter #{detail.id}</span>
-          </div>
-
-          <div class="rijal-hero__names">
-            <h1 class="rijal-name-en">{detail.nameEn || detail.nameAr}</h1>
-            {detail.nameAr && (
-              <p class="rijal-name-ar" dir="rtl" lang="ar">{detail.nameAr}</p>
-            )}
-          </div>
-
-          <div class="rijal-badges">
-            {detail.generation && (
-              <span class="rijal-badge rijal-badge--gen">{detail.generation}</span>
-            )}
-            {detail.tabaqaNumber && (
-              <span class="rijal-badge">Ṭabaqa {detail.tabaqaNumber}</span>
-            )}
-            {detail.grade && (
-              <span class="rijal-badge rijal-badge--grade">{detail.grade}</span>
-            )}
-            {detail.flags?.map((f) => (
-              <span class="rijal-badge rijal-badge--flag">{f}</span>
-            ))}
-          </div>
-
-          <div class="rijal-facts-grid">
-            <div class="rijal-fact-card">
-              <span class="rijal-fact-label">Death Notice</span>
-              <span class="rijal-fact-val">
-                {deathLine}
-                {detail.deathPlace ? ` (${detail.deathPlace})` : ''}
-              </span>
-            </div>
-            <div class="rijal-fact-card">
-              <span class="rijal-fact-label">Recorded Narrations</span>
-              <span class="rijal-fact-val rijal-fact-val--num">
-                {detail.hadithCount ? detail.hadithCount.toLocaleString() : '0'}
-              </span>
-            </div>
-            <div class="rijal-fact-card">
-              <span class="rijal-fact-label">Teachers</span>
-              <span class="rijal-fact-val rijal-fact-val--num">
-                {detail.teachers?.length || 0}
-              </span>
-            </div>
-            <div class="rijal-fact-card">
-              <span class="rijal-fact-label">Students</span>
-              <span class="rijal-fact-val rijal-fact-val--num">
-                {detail.students?.length || 0}
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {verdicts.length > 0 && (
-          <section class="rijal-section" aria-labelledby="sec-verdicts">
-            <div class="rijal-section__head">
-              <h2 id="sec-verdicts" class="rijal-section__title">Scholarly Verdicts</h2>
-              <p class="rijal-section__sub">
-                Evaluative classifications recorded by major bio-bibliographers, with facing English translation and Arabic phrasing.
-              </p>
-            </div>
-            <div class="rijal-verdicts-grid">
-              {verdicts.map(([who, en, ar]) => (
-                <div class="rijal-verdict-card">
-                  <div class="rijal-verdict__auth">{who}</div>
-                  {en && <p class="rijal-verdict__en">{en}</p>}
-                  {ar && <p class="rijal-verdict__ar" dir="rtl" lang="ar">{ar}</p>}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {detail.deathDate && (
-          <section class="rijal-section" aria-labelledby="sec-death">
-            <div class="rijal-section__head">
-              <h2 id="sec-death" class="rijal-section__title">Death Notice</h2>
-              <p class="rijal-section__sub">
-                Preserved verbatim from the biographical manuscripts, noting variant dates and locations.
-              </p>
-            </div>
-            <div class="rijal-quote-card">
-              <p class="rijal-arabic-quote" dir="rtl" lang="ar">{detail.deathDate}</p>
-            </div>
-          </section>
-        )}
-
-        {detail.books?.length > 0 && (
-          <section class="rijal-section" aria-labelledby="sec-presence">
-            <div class="rijal-section__head">
-              <h2 id="sec-presence" class="rijal-section__title">Presence in Canonical Collections</h2>
-              <p class="rijal-section__sub">
-                Distribution of narrations across corpus works. Bars represent relative volume.
-              </p>
-            </div>
-            <div class="rijal-bars-card">
-              <ul class="rijal-bars">
-                {detail.books.slice(0, 12).map((b) => (
-                  <li class="rijal-bar">
-                    <span class="rijal-bar__label">{b.book}</span>
-                    <div class="rijal-bar__track">
-                      <div
-                        class="rijal-bar__fill"
-                        style={`width:${Math.max(3, (b.count / maxBook) * 100)}%`}
-                      />
-                    </div>
-                    <span class="rijal-bar__val">{b.count.toLocaleString()}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {detail.positions?.length > 0 && (
-              <div class="rijal-position-block">
-                <h3 class="rijal-subhead">Position in the Transmission Chain</h3>
-                <p class="rijal-note">
-                  Position 0 denotes the earliest tier (Companion/Successor); higher positions indicate transmitters nearer to the compiler.
-                </p>
-                <div class="rijal-bars-card rijal-bars-card--sub">
-                  <ul class="rijal-bars rijal-bars--compact">
-                    {detail.positions.map((p) => (
-                      <li class="rijal-bar">
-                        <span class="rijal-bar__label">Tier {p.pos}</span>
-                        <div class="rijal-bar__track">
-                          <div
-                            class="rijal-bar__fill rijal-bar__fill--alt"
-                            style={`width:${Math.max(3, (p.count / maxPos) * 100)}%`}
-                          />
-                        </div>
-                        <span class="rijal-bar__val">{p.count.toLocaleString()}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {transmissionCount > 0 && (
-          <section class="rijal-section" aria-labelledby="sec-transmissions">
-            <div class="rijal-section__head">
-              <h2 id="sec-transmissions" class="rijal-section__title">Recorded Hadith Narrations</h2>
-              <p class="rijal-section__sub">
-                {transmissionCount.toLocaleString()} narrations in the corpus cite this transmitter. Below are key attestations ordered by parallel frequency.
-              </p>
-            </div>
-
-            <div class="rijal-transmissions-list">
-              {transmissions.map((t) => (
-                <a class="rijal-transmission-card" href={`/hadith/${t.id}`}>
-                  <div class="rijal-tcard__header">
-                    <span class="rijal-tcard__src">{t.book_en} № {t.hadith_num}</span>
-                    <span class="rijal-tcard__pill">Tier {t.pos} of {t.narrator_count}</span>
-                  </div>
-                  {t.matn_en && (
-                    <p class="rijal-tcard__matn">{toPlainText(t.matn_en).slice(0, 240)}…</p>
-                  )}
-                  <div class="rijal-tcard__meta">
-                    <span class="rijal-meta-tag">{t.narrator_count} in chain</span>
-                    {t.parallel_count > 0 && (
-                      <span class="rijal-meta-tag">{t.parallel_count.toLocaleString()} parallels</span>
-                    )}
-                  </div>
-                </a>
-              ))}
-            </div>
-
-            <div class="rijal-view-more">
-              <a class="rijal-btn rijal-btn--gold" href={`/hadith?narrator=${detail.id}`}>
-                View All {transmissionCount.toLocaleString()} Narrations in Corpus →
-              </a>
-            </div>
-          </section>
-        )}
-
-        {attestedForms.length > 1 && (
-          <section class="rijal-section" aria-labelledby="sec-forms">
-            <div class="rijal-section__head">
-              <h2 id="sec-forms" class="rijal-section__title">Attested Name Spellings in Isnāds</h2>
-              <p class="rijal-section__sub">
-                Documented variations in chain formulas. Biographical indices map these variations to ensure consistent identity resolution.
-              </p>
-            </div>
-            <div class="rijal-forms-grid">
-              {attestedForms.map((f) => (
-                <div class="rijal-form-card">
-                  <div class="rijal-form-card__top">
-                    <span lang="ar" dir="rtl" class="rijal-form-card__ar">{f.surface}</span>
-                    {f.is_display === 1 && (
-                      <span class="rijal-form-tag">Register Canonical</span>
-                    )}
-                  </div>
-                  <span class="rijal-form-card__n">{f.n_mentions.toLocaleString()} attestations</span>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {detail.sampleChains?.length > 0 && (
-          <section class="rijal-section" aria-labelledby="sec-chains">
-            <div class="rijal-section__head">
-              <h2 id="sec-chains" class="rijal-section__title">Representative Isnād Chains</h2>
-              <p class="rijal-section__sub">
-                Transmission trajectories illustrating the path from origin to final compilation. This transmitter is highlighted in gold.
-              </p>
-            </div>
-            <div class="rijal-chains-container">
-              {detail.sampleChains.map((chain) => (
-                <div class="rijal-chain-card">
-                  <div class="rijal-chain-card__hdr">
-                    <span class="rijal-chain-src">{chain.book}{chain.number ? ` № ${chain.number}` : ''}</span>
-                    <span class="rijal-chain-len">{chain.path.length} transmitters</span>
-                  </div>
-                  <ol class="rijal-chain-path">
-                    {chain.path.map((nid, idx) => {
-                      const isSelf = nid === detail.id;
-                      const displayName = chainNames[nid] || `#${nid}`;
-                      return (
-                        <li class={`rijal-node ${isSelf ? 'rijal-node--self' : ''}`}>
-                          {isSelf ? (
-                            <span class="rijal-node__name rijal-node__name--active">{detail.nameEn || detail.nameAr}</span>
-                          ) : linkableIds.has(nid) ? (
-                            <a class="rijal-node__name" href={`/narrators/${nid}`}>{displayName}</a>
-                          ) : (
-                            <span class="rijal-node__name">{displayName}</span>
-                          )}
-                          {idx < chain.path.length - 1 && <span class="rijal-node__sep">→</span>}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {criticism && (
-          <section class="rijal-section" aria-labelledby="sec-criticism">
-            <div class="rijal-section__head">
-              <h2 id="sec-criticism" class="rijal-section__title">Jarḥ &amp; Taʿdīl Apparatus</h2>
-              <p class="rijal-section__sub">
-                {criticism.statementCount.toLocaleString()} authoritative statements recorded across {criticism.criticCount} traditional critics.
-              </p>
-            </div>
-
-            <div class="rijal-tally-bar">
-              {(Object.entries(criticism.tally) as [Verdict, number][])
-                .filter(([, n]) => n > 0)
-                .map(([k, n]) => (
-                  <span class={`rijal-tally-pill rijal-tally-pill--${k}`}>
-                    {VERDICT_LABELS[k]}: {n}
-                  </span>
-                ))}
-            </div>
-
-            {criticism.phenomena?.length > 0 && (
-              <div class="rijal-phenomena-strip">
-                {criticism.phenomena.map((p) => (
-                  <span class="rijal-phenom-tag">{p.label} ({p.statements.length})</span>
-                ))}
-              </div>
-            )}
-
-            <div class="rijal-critics-stack">
-              {critics.map((g) => (
-                <details class="rijal-critic-accordion">
-                  <summary class="rijal-critic-summary">
-                    <span class="rijal-critic-name" dir="rtl" lang="ar">{g.critic}</span>
-                    <span class="rijal-critic-counter">
-                      {g.statements.length} statement{g.statements.length === 1 ? '' : 's'}
-                    </span>
-                  </summary>
-                  <ul class="rijal-critic-stmts">
-                    {g.statements.map((s) => (
-                      <li class={`rijal-critic-stmt rijal-critic-stmt--${s.verdict}`}>
-                        <p class="rijal-stmt-arabic" dir="rtl" lang="ar">{s.text}</p>
-                        <div class="rijal-stmt-meta">
-                          <span class={`rijal-stmt-verdict rijal-stmt-verdict--${s.verdict}`}>
-                            {VERDICT_LABELS[s.verdict]}
-                          </span>
-                          {s.citation && (
-                            <cite class="rijal-stmt-cite" dir="rtl" lang="ar">{s.citation}</cite>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {(nameRows.length > 0 || detail.aliases?.length > 0) && (
-          <section class="rijal-section" aria-labelledby="sec-genealogy">
-            <div class="rijal-section__head">
-              <h2 id="sec-genealogy" class="rijal-section__title">Nomenclature &amp; Lineage</h2>
-              <p class="rijal-section__sub">
-                Complete genealogical, tribal, and kunyah designations documented in biographical dictionaries.
-              </p>
-            </div>
-            <div class="rijal-names-card">
-              {nameRows.length > 0 && (
-                <dl class="rijal-dl">
-                  {nameRows.map(([label, value]) => (
-                    <div class="rijal-dl__row">
-                      <dt class="rijal-dl__term">{label}</dt>
-                      <dd class="rijal-dl__def" dir="auto">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              {detail.aliases?.length > 0 && (
-                <div class="rijal-aliases-block">
-                  <h3 class="rijal-subhead">Recorded Alias Forms ({detail.aliasCount})</h3>
-                  <div class="rijal-aliases-wrap">
-                    {detail.aliases.map((a) => (
-                      <span class="rijal-alias-pill" dir="rtl" lang="ar">
-                        {a.form}
-                        <span class="rijal-alias-n">{a.count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-        {journey.length > 0 && (
-          <section class="rijal-section" aria-labelledby="sec-places">
-            <div class="rijal-section__head">
-              <h2 id="sec-places" class="rijal-section__title">Geographic Travels &amp; Residence</h2>
-              <p class="rijal-section__sub">
-                Documented regions of scholarly travel (ṭalab al-ʿilm) and residence.
-              </p>
-            </div>
-            <div class="rijal-journey-card">
-              <div class="rijal-journey-flow">
-                {journey.map((p, idx) => (
-                  <div class="rijal-journey-stop">
-                    <span class="rijal-journey-name" dir="auto">{p}</span>
-                    {idx < journey.length - 1 && <span class="rijal-journey-arrow">→</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {(detail.teachers?.length > 0 || detail.students?.length > 0) && (
-          <section class="rijal-section" aria-labelledby="sec-network">
-            <div class="rijal-section__head">
-              <h2 id="sec-network" class="rijal-section__title">Transmission Network</h2>
-              <p class="rijal-section__sub">
-                Primary scholarly lineages determined by isnād adjacency across the corpus.
-              </p>
-            </div>
-            <div class="rijal-network-grid">
-              <div class="rijal-network-card">
-                <div class="rijal-net-hdr">
-                  <h3 class="rijal-net-title">Teachers</h3>
-                  <span class="rijal-net-count">{detail.teachers?.length || 0}</span>
-                </div>
-                <ul class="rijal-net-list">
-                  {(detail.teachers || []).map((t) => (
-                    <li class="rijal-net-item">
-                      {linkableIds.has(t.id) ? (
-                        <a class="rijal-net-link" href={`/narrators/${t.id}`}>{t.name}</a>
-                      ) : (
-                        <span class="rijal-net-plain">{t.name}</span>
-                      )}
-                      <span class="rijal-net-freq">{t.count.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div class="rijal-network-card">
-                <div class="rijal-net-hdr">
-                  <h3 class="rijal-net-title">Students</h3>
-                  <span class="rijal-net-count">{detail.students?.length || 0}</span>
-                </div>
-                <ul class="rijal-net-list">
-                  {(detail.students || []).map((s) => (
-                    <li class="rijal-net-item">
-                      {linkableIds.has(s.id) ? (
-                        <a class="rijal-net-link" href={`/narrators/${s.id}`}>{s.name}</a>
-                      ) : (
-                        <span class="rijal-net-plain">{s.name}</span>
-                      )}
-                      <span class="rijal-net-freq">{s.count.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </section>
-        )}
-      </>
-    )}
+    </noscript>
   </article>
 </BaseLayout>
 
-<style>
+<script>
+  import { initNarratorDossier } from '../../lib/narrator-dossier';
+  initNarratorDossier();
+</script>
+
+<style is:global>
+
+  /* The shell's own state, before src/lib/narrator-dossier.ts has anything to show. */
+  .rijal-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: clamp(3rem, 12vh, 7rem) 1rem;
+    font-family: var(--font-ui);
+    font-size: 0.9rem;
+    color: var(--hc-text-secondary);
+    text-align: center;
+  }
+
+  .rijal-spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--hc-rule-soft);
+    border-top-color: var(--hc-gold);
+    border-radius: 50%;
+    animation: rijal-spin 900ms linear infinite;
+  }
+
+  @keyframes rijal-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rijal-spinner {
+      animation: none;
+    }
+  }
+
   .rijal-page {
     max-width: 68rem;
     margin: 0 auto;

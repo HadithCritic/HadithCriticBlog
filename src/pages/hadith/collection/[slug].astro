@@ -1,193 +1,42 @@
 ---
-export const prerender = false;
-
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
-import { db } from "../../../lib/db";
-import { toPlainText, renderArabic } from "../../../lib/format-text";
-import { CORPUS_CACHE_CONTROL } from "../../../lib/edge-cache";
-import { CANONICAL_BOOKS } from "../../../data/canonical-books";
+import { CORPUS_META } from "../../../lib/corpus-config";
 
 /**
- * Digital Source Edition for a Single Hadith Compilation.
- * Renders reports in strict manuscript order with bilingual facing columns,
- * bab/chapter landmark divisions, and cursor-seeking pagination.
+ * Digital source edition for a single hadith compilation.
+ *
+ * The shell is prerendered, one page per collection, from the generated corpus
+ * metadata: there are thirty-three of them and their titles and extents are
+ * fixed for a corpus version, so a crawler and a reader with JavaScript off
+ * both get the real thing. The narrations are read from the static corpus in
+ * the browser by src/lib/collection-edition.ts, because 276,347 records across
+ * 11,054 pages is not a set to prerender.
  */
+export function getStaticPaths() {
+  return CORPUS_META.collections.map((book) => ({
+    params: { slug: book.slug },
+    props: { book },
+  }));
+}
 
 const { slug } = Astro.params;
-const p = Astro.url.searchParams;
-const page = Math.max(1, parseInt(p.get("page") || "1", 10) || 1);
-const size = 25;
-const offset = (page - 1) * size;
+const { book } = Astro.props;
 
-const after = parseInt(p.get("after") || "", 10);
-const before = parseInt(p.get("before") || "", 10);
-const seekAfter = Number.isFinite(after) && after > 0 ? after : null;
-const seekBefore = Number.isFinite(before) && before > 0 ? before : null;
-
-const PREVIEW_AR = 420;
-const PREVIEW_EN = 380;
-const REVEAL_CAP = 8;
-
-interface Book {
-  id: number;
-  slug: string;
-  title_en: string;
-  title_ar: string;
-  hadith_count: number;
-}
-
-interface Row {
-  id: number;
-  hadith_num: string;
-  chapter_en: string;
-  chapter_ar: string;
-  matn_en: string | null;
-  text_en: string;
-  matn_ar: string | null;
-  text_ar: string;
-  narrator_count: number;
-  parallel_count: number;
-}
-
-let book: Book | undefined;
-let rows: Row[] = [];
-let failed = false;
-
-function withTimeout<T>(promise: Promise<T>, ms = 1000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), ms),
-    ),
-  ]);
-}
-
-try {
-  const found = (await withTimeout(
-    db
-      .prepare(
-        "SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book WHERE slug = ?",
-      )
-      .bind(slug)
-      .first(),
-    1000,
-  )) as Book | null;
-  book = found ?? undefined;
-
-  if (book) {
-    const COLUMNS = `id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
-              matn_ar, text_ar, narrator_count, parallel_count`;
-    const queryPromise = seekAfter
-      ? db
-          .prepare(
-            `SELECT ${COLUMNS} FROM hadith
-              WHERE book_id = ? AND id > ? ORDER BY id LIMIT ?`,
-          )
-          .bind(book.id, seekAfter, size)
-          .all()
-      : seekBefore
-        ? db
-            .prepare(
-              `SELECT ${COLUMNS} FROM hadith
-                WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT ?`,
-            )
-            .bind(book.id, seekBefore, size)
-            .all()
-        : db
-            .prepare(
-              `SELECT ${COLUMNS} FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`,
-            )
-            .bind(book.id, size, offset)
-            .all();
-    const res = await withTimeout(queryPromise, 1500);
-    rows = (res.results || []) as unknown as Row[];
-    if (seekBefore) rows.reverse();
-  }
-} catch {
-  failed = true;
-}
-
-if (!book) {
-  const canonical = CANONICAL_BOOKS.find((b) => b.slug === slug);
-  if (canonical) {
-    book = canonical;
-  }
-}
-
-if (!book) {
-  return new Response("Collection not found", { status: 404 });
-}
-
-const total = book?.hadith_count ?? 0;
-const pages = Math.max(1, Math.ceil(total / size));
-
-if (!failed && book) {
-  Astro.response.headers.set("Cache-Control", CORPUS_CACHE_CONTROL);
-}
-
-const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
-
-const first = rows[0]?.id;
-const last = rows[rows.length - 1]?.id;
-const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);
-const prevUrl = first
-  ? `${pageUrl(page - 1)}&before=${first}`
-  : pageUrl(page - 1);
-
-const preview = (text: string, limit: number) => {
-  const clean = (text || "").trim();
-  if (clean.length <= limit) return { text: clean, cut: false };
-  const space = clean.lastIndexOf(" ", limit);
-  return {
-    text: clean.slice(0, space > limit * 0.6 ? space : limit),
-    cut: true,
-  };
-};
-
-let lastChapter = "";
-let chapterOrdinal = 0;
-const slugifyChapter = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-
-const withHeadings = rows.map((r) => {
-  const chapter = toPlainText(r.chapter_en) || "";
-  const isNew = chapter !== "" && chapter !== lastChapter;
-  if (isNew) {
-    lastChapter = chapter;
-    chapterOrdinal += 1;
-  }
-  const base = isNew ? slugifyChapter(chapter) : "";
-  return {
-    row: r,
-    heading: isNew
-      ? {
-          en: chapter,
-          ar: (r.chapter_ar || "").trim(),
-          id: `ch-${chapterOrdinal}-${base}`,
-        }
-      : null,
-  };
-});
+const SIZE = 25;
+const total = book.hadith_count;
+const pages = Math.max(1, Math.ceil(total / SIZE));
 ---
 
 <BaseLayout
-  title={book
-    ? `${book.title_en} · Source Edition | HadithCritic`
-    : "Collection | HadithCritic"}
-  description={book
-    ? `Explore all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in bilingual facing critical format with complete transmission apparatus.`
-    : "Hadith collection edition"}
+  title={`${book.title_en} · Source Edition | HadithCritic`}
+  description={`Explore all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in bilingual facing critical format with complete transmission apparatus.`}
   image={OG.collection(slug)}
-  imageAlt={book ? `${book.title_en} | HadithCritic` : "Hadith collection"}
+  imageAlt={`${book.title_en} | HadithCritic`}
   crumbs={[
     { name: "Home", url: "/" },
     { name: "Corpus", url: "/hadith" },
-    { name: book?.title_en || "Collection", url: `/hadith/collection/${slug}` },
+    { name: book.title_en, url: `/hadith/collection/${slug}` },
   ]}
 >
   <div class="edition-view">
@@ -286,365 +135,34 @@ const withHeadings = rows.map((r) => {
 
     <!-- Source Body / Narrations Sequence -->
     <div class="wrap edition-body">
-      {
-        rows.length > 0 ? (
-          <>
-            <div class="edition-records-stream">
-              {withHeadings.map(({ row: r, heading }, i) => {
-                const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
-                const en = preview(
-                  toPlainText(r.matn_en || r.text_en),
-                  PREVIEW_EN,
-                );
-                return (
-                  <>
-                    {heading && (
-                      <header class="chapter-landmark" id={heading.id}>
-                        <div
-                          class="chapter-landmark__rule"
-                          aria-hidden="true"
-                        />
-                        <div class="chapter-landmark__content">
-                          {heading.ar && (
-                            <p class="chapter-landmark__ar" lang="ar" dir="rtl">
-                              {heading.ar}
-                            </p>
-                          )}
-                          <h2 class="chapter-landmark__en">
-                            <a
-                              class="chapter-landmark__anchor"
-                              href={`#${heading.id}`}
-                            >
-                              <span class="chapter-landmark__symbol">§</span>
-                              <span>{heading.en}</span>
-                            </a>
-                          </h2>
-                        </div>
-                      </header>
-                    )}
-
-                    <article
-                      class="narration-record hc-reveal"
-                      style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}
-                    >
-                      <a
-                        class="narration-record__hitlink"
-                        href={`/hadith/${r.id}`}
-                      >
-                        <div class="narration-record__meta-header">
-                          <div class="narration-record__docket">
-                            <span class="narration-record__num">
-                              {r.hadith_num
-                                ? `№ ${r.hadith_num}`
-                                : `ID #${r.id}`}
-                            </span>
-                            <span class="narration-record__source">
-                              {book?.title_en}
-                            </span>
-                          </div>
-                          <span class="narration-record__detail-cta">
-                            <span>Inspect Apparatus</span>
-                            <span class="narration-record__arrow">→</span>
-                          </span>
-                        </div>
-
-                        <div class="narration-record__spread">
-                          <div class="narration-record__col narration-record__col--en">
-                            {en.text ? (
-                              <p class="narration-record__prose-en">
-                                {en.text}
-                                {en.cut ? " …" : ""}
-                              </p>
-                            ) : (
-                              <p class="narration-record__missing">
-                                Translation not yet registered for this entry.
-                              </p>
-                            )}
-                          </div>
-
-                          <div class="narration-record__col narration-record__col--ar">
-                            <p
-                              class="narration-record__prose-ar"
-                              lang="ar"
-                              dir="rtl"
-                            >
-                              <Fragment set:html={renderArabic(ar.text)} />
-                              {ar.cut ? " …" : ""}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div class="narration-record__apparatus-strip">
-                          <div class="narration-record__tags">
-                            <span class="apparatus-tag">
-                              <span class="apparatus-tag__label">Chains:</span>
-                              <strong>{r.narrator_count} Transmitters</strong>
-                            </span>
-                            {Number(r.parallel_count) > 0 && (
-                              <span class="apparatus-tag apparatus-tag--gold">
-                                <span class="apparatus-tag__label">
-                                  Witnesses:
-                                </span>
-                                <strong>
-                                  {Number(r.parallel_count).toLocaleString()}{" "}
-                                  Parallels
-                                </strong>
-                              </span>
-                            )}
-                          </div>
-                          <span class="narration-record__corpus-ref">
-                            Corpus Record #{r.id}
-                          </span>
-                        </div>
-                      </a>
-                    </article>
-                  </>
-                );
-              })}
-            </div>
-
-            <nav
-              class="edition-pager"
-              aria-label="Collection sequential navigation"
-            >
-              {page > 1 ? (
-                <a class="edition-pager__link" href={prevUrl}>
-                  ← Previous Page
-                </a>
-              ) : (
-                <span
-                  class="edition-pager__link is-disabled"
-                  aria-disabled="true"
-                >
-                  ← Previous Page
-                </span>
-              )}
-              <span class="edition-pager__counter">
-                Page <strong>{page.toLocaleString()}</strong> of{" "}
-                <strong>{pages.toLocaleString()}</strong>
-              </span>
-              {page < pages ? (
-                <a class="edition-pager__link" href={nextUrl}>
-                  Next Page →
-                </a>
-              ) : (
-                <span
-                  class="edition-pager__link is-disabled"
-                  aria-disabled="true"
-                >
-                  Next Page →
-                </span>
-              )}
-            </nav>
-          </>
-        ) : (
-          <div
-            id="coll-client-container"
-            data-book-id={book.id}
-            data-slug={slug}
-            data-page={page}
-            data-size={size}
-            data-seek-after={seekAfter || ""}
-            data-seek-before={seekBefore || ""}
-            data-total={total}
-          >
-            <div class="coll-loading">
-              <span class="coll-spinner" aria-hidden="true" />
-              <p>Querying client archive for {book.title_en} narrations…</p>
-            </div>
-          </div>
-        )
-      }
+      <div
+        id="coll-client-container"
+        data-book-id={book.id}
+        data-slug={slug}
+        data-book-title={book.title_en}
+        data-size={SIZE}
+        data-total={total}
+      >
+        <div class="coll-loading">
+          <span class="coll-spinner" aria-hidden="true"></span>
+          <p>Reading {book.title_en} from the static corpus…</p>
+        </div>
+        <noscript>
+          <p class="coll-error">
+            This edition is read from a static SQLite corpus in your browser, so
+            it needs JavaScript. The {pages.toLocaleString()} pages of {book.title_en}
+            are otherwise unavailable here; the written research on this site does
+            not require it.
+          </p>
+        </noscript>
+      </div>
     </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { getCorpusWorker } from "../../../lib/corpus-client";
-  import { toPlainText } from "../../../lib/format-text";
-
-  const container = document.getElementById("coll-client-container");
-  if (container) {
-    const bookId = Number(container.dataset.bookId);
-    const slug = container.dataset.slug || "";
-    const page = Math.max(1, Number(container.dataset.page) || 1);
-    const size = Number(container.dataset.size) || 25;
-    const seekAfter = container.dataset.seekAfter
-      ? Number(container.dataset.seekAfter)
-      : null;
-    const seekBefore = container.dataset.seekBefore
-      ? Number(container.dataset.seekBefore)
-      : null;
-    const total = Number(container.dataset.total) || 0;
-    const pages = Math.max(1, Math.ceil(total / size));
-    const offset = (page - 1) * size;
-
-    const preview = (text: string, limit: number) => {
-      const clean = (text || "").trim();
-      if (clean.length <= limit) return { text: clean, cut: false };
-      const space = clean.lastIndexOf(" ", limit);
-      return {
-        text: clean.slice(0, space > limit * 0.6 ? space : limit),
-        cut: true,
-      };
-    };
-
-    const escapeHtml = (str: string) =>
-      (str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    async function loadCollection() {
-      const el = container;
-      if (!el) return;
-
-      try {
-        const worker = await getCorpusWorker();
-        if (!worker) {
-          el.innerHTML =
-            '<p class="coll-error">Unable to initialize client archive worker.</p>';
-          return;
-        }
-
-        const COLUMNS = `id, hadith_num, chapter_en, chapter_ar, matn_en, text_en,
-                        matn_ar, text_ar, narrator_count, parallel_count`;
-        let query: string;
-        let params: unknown[];
-
-        if (seekAfter) {
-          query = `SELECT ${COLUMNS} FROM hadith WHERE book_id = ? AND id > ? ORDER BY id LIMIT ?`;
-          params = [bookId, seekAfter, size];
-        } else if (seekBefore) {
-          query = `SELECT ${COLUMNS} FROM hadith WHERE book_id = ? AND id < ? ORDER BY id DESC LIMIT ?`;
-          params = [bookId, seekBefore, size];
-        } else {
-          query = `SELECT ${COLUMNS} FROM hadith WHERE book_id = ? ORDER BY id LIMIT ? OFFSET ?`;
-          params = [bookId, size, offset];
-        }
-
-        let rows = await worker.db.query(query, params);
-        if (seekBefore && rows) rows.reverse();
-
-        if (!rows || rows.length === 0) {
-          el.innerHTML =
-            '<p class="coll-empty">No narrations recorded for this collection.</p>';
-          return;
-        }
-
-        let lastChapter = "";
-        let chapterOrdinal = 0;
-        let listHtml = '<div class="edition-records-stream">';
-        const slugifyChapter = (text: string) =>
-          text
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, "")
-            .slice(0, 48);
-
-        for (const r of rows) {
-          const chapter = toPlainText(r.chapter_en || "");
-          const isNew = chapter !== "" && chapter !== lastChapter;
-          if (isNew) {
-            lastChapter = chapter;
-            chapterOrdinal += 1;
-            const chId = `ch-${chapterOrdinal}-${slugifyChapter(chapter)}`;
-            listHtml += `
-              <header class="chapter-landmark" id="${chId}">
-                <div class="chapter-landmark__rule" aria-hidden="true"></div>
-                <div class="chapter-landmark__content">
-                  ${r.chapter_ar ? `<p class="chapter-landmark__ar" lang="ar" dir="rtl">${escapeHtml(r.chapter_ar.trim())}</p>` : ""}
-                  <h2 class="chapter-landmark__en">
-                    <a class="chapter-landmark__anchor" href="#${chId}">
-                      <span class="chapter-landmark__symbol">§</span>
-                      <span>${escapeHtml(chapter)}</span>
-                    </a>
-                  </h2>
-                </div>
-              </header>
-            `;
-          }
-
-          const ar = preview(r.matn_ar || r.text_ar || "", 420);
-          const en = preview(toPlainText(r.matn_en || r.text_en || ""), 380);
-          const numLabel = r.hadith_num
-            ? `№ ${escapeHtml(r.hadith_num)}`
-            : `ID #${r.id}`;
-
-          listHtml += `
-            <article class="narration-record">
-              <a class="narration-record__hitlink" href="/hadith/${r.id}">
-                <div class="narration-record__meta-header">
-                  <div class="narration-record__docket">
-                    <span class="narration-record__num">${numLabel}</span>
-                  </div>
-                  <span class="narration-record__detail-cta">
-                    <span>Inspect Apparatus</span>
-                    <span class="narration-record__arrow">→</span>
-                  </span>
-                </div>
-                <div class="narration-record__spread">
-                  <div class="narration-record__col narration-record__col--en">
-                    ${en.text ? `<p class="narration-record__prose-en">${escapeHtml(en.text)}${en.cut ? " …" : ""}</p>` : `<p class="narration-record__missing">Translation not recorded.</p>`}
-                  </div>
-                  <div class="narration-record__col narration-record__col--ar">
-                    <p class="narration-record__prose-ar" lang="ar" dir="rtl">${ar.text}${ar.cut ? " …" : ""}</p>
-                  </div>
-                </div>
-                <div class="narration-record__apparatus-strip">
-                  <div class="narration-record__tags">
-                    <span class="apparatus-tag">
-                      <span class="apparatus-tag__label">Chains:</span>
-                      <strong>${r.narrator_count} Transmitters</strong>
-                    </span>
-                    ${
-                      Number(r.parallel_count) > 0
-                        ? `
-                      <span class="apparatus-tag apparatus-tag--gold">
-                        <span class="apparatus-tag__label">Witnesses:</span>
-                        <strong>${Number(r.parallel_count).toLocaleString()} Parallels</strong>
-                      </span>`
-                        : ""
-                    }
-                  </div>
-                  <span class="narration-record__corpus-ref">Corpus Record #${r.id}</span>
-                </div>
-              </a>
-            </article>
-          `;
-        }
-        listHtml += "</div>";
-
-        const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
-        const first = rows[0]?.id;
-        const last = rows[rows.length - 1]?.id;
-        const nextUrl = last
-          ? `${pageUrl(page + 1)}&after=${last}`
-          : pageUrl(page + 1);
-        const prevUrl = first
-          ? `${pageUrl(page - 1)}&before=${first}`
-          : pageUrl(page - 1);
-
-        listHtml += `
-          <nav class="edition-pager" aria-label="Collection sequential navigation">
-            ${page > 1 ? `<a class="edition-pager__link" href="${prevUrl}">← Previous Page</a>` : `<span class="edition-pager__link is-disabled" aria-disabled="true">← Previous Page</span>`}
-            <span class="edition-pager__counter">Page <strong>${page.toLocaleString()}</strong> of <strong>${pages.toLocaleString()}</strong></span>
-            ${page < pages ? `<a class="edition-pager__link" href="${nextUrl}">Next Page →</a>` : `<span class="edition-pager__link is-disabled" aria-disabled="true">Next Page →</span>`}
-          </nav>
-        `;
-
-        el.innerHTML = listHtml;
-      } catch (err) {
-        console.error("Failed to load collection from worker:", err);
-        el.innerHTML =
-          '<p class="coll-error">Unable to render source archive records.</p>';
-      }
-    }
-
-    loadCollection();
-  }
+  import { initCollectionEdition } from "../../../lib/collection-edition";
+  initCollectionEdition();
 </script>
 
 <style>
