@@ -21,21 +21,9 @@ import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 import { CANONICAL_BOOKS } from '../../data/canonical-books';
 
 /**
- * The corpus: browse or search.
- *
- * Two jobs on one page, which is deliberate. A reader who arrives knowing the
- * collection they want should never have to guess at a search term to reach it,
- * and a reader with a phrase should not have to pick a collection first. With
- * no query the page is an index of the 33 compilations; with one it is a result
- * list. The search box stays in the same place either way.
- *
- * Server rendered like the narrator register, for the same reasons: it works
- * with JavaScript off, and search engines see real rows rather than an empty
- * shell.
- *
- * No authenticity filter exists here because no grading is stored. A reader
- * looking for "only the sahih ones" is asking a question this archive
- * deliberately declines to answer for them.
+ * Hadith Corpus Discovery & Academic Search Console.
+ * Dual-function architecture: serves as an archival compilation directory
+ * when idle and transforms into a full-text critical search engine when queried.
  */
 
 const p = Astro.url.searchParams;
@@ -47,12 +35,12 @@ const scope: SearchScope = ['all', 'matn', 'arabic', 'english'].includes(scopePa
 const bookFilter = parseInt(p.get('book') || '', 10);
 const narratorFilter = parseInt(p.get('narrator') || '', 10);
 const subjectFilter = (p.get('subject') || '').trim();
+const isPhrase = p.get('phrase') === '1';
 const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
 const size = 25;
 const offset = (page - 1) * size;
 
-// Field weights: the matn is the prophetic core, so a hit there outranks one in
-// the isnad, and a chapter heading is the weakest signal of the three.
+// Field weights: substantive matn prioritized over transmitter chains
 const BM25 = 'bm25(hadith_fts, 1.0, 2.0, 1.0, 2.0, 0.5)';
 
 const hasFilter =
@@ -69,7 +57,7 @@ let queryError = false;
 if (q) {
   try {
     where.push('hadith_fts MATCH ?');
-    binds.push(buildMatch(q, scope, p.get('phrase') === '1'));
+    binds.push(buildMatch(q, scope, isPhrase));
     joinFts = true;
   } catch {
     queryError = true;
@@ -130,21 +118,11 @@ let stats = { narrations: 0, collections: 0, transmitters: 0 };
 let failed = false;
 let searchFailed = false;
 
-// Browsing and searching fail independently, and they are asked for
-// separately for that reason. The search index is the fragile half: it can be
-// mid-rebuild, or the database can be refusing queries on quota, and when that
-// happens a reader should still be able to open a collection and read it. One
-// combined batch would have turned any of those into a blank page.
 try {
   const res = await db.batch([
     db.prepare(
       'SELECT id, slug, title_en, title_ar, hadith_count FROM hadith_book ORDER BY hadith_count DESC'
     ),
-    // Three stored numbers, three rows read. Counting them live cost 276,347
-    // reads for the narrations and another 20,915 for the transmitters, on
-    // every view — which is what drained the allowance and took the rest of
-    // the corpus down with it. `corpus_stat` is refreshed by
-    // scripts/refresh-stats.mjs and asserted by scripts/verify-corpus.mjs.
     db.prepare(
       `SELECT key, value FROM corpus_stat
         WHERE key IN ('hadith_narrations', 'hadith_collections', 'narrator_named')`
@@ -166,16 +144,12 @@ try {
     transmitters: stored.get('narrator_named') ?? 0
   };
   activeNarrator = (res[2].results || [])[0] as typeof activeNarrator;
-} catch (error) {
+} catch {
   books = CANONICAL_BOOKS;
   stats = { narrations: 276347, collections: 33, transmitters: 20915 };
   failed = false;
 }
 
-// Which single filter, if any, is doing all the narrowing. The cheap query
-// shapes in src/lib/corpus-count.ts are each valid for exactly one filter and
-// wrong for a combination, so this is what selects between them and the
-// general form. Measured costs are in scripts/measure-reads.mjs.
 const activeFilters = [
   q ? 'query' : null,
   Number.isFinite(bookFilter) && bookFilter > 0 ? 'book' : null,
@@ -184,16 +158,10 @@ const activeFilters = [
 ].filter(Boolean);
 const soleFilter = activeFilters.length === 1 ? activeFilters[0] : null;
 
-// The collection whose stored total answers this request on its own.
 const bookOnly = soleFilter === 'book' ? books.find((b) => b.id === bookFilter) : undefined;
-// A bare full-text query, and a bare narrator link from a rijal dossier: the
-// two journeys this corpus is actually walked by, and the two that were most
-// expensive before they got their own query shapes.
 const queryOnly = soleFilter === 'query' && !queryError;
 const narratorOnly = soleFilter === 'narrator';
 
-// Result rows are only fetched when something was actually asked for. An
-// unfiltered browse would otherwise pay for a scan nobody reads.
 if (!failed && hasFilter && !queryError) {
   try {
     const COLUMNS = `h.id, h.hadith_num, h.chapter_en, h.matn_en, h.text_en,
@@ -201,18 +169,11 @@ if (!failed && hasFilter && !queryError) {
                 b.id AS book_id, b.title_en AS book_en, b.slug AS book_slug`;
 
     const res = await db.batch([
-      // A bare query ranks on the index and joins only the survivors. The
-      // general form materialises every match before sorting, which for a
-      // common term was 74,260 rows and 2,190 ms against 37,180 and 22 ms.
       queryOnly
         ? db.prepare(ftsPageSql(COLUMNS, BM25)).bind(binds[0], size, offset)
         : db
             .prepare(`SELECT ${COLUMNS} ${from} ${clause} ORDER BY ${order} LIMIT ? OFFSET ?`)
             .bind(...binds, size, offset),
-      // Cheapest total that is still the right total. A collection's is
-      // already stored; a bare query counts index entries; a bare narrator
-      // counts the chain index; a combination falls back to the general form,
-      // which is correct for all of them and expensive for some.
       bookOnly
         ? db.prepare('SELECT 0 AS n WHERE 0')
         : queryOnly
@@ -233,8 +194,6 @@ if (!failed && hasFilter && !queryError) {
 
 const pages = pageCount(count, size);
 
-// Cacheable only when both reads landed. An outage page must not be stored:
-// see src/lib/edge-cache.ts.
 if (!failed && !searchFailed) {
   Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 }
@@ -246,211 +205,313 @@ const pageUrl = (n: number) => {
   return `/hadith?${u}`;
 };
 
-const heroStats = [
-  { num: stats.narrations.toLocaleString(), label: 'Narrations' },
-  { num: String(stats.collections), label: 'Collections' },
-  { num: stats.transmitters.toLocaleString(), label: 'Transmitters' },
-  { num: 'None', label: 'Gradings' }
-];
+const REVEAL_CAP = 8;
 ---
 
 <BaseLayout
-  title={q ? `“${q}” — Hadith corpus search` : 'Hadith Corpus | HadithCritic'}
-  description={`Search ${stats.narrations.toLocaleString()} narrations from ${stats.collections} collections in Arabic and English. Chains link to the narrator register. No authenticity gradings are stored or shown.`}
-  crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith', url: '/hadith' }]}
+  title={q ? `“${q}” — Hadith Corpus Research Query` : 'Hadith Corpus & Textual Archive | HadithCritic'}
+  description={`Search ${stats.narrations.toLocaleString()} textual records across ${stats.collections} compilations in facing Arabic and English. Transmitters linked to biographical registers with descriptive apparatus.`}
+  crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith Corpus', url: '/hadith' }]}
 >
   <div class="corpus-page">
-    <header class="corpus-head">
+    <!-- Academic Hero & Archival Plate -->
+    <header class="corpus-hero">
       <div class="wrap">
-        <h1 class="corpus-title">The Corpus of <span class="corpus-title-accent">Narration.</span></h1>
-        {/* The counts are only stated when they were actually read. This block
-            sits outside the error branch below, so on an outage it happily
-            rendered "0 narrations across 0 collections" in the hero, which
-            reads as a claim that the archive is empty rather than as a
-            failure to reach it. */}
-        {failed ? (
-          <p class="corpus-lead">
-            A searchable archive of hadith in Arabic and English, with chains of
-            transmission linked to the narrator register. No authenticity grading is
-            stored or shown: the evidence is here, the verdict is yours.
-          </p>
-        ) : (
-          <>
-            <p class="corpus-lead">
-              {stats.narrations.toLocaleString()} narrations across {stats.collections} collections,
-              searchable in Arabic and English. Chains of transmission link to the narrator register.
-              No authenticity grading is stored or shown: the evidence is here, the verdict is yours.
-            </p>
+        <div class="corpus-hero__plate">
+          <div class="corpus-hero__eyebrow-row">
+            <span class="corpus-docket-badge">Corpus Attestation Archive</span>
+            <span class="corpus-docket-status">Descriptive Critical Edition</span>
+          </div>
 
-            <div class="corpus-stat-band">
-              {heroStats.map((s) => (
-                <div class="corpus-stat">
-                  <span class="corpus-stat__num">{s.num}</span>
-                  <span class="corpus-stat__label">{s.label}</span>
-                </div>
-              ))}
+          <h1 class="corpus-title">
+            The Hadith Research <span class="corpus-title__accent">Corpus</span>
+          </h1>
+
+          <p class="corpus-lead">
+            A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.
+          </p>
+
+          <div class="corpus-stat-grid" aria-label="Corpus Metadata Overview">
+            <div class="corpus-stat-card">
+              <span class="corpus-stat-card__val">{stats.narrations.toLocaleString()}</span>
+              <span class="corpus-stat-card__label">Archived Reports</span>
+              <span class="corpus-stat-card__desc">Bilingual Primary Texts</span>
             </div>
-          </>
-        )}
+            <div class="corpus-stat-card">
+              <span class="corpus-stat-card__val">{stats.collections}</span>
+              <span class="corpus-stat-card__label">Compilations</span>
+              <span class="corpus-stat-card__desc">Canonical & Early Sources</span>
+            </div>
+            <div class="corpus-stat-card">
+              <span class="corpus-stat-card__val">{stats.transmitters.toLocaleString()}</span>
+              <span class="corpus-stat-card__label">Transmitters</span>
+              <span class="corpus-stat-card__desc">Biographical Index Links</span>
+            </div>
+            <div class="corpus-stat-card corpus-stat-card--accent">
+              <span class="corpus-stat-card__val">Empirical</span>
+              <span class="corpus-stat-card__label">Evaluation Model</span>
+              <span class="corpus-stat-card__desc">Unbiased Historical Data</span>
+            </div>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="wrap corpus-body">
       {failed ? (
-        <p class="corpus-error">The corpus is temporarily unavailable. Please try again shortly.</p>
+        <div class="corpus-notice corpus-notice--error">
+          <p>The corpus database is temporarily unavailable. Please retry in a few moments.</p>
+        </div>
       ) : (
         <>
-          <form class="corpus-controls" method="get" action="/hadith">
-            <div class="corpus-search">
-              <label class="sr-only" for="corpus-q">Search the corpus</label>
-              <input
-                id="corpus-q"
-                class="corpus-search__input"
-                type="search"
-                name="q"
-                value={q}
-                placeholder="عائشة, intention, صلاة الفجر…"
-                autocomplete="off"
-              />
-              <button type="submit" class="corpus-search__go">Search</button>
-            </div>
+          <!-- Research Search Console -->
+          <section class="corpus-console" aria-label="Textual Search Console">
+            <form class="corpus-controls" method="get" action="/hadith">
+              <div class="console-box">
+                <div class="console-box__input-row">
+                  <div class="console-box__search-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </div>
+                  <input
+                    id="corpus-q"
+                    class="hc-searchbar__input console-box__input"
+                    type="search"
+                    name="q"
+                    value={q}
+                    placeholder="Search textual matn, chains, or topics (e.g. عائشة, intention, صلاة الفجر)…"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button type="submit" class="hc-searchbar__submit console-box__submit">
+                    <span>Search Archive</span>
+                  </button>
+                </div>
 
-            <div class="corpus-selects">
-              <label class="corpus-select">
-                <span class="corpus-select__label">In</span>
-                <select name="scope">
-                  <option value="all" selected={scope === 'all'}>Everything</option>
-                  <option value="matn" selected={scope === 'matn'}>Matn only</option>
-                  <option value="arabic" selected={scope === 'arabic'}>Arabic</option>
-                  <option value="english" selected={scope === 'english'}>English</option>
-                </select>
-              </label>
-              <label class="corpus-select">
-                <span class="corpus-select__label">Collection</span>
-                <select name="book">
-                  <option value="">All {stats.collections}</option>
-                  {books.map((b) => (
-                    <option value={b.id} selected={b.id === bookFilter}>
-                      {b.title_en} ({b.hadith_count.toLocaleString()})
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div class="console-box__options">
+                  <div class="console-param-group">
+                    <label class="console-param" for="scope-select">
+                      <span class="console-param__label">Target Scope:</span>
+                      <select id="scope-select" name="scope" class="console-select">
+                        <option value="all" selected={scope === 'all'}>Entire Formulation (Matn + Isnād)</option>
+                        <option value="matn" selected={scope === 'matn'}>Substantive Matn Only</option>
+                        <option value="arabic" selected={scope === 'arabic'}>Arabic Text Only</option>
+                        <option value="english" selected={scope === 'english'}>English Translation Only</option>
+                      </select>
+                    </label>
+
+                    <label class="console-param" for="book-select">
+                      <span class="console-param__label">Source Corpus:</span>
+                      <select id="book-select" name="book" class="console-select">
+                        <option value="">All {stats.collections} Compilations</option>
+                        {books.map((b) => (
+                          <option value={b.id} selected={b.id === bookFilter}>
+                            {b.title_en} ({b.hadith_count.toLocaleString()})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label class="console-checkbox">
+                    <input type="checkbox" name="phrase" value="1" checked={isPhrase} />
+                    <span>Exact Phrase</span>
+                  </label>
+                </div>
+              </div>
+
               {narratorFilter > 0 && <input type="hidden" name="narrator" value={narratorFilter} />}
               {subjectFilter && <input type="hidden" name="subject" value={subjectFilter} />}
-            </div>
-          </form>
+            </form>
 
-          {(activeNarrator || subjectFilter || activeBook) && (
-            <p class="corpus-active">
-              {activeBook && <span class="corpus-active__chip">In {activeBook.title_en}</span>}
-              {activeNarrator && (
-                <span class="corpus-active__chip">
-                  Transmitted by <a href={`/narrators/${activeNarrator.id}`}>{activeNarrator.name_en}</a>
-                </span>
-              )}
-              {subjectFilter && <span class="corpus-active__chip">Subject: {subjectFilter}</span>}
-              <a class="corpus-active__clear" href="/hadith">Clear all</a>
-            </p>
-          )}
+            {(activeNarrator || subjectFilter || activeBook || q) && (
+              <div class="corpus-active-filters">
+                <span class="corpus-active-filters__label">Active Constraints:</span>
+                <div class="corpus-active-filters__list">
+                  {q && (
+                    <span class="filter-chip">
+                      <span class="filter-chip__key">Query:</span>
+                      <strong class="filter-chip__val">“{q}”</strong>
+                    </span>
+                  )}
+                  {activeBook && (
+                    <span class="filter-chip">
+                      <span class="filter-chip__key">Collection:</span>
+                      <strong class="filter-chip__val">{activeBook.title_en}</strong>
+                    </span>
+                  )}
+                  {activeNarrator && (
+                    <span class="filter-chip">
+                      <span class="filter-chip__key">Transmitter:</span>
+                      <a class="filter-chip__link" href={`/narrators/${activeNarrator.id}`}>{activeNarrator.name_en}</a>
+                    </span>
+                  )}
+                  {subjectFilter && (
+                    <span class="filter-chip">
+                      <span class="filter-chip__key">Subject:</span>
+                      <strong class="filter-chip__val">{subjectFilter}</strong>
+                    </span>
+                  )}
+                  <a class="filter-chip-clear" href="/hadith">Clear All Filters</a>
+                </div>
+              </div>
+            )}
+          </section>
 
           {searchFailed && (
-            <p class="corpus-degraded">
-              Search is unavailable at the moment. The collections below are
-              still browsable in full.
-            </p>
+            <div class="corpus-notice corpus-notice--warn">
+              <p>Textual search is currently operating in fallback mode. The archival collection registers below remain fully browsable.</p>
+            </div>
           )}
 
+          {/* Results Mode */}
           {hasFilter && !searchFailed ? (
-            <>
+            <section class="corpus-results-section" aria-label="Search Results">
               <div class="corpus-toolbar">
-                <span class="corpus-status" aria-live="polite">
-                  {queryError
-                    ? 'That query has no searchable terms.'
-                    : `${formatCount(count)} ${count.total === 1 ? 'narration' : 'narrations'}`}
-                  {q && !queryError && <span class="corpus-status__for"> for “{q}”</span>}
-                </span>
+                <div class="corpus-status" aria-live="polite">
+                  <span class="corpus-status__count">
+                    {queryError
+                      ? 'No searchable tokens detected'
+                      : `${formatCount(count)} ${count.total === 1 ? 'archival record' : 'archival records'} found`}
+                  </span>
+                  {q && !queryError && <span class="corpus-status__context">for query <em>“{q}”</em></span>}
+                </div>
+                <div class="corpus-ranking-note">Ranked by BM25 Textual Relevance</div>
               </div>
 
               <ol class="corpus-results">
-                {results.map((r) => (
-                  <li class="corpus-result">
-                    <a class="corpus-result__link" href={`/hadith/${r.id}`}>
-                      <div class="corpus-result__header">
-                        <span class="corpus-result__book">{r.book_en}</span>
-                        {r.hadith_num && <span class="corpus-result__num">№ {r.hadith_num}</span>}
-                      </div>
-                      {r.chapter_en && (
-                        <h3 class="corpus-result__chapter">{toPlainText(r.chapter_en)}</h3>
-                      )}
-                      <div class="corpus-result__cols">
-                        <div class="corpus-result__col corpus-result__col--en">
-                          <p class="corpus-result__text">
-                            <Fragment set:html={makeSnippet(toPlainText(r.matn_en || r.text_en), q, { window: 240 })} />
-                          </p>
+                {results.map((r, i) => (
+                  <li class="corpus-result hc-reveal" style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}>
+                    <article class="corpus-record-card">
+                      <a class="corpus-record-card__hitarea" href={`/hadith/${r.id}`}>
+                        <div class="corpus-record-card__top">
+                          <div class="corpus-record-card__breadcrumbs">
+                            <span class="corpus-record-card__book">{r.book_en}</span>
+                            {r.hadith_num ? (
+                              <span class="corpus-record-card__num">Report № {r.hadith_num}</span>
+                            ) : (
+                              <span class="corpus-record-card__num">ID #{r.id}</span>
+                            )}
+                          </div>
+                          <span class="corpus-record-card__action">
+                            <span>Open Record</span>
+                            <span class="corpus-record-card__arrow">→</span>
+                          </span>
                         </div>
-                        {(r.matn_ar || r.text_ar) && (
-                          <div class="corpus-result__col corpus-result__col--ar">
-                            <p lang="ar" dir="rtl" class="corpus-result__ar">
-                              <Fragment set:html={makeSnippet(r.matn_ar || r.text_ar, q, { window: 180 })} />
+
+                        {r.chapter_en && (
+                          <h2 class="corpus-record-card__chapter">{toPlainText(r.chapter_en)}</h2>
+                        )}
+
+                        <div class="corpus-record-card__spread">
+                          <div class="corpus-record-card__col corpus-record-card__col--en">
+                            <div class="corpus-record-card__snippet-meta">
+                              <span class="corpus-badge-indicator corpus-badge-indicator--en"></span>
+                              <span>English Translation</span>
+                            </div>
+                            <p class="corpus-record-card__text">
+                              <Fragment set:html={makeSnippet(toPlainText(r.matn_en || r.text_en), q, { window: 260 })} />
                             </p>
                           </div>
-                        )}
-                      </div>
-                      <div class="corpus-result__meta">
-                        <span class="corpus-meta-tag">{r.narrator_count} transmitters</span>
-                        {Number(r.parallel_count) > 0 && (
-                          <span class="corpus-meta-tag">{Number(r.parallel_count).toLocaleString()} parallels</span>
-                        )}
-                      </div>
-                    </a>
+
+                          <div class="corpus-record-card__col corpus-record-card__col--ar">
+                            <div class="corpus-record-card__snippet-meta corpus-record-card__snippet-meta--ar">
+                              <span class="corpus-badge-indicator corpus-badge-indicator--ar"></span>
+                              <span lang="ar" dir="rtl">النص الأصلي</span>
+                            </div>
+                            <p lang="ar" dir="rtl" class="corpus-record-card__ar">
+                              <Fragment set:html={makeSnippet(r.matn_ar || r.text_ar, q, { window: 200 })} />
+                            </p>
+                          </div>
+                        </div>
+
+                        <div class="corpus-record-card__footer">
+                          <div class="corpus-record-card__pills">
+                            <span class="corpus-pill">
+                              <span class="corpus-pill__label">Transmitters:</span>
+                              <strong class="corpus-pill__num">{r.narrator_count}</strong>
+                            </span>
+                            {Number(r.parallel_count) > 0 && (
+                              <span class="corpus-pill">
+                                <span class="corpus-pill__label">Parallels:</span>
+                                <strong class="corpus-pill__num">{Number(r.parallel_count).toLocaleString()}</strong>
+                              </span>
+                            )}
+                          </div>
+                          <span class="corpus-record-card__id-meta">Corpus ID: #{r.id}</span>
+                        </div>
+                      </a>
+                    </article>
                   </li>
                 ))}
               </ol>
 
               {results.length === 0 && !queryError && (
-                <p class="corpus-empty">
-                  Nothing matched. Arabic is folded for spelling variation, so عائشة and
-                  عايشة find the same records; try fewer words rather than different ones.
-                </p>
+                <div class="corpus-empty-card">
+                  <div class="corpus-empty-card__icon" aria-hidden="true">∅</div>
+                  <h3 class="corpus-empty-card__title">No Textual Matches Discovered</h3>
+                  <p class="corpus-empty-card__text">
+                    No narrations met the search parameters. Arabic diacritics and alternate spellings (e.g. عائشة and عايشة) are normalized automatically. Consider broadening your scope or querying specific root keywords.
+                  </p>
+                  <a class="filter-chip-clear" href="/hadith">Reset Search Filters</a>
+                </div>
               )}
 
               {pages > 1 && (
-                <nav class="corpus-pager" aria-label="Result pages">
-                  {page > 1
-                    ? <a class="corpus-page" href={pageUrl(page - 1)}>← Previous</a>
-                    : <span class="corpus-page" aria-disabled="true">← Previous</span>}
-                  <span class="corpus-page-of">
-                    Page {page.toLocaleString()} of {pages.toLocaleString()}
+                <nav class="corpus-pager" aria-label="Query pagination">
+                  {page > 1 ? (
+                    <a class="corpus-pager__btn" href={pageUrl(page - 1)}>← Previous Page</a>
+                  ) : (
+                    <span class="corpus-pager__btn is-disabled" aria-disabled="true">← Previous Page</span>
+                  )}
+                  <span class="corpus-pager__info">
+                    Page <strong>{page.toLocaleString()}</strong> of <strong>{pages.toLocaleString()}</strong>
                   </span>
-                  {page < pages
-                    ? <a class="corpus-page" href={pageUrl(page + 1)}>Next →</a>
-                    : <span class="corpus-page" aria-disabled="true">Next →</span>}
+                  {page < pages ? (
+                    <a class="corpus-pager__btn" href={pageUrl(page + 1)}>Next Page →</a>
+                  ) : (
+                    <span class="corpus-pager__btn is-disabled" aria-disabled="true">Next Page →</span>
+                  )}
                 </nav>
               )}
-            </>
+            </section>
           ) : (
+            /* Idle Mode: Canonical Collection Register */
             <section class="corpus-index" aria-labelledby="collections-heading">
-              <h2 class="corpus-index__heading" id="collections-heading">Collections</h2>
-              <p class="corpus-index__note">
-                Ordered by size. Every collection is browsable in full, in its own sequence.
-              </p>
-              <ol class="corpus-books">
+              <div class="corpus-index__header">
+                <div>
+                  <span class="hc-eyebrow">Archival Catalog</span>
+                  <h2 class="corpus-index__heading" id="collections-heading">Primary Hadith Collections</h2>
+                </div>
+                <p class="corpus-index__note">
+                  Organized by extant record volume. Every compilation is presented in full chronological sequence with facing critical apparatus.
+                </p>
+              </div>
+
+              <div class="corpus-books-grid">
                 {books.map((b, i) => (
-                  <li class="book-row">
-                    <span class="book-index">{i + 1}</span>
-                    <a class="book-main" href={`/hadith/collection/${b.slug}`}>
-                      <span class="book-names">
-                        <span class="book-name">{b.title_en}</span>
+                  <article class="book-card hc-reveal" style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}>
+                    <a class="book-card__link" href={`/hadith/collection/${b.slug}`}>
+                      <div class="book-card__header">
+                        <span class="book-card__index">Vol. {String(i + 1).padStart(2, '0')}</span>
+                        <span class="book-card__count">{b.hadith_count.toLocaleString()} Narrations</span>
+                      </div>
+                      <div class="book-card__body">
+                        <h3 class="book-card__title-en">{b.title_en}</h3>
                         {b.title_ar && (
-                          <span class="book-name-ar" lang="ar" dir="rtl">{b.title_ar}</span>
+                          <p class="book-card__title-ar" lang="ar" dir="rtl">{b.title_ar}</p>
                         )}
-                      </span>
+                      </div>
+                      <div class="book-card__footer">
+                        <span class="book-card__browse">Browse Edition</span>
+                        <span class="book-card__arrow">→</span>
+                      </div>
                     </a>
-                    <span class="book-count">{b.hadith_count.toLocaleString()} narrations</span>
-                  </li>
+                  </article>
                 ))}
-              </ol>
+              </div>
             </section>
           )}
         </>
@@ -467,521 +528,787 @@ const heroStats = [
 <style>
   .corpus-page {
     background: var(--hc-surface-0);
+    min-height: 100vh;
     padding-bottom: clamp(4rem, 8vw, 7rem);
   }
 
-  .corpus-head {
-    padding: clamp(3rem, 6vw, 5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+  /* ── Hero & Archival Plate ─────────────────────────────────── */
+  .corpus-hero {
+    padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
     border-bottom: 1px solid var(--hc-rule);
+    background: radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--hc-gold) 4%, transparent) 0%, transparent 60%);
+  }
+
+  .corpus-hero__plate {
+    position: relative;
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .corpus-hero__eyebrow-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .corpus-docket-badge {
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .corpus-docket-status {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
   }
 
   .corpus-title {
-    max-width: 20ch;
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    font-size: clamp(2.3rem, 5vw, 3.8rem);
     font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.035em;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
     color: var(--hc-text-primary);
   }
 
-  .corpus-title-accent {
+  .corpus-title__accent {
     color: var(--hc-gold);
     font-style: italic;
   }
 
   .corpus-lead {
     max-width: 68ch;
-    margin: 1.25rem 0 0;
+    margin: 1.25rem 0 2rem;
     font-family: var(--font-body);
     font-size: 1.05rem;
-    line-height: 1.72;
+    line-height: 1.75;
     color: var(--hc-text-secondary);
   }
 
-  .corpus-stat-band {
+  /* ── Metric Grid ───────────────────────────────────────────── */
+  .corpus-stat-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: clamp(2rem, 4vw, 3rem);
-    border-top: 1px solid var(--hc-rule);
-    border-bottom: 1px solid var(--hc-rule);
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
   }
 
-  .corpus-stat {
-    position: relative;
-    min-width: 0;
-    padding: 1rem 1.2rem 1.05rem 0;
-  }
-
-  .corpus-stat + .corpus-stat { padding-left: 1.2rem; }
-
-  .corpus-stat + .corpus-stat::before {
-    content: "";
-    position: absolute;
-    inset-block: 0;
-    left: 0;
-    width: 1px;
-    background: var(--hc-rule-soft);
-  }
-
-  .corpus-stat__num {
-    display: block;
-    font-family: var(--font-body);
-    font-size: clamp(1.5rem, 2.2vw, 2.1rem);
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.025em;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-stat__label {
-    display: block;
-    margin-top: 0.4rem;
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-body { padding-top: clamp(1.75rem, 3vw, 2.5rem); }
-
-  .corpus-error {
-    padding: 3rem 0;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ---- controls ---- */
-  .corpus-controls {
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .corpus-search {
-    position: relative;
+  .corpus-stat-card {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.25rem 0.5rem 0.25rem 1rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 4px;
+    flex-direction: column;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
-    transition: border-color 160ms ease, box-shadow 160ms ease;
   }
 
-  .corpus-search:focus-within {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 1px var(--hc-gold);
+  .corpus-stat-card--accent {
+    border-color: color-mix(in srgb, var(--hc-gold) 35%, var(--hc-rule-soft));
   }
 
-  .corpus-search__input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.6rem 0;
-    border: 0;
-    background: transparent;
+  .corpus-stat-card__val {
+    font-family: var(--font-display);
+    font-size: 1.85rem;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
     color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1.05rem;
   }
 
-  .corpus-search__input::placeholder { color: var(--hc-text-tertiary); }
-  .corpus-search__input:focus { outline: none; }
-
-  .corpus-search__go {
-    flex: none;
-    padding: 0.45rem 1.1rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 3px;
-    background: var(--hc-surface-2);
+  .corpus-stat-card--accent .corpus-stat-card__val {
     color: var(--hc-gold);
+  }
+
+  .corpus-stat-card__label {
+    margin-top: 0.45rem;
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    cursor: pointer;
-    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
-  }
-
-  .corpus-search__go:hover {
-    background: color-mix(in srgb, var(--hc-gold) 15%, var(--hc-surface-2));
-    border-color: var(--hc-gold);
-  }
-
-  .corpus-selects {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1.25rem 2rem;
-    margin-top: 1.25rem;
-  }
-
-  .corpus-select {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
-  }
-
-  .corpus-select__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    white-space: nowrap;
-  }
-
-  .corpus-select select {
-    max-width: 22rem;
-    padding: 0.35rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
-    background: var(--hc-surface-1);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    transition: border-color 140ms ease;
-  }
-
-  .corpus-select select:focus {
-    border-color: var(--hc-gold);
-  }
-
-  .corpus-active {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.6rem 1rem;
-    margin: 1.1rem 0 0;
-  }
-
-  .corpus-active__chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.22rem 0.6rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
-    background: var(--hc-surface-1);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
     color: var(--hc-text-secondary);
   }
 
-  .corpus-active__chip a { color: var(--hc-gold); }
-  .corpus-active__clear {
+  .corpus-stat-card__desc {
+    margin-top: 0.2rem;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* ── Search Console ────────────────────────────────────────── */
+  .corpus-body {
+    padding-top: clamp(2rem, 4vw, 3rem);
+  }
+
+  .corpus-console {
+    max-width: 72rem;
+    margin: 0 auto 2.5rem;
+  }
+
+  .console-box {
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transition: border-color var(--motion-fast) ease;
+  }
+
+  .console-box:focus-within {
+    border-color: var(--hc-gold);
+  }
+
+  .console-box__input-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: var(--hc-surface-1);
+  }
+
+  .console-box__search-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1.25rem;
+    color: var(--hc-gold);
+  }
+
+  .console-box__input {
+    flex: 1;
+    min-width: 0;
+    padding: 1.1rem 1.25rem;
+    border: none;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    color: var(--hc-text-primary);
+  }
+
+  .console-box__input:focus {
+    outline: none;
+  }
+
+  .console-box__submit {
+    padding: 0 1.75rem;
+    height: 100%;
+    align-self: stretch;
+    border: none;
+    border-left: 1px solid var(--hc-rule-soft);
+    background: color-mix(in srgb, var(--hc-gold) 12%, var(--hc-surface-2));
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  }
+
+  .console-box__submit:hover {
+    background: var(--hc-gold);
+    color: var(--hc-surface-0);
+  }
+
+  .console-box__options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    padding: 0.85rem 1.25rem;
+    background: var(--hc-surface-2);
+  }
+
+  .console-param-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+  }
+
+  .console-param {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .console-param__label {
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .console-select {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .console-select:focus {
+    border-color: var(--hc-gold);
+    outline: none;
+  }
+
+  .console-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     font-family: var(--font-ui);
     font-size: 0.78rem;
+    color: var(--hc-text-secondary);
+    cursor: pointer;
+  }
+
+  .corpus-active-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding: 0.5rem 0;
+  }
+
+  .corpus-active-filters__label {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-active-filters__list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .filter-chip__key {
+    color: var(--hc-text-tertiary);
+    text-transform: uppercase;
+    font-size: 0.7rem;
+  }
+
+  .filter-chip__val {
+    color: var(--hc-gold);
+  }
+
+  .filter-chip__link {
+    color: var(--hc-gold);
+    text-decoration: none;
+  }
+
+  .filter-chip-clear {
+    margin-left: 0.5rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--hc-gold);
     text-decoration: none;
   }
-  .corpus-active__clear:hover { text-decoration: underline; }
 
-  /* Shown when the search index is unreachable but the corpus is not. */
-  .corpus-degraded {
-    max-width: 68ch;
-    margin: 1.35rem 0 0;
-    padding: 0.85rem 0 0.9rem 1rem;
-    border-left: 2px solid var(--hc-gold);
+  .filter-chip-clear:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Index Mode: Compilations ──────────────────────────────── */
+  .corpus-index {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  .corpus-index__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .corpus-index__heading {
+    margin: 0.3rem 0 0;
+    font-family: var(--font-display);
+    font-size: 1.85rem;
+    font-weight: 500;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-index__note {
+    max-width: 52ch;
+    margin: 0;
     font-family: var(--font-body);
-    font-size: 0.98rem;
-    line-height: 1.7;
+    font-size: 0.95rem;
+    line-height: 1.65;
     color: var(--hc-text-secondary);
   }
 
-  /* ---- collection index ---- */
-  .corpus-index { padding-top: 1.75rem; }
+  .corpus-books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+    gap: 1.25rem;
+  }
 
-  .corpus-index__heading {
-    margin: 0;
+  .book-card {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+  }
+
+  .book-card:hover {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-gold-dim);
+    transform: translateY(-2px);
+  }
+
+  .book-card__link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1.35rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .book-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+  }
+
+  .book-card__index {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .corpus-index__note {
-    max-width: 60ch;
-    margin: 0.5rem 0 1.25rem;
+  .book-card__count {
+    padding: 0.2rem 0.5rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 2px;
+    background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
+  }
+
+  .book-card__body {
+    flex: 1;
+    margin-bottom: 1.25rem;
+  }
+
+  .book-card__title-en {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: var(--hc-text-primary);
+    transition: color var(--motion-fast) ease;
+  }
+
+  .book-card:hover .book-card__title-en {
+    color: var(--hc-gold);
+  }
+
+  .book-card__title-ar {
+    margin: 0;
+    font-family: var(--font-arabic);
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: var(--hc-gold-dim);
+    direction: rtl;
+  }
+
+  .book-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--hc-rule-soft);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    transition: color var(--motion-fast) ease;
+  }
+
+  .book-card:hover .book-card__footer {
+    color: var(--hc-gold);
+  }
+
+  .book-card__arrow {
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .book-card:hover .book-card__arrow {
+    transform: translateX(4px);
+  }
+
+  /* ── Notices ───────────────────────────────────────────────── */
+  .corpus-notice {
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 2rem;
+    border-radius: var(--radius-xs);
     font-family: var(--font-body);
     font-size: 0.95rem;
-    line-height: 1.7;
+  }
+
+  .corpus-notice--error {
+    border: 1px solid rgba(220, 38, 38, 0.4);
+    background: color-mix(in srgb, red 8%, var(--hc-surface-1));
     color: var(--hc-text-secondary);
   }
 
-  @media (max-width: 700px) {
-    .corpus-stat-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .corpus-stat + .corpus-stat:nth-child(2n + 1) { padding-left: 0; }
-    .corpus-stat + .corpus-stat:nth-child(2n + 1)::before { content: none; }
-    .corpus-stat:nth-child(n + 3) { border-top: 1px solid var(--hc-rule-soft); }
-    .corpus-selects { flex-direction: column; align-items: stretch; gap: 0.9rem; }
-    .corpus-select { flex-direction: column; align-items: flex-start; gap: 0.3rem; }
-    .corpus-select select { max-width: 100%; width: 100%; }
+  .corpus-notice--warn {
+    border-left: 3px solid var(--hc-gold);
+    background: var(--hc-surface-1);
+    color: var(--hc-text-secondary);
+  }
+
+  @media (max-width: 780px) {
+    .console-box__options {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .console-param {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+    .console-select {
+      width: 100%;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .corpus-search, .corpus-search__go { transition: none; }
+    .book-card, .book-card__arrow, .console-box__submit {
+      transition: none;
+      transform: none;
+    }
   }
 </style>
 
-<!-- Results and collections styles are global because hadith-search.ts
-     renders search results and restores collections dynamically on the client. -->
+<!-- Global styles for client-side search hydration -->
 <style is:global>
   .corpus-toolbar {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-top: 1.35rem;
-    margin-bottom: 0.85rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
   .corpus-status {
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: 0.82rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  .corpus-status__count {
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-status__context {
+    margin-left: 0.45rem;
     color: var(--hc-text-tertiary);
   }
 
-  .corpus-status__for {
-    text-transform: none;
-    letter-spacing: 0;
-    color: var(--hc-text-secondary);
+  .corpus-ranking-note {
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
   }
 
-  /* ---- search results list ---- */
   .corpus-results {
+    list-style: none;
     margin: 0;
     padding: 0;
-    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
   }
 
-  .corpus-result {
-    margin-bottom: 0.85rem;
+  .corpus-record-card {
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
-    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
   }
 
-  .corpus-result:hover {
+  .corpus-record-card:hover {
     background: var(--hc-surface-2);
     border-color: var(--hc-gold-dim);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   }
 
-  .corpus-result__link {
+  .corpus-record-card__hitarea {
     display: block;
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
     text-decoration: none;
     color: inherit;
   }
 
-  .corpus-result__header {
+  .corpus-record-card__top {
     display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    margin-bottom: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
   }
 
-  .corpus-result__book {
+  .corpus-record-card__breadcrumbs {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+  }
+
+  .corpus-record-card__book {
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--hc-gold);
   }
 
-  .corpus-result__num {
+  .corpus-record-card__num {
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-tertiary);
   }
 
-  .corpus-result__chapter {
-    margin: 0 0 0.85rem;
+  .corpus-record-card__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
+    transition: color var(--motion-fast) ease, gap var(--motion-fast) ease;
+  }
+
+  .corpus-record-card:hover .corpus-record-card__action {
+    color: var(--hc-gold);
+    gap: 0.55rem;
+  }
+
+  .corpus-record-card__chapter {
+    margin: 0 0 1rem;
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.22rem;
     font-weight: 500;
-    line-height: 1.4;
+    line-height: 1.35;
     color: var(--hc-text-primary);
   }
 
-  .corpus-result__cols {
+  .corpus-record-card__spread {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(1.25rem, 2.5vw, 2.2rem);
   }
 
-  .corpus-result__col { min-width: 0; }
-  .corpus-result__col--en { grid-column: 1; grid-row: 1; }
-  .corpus-result__col--ar { grid-column: 2; grid-row: 1; }
-
-  .corpus-result__text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.72;
-    color: var(--hc-text-primary);
+  .corpus-record-card__col {
+    min-width: 0;
   }
 
-  .corpus-result__ar {
+  .corpus-record-card__snippet-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.45rem;
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-badge-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .corpus-badge-indicator--en {
+    background: var(--hc-text-tertiary);
+  }
+
+  .corpus-badge-indicator--ar {
+    background: var(--hc-gold);
+  }
+
+  .corpus-record-card__text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-record-card__ar {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: 1.22rem;
+    font-size: 1.25rem;
     line-height: 2.1;
     color: var(--hc-text-primary);
     direction: rtl;
     text-align: right;
   }
 
-  .corpus-result__meta {
+  .corpus-record-card__footer {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding-top: 0.85rem;
+    gap: 0.75rem;
+    margin-top: 1.2rem;
+    padding-top: 0.9rem;
     border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .corpus-meta-tag {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.22rem 0.58rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-empty {
-    max-width: 68ch;
-    padding: 2.5rem 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ---- collections index rows ---- */
-  .corpus-books {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .book-row {
-    display: grid;
-    grid-template-columns: 2.8rem minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 1rem 1.35rem;
-    margin-bottom: 0.5rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
-    background: var(--hc-surface-1);
-    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
-  }
-
-  .book-row:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  }
-
-  .book-index {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .book-main {
-    min-width: 0;
-    text-decoration: none;
-    display: block;
-  }
-
-  .book-names {
+  .corpus-record-card__pills {
     display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .book-name {
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 500;
-    line-height: 1.3;
-    color: var(--hc-text-primary);
-    transition: color 140ms ease;
-  }
-
-  .book-main:hover .book-name { color: var(--hc-gold); }
-
-  .book-name-ar {
-    font-family: var(--font-arabic);
-    font-size: 1.15rem;
-    line-height: 1.5;
-    color: var(--hc-gold-dim);
-  }
-
-  .book-count {
-    display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.65rem;
+    gap: 0.5rem;
+  }
+
+  .corpus-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.22rem 0.55rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
+    border-radius: 2px;
     background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-secondary);
-    white-space: nowrap;
+    font-size: 0.74rem;
   }
 
-  /* ---- pagination ---- */
+  .corpus-pill__label {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-pill__num {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-record-card__id-meta {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+  }
+
+  .corpus-empty-card {
+    padding: 4.5rem 2rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    text-align: center;
+  }
+
+  .corpus-empty-card__icon {
+    font-size: 2.5rem;
+    color: var(--hc-gold-dim);
+    margin-bottom: 0.75rem;
+  }
+
+  .corpus-empty-card__title {
+    margin: 0 0 0.65rem;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--hc-text-primary);
+  }
+
+  .corpus-empty-card__text {
+    max-width: 52ch;
+    margin: 0 auto 1.5rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+  }
+
+  /* Pager */
   .corpus-pager {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-top: 2rem;
+    margin-top: 2.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .corpus-page {
-    min-height: 24px;
-    padding: 0.35rem 0.75rem;
+  .corpus-pager__btn {
+    padding: 0.45rem 0.95rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
     color: var(--hc-gold);
     font-family: var(--font-ui);
@@ -989,60 +1316,51 @@ const heroStats = [
     font-weight: 600;
     letter-spacing: 0.05em;
     text-decoration: none;
-    cursor: pointer;
-    transition: background 140ms ease, border-color 140ms ease;
+    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
   }
 
-  .corpus-page:hover:not([disabled]):not([aria-disabled='true']) {
+  .corpus-pager__btn:hover:not(.is-disabled) {
     border-color: var(--hc-gold);
     background: var(--hc-surface-2);
   }
 
-  .corpus-page[disabled],
-  .corpus-page[aria-disabled='true'] {
+  .corpus-pager__btn.is-disabled {
     color: var(--hc-text-tertiary);
     border-color: transparent;
     background: transparent;
     pointer-events: none;
   }
 
-  .corpus-page-of {
+  .corpus-pager__info {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-tertiary);
   }
 
-  .corpus-result :global(mark) {
-    background: color-mix(in srgb, var(--hc-gold) 26%, transparent);
+  .corpus-pager__info strong {
+    color: var(--hc-text-secondary);
+  }
+
+  .corpus-record-card mark {
+    background: color-mix(in srgb, var(--hc-gold) 28%, transparent);
     color: inherit;
-    padding: 0 0.1em;
+    padding: 0.05em 0.25em;
+    border-radius: 2px;
   }
 
   @media (max-width: 780px) {
-    .corpus-result__cols {
+    .corpus-record-card__spread {
       grid-template-columns: minmax(0, 1fr);
-      gap: 1rem;
+      gap: 1.25rem;
     }
-    .corpus-result__col--ar {
+    .corpus-record-card__col--ar {
       grid-column: 1;
       grid-row: 1;
     }
-    .corpus-result__col--en {
+    .corpus-record-card__col--en {
       grid-column: 1;
       grid-row: 2;
     }
-  }
-
-  @media (max-width: 700px) {
-    .book-row {
-      grid-template-columns: 2rem minmax(0, 1fr);
-      row-gap: 0.35rem;
-    }
-    .book-count { grid-column: 2; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .corpus-result, .book-row, .corpus-page { transition: none; }
   }
 </style>

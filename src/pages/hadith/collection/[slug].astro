@@ -9,28 +9,9 @@ import { CORPUS_CACHE_CONTROL } from '../../../lib/edge-cache';
 import { CANONICAL_BOOKS } from '../../../data/canonical-books';
 
 /**
- * One collection, read in its own order.
- *
- * The counterpart to searching. A reader who wants Sahih Muslim from the
- * beginning should get it in sequence, with the chapter headings that structure
- * it, rather than having to invent a query that happens to surface it.
- *
- * Laid out like the narration page: a chapter banner carrying both scripts,
- * then each report with the Arabic and the translation in facing columns. The
- * point of the corpus is reading one against the other, and a stacked list put
- * a screen height between them.
- *
- * Sequence is `hadith.id`, not `hadith_num`. The numbers are stored as text and
- * 33,794 narrations carry none at all, so sorting by them would interleave
- * "10" before "9" and strand every unnumbered report. The ids were assigned in
- * source order, so ordering by id reproduces the printed sequence and rides the
- * (book_id, id) index instead of sorting.
- *
- * Chapter headings are emitted when the chapter changes between adjacent rows.
- * They are bab level, not kitab level: the corpus records 56,896 of them across
- * 33 collections, which is a heading per few narrations rather than a table of
- * contents. That makes them a reading aid here and a poor navigation tree, so
- * no chapter index is offered.
+ * Digital Source Edition for a Single Hadith Compilation.
+ * Renders reports in strict manuscript order with bilingual facing columns,
+ * bab/chapter landmark divisions, and cursor-seeking pagination.
  */
 
 const { slug } = Astro.params;
@@ -39,34 +20,14 @@ const page = Math.max(1, parseInt(p.get('page') || '1', 10) || 1);
 const size = 25;
 const offset = (page - 1) * size;
 
-/**
- * Where to resume from, when the reader arrived by following the pager.
- *
- * `LIMIT 25 OFFSET n` walks and discards every row it skips, so reading a
- * large collection got steadily more expensive the further in you were: page 1
- * of Musannaf Ibn Abi Shaybah costs 58 rows and page 1,564 costs 39,097. On a
- * backend that bills rows read, the cost of reading a collection through was
- * quadratic in its length.
- *
- * Seeking on the primary key instead is 25 rows at any depth. `ORDER BY id`
- * already rides `(book_id, id)`, so the cursor is just the last id on the page
- * you came from — the Next link carries it, and Previous carries the first id
- * to seek backwards.
- *
- * The page number is still in the URL and still shown, and `?page=N` on its
- * own still works: without a cursor this falls back to OFFSET, so an old link,
- * a shared link, or a crawler jumping straight to page 900 all behave exactly
- * as before. Only sequential reading — the thing this page exists for — gets
- * the cheap path.
- */
 const after = parseInt(p.get('after') || '', 10);
 const before = parseInt(p.get('before') || '', 10);
 const seekAfter = Number.isFinite(after) && after > 0 ? after : null;
 const seekBefore = Number.isFinite(before) && before > 0 ? before : null;
 
-/** Characters of each narration shown in the list before it is cut. */
 const PREVIEW_AR = 420;
 const PREVIEW_EN = 380;
+const REVEAL_CAP = 8;
 
 interface Book {
   id: number;
@@ -93,9 +54,9 @@ let book: Book | undefined;
 let rows: Row[] = [];
 let failed = false;
 
-function withTimeout<T>(p: Promise<T>, ms = 1000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms = 1000): Promise<T> {
   return Promise.race([
-    p,
+    promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))
   ]);
 }
@@ -139,7 +100,6 @@ try {
     if (seekBefore) rows.reverse();
   }
 } catch {
-  // Remote database quota exhausted or timeout; graceful degrade to client-side
   failed = true;
 }
 
@@ -154,30 +114,20 @@ if (!book) {
   return new Response('Collection not found', { status: 404 });
 }
 
-// Already stored per collection, so sequence never costs a count. Pages are
-// not capped here as they are on search — reading a collection through is the
-// point of the page — which is exactly why the pager seeks on a cursor rather
-// than paying OFFSET at depth. See the note on `seekAfter` above.
 const total = book?.hadith_count ?? 0;
 const pages = Math.max(1, Math.ceil(total / size));
 
-// Only a page that actually read the collection is cacheable, never the
-// "temporarily unavailable" fallback. See src/lib/edge-cache.ts.
 if (!failed && book) {
   Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 }
 
 const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
 
-// The pager carries a cursor so the next or previous page can seek instead of
-// counting past everything before it. The page number rides along so the label
-// and any shared link keep working.
 const first = rows[0]?.id;
 const last = rows[rows.length - 1]?.id;
 const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);
 const prevUrl = first ? `${pageUrl(page - 1)}&before=${first}` : pageUrl(page - 1);
 
-/** Cut on a word boundary so a preview never ends mid-word. */
 const preview = (text: string, limit: number) => {
   const clean = (text || '').trim();
   if (clean.length <= limit) return { text: clean, cut: false };
@@ -185,107 +135,185 @@ const preview = (text: string, limit: number) => {
   return { text: clean.slice(0, space > limit * 0.6 ? space : limit), cut: true };
 };
 
-// Chapter headings repeat across consecutive narrations; show one per run.
 let lastChapter = '';
+let chapterOrdinal = 0;
+const slugifyChapter = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+
 const withHeadings = rows.map((r) => {
   const chapter = toPlainText(r.chapter_en) || '';
   const isNew = chapter !== '' && chapter !== lastChapter;
-  if (isNew) lastChapter = chapter;
+  if (isNew) {
+    lastChapter = chapter;
+    chapterOrdinal += 1;
+  }
+  const base = isNew ? slugifyChapter(chapter) : '';
   return {
     row: r,
-    heading: isNew ? { en: chapter, ar: (r.chapter_ar || '').trim() } : null
+    heading: isNew
+      ? { en: chapter, ar: (r.chapter_ar || '').trim(), id: `ch-${chapterOrdinal}-${base}` }
+      : null
   };
 });
 ---
 
 <BaseLayout
-  title={book ? `${book.title_en} | HadithCritic` : 'Collection | HadithCritic'}
+  title={book ? `${book.title_en} · Source Edition | HadithCritic` : 'Collection | HadithCritic'}
   description={book
-    ? `Browse all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in Arabic and English, in sequence, with no authenticity gradings.`
-    : 'Hadith collection'}
+    ? `Explore all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in bilingual facing critical format with complete transmission apparatus.`
+    : 'Hadith collection edition'}
   image={OG.collection(slug)}
   imageAlt={book ? `${book.title_en} | HadithCritic` : 'Hadith collection'}
   crumbs={[
     { name: 'Home', url: '/' },
-    { name: 'Hadith', url: '/hadith' },
+    { name: 'Corpus', url: '/hadith' },
     { name: book?.title_en || 'Collection', url: `/hadith/collection/${slug}` }
   ]}
 >
-  <div class="coll-page">
-    <header class="coll-head">
+  <div class="edition-view">
+    <!-- Academic Source Masthead -->
+    <header class="edition-head">
       <div class="wrap">
-        <p class="coll-eyebrow"><a href="/hadith">Corpus</a> — Collection</p>
-        <div class="coll-header-titles">
-          <h1 class="coll-title">{book.title_en}</h1>
-          {book.title_ar && (
-            <p class="coll-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
-          )}
+        <div class="edition-head__nav">
+          <a class="hc-back-link" href="/hadith">
+            <span>←</span>
+            <span>Return to Full Corpus</span>
+          </a>
+          <span class="edition-badge">Archival Volume Edition</span>
         </div>
-        <p class="coll-count">
-          <span class="coll-count-number">{book.hadith_count.toLocaleString()}</span> narrations, in the order they appear in the source edition.
-        </p>
 
-        <form class="coll-search" method="get" action="/hadith">
-          <input type="hidden" name="book" value={book.id} />
-          <label class="sr-only" for="coll-q">Search within {book.title_en}</label>
-          <input
-            id="coll-q"
-            class="coll-search__input"
-            type="search"
-            name="q"
-            placeholder={`Search within ${book.title_en}…`}
-            autocomplete="off"
-          />
-          <button type="submit" class="coll-search__go">Search Collection</button>
-        </form>
+        <div class="edition-head__mast">
+          <div class="edition-head__titles">
+            <h1 class="edition-title">{book.title_en}</h1>
+            {book.title_ar && (
+              <p class="edition-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>
+            )}
+          </div>
+
+          <div class="edition-stats-ledger">
+            <div class="edition-stat-entry">
+              <span class="edition-stat-entry__label">Volume Extent</span>
+              <strong class="edition-stat-entry__val">{book.hadith_count.toLocaleString()} Narrations</strong>
+            </div>
+            <div class="edition-stat-entry">
+              <span class="edition-stat-entry__label">Sequence Mode</span>
+              <span class="edition-stat-entry__val">Printed Canonical Order</span>
+            </div>
+            <div class="edition-stat-entry">
+              <span class="edition-stat-entry__label">Critical Text</span>
+              <span class="edition-stat-entry__val">Bilingual Facing Edition</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scoped In-Collection Search Console -->
+        <div class="edition-search-plate">
+          <form class="edition-search-form" method="get" action="/hadith">
+            <input type="hidden" name="book" value={book.id} />
+            <label class="sr-only" for="edition-q">Search within {book.title_en}</label>
+            <div class="edition-search-bar">
+              <span class="edition-search-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </span>
+              <input
+                id="edition-q"
+                class="edition-search-input"
+                type="search"
+                name="q"
+                placeholder={`Search phrases or transmitters within ${book.title_en}…`}
+                autocomplete="off"
+              />
+              <button type="submit" class="edition-search-btn">Search Source</button>
+            </div>
+            <div class="edition-search-context">
+              <span class="edition-search-dot" aria-hidden="true"></span>
+              <span>Query scope restricted to <strong>{book.title_en}</strong>.</span>
+              <a class="edition-search-reset" href="/hadith">Search full corpus instead</a>
+            </div>
+          </form>
+        </div>
       </div>
     </header>
 
-    <div class="wrap coll-body">
+    <!-- Source Body / Narrations Sequence -->
+    <div class="wrap edition-body">
       {rows.length > 0 ? (
         <>
-          <div class="coll-list">
-            {withHeadings.map(({ row: r, heading }) => {
+          <div class="edition-records-stream">
+            {withHeadings.map(({ row: r, heading }, i) => {
               const ar = preview(r.matn_ar || r.text_ar, PREVIEW_AR);
               const en = preview(toPlainText(r.matn_en || r.text_en), PREVIEW_EN);
               return (
                 <>
                   {heading && (
-                    <div class="coll-chapter">
-                      {heading.ar && (
-                        <p class="coll-chapter__ar" lang="ar" dir="rtl">{heading.ar}</p>
-                      )}
-                      <h2 class="coll-chapter__en">{heading.en}</h2>
-                    </div>
+                    <header class="chapter-landmark" id={heading.id}>
+                      <div class="chapter-landmark__rule" aria-hidden="true"></div>
+                      <div class="chapter-landmark__content">
+                        {heading.ar && (
+                          <p class="chapter-landmark__ar" lang="ar" dir="rtl">{heading.ar}</p>
+                        )}
+                        <h2 class="chapter-landmark__en">
+                          <a class="chapter-landmark__anchor" href={`#${heading.id}`}>
+                            <span class="chapter-landmark__symbol">§</span>
+                            <span>{heading.en}</span>
+                          </a>
+                        </h2>
+                      </div>
+                    </header>
                   )}
-                  <article class="coll-item">
-                    <a class="coll-item__link" href={`/hadith/${r.id}`}>
-                      <div class="coll-item__top">
-                        <span class="coll-item__num">
-                          {r.hadith_num ? `№ ${r.hadith_num}` : `ID ${r.id}`}
+
+                  <article class="narration-record hc-reveal" style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}>
+                    <a class="narration-record__hitlink" href={`/hadith/${r.id}`}>
+                      <div class="narration-record__meta-header">
+                        <div class="narration-record__docket">
+                          <span class="narration-record__num">
+                            {r.hadith_num ? `№ ${r.hadith_num}` : `ID #${r.id}`}
+                          </span>
+                          <span class="narration-record__source">{book?.title_en}</span>
+                        </div>
+                        <span class="narration-record__detail-cta">
+                          <span>Inspect Apparatus</span>
+                          <span class="narration-record__arrow">→</span>
                         </span>
                       </div>
 
-                      <div class="coll-item__cols">
-                        <div class="coll-item__col coll-item__col--en">
+                      <div class="narration-record__spread">
+                        <div class="narration-record__col narration-record__col--en">
                           {en.text ? (
-                            <p class="coll-item__en">{en.text}{en.cut ? ' …' : ''}</p>
+                            <p class="narration-record__prose-en">{en.text}{en.cut ? ' …' : ''}</p>
                           ) : (
-                            <p class="coll-item__missing">No translation recorded.</p>
+                            <p class="narration-record__missing">Translation not yet registered for this entry.</p>
                           )}
                         </div>
-                        <div class="coll-item__col coll-item__col--ar">
-                          <p class="coll-item__ar" lang="ar" dir="rtl">
+
+                        <div class="narration-record__col narration-record__col--ar">
+                          <p class="narration-record__prose-ar" lang="ar" dir="rtl">
                             <Fragment set:html={renderArabic(ar.text)} />{ar.cut ? ' …' : ''}
                           </p>
                         </div>
                       </div>
 
-                      <div class="coll-item__meta">
-                        <span class="coll-meta-tag">{r.narrator_count} transmitters</span>
-                        {Number(r.parallel_count) > 0 && (
-                          <span class="coll-meta-tag">{Number(r.parallel_count).toLocaleString()} parallels</span>
-                        )}
+                      <div class="narration-record__apparatus-strip">
+                        <div class="narration-record__tags">
+                          <span class="apparatus-tag">
+                            <span class="apparatus-tag__label">Chains:</span>
+                            <strong>{r.narrator_count} Transmitters</strong>
+                          </span>
+                          {Number(r.parallel_count) > 0 && (
+                            <span class="apparatus-tag apparatus-tag--gold">
+                              <span class="apparatus-tag__label">Witnesses:</span>
+                              <strong>{Number(r.parallel_count).toLocaleString()} Parallels</strong>
+                            </span>
+                          )}
+                        </div>
+                        <span class="narration-record__corpus-ref">Corpus Record #{r.id}</span>
                       </div>
                     </a>
                   </article>
@@ -294,19 +322,19 @@ const withHeadings = rows.map((r) => {
             })}
           </div>
 
-          <nav class="coll-pager" aria-label="Collection pages">
+          <nav class="edition-pager" aria-label="Collection sequential navigation">
             {page > 1 ? (
-              <a class="coll-page" href={prevUrl}>← Previous</a>
+              <a class="edition-pager__link" href={prevUrl}>← Previous Page</a>
             ) : (
-              <span class="coll-page" aria-disabled="true">← Previous</span>
+              <span class="edition-pager__link is-disabled" aria-disabled="true">← Previous Page</span>
             )}
-            <span class="coll-page-of">
-              Page {page.toLocaleString()} of {pages.toLocaleString()}
+            <span class="edition-pager__counter">
+              Page <strong>{page.toLocaleString()}</strong> of <strong>{pages.toLocaleString()}</strong>
             </span>
             {page < pages ? (
-              <a class="coll-page" href={nextUrl}>Next →</a>
+              <a class="edition-pager__link" href={nextUrl}>Next Page →</a>
             ) : (
-              <span class="coll-page" aria-disabled="true">Next →</span>
+              <span class="edition-pager__link is-disabled" aria-disabled="true">Next Page →</span>
             )}
           </nav>
         </>
@@ -323,7 +351,7 @@ const withHeadings = rows.map((r) => {
         >
           <div class="coll-loading">
             <span class="coll-spinner" aria-hidden="true"></span>
-            <p>Loading {book.title_en} narrations from corpus archive…</p>
+            <p>Querying client archive for {book.title_en} narrations…</p>
           </div>
         </div>
       )}
@@ -369,7 +397,7 @@ const withHeadings = rows.map((r) => {
       try {
         const worker = await getCorpusWorker();
         if (!worker) {
-          el.innerHTML = '<p class="coll-error">Unable to load collection from database archive.</p>';
+          el.innerHTML = '<p class="coll-error">Unable to initialize client archive worker.</p>';
           return;
         }
 
@@ -393,47 +421,76 @@ const withHeadings = rows.map((r) => {
         if (seekBefore && rows) rows.reverse();
 
         if (!rows || rows.length === 0) {
-          el.innerHTML = '<p class="coll-empty">No narrations found in this collection.</p>';
+          el.innerHTML = '<p class="coll-empty">No narrations recorded for this collection.</p>';
           return;
         }
 
         let lastChapter = '';
-        let listHtml = '<div class="coll-list">';
+        let chapterOrdinal = 0;
+        let listHtml = '<div class="edition-records-stream">';
+        const slugifyChapter = (text: string) =>
+          text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
 
         for (const r of rows) {
           const chapter = toPlainText(r.chapter_en || '');
           const isNew = chapter !== '' && chapter !== lastChapter;
           if (isNew) {
             lastChapter = chapter;
+            chapterOrdinal += 1;
+            const chId = `ch-${chapterOrdinal}-${slugifyChapter(chapter)}`;
             listHtml += `
-              <div class="coll-chapter">
-                ${r.chapter_ar ? `<p class="coll-chapter__ar" lang="ar" dir="rtl">${escapeHtml(r.chapter_ar.trim())}</p>` : ''}
-                <h2 class="coll-chapter__en">${escapeHtml(chapter)}</h2>
-              </div>
+              <header class="chapter-landmark" id="${chId}">
+                <div class="chapter-landmark__rule" aria-hidden="true"></div>
+                <div class="chapter-landmark__content">
+                  ${r.chapter_ar ? `<p class="chapter-landmark__ar" lang="ar" dir="rtl">${escapeHtml(r.chapter_ar.trim())}</p>` : ''}
+                  <h2 class="chapter-landmark__en">
+                    <a class="chapter-landmark__anchor" href="#${chId}">
+                      <span class="chapter-landmark__symbol">§</span>
+                      <span>${escapeHtml(chapter)}</span>
+                    </a>
+                  </h2>
+                </div>
+              </header>
             `;
           }
 
           const ar = preview(r.matn_ar || r.text_ar || '', 420);
           const en = preview(toPlainText(r.matn_en || r.text_en || ''), 380);
-          const numLabel = r.hadith_num ? `№ ${escapeHtml(r.hadith_num)}` : `ID ${r.id}`;
+          const numLabel = r.hadith_num ? `№ ${escapeHtml(r.hadith_num)}` : `ID #${r.id}`;
 
           listHtml += `
-            <article class="coll-item">
-              <a class="coll-item__link" href="/hadith/${r.id}">
-                <div class="coll-item__top">
-                  <span class="coll-item__num">${numLabel}</span>
-                </div>
-                <div class="coll-item__cols">
-                  <div class="coll-item__col coll-item__col--en">
-                    ${en.text ? `<p class="coll-item__en">${escapeHtml(en.text)}${en.cut ? ' …' : ''}</p>` : `<p class="coll-item__missing">No translation recorded.</p>`}
+            <article class="narration-record">
+              <a class="narration-record__hitlink" href="/hadith/${r.id}">
+                <div class="narration-record__meta-header">
+                  <div class="narration-record__docket">
+                    <span class="narration-record__num">${numLabel}</span>
                   </div>
-                  <div class="coll-item__col coll-item__col--ar">
-                    <p class="coll-item__ar" lang="ar" dir="rtl">${ar.text}${ar.cut ? ' …' : ''}</p>
+                  <span class="narration-record__detail-cta">
+                    <span>Inspect Apparatus</span>
+                    <span class="narration-record__arrow">→</span>
+                  </span>
+                </div>
+                <div class="narration-record__spread">
+                  <div class="narration-record__col narration-record__col--en">
+                    ${en.text ? `<p class="narration-record__prose-en">${escapeHtml(en.text)}${en.cut ? ' …' : ''}</p>` : `<p class="narration-record__missing">Translation not recorded.</p>`}
+                  </div>
+                  <div class="narration-record__col narration-record__col--ar">
+                    <p class="narration-record__prose-ar" lang="ar" dir="rtl">${ar.text}${ar.cut ? ' …' : ''}</p>
                   </div>
                 </div>
-                <div class="coll-item__meta">
-                  <span class="coll-meta-tag">${r.narrator_count} transmitters</span>
-                  ${Number(r.parallel_count) > 0 ? `<span class="coll-meta-tag">${Number(r.parallel_count).toLocaleString()} parallels</span>` : ''}
+                <div class="narration-record__apparatus-strip">
+                  <div class="narration-record__tags">
+                    <span class="apparatus-tag">
+                      <span class="apparatus-tag__label">Chains:</span>
+                      <strong>${r.narrator_count} Transmitters</strong>
+                    </span>
+                    ${Number(r.parallel_count) > 0 ? `
+                      <span class="apparatus-tag apparatus-tag--gold">
+                        <span class="apparatus-tag__label">Witnesses:</span>
+                        <strong>${Number(r.parallel_count).toLocaleString()} Parallels</strong>
+                      </span>` : ''}
+                  </div>
+                  <span class="narration-record__corpus-ref">Corpus Record #${r.id}</span>
                 </div>
               </a>
             </article>
@@ -448,17 +505,17 @@ const withHeadings = rows.map((r) => {
         const prevUrl = first ? `${pageUrl(page - 1)}&before=${first}` : pageUrl(page - 1);
 
         listHtml += `
-          <nav class="coll-pager" aria-label="Collection pages">
-            ${page > 1 ? `<a class="coll-page" href="${prevUrl}">← Previous</a>` : `<span class="coll-page" aria-disabled="true">← Previous</span>`}
-            <span class="coll-page-of">Page ${page.toLocaleString()} of ${pages.toLocaleString()}</span>
-            ${page < pages ? `<a class="coll-page" href="${nextUrl}">Next →</a>` : `<span class="coll-page" aria-disabled="true">Next →</span>`}
+          <nav class="edition-pager" aria-label="Collection sequential navigation">
+            ${page > 1 ? `<a class="edition-pager__link" href="${prevUrl}">← Previous Page</a>` : `<span class="edition-pager__link is-disabled" aria-disabled="true">← Previous Page</span>`}
+            <span class="edition-pager__counter">Page <strong>${page.toLocaleString()}</strong> of <strong>${pages.toLocaleString()}</strong></span>
+            ${page < pages ? `<a class="edition-pager__link" href="${nextUrl}">Next Page →</a>` : `<span class="edition-pager__link is-disabled" aria-disabled="true">Next Page →</span>`}
           </nav>
         `;
 
         el.innerHTML = listHtml;
       } catch (err) {
-        console.error('Failed to load collection client-side:', err);
-        el.innerHTML = '<p class="coll-error">Unable to load collection narrations. Please try refreshing.</p>';
+        console.error('Failed to load collection from worker:', err);
+        el.innerHTML = '<p class="coll-error">Unable to render source archive records.</p>';
       }
     }
 
@@ -467,35 +524,47 @@ const withHeadings = rows.map((r) => {
 </script>
 
 <style>
-  .coll-page {
+  .edition-view {
     background: var(--hc-surface-0);
+    min-height: 100vh;
     padding-bottom: clamp(4rem, 8vw, 7rem);
   }
 
-  .coll-head {
-    padding: clamp(3rem, 6vw, 4.5rem) 0 clamp(1.75rem, 3vw, 2.5rem);
+  /* ── Collection Masthead ───────────────────────────────────── */
+  .edition-head {
+    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(1.75rem, 3vw, 2.5rem);
     border-bottom: 1px solid var(--hc-rule);
+    background: radial-gradient(circle at 90% 10%, color-mix(in srgb, var(--hc-gold) 5%, transparent) 0%, transparent 65%);
   }
 
-  .coll-eyebrow {
-    margin: 0 0 0.85rem;
+  .edition-head__nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .edition-badge {
+    padding: 0.22rem 0.65rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .coll-eyebrow a {
     color: var(--hc-gold);
-    text-decoration: none;
-  }
-  .coll-eyebrow a:hover {
-    text-decoration: underline;
   }
 
-  .coll-header-titles {
+  .edition-head__mast {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .edition-head__titles {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -503,123 +572,167 @@ const withHeadings = rows.map((r) => {
     gap: 1rem 2rem;
   }
 
-  .coll-title {
+  .edition-title {
     margin: 0;
     font-family: var(--font-display);
     font-size: clamp(2.2rem, 4.5vw, 3.4rem);
     font-weight: 500;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
     color: var(--hc-text-primary);
   }
 
-  .coll-title-ar {
+  .edition-title-ar {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: clamp(1.5rem, 3vw, 2.2rem);
-    line-height: 1.4;
+    font-size: clamp(1.6rem, 3.2vw, 2.3rem);
+    line-height: 1.6;
     color: var(--hc-gold);
     direction: rtl;
   }
 
-  .coll-count {
+  .edition-stats-ledger {
     display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    margin: 1rem 0 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-  }
-
-  .coll-count-number {
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .coll-search {
-    display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
-    max-width: 44rem;
-    margin-top: 1.75rem;
-    padding: 0.25rem 0.5rem 0.25rem 1rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 4px;
+    gap: 1.25rem 2.5rem;
+    padding: 0.95rem 1.25rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
-    transition: border-color 160ms ease, box-shadow 160ms ease;
   }
 
-  .coll-search:focus-within {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 1px var(--hc-gold);
-  }
-
-  .coll-search__input {
-    flex: 1;
-    min-width: 0;
-    padding: 0.5rem 0;
-    border: 0;
-    background: transparent;
-    color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1rem;
-  }
-
-  .coll-search__input::placeholder { color: var(--hc-text-tertiary); }
-  .coll-search__input:focus { outline: none; }
-
-  .coll-search__go {
-    flex: none;
-    padding: 0.45rem 1rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 3px;
-    background: var(--hc-surface-2);
-    color: var(--hc-gold);
+  .edition-stat-entry {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
     font-family: var(--font-ui);
     font-size: 0.78rem;
+  }
+
+  .edition-stat-entry__label {
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    cursor: pointer;
-    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+    color: var(--hc-text-tertiary);
   }
 
-  .coll-search__go:hover {
-    background: color-mix(in srgb, var(--hc-gold) 15%, var(--hc-surface-2));
+  .edition-stat-entry__val {
+    color: var(--hc-text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Scoped Search ─────────────────────────────────────────── */
+  .edition-search-plate {
+    max-width: 46rem;
+    margin-top: 1.85rem;
+  }
+
+  .edition-search-bar {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    overflow: hidden;
+    transition: border-color var(--motion-fast) ease;
+  }
+
+  .edition-search-bar:focus-within {
     border-color: var(--hc-gold);
   }
 
-  .coll-body { padding-top: clamp(1.5rem, 3vw, 2.25rem); }
-
-  @media (max-width: 700px) {
-    .coll-header-titles {
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-    .coll-search {
-      flex-direction: column;
-      align-items: stretch;
-      padding: 0.5rem 0.75rem;
-    }
+  .edition-search-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 1rem;
+    color: var(--hc-gold);
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .coll-search, .coll-search__go { transition: none; }
+  .edition-search-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--hc-text-primary);
+  }
+
+  .edition-search-input:focus {
+    outline: none;
+  }
+
+  .edition-search-btn {
+    padding: 0 1.25rem;
+    height: 100%;
+    align-self: stretch;
+    border: none;
+    border-left: 1px solid var(--hc-rule-soft);
+    background: var(--hc-surface-2);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  }
+
+  .edition-search-btn:hover {
+    background: var(--hc-gold);
+    color: var(--hc-surface-0);
+  }
+
+  .edition-search-context {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-search-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+  }
+
+  .edition-search-reset {
+    color: var(--hc-gold);
+    text-decoration: none;
+    margin-left: 0.35rem;
+  }
+
+  .edition-search-reset:hover {
+    text-decoration: underline;
+  }
+
+  .edition-body {
+    padding-top: clamp(1.75rem, 3vw, 2.5rem);
+  }
+
+  @media (max-width: 700px) {
+    .edition-head__titles {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
   }
 </style>
 
-<!-- Styles for the collection narrations and chapters must be global because
-     the client-side web worker injects them via innerHTML on quota exhaustion. -->
+<!-- Global styles for client worker and dynamic chapters injection -->
 <style is:global>
   .coll-loading {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 5rem 0;
+    padding: 6rem 0;
     gap: 1.25rem;
     color: var(--hc-text-tertiary);
     font-family: var(--font-body);
@@ -645,177 +758,237 @@ const withHeadings = rows.map((r) => {
     font-family: var(--font-body);
     font-size: 1.05rem;
     color: var(--hc-text-secondary);
-  }
-
-  .coll-list {
-    margin: 0;
-    padding: 0;
-  }
-
-  /* ---- chapter banner ---- */
-  .coll-chapter {
-    margin: 2.75rem 0 1.25rem;
-    padding: 1.25rem 1.75rem;
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: 4px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--hc-gold) 6%, var(--hc-surface-1)), var(--hc-surface-1));
     text-align: center;
   }
 
-  .coll-list > .coll-chapter:first-child { margin-top: 1rem; }
+  .edition-records-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
 
-  .coll-chapter__ar {
+  /* ── Chapter Landmark Banner ───────────────────────────────── */
+  .chapter-landmark {
+    position: relative;
+    margin: 3.5rem 0 1.5rem;
+    scroll-margin-top: calc(var(--site-header-height, 72px) + 2rem);
+  }
+
+  .edition-records-stream > .chapter-landmark:first-child {
+    margin-top: 1rem;
+  }
+
+  .chapter-landmark__rule {
+    height: 1px;
+    background: linear-gradient(90deg, var(--hc-gold-dim), var(--hc-rule-soft) 40%, transparent);
+    margin-bottom: 1.25rem;
+  }
+
+  .chapter-landmark__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .chapter-landmark__ar {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: 1.35rem;
-    line-height: 2;
+    font-size: 1.45rem;
+    line-height: 1.9;
     color: var(--hc-gold);
     direction: rtl;
   }
 
-  .coll-chapter__en {
-    max-width: 60ch;
-    margin: 0.35rem auto 0;
+  .chapter-landmark__en {
+    margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+    font-size: clamp(1.2rem, 2.5vw, 1.55rem);
     font-weight: 500;
     line-height: 1.35;
     color: var(--hc-text-primary);
   }
 
-  /* ---- narration card ---- */
-  .coll-item {
-    margin-bottom: 0.85rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 4px;
-    background: var(--hc-surface-1);
-    transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  .chapter-landmark__anchor {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    color: inherit;
+    text-decoration: none;
   }
 
-  .coll-item:hover {
+  .chapter-landmark__symbol {
+    color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 1.1rem;
+  }
+
+  /* ── Narration Scholarly Record ────────────────────────────── */
+  .narration-record {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  }
+
+  .narration-record:hover {
     background: var(--hc-surface-2);
     border-color: var(--hc-gold-dim);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
   }
 
-  .coll-item__link {
+  .narration-record__hitlink {
     display: block;
-    padding: 1.25rem 1.5rem;
+    padding: 1.35rem 1.6rem;
     text-decoration: none;
     color: inherit;
   }
 
-  .coll-item__top {
+  .narration-record__meta-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.95rem;
   }
 
-  .coll-item__num {
-    margin: 0;
+  .narration-record__docket {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+  }
+
+  .narration-record__num {
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     font-variant-numeric: tabular-nums;
     color: var(--hc-gold);
     text-transform: uppercase;
   }
 
-  /* Facing columns matching DESIGN.md */
-  .coll-item__cols {
+  .narration-record__source {
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .narration-record__detail-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+    transition: color var(--motion-fast) ease, gap var(--motion-fast) ease;
+  }
+
+  .narration-record:hover .narration-record__detail-cta {
+    color: var(--hc-gold);
+    gap: 0.55rem;
+  }
+
+  .narration-record__spread {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: clamp(1.25rem, 2.5vw, 2.2rem);
   }
 
-  .coll-item__col { min-width: 0; }
-  .coll-item__col--en { grid-column: 1; grid-row: 1; }
-  .coll-item__col--ar { grid-column: 2; grid-row: 1; }
-
-  .coll-item__en {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.72;
-    color: var(--hc-text-primary);
+  .narration-record__col {
+    min-width: 0;
   }
 
-  .coll-item__ar {
+  .narration-record__prose-en {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.76;
+    color: var(--hc-text-secondary);
+  }
+
+  .narration-record__prose-ar {
     margin: 0;
     font-family: var(--font-arabic);
-    font-size: 1.22rem;
-    line-height: 2.1;
+    font-size: 1.25rem;
+    line-height: 2.15;
     color: var(--hc-text-primary);
     direction: rtl;
     text-align: right;
   }
 
-  .coll-item__missing {
+  .narration-record__missing {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.7;
+    font-size: 0.92rem;
     font-style: italic;
     color: var(--hc-text-tertiary);
   }
 
-  .coll-item__meta {
+  .narration-record__apparatus-strip {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    gap: 0.65rem;
+    margin-top: 1.15rem;
     padding-top: 0.85rem;
     border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .coll-meta-tag {
-    display: inline-flex;
+  .narration-record__tags {
+    display: flex;
     align-items: center;
-    padding: 0.22rem 0.58rem;
+    gap: 0.5rem;
+  }
+
+  .apparatus-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.22rem 0.55rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
+    border-radius: 2px;
     background: var(--hc-surface-2);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
+    font-size: 0.74rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .apparatus-tag__label {
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .apparatus-tag--gold strong {
+    color: var(--hc-gold);
+  }
+
+  .narration-record__corpus-ref {
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
     letter-spacing: 0.04em;
     color: var(--hc-text-tertiary);
   }
 
-  /* Volume and page folio markers */
-  .coll-item__ar .folio {
-    display: inline-block;
-    margin: 0 0.3em;
-    padding: 0 0.35em;
-    border: 1px solid var(--hc-rule);
-    border-radius: 2px;
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.6;
-    color: var(--hc-text-tertiary);
-    vertical-align: 0.08em;
-  }
-
-  /* ---- pagination ---- */
-  .coll-pager {
+  /* ── Pager ─────────────────────────────────────────────────── */
+  .edition-pager {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1.5rem;
-    margin-top: 2rem;
+    margin-top: 2.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .coll-page {
-    min-height: 24px;
-    padding: 0.35rem 0.75rem;
+  .edition-pager__link {
+    padding: 0.4rem 0.85rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
+    border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
     color: var(--hc-gold);
     font-family: var(--font-ui);
@@ -823,46 +996,48 @@ const withHeadings = rows.map((r) => {
     font-weight: 600;
     letter-spacing: 0.05em;
     text-decoration: none;
-    cursor: pointer;
-    transition: background 140ms ease, border-color 140ms ease;
+    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
   }
 
-  .coll-page:hover:not([disabled]):not([aria-disabled='true']) {
+  .edition-pager__link:hover:not(.is-disabled) {
     border-color: var(--hc-gold);
     background: var(--hc-surface-2);
   }
 
-  .coll-page[disabled],
-  .coll-page[aria-disabled='true'] {
+  .edition-pager__link.is-disabled {
     color: var(--hc-text-tertiary);
     border-color: transparent;
     background: transparent;
     pointer-events: none;
   }
 
-  .coll-page-of {
+  .edition-pager__counter {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
     color: var(--hc-text-tertiary);
   }
 
+  .edition-pager__counter strong {
+    color: var(--hc-text-secondary);
+  }
+
   @media (max-width: 780px) {
-    .coll-item__cols {
+    .narration-record__spread {
       grid-template-columns: minmax(0, 1fr);
       gap: 1rem;
     }
-    .coll-item__col--ar {
+    .narration-record__col--ar {
       grid-column: 1;
       grid-row: 1;
     }
-    .coll-item__col--en {
+    .narration-record__col--en {
       grid-column: 1;
       grid-row: 2;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .coll-item, .coll-page { transition: none; }
+    .narration-record, .edition-pager__link { transition: none; }
   }
 </style>

@@ -26,6 +26,18 @@ const familyLabels: Record<string, string> = {
   network: 'Transmission Network'
 };
 
+// Facet counts for the research-family filter in the discovery bar. Derived
+// from the same art-direction data the dossier cards and ledger badges
+// already read, so a new family added there appears here automatically.
+const familyCounts = Object.entries(
+  icmaStudies.reduce<Record<string, number>>((acc, study) => {
+    const family = (icmaArtDirections[study.slug] || defaultArtDirection).family;
+    acc[family] = (acc[family] || 0) + 1;
+    return acc;
+  }, {})
+)
+  .map(([family, n]) => ({ family, n, label: familyLabels[family] || family }))
+  .sort((a, b) => b.n - a.n);
 
 const icmaRegister = [
   {
@@ -564,6 +576,41 @@ const relatedMethods = [
           </div>
         </div>
 
+        {/* ── RESEARCH DISCOVERY: search + family filter ──
+             Hidden by default and revealed by script once it can actually do
+             something: with JavaScript off, visitors get the complete ledger
+             below exactly as before, rather than an inert search box. */}
+        <div class="studies-discovery" data-studies-discovery hidden>
+          <div class="studies-discovery__search">
+            <span class="studies-discovery__icon" aria-hidden="true">⌕</span>
+            <label class="sr-only" for="studies-search-input">Search monograph titles, traditions, and common links</label>
+            <input
+              id="studies-search-input"
+              type="text"
+              class="studies-discovery__input"
+              placeholder="Search by title, tradition, or common link…"
+              data-studies-search
+              autocomplete="off"
+            />
+            <button type="button" class="studies-discovery__clear" data-studies-clear hidden aria-label="Clear search">×</button>
+          </div>
+
+          <div class="studies-discovery__tabs" data-studies-filter-group role="group" aria-label="Filter by research family">
+            <button type="button" class="studies-tab is-active" data-family-filter="all" aria-pressed="true">
+              All <span class="studies-tab__n">{icmaStudies.length}</span>
+            </button>
+            {familyCounts.map(({ family, n, label }) => (
+              <button type="button" class="studies-tab" data-family-filter={family} aria-pressed="false">
+                {label} <span class="studies-tab__n">{n}</span>
+              </button>
+            ))}
+          </div>
+
+          <span class="studies-discovery__status" data-studies-status aria-live="polite">
+            {icmaStudies.length} studies
+          </span>
+        </div>
+
         {/* ── 1. THE MONOGRAPH DOSSIER READER ── */}
         <div class="studies-dossier-wrap" data-studies-dossier-wrap>
           {/* Quick-Selector Ribbon: Scannable list of all 27 accession items */}
@@ -804,6 +851,11 @@ const relatedMethods = [
                     </tr>
                   );
                 })}
+                <tr class="studies-ledger__empty" data-ledger-empty>
+                  <td colspan="5">
+                    No studies match <strong data-empty-query></strong>. Try a different term, or clear the family filter above.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1069,6 +1121,83 @@ const relatedMethods = [
         if (touchEndX - touchStartX > 45) show(index - 1);
       }
     }, { passive: true });
+
+    // Research discovery: search + family filter. Both act on the ledger
+    // rows and ribbon items already in the DOM; nothing here fetches or
+    // re-renders content, so it stays cheap even at archive scale.
+    const discovery = shelf.querySelector<HTMLElement>('[data-studies-discovery]');
+    const searchInput = shelf.querySelector<HTMLInputElement>('[data-studies-search]');
+    const clearButton = shelf.querySelector<HTMLButtonElement>('[data-studies-clear]');
+    const filterButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-family-filter]'));
+    const statusEl = shelf.querySelector<HTMLElement>('[data-studies-status]');
+    const emptyRow = shelf.querySelector<HTMLTableRowElement>('[data-ledger-empty]');
+    const emptyQueryEl = emptyRow?.querySelector<HTMLElement>('[data-empty-query]');
+
+    let activeFamily = 'all';
+
+    function applyFilter() {
+      const query = (searchInput?.value || '').trim().toLowerCase();
+      const filtered = activeFamily !== 'all' || query.length > 0;
+      let visible = 0;
+      let firstVisible = -1;
+
+      ledgerRows.forEach((row, i) => {
+        const haystack = row.dataset.searchHaystack || '';
+        const family = row.dataset.family || '';
+        const matches = (activeFamily === 'all' || family === activeFamily) && (!query || haystack.includes(query));
+        row.classList.toggle('is-hidden', !matches);
+        if (matches) {
+          visible += 1;
+          if (firstVisible === -1) firstVisible = i;
+        }
+      });
+
+      ribbonButtons.forEach((btn, i) => {
+        btn.classList.toggle('is-hidden', Boolean(ledgerRows[i]?.classList.contains('is-hidden')));
+      });
+
+      if (clearButton) clearButton.hidden = query.length === 0;
+
+      if (emptyRow) {
+        emptyRow.classList.toggle('is-visible', visible === 0);
+        if (emptyQueryEl) emptyQueryEl.textContent = query ? `"${query}"` : 'this filter';
+      }
+
+      if (statusEl) {
+        statusEl.textContent = filtered
+          ? `${visible} of ${slides.length} studies match`
+          : `${slides.length} studies`;
+      }
+
+      // Keep the dossier reader pointed at something the filter didn't hide.
+      if (firstVisible !== -1 && ledgerRows[index]?.classList.contains('is-hidden')) {
+        show(firstVisible);
+      }
+    }
+
+    searchInput?.addEventListener('input', applyFilter);
+    clearButton?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+      }
+      applyFilter();
+    });
+    filterButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeFamily = btn.dataset.familyFilter || 'all';
+        filterButtons.forEach((b) => {
+          const on = b === btn;
+          b.classList.toggle('is-active', on);
+          b.setAttribute('aria-pressed', String(on));
+        });
+        applyFilter();
+      });
+    });
+
+    // Reveal last: with JavaScript off, the bar never appears and visitors
+    // get the complete, always-visible ledger below exactly as before.
+    if (discovery) discovery.hidden = false;
 
     show(0);
   }
@@ -1431,6 +1560,131 @@ const relatedMethods = [
   }
 
   /* -----------------------------------------------------------------------
+     02b — Research discovery (search + family filter)
+     ----------------------------------------------------------------------- */
+
+  .studies-discovery {
+    display: grid;
+    gap: 1.1rem;
+    margin-bottom: 2.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .studies-discovery[hidden] {
+    display: none;
+  }
+
+  .studies-discovery__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 32rem;
+  }
+
+  .studies-discovery__icon {
+    position: absolute;
+    left: 0;
+    color: var(--hc-text-tertiary);
+    font-size: 1.05rem;
+    pointer-events: none;
+  }
+
+  .studies-discovery__input {
+    width: 100%;
+    padding: 0.7rem 2rem 0.75rem 1.6rem;
+    border: 0;
+    border-bottom: 1px solid var(--hc-rule-strong);
+    background: transparent;
+    color: var(--hc-text-primary);
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    transition: border-color var(--motion-fast, 160ms) ease;
+  }
+
+  .studies-discovery__input::placeholder {
+    color: var(--hc-text-tertiary);
+  }
+
+  .studies-discovery__input:focus {
+    border-bottom-color: var(--hc-gold);
+  }
+
+  .studies-discovery__clear {
+    position: absolute;
+    right: 0;
+    bottom: 0.5rem;
+    min-width: 24px;
+    min-height: 24px;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-tertiary);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .studies-discovery__clear:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .studies-discovery__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.5rem;
+  }
+
+  .studies-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 24px;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-1);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.3;
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+  }
+
+  .studies-tab:hover {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-rule-strong);
+    background: var(--hc-surface-2);
+  }
+
+  .studies-tab.is-active {
+    color: var(--hc-gold);
+    border-color: var(--hc-gold);
+    background: color-mix(in srgb, var(--hc-gold) 10%, var(--hc-surface-1));
+  }
+
+  .studies-tab__n {
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-text-tertiary);
+    font-size: 0.75rem;
+  }
+
+  .studies-tab.is-active .studies-tab__n {
+    color: inherit;
+    opacity: 0.75;
+  }
+
+  .studies-discovery__status {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* -----------------------------------------------------------------------
      03 — Accession index
      ----------------------------------------------------------------------- */
 
@@ -1473,6 +1727,10 @@ const relatedMethods = [
 
   .studies-ribbon__track::-webkit-scrollbar-thumb {
     background: var(--hc-rule-strong);
+  }
+
+  .studies-ribbon__item.is-hidden {
+    display: none;
   }
 
   .studies-ribbon__item {
@@ -2141,6 +2399,26 @@ const relatedMethods = [
 
   .studies-ledger__row.is-hidden {
     display: none;
+  }
+
+  .studies-ledger__empty {
+    display: none;
+  }
+
+  .studies-ledger__empty.is-visible {
+    display: table-row;
+  }
+
+  .studies-ledger__empty td {
+    padding: 1.75rem 0.9rem;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    text-align: center;
+  }
+
+  .studies-ledger__empty strong {
+    color: var(--hc-text-primary);
   }
 
   .studies-ledger__cite-code {

@@ -8,9 +8,10 @@ import { renderRich, renderArabic, toPlainText } from '../../lib/format-text';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
 
 /**
- * A single narration, rendered on demand from the database.
- * Laid out as an authentic critical edition with facing translation,
- * unbroken isnad transmission lineage, and scholarly apparatus.
+ * Flagship Critical Edition Record for a Single Narration.
+ * Features an authentic archival plate, sticky section navigation with active scrollspy,
+ * facing primary text, a connected isnād transmission graph with biographical dossier
+ * integration, and a tripartite critical apparatus.
  */
 
 const id = Number(Astro.params.id);
@@ -66,10 +67,10 @@ const chain = (chainRows?.results || []) as unknown as ChainNode[];
 const rawSubjects = (subjectRows?.results || []) as unknown as { label_ar: string; label_en: string }[];
 const glosses = (glossRows?.results || []) as unknown as { word_ar: string; word_en: string }[];
 
-// Deduplicate subject tags by English label
+// Deduplicate subject taxonomy
 const subjects = [...new Map(rawSubjects.map((s) => [s.label_en.trim(), s])).values()];
 
-// Group parallel isnads
+// Group transmission branches
 const paths = new Map<number, ChainNode[]>();
 for (const node of chain) {
   if (!paths.has(node.path_idx)) paths.set(node.path_idx, []);
@@ -78,22 +79,12 @@ for (const node of chain) {
 
 const chapter = hadith ? toPlainText(hadith.chapter_en) : '';
 const ref = hadith ? `${hadith.book_en}${hadith.hadith_num ? ` № ${hadith.hadith_num}` : ''}` : `Hadith #${id}`;
-const pageTitle = hadith ? `${ref} · Hadith ${id} | HadithCritic` : `Hadith #${id} | HadithCritic`;
+const pageTitle = hadith ? `${ref} · Hadith ${id} | HadithCritic Critical Edition` : `Hadith #${id} | HadithCritic`;
 const summary = hadith ? toPlainText(hadith.matn_en || hadith.text_en).slice(0, 180) : '';
 
 const matnIsDistinct = hadith
   ? Boolean(hadith.matn_ar) && String(hadith.matn_ar).trim() !== String(hadith.text_ar).trim()
   : false;
-
-const stats = hadith
-  ? [
-      { label: 'Transmitters', value: Number(hadith.narrator_count || 0).toLocaleString() },
-      { label: 'Isnād Paths', value: Number(hadith.path_count || 0).toLocaleString() },
-      { label: 'Parallels', value: Number(hadith.parallel_count || 0).toLocaleString() },
-      { label: 'Witnesses', value: Number(hadith.witness_count || 0).toLocaleString() },
-      { label: 'Variants', value: Number(hadith.variant_count || 0).toLocaleString() }
-    ]
-  : [];
 
 const totalParallels = hadith
   ? Number(hadith.parallel_count || 0) +
@@ -104,12 +95,12 @@ const totalParallels = hadith
 
 <BaseLayout
   title={pageTitle}
-  description={summary || 'A searchable narration in Arabic and English from the Hadith Corpus.'}
+  description={summary || 'A primary source narration in Arabic and English from the Hadith Critical Archive.'}
   image={hadith ? OG.collection(hadith.book_slug) : undefined}
   imageAlt={hadith ? `${hadith.book_en}${hadith.hadith_num ? ` ${hadith.hadith_num}` : ''} · Hadith ${id}` : undefined}
   crumbs={[
     { name: 'Home', url: '/' },
-    { name: 'Hadith', url: '/hadith' },
+    { name: 'Corpus', url: '/hadith' },
     ...(hadith ? [{ name: hadith.book_en, url: `/hadith/collection/${hadith.book_slug}` }] : []),
     { name: ref, url: `/hadith/${id}` }
   ]}
@@ -125,36 +116,31 @@ const totalParallels = hadith
   <div class="hadith-container">
     {dbError || !hadith ? (
       <div class="hadith-degraded">
-        <span class="hadith-degraded__badge">Database Rate-Limited</span>
-        <h1 class="hadith-degraded__title">Narration #{id} Temporarily Unavailable</h1>
+        <span class="hadith-degraded__badge">Database Unavailable</span>
+        <h1 class="hadith-degraded__title">Narration #{id} Temporarily Unreachable</h1>
         <p class="hadith-degraded__text">
-          The corpus database is currently experiencing high query volume. You can browse the
-          collection directly or search through the client archive.
+          The corpus database is handling elevated load. The report can still be accessed directly via collection registers or the offline worker index.
         </p>
         <div class="hadith-degraded__actions">
-          <a class="hc-btn" href="/hadith">← Return to Hadith Corpus</a>
+          <a class="hc-btn" href="/hadith">← Return to Corpus Index</a>
         </div>
       </div>
     ) : (
       <>
-        <!-- Critical Edition Masthead Plate -->
+        <!-- Archival Critical Edition Plate -->
         <header class="edition-hero">
-          <div class="edition-hero__frame-corner edition-hero__frame-corner--tl" aria-hidden="true"></div>
-          <div class="edition-hero__frame-corner edition-hero__frame-corner--tr" aria-hidden="true"></div>
-          <div class="edition-hero__frame-corner edition-hero__frame-corner--bl" aria-hidden="true"></div>
-          <div class="edition-hero__frame-corner edition-hero__frame-corner--br" aria-hidden="true"></div>
-
-          <div class="edition-hero__nav">
+          <div class="edition-hero__topbar">
             <a class="hc-back-link" href={`/hadith/collection/${hadith.book_slug}`}>
               <span>←</span>
               <span>{hadith.book_en}</span>
             </a>
 
-            <div class="edition-hero__ref-tags">
+            <div class="edition-hero__badges">
               {hadith.hadith_num && (
                 <span class="edition-ref-tag edition-ref-tag--gold">№ {hadith.hadith_num}</span>
               )}
-              <span class="edition-ref-tag">Corpus ID #{id}</span>
+              <span class="edition-ref-tag">Record ID #{id}</span>
+              <span class="edition-ref-tag edition-ref-tag--status">Critical Edition</span>
             </div>
           </div>
 
@@ -165,113 +151,125 @@ const totalParallels = hadith
             <h1 class="edition-hero__title-en">{chapter || hadith.book_en}</h1>
           </div>
 
-          <!-- Archival Ledger Strip -->
-          <div class="edition-ledger-strip">
-            <div class="edition-ledger-item">
-              <span class="edition-ledger-label">Collection</span>
-              <a href={`/hadith/collection/${hadith.book_slug}`} class="edition-ledger-val edition-ledger-val--link">
-                {hadith.book_en}
-              </a>
+          <!-- Structured Research Ledger -->
+          <div class="edition-ledger-grid">
+            <div class="ledger-block">
+              <span class="ledger-block__label">Bibliographic Citation</span>
+              <div class="ledger-block__value">
+                <a href={`/hadith/collection/${hadith.book_slug}`} class="ledger-link">
+                  {hadith.book_en}
+                </a>
+                {hadith.hadith_num && <span class="ledger-meta">· Report № {hadith.hadith_num}</span>}
+              </div>
             </div>
 
-            {hadith.hadith_num && (
-              <div class="edition-ledger-item">
-                <span class="edition-ledger-label">Citation</span>
-                <span class="edition-ledger-val">Report № {hadith.hadith_num}</span>
+            <div class="ledger-block">
+              <span class="ledger-block__label">Transmission Topology</span>
+              <div class="ledger-block__value">
+                <span>{paths.size} Lineage {paths.size === 1 ? 'Path' : 'Paths'}</span>
+                <span class="ledger-meta">· {hadith.narrator_count} Transmitters</span>
               </div>
-            )}
+            </div>
 
-            <div class="edition-ledger-item">
-              <span class="edition-ledger-label">Archive Status</span>
-              <span class="edition-ledger-val edition-ledger-val--status">
-                Raw Attestation · Descriptive Apparatus Only
-              </span>
+            <div class="ledger-block">
+              <span class="ledger-block__label">Apparatus Circulation</span>
+              <div class="ledger-block__value">
+                <span>{totalParallels.toLocaleString()} Cross-Attestations</span>
+                <span class="ledger-meta">· {hadith.parallel_count || 0} Parallels</span>
+              </div>
+            </div>
+
+            <div class="ledger-block ledger-block--action">
+              <span class="ledger-block__label">Permanent Reference</span>
+              <button
+                type="button"
+                class="edition-cite-btn"
+                id="edition-cite-btn"
+                data-citation={`${ref} — HadithCritic Corpus Record #${id}`}
+                hidden
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span data-cite-label>Copy Citation</span>
+              </button>
             </div>
           </div>
+        </header>
 
-          <!-- Metrics Band -->
-          <div class="hc-stat-band hc-stat-band--5">
-            {stats.map((s) => (
-              <div class="hc-stat">
-                <span class="hc-stat__num">{s.value}</span>
-                <span class="hc-stat__label">{s.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <!-- Section Jump Bar -->
-          <nav class="edition-jump-bar" aria-label="Edition Navigation">
-            <span class="edition-jump-bar__label">Contents:</span>
-            <div class="edition-jump-bar__links">
+        <!-- Sticky Interactive Section Navigation -->
+        <nav class="edition-nav-dock" aria-label="Record Sections" id="edition-jump-bar">
+          <div class="edition-nav-dock__inner">
+            <span class="edition-nav-dock__label">Sections:</span>
+            <div class="edition-nav-dock__links">
               {matnIsDistinct && (
-                <a href="#matn-heading" class="edition-jump-link">
-                  <span>Prophetic Matn</span>
-                  <span class="edition-jump-link__tag" lang="ar">المتن</span>
+                <a href="#matn-heading" class="dock-link">
+                  <span>Substantive Matn</span>
+                  <span class="dock-link__ar" lang="ar">المتن</span>
                 </a>
               )}
-              <a href="#report-heading" class="edition-jump-link">
-                <span>Full Formulation</span>
-                <span class="edition-jump-link__tag" lang="ar">الرواية</span>
+              <a href="#report-heading" class="dock-link">
+                <span>Full Transmission</span>
+                <span class="dock-link__ar" lang="ar">الرواية الكاملة</span>
               </a>
               {paths.size > 0 && (
-                <a href="#isnad-heading" class="edition-jump-link">
-                  <span>Isnād Lineage</span>
-                  <span class="edition-jump-link__badge">{paths.size}</span>
+                <a href="#isnad-heading" class="dock-link">
+                  <span>Isnād Transmission Graph</span>
+                  <span class="dock-link__count">{paths.size}</span>
                 </a>
               )}
               {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
-                <a href="#apparatus-heading" class="edition-jump-link">
+                <a href="#apparatus-heading" class="dock-link">
                   <span>Critical Apparatus</span>
                 </a>
               )}
             </div>
-          </nav>
-        </header>
+          </div>
+        </nav>
 
-        <!-- Prophetic Matn (if distinct from full transmission) -->
+        <!-- Prophetic Matn (Substantive Speech) -->
         {matnIsDistinct && (
-          <section class="edition-section" aria-labelledby="matn-heading">
-            <div class="edition-section__head">
-              <div class="edition-section__kicker">
-                <span class="hc-eyebrow">Core Text</span>
+          <section class="record-section" aria-labelledby="matn-heading">
+            <div class="record-section__header">
+              <div class="record-section__kicker">
+                <span class="hc-eyebrow">Textual Artifact · Primary Speech</span>
               </div>
-              <h2 class="edition-section__title" id="matn-heading">Prophetic Matn (المتن)</h2>
-              <p class="edition-section__desc">
-                The substantive speech or operative verdict of the report, isolated from the transmission chain for critical textual analysis.
+              <h2 class="record-section__title" id="matn-heading">Substantive Matn (المتن)</h2>
+              <p class="record-section__desc">
+                The operative verdict or substantive prophetic utterance, isolated from introductory transmission formulas for comparative text-critical analysis.
               </p>
             </div>
 
-            <div class="facing-spread facing-spread--matn">
-              <!-- English Translation (Left in DOM, Visual Left on desktop) -->
-              <div class="facing-col facing-col--en">
-                <div class="facing-col__meta">
-                  <div class="facing-col__label-group">
-                    <span class="facing-col__dot facing-col__dot--en" aria-hidden="true"></span>
-                    <span class="facing-col__lang-label">English Translation</span>
+            <div class="critical-spread critical-spread--matn">
+              <div class="critical-col critical-col--en">
+                <div class="critical-col__header">
+                  <div class="critical-col__tag">
+                    <span class="critical-col__dot critical-col__dot--en" aria-hidden="true"></span>
+                    <span>English Translation</span>
                   </div>
-                  <span class="facing-col__caveat">Machine translation · Unreviewed</span>
+                  <span class="critical-col__caveat">Descriptive machine rendering · Unreviewed</span>
                 </div>
-                <div class="facing-col__content is-matn-content">
+                <div class="critical-col__prose">
                   {hadith.matn_en ? (
                     <div class="facing-prose facing-prose--en">
                       <Fragment set:html={renderRich(hadith.matn_en)} />
                     </div>
                   ) : (
-                    <p class="facing-prose--empty">No English translation recorded for this matn.</p>
+                    <p class="facing-prose--empty">No distinct translation recorded for this matn isolation.</p>
                   )}
                 </div>
               </div>
 
-              <!-- Arabic Text (Visual Right on desktop, Stacks on top on mobile) -->
-              <div class="facing-col facing-col--ar">
-                <div class="facing-col__meta">
-                  <div class="facing-col__label-group">
-                    <span class="facing-col__dot facing-col__dot--ar" aria-hidden="true"></span>
-                    <span class="facing-col__lang-label facing-col__lang-label--ar" lang="ar" dir="rtl">النص العربي المعتمد</span>
+              <div class="critical-col critical-col--ar">
+                <div class="critical-col__header">
+                  <div class="critical-col__tag">
+                    <span class="critical-col__dot critical-col__dot--ar" aria-hidden="true"></span>
+                    <span lang="ar" dir="rtl">نص المتن المجرد</span>
                   </div>
-                  <span class="facing-col__folio-note">نص المتن المجرد</span>
+                  <span class="critical-col__folio">النص المعتمد</span>
                 </div>
-                <div class="facing-col__content is-matn-content">
+                <div class="critical-col__prose">
                   <div class="facing-prose facing-prose--ar" lang="ar" dir="rtl">
                     <Fragment set:html={renderArabic(hadith.matn_ar)} />
                   </div>
@@ -281,49 +279,47 @@ const totalParallels = hadith
           </section>
         )}
 
-        <!-- Full Report & Isnād Context -->
-        <section class="edition-section" aria-labelledby="report-heading">
-          <div class="edition-section__head">
-            <div class="edition-section__kicker">
+        <!-- Full Formulation & Transmission Context -->
+        <section class="record-section" aria-labelledby="report-heading">
+          <div class="record-section__header">
+            <div class="record-section__kicker">
               <span class="hc-eyebrow">Manuscript Formulation</span>
             </div>
-            <h2 class="edition-section__title" id="report-heading">Full Report &amp; Isnād Context</h2>
-            <p class="edition-section__desc">
-              The narration in its original manuscript formulation, containing opening isnād formulas, transmission verbs, and operative body text.
+            <h2 class="record-section__title" id="report-heading">Full Formulation &amp; Opening Formulas</h2>
+            <p class="record-section__desc">
+              The narration as committed to manuscript: includes compiler opening verbs, transmission preambles (حدثنا / أخبرنا), transmitter chains, and substantive text.
             </p>
           </div>
 
-          <div class="facing-spread">
-            <!-- English Column -->
-            <div class="facing-col facing-col--en">
-              <div class="facing-col__meta">
-                <div class="facing-col__label-group">
-                  <span class="facing-col__dot facing-col__dot--en" aria-hidden="true"></span>
-                  <span class="facing-col__lang-label">English Translation</span>
+          <div class="critical-spread">
+            <div class="critical-col critical-col--en">
+              <div class="critical-col__header">
+                <div class="critical-col__tag">
+                  <span class="critical-col__dot critical-col__dot--en" aria-hidden="true"></span>
+                  <span>English Translation</span>
                 </div>
-                <span class="facing-col__caveat">Machine translation · Unreviewed</span>
+                <span class="critical-col__caveat">Complete manuscript text</span>
               </div>
-              <div class="facing-col__content">
+              <div class="critical-col__prose">
                 {hadith.text_en ? (
                   <div class="facing-prose facing-prose--en">
                     <Fragment set:html={renderRich(hadith.text_en)} />
                   </div>
                 ) : (
-                  <p class="facing-prose--empty">No English translation recorded for this narration.</p>
+                  <p class="facing-prose--empty">Translation not registered for this manuscript formulation.</p>
                 )}
               </div>
             </div>
 
-            <!-- Arabic Column -->
-            <div class="facing-col facing-col--ar">
-              <div class="facing-col__meta">
-                <div class="facing-col__label-group">
-                  <span class="facing-col__dot facing-col__dot--ar" aria-hidden="true"></span>
-                  <span class="facing-col__lang-label facing-col__lang-label--ar" lang="ar" dir="rtl">الرواية الكاملة مع الإسناد</span>
+            <div class="critical-col critical-col--ar">
+              <div class="critical-col__header">
+                <div class="critical-col__tag">
+                  <span class="critical-col__dot critical-col__dot--ar" aria-hidden="true"></span>
+                  <span lang="ar" dir="rtl">الرواية المسندة في المصنف</span>
                 </div>
-                <span class="facing-col__folio-note">نص المصنف الأصلي</span>
+                <span class="critical-col__folio">الأصل العربي</span>
               </div>
-              <div class="facing-col__content">
+              <div class="critical-col__prose">
                 <div class="facing-prose facing-prose--ar" lang="ar" dir="rtl">
                   <Fragment set:html={renderArabic(hadith.text_ar)} />
                 </div>
@@ -332,84 +328,89 @@ const totalParallels = hadith
           </div>
         </section>
 
-        <!-- Isnād Lineage (Chain of Transmission) -->
+        <!-- Isnād Lineage (Transmission Graph) -->
         {paths.size > 0 && (
-          <section class="edition-section" aria-labelledby="isnad-heading">
-            <div class="edition-section__head">
-              <div class="edition-section__kicker">
-                <span class="hc-eyebrow">Chain of Transmission</span>
+          <section class="record-section" aria-labelledby="isnad-heading">
+            <div class="record-section__header">
+              <div class="record-section__kicker">
+                <span class="hc-eyebrow">Transmitter Lineage</span>
               </div>
-              <h2 class="edition-section__title" id="isnad-heading">Transmission Lineage (الإسناد)</h2>
-              <p class="edition-section__desc">
-                Ordered from the source outward: Tier 1 represents the earliest authority (Companion / Successor), descending through transmitters to the compiler. Click any transmitter to inspect their biographical dossier and jarḥ wa taʿdīl records.
+              <h2 class="record-section__title" id="isnad-heading">Transmission Graph &amp; Rijal Register (الإسناد)</h2>
+              <p class="record-section__desc">
+                Ordered chronologically from earliest authority outward to compiler. Click any transmitter to examine their biographical dossier, teacher/student associations, and historical evaluations.
               </p>
             </div>
 
-            <div class="isnad-lineages-stack">
+            <div class="isnad-graph-stack">
               {[...paths.entries()].map(([idx, nodes]) => (
-                <div class="isnad-flow-card">
-                  <div class="isnad-flow-card__head">
-                    <div class="isnad-flow-card__title-row">
-                      <span class="isnad-flow-card__title">Isnād Path {idx + 1}</span>
-                      <span class="isnad-flow-card__count">{nodes.length} Transmitters in Sequence</span>
+                <div class="isnad-path-card">
+                  <div class="isnad-path-card__header">
+                    <div class="isnad-path-card__title-wrap">
+                      <span class="isnad-path-badge">Lineage Branch {idx + 1}</span>
+                      <span class="isnad-path-count">{nodes.length} Transmitters in Direct Succession</span>
                     </div>
-                    <div class="isnad-flow-card__guide">
-                      <span class="isnad-guide-node isnad-guide-node--source">Source (Earliest)</span>
-                      <span class="isnad-guide-arrow">↓</span>
-                      <span class="isnad-guide-node">Intermediaries</span>
-                      <span class="isnad-guide-arrow">↓</span>
-                      <span class="isnad-guide-node isnad-guide-node--compiler">Collector</span>
+
+                    <div class="isnad-flow-legend">
+                      <span class="legend-step legend-step--source">Earliest Authority</span>
+                      <span class="legend-sep">↓</span>
+                      <span class="legend-step">Intermediate Links</span>
+                      <span class="legend-sep">↓</span>
+                      <span class="legend-step legend-step--compiler">Final Collector</span>
                     </div>
                   </div>
 
-                  <ol class="isnad-ladder">
+                  <ol class="isnad-chain-ladder">
                     {nodes.map((node, i) => {
                       const isFirst = i === 0;
                       const isLast = i === nodes.length - 1;
 
                       return (
-                        <li class:list={['isnad-step', { 'is-source': isFirst, 'is-compiler': isLast }]}>
-                          <div class="isnad-stem-track">
-                            <span class="isnad-node-badge">{i + 1}</span>
+                        <li
+                          class:list={['ladder-node hc-reveal', { 'is-source': isFirst, 'is-compiler': isLast }]}
+                          style={`--reveal-delay:${Math.min(i, 8)}`}
+                        >
+                          <div class="ladder-spine">
+                            <span class="ladder-spine__circle">{i + 1}</span>
                             {!isLast && (
-                              <div class="isnad-stem-line" aria-hidden="true">
-                                <span class="isnad-stem-connector"></span>
-                                <span class="isnad-verb-pill" lang="ar" title="Transmission connection">عن</span>
+                              <div class="ladder-spine__connector" aria-hidden="true">
+                                <span class="ladder-spine__line"></span>
+                                <span class="ladder-verb" lang="ar" title="Transmission connection formula">عن</span>
                               </div>
                             )}
                           </div>
 
-                          <div class="isnad-step-body">
-                            <div class="isnad-step-main">
-                              <div class="isnad-step-role-wrap">
+                          <div class="ladder-card">
+                            <div class="ladder-card__content">
+                              <div class="ladder-card__role">
                                 {isFirst ? (
-                                  <span class="isnad-role-badge isnad-role-badge--source">Earliest Authority · Source</span>
+                                  <span class="role-pill role-pill--source">Earliest Authority · Source</span>
                                 ) : isLast ? (
-                                  <span class="isnad-role-badge isnad-role-badge--compiler">Collector · Compiler</span>
+                                  <span class="role-pill role-pill--compiler">Compiler · Collector</span>
                                 ) : (
-                                  <span class="isnad-role-badge">Transmission Link {i + 1}</span>
+                                  <span class="role-pill">Intermediate Transmitter #{i + 1}</span>
                                 )}
                               </div>
+
                               {node.narrator_id ? (
-                                <a class="isnad-step-name" href={`/narrators/${node.narrator_id}`}>
+                                <a class="ladder-card__name" href={`/narrators/${node.narrator_id}`}>
                                   {node.name_en || node.name}
                                 </a>
                               ) : (
-                                <div class="isnad-step-unresolved">
-                                  <span class="isnad-step-name is-unlinked">{node.name || 'Unidentified'}</span>
-                                  <span class="isnad-unresolved-tag">Unresolved in Biographical Register</span>
+                                <div class="ladder-card__unresolved">
+                                  <span class="ladder-card__name is-unlinked">{node.name || 'Unidentified Transmitter'}</span>
+                                  <span class="unresolved-badge">Unresolved in Register</span>
                                 </div>
                               )}
                             </div>
 
-                            <div class="isnad-step-meta">
+                            <div class="ladder-card__meta">
                               {node.death_hijri && (
-                                <span class="isnad-death-badge">d. {node.death_hijri} AH</span>
+                                <span class="death-tag">d. {node.death_hijri} AH</span>
                               )}
                               {node.narrator_id && (
-                                <a class="isnad-dossier-link" href={`/narrators/${node.narrator_id}`}>
+                                <a class="dossier-button" href={`/narrators/${node.narrator_id}`}>
                                   <span>Dossier</span>
-                                  <span class="isnad-dossier-arrow">→</span>
+                                  <span class="dossier-arrow">→</span>
                                 </a>
                               )}
                             </div>
@@ -424,71 +425,71 @@ const totalParallels = hadith
           </section>
         )}
 
-        <!-- Critical Apparatus & Classification -->
+        <!-- Critical Apparatus & Indexing -->
         {(totalParallels > 0 || glosses.length > 0 || subjects.length > 0) && (
-          <section class="edition-section" aria-labelledby="apparatus-heading">
-            <div class="edition-section__head">
-              <div class="edition-section__kicker">
-                <span class="hc-eyebrow">Editorial Apparatus</span>
+          <section class="record-section" aria-labelledby="apparatus-heading">
+            <div class="record-section__header">
+              <div class="record-section__kicker">
+                <span class="hc-eyebrow">Text-Critical Apparatus</span>
               </div>
-              <h2 class="edition-section__title" id="apparatus-heading">Critical Apparatus &amp; Classification</h2>
-              <p class="edition-section__desc">
-                Corroborating witness indices, editorial vocabulary glosses, and subject classification tags. Attestation counts measure circulation in the corpus, not theological authenticity.
+              <h2 class="record-section__title" id="apparatus-heading">Apparatus, Lexicon &amp; Taxonomy</h2>
+              <p class="record-section__desc">
+                Cross-attestation statistics indicate circulation across canonical compilations. Vocabulary notes isolate archaic terminology.
               </p>
             </div>
 
             <div class="apparatus-grid">
               {totalParallels > 0 && (
-                <div class="apparatus-panel">
-                  <div class="apparatus-panel__header">
-                    <h3 class="apparatus-panel__title">Cross-Attestation Network</h3>
-                    <span class="apparatus-panel__badge">{totalParallels.toLocaleString()} occurrences</span>
+                <div class="apparatus-card hc-reveal" style="--reveal-delay:0">
+                  <div class="apparatus-card__header">
+                    <h3 class="apparatus-card__title">Cross-Attestation Network</h3>
+                    <span class="apparatus-card__count">{totalParallels.toLocaleString()} Occurrences</span>
                   </div>
-                  <p class="apparatus-panel__note">
-                    Cross-referenced across parallel lines and corroborating witness narrations in the corpus:
+                  <p class="apparatus-card__note">
+                    Documented circulation of this narration across parallel paths and corroborating witnesses:
                   </p>
 
-                  <div class="apparatus-stats-stack">
-                    <div class="apparatus-stat-row">
-                      <div class="apparatus-stat-info">
-                        <span class="apparatus-stat-name">Parallels (متابعات)</span>
-                        <span class="apparatus-stat-desc">Same companion report through alternative transmission lines</span>
+                  <div class="circulation-list">
+                    <div class="circulation-item">
+                      <div class="circulation-item__meta">
+                        <span class="circulation-item__title">Parallels (متابعات)</span>
+                        <span class="circulation-item__desc">Identical companion report transmitted through alternate transmission branches</span>
                       </div>
-                      <span class="apparatus-stat-count">{Number(hadith.parallel_count || 0).toLocaleString()}</span>
+                      <span class="circulation-item__num">{Number(hadith.parallel_count || 0).toLocaleString()}</span>
                     </div>
 
-                    <div class="apparatus-stat-row">
-                      <div class="apparatus-stat-info">
-                        <span class="apparatus-stat-name">Witnesses (شواهد)</span>
-                        <span class="apparatus-stat-desc">Corroborating testimonies transmitted through distinct companions</span>
+                    <div class="circulation-item">
+                      <div class="circulation-item__meta">
+                        <span class="circulation-item__title">Witnesses (شواهد)</span>
+                        <span class="circulation-item__desc">Corroborating reports transmitted through distinct companion witnesses</span>
                       </div>
-                      <span class="apparatus-stat-count">{Number(hadith.witness_count || 0).toLocaleString()}</span>
+                      <span class="circulation-item__num">{Number(hadith.witness_count || 0).toLocaleString()}</span>
                     </div>
 
-                    <div class="apparatus-stat-row">
-                      <div class="apparatus-stat-info">
-                        <span class="apparatus-stat-name">Variants (روايات وألفاظ)</span>
-                        <span class="apparatus-stat-desc">Documented manuscript wording, expansion, and phrasing variations</span>
+                    <div class="circulation-item">
+                      <div class="circulation-item__meta">
+                        <span class="circulation-item__title">Manuscript Variants (روايات وألفاظ)</span>
+                        <span class="circulation-item__desc">Recorded wording, expansion, and phrasing variants across codices</span>
                       </div>
-                      <span class="apparatus-stat-count">{Number(hadith.variant_count || 0).toLocaleString()}</span>
+                      <span class="circulation-item__num">{Number(hadith.variant_count || 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
               )}
 
               {glosses.length > 0 && (
-                <div class="apparatus-panel">
-                  <div class="apparatus-panel__header">
-                    <h3 class="apparatus-panel__title">Gharīb Vocabulary (غريب الحديث)</h3>
-                    <span class="apparatus-panel__badge">{glosses.length} terms</span>
+                <div class="apparatus-card hc-reveal" style="--reveal-delay:1">
+                  <div class="apparatus-card__header">
+                    <h3 class="apparatus-card__title">Gharīb Vocabulary (غريب الحديث)</h3>
+                    <span class="apparatus-card__count">{glosses.length} Terms</span>
                   </div>
-                  <p class="apparatus-panel__note">Lexicographical explanations for archaic Arabic expressions:</p>
+                  <p class="apparatus-card__note">Lexicographical commentary on archaic or specialized terms:</p>
 
-                  <dl class="gloss-ledger">
+                  <dl class="lexicon-ledger">
                     {glosses.map((g) => (
-                      <div class="gloss-entry">
-                        <dt lang="ar" dir="rtl" class="gloss-entry__term">{g.word_ar}</dt>
-                        <dd class="gloss-entry__def">{g.word_en}</dd>
+                      <div class="lexicon-entry">
+                        <dt lang="ar" dir="rtl" class="lexicon-entry__ar">{g.word_ar}</dt>
+                        <dd class="lexicon-entry__en">{g.word_en}</dd>
                       </div>
                     ))}
                   </dl>
@@ -496,18 +497,18 @@ const totalParallels = hadith
               )}
 
               {subjects.length > 0 && (
-                <div class="apparatus-panel">
-                  <div class="apparatus-panel__header">
-                    <h3 class="apparatus-panel__title">Subject Classifications</h3>
-                    <span class="apparatus-panel__badge">{subjects.length} topics</span>
+                <div class="apparatus-card hc-reveal" style="--reveal-delay:2">
+                  <div class="apparatus-card__header">
+                    <h3 class="apparatus-card__title">Controlled Subject Taxonomy</h3>
+                    <span class="apparatus-card__count">{subjects.length} Categories</span>
                   </div>
-                  <p class="apparatus-panel__note">Thematic categories assigned in traditional indexing:</p>
+                  <p class="apparatus-card__note">Thematic categories indexed for textual cross-referencing:</p>
 
-                  <div class="subjects-cloud">
+                  <div class="subject-tags-grid">
                     {subjects.map((s) => (
-                      <a class="subject-chip" href={`/hadith?subject=${encodeURIComponent(s.label_en)}`}>
-                        <span class="subject-chip__text">{s.label_en}</span>
-                        <span class="subject-chip__arrow">→</span>
+                      <a class="subject-pill" href={`/hadith?subject=${encodeURIComponent(s.label_en)}`}>
+                        <span>{s.label_en}</span>
+                        <span class="subject-pill__arrow">→</span>
                       </a>
                     ))}
                   </div>
@@ -521,952 +522,1060 @@ const totalParallels = hadith
   </div>
 </BaseLayout>
 
-<style>
-  .hadith-container {
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 2.5rem 1.25rem 5.5rem;
+<script>
+  // Progressive enhancement: In-page navigation scrollspy and citation clipboard
+  const jumpBar = document.getElementById('edition-jump-bar');
+  if (jumpBar) {
+    const links = Array.from(jumpBar.querySelectorAll<HTMLAnchorElement>('.dock-link'));
+    const targets = links
+      .map((link) => document.querySelector<HTMLElement>(link.getAttribute('href') || ''))
+      .filter((el): el is HTMLElement => Boolean(el));
+
+    if (targets.length) {
+      const setActive = (targetId: string) => {
+        for (const link of links) {
+          link.classList.toggle('is-active', link.getAttribute('href') === `#${targetId}`);
+        }
+      };
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible[0]) setActive(visible[0].target.id);
+        },
+        { rootMargin: '-35% 0px -45% 0px', threshold: 0 }
+      );
+      targets.forEach((el) => observer.observe(el));
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    for (const link of links) {
+      link.addEventListener('click', (e) => {
+        const targetId = link.getAttribute('href')?.slice(1);
+        const target = targetId ? document.getElementById(targetId) : null;
+        if (!target) return;
+        e.preventDefault();
+        target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        history.pushState(null, '', `#${targetId}`);
+      });
+    }
   }
 
-  /* ── Critical Edition Masthead Plate ───────────────────────── */
+  const citeBtn = document.getElementById('edition-cite-btn') as HTMLButtonElement | null;
+  if (citeBtn && navigator.clipboard) {
+    citeBtn.hidden = false;
+    const label = citeBtn.querySelector('[data-cite-label]');
+    const originalLabel = label?.textContent || 'Copy Citation';
+    citeBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(citeBtn.dataset.citation || '');
+        citeBtn.dataset.copied = 'true';
+        if (label) label.textContent = 'Copied to Clipboard ✓';
+        setTimeout(() => {
+          citeBtn.dataset.copied = 'false';
+          if (label) label.textContent = originalLabel;
+        }, 2200);
+      } catch {
+        // Fallback gracefully
+      }
+    });
+  }
+</script>
+
+<style>
+  :global(html) {
+    scroll-behavior: smooth;
+  }
+
+  .hadith-container {
+    width: min(100% - 2rem, 88rem);
+    margin: 0 auto;
+    padding: clamp(1.25rem, 3vw, 2.25rem) 0 7rem;
+  }
+
+  /* ─────────────── Hero / record identity ─────────────── */
   .edition-hero {
     position: relative;
-    padding: 2.25rem 2.5rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    background-image: radial-gradient(circle at 95% 5%, color-mix(in srgb, var(--hc-gold) 6%, transparent) 0%, transparent 60%);
+    overflow: hidden;
+    border: 1px solid var(--hc-rule);
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--hc-surface-2) 54%, var(--hc-surface-1)), var(--hc-surface-1));
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
   }
 
-  .edition-hero::before {
+  .edition-hero::after {
     content: "";
     position: absolute;
-    inset: 6px;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 1px;
+    inset: 0;
+    background: radial-gradient(circle at 92% 0%, color-mix(in srgb, var(--hc-gold) 8%, transparent), transparent 34rem);
     pointer-events: none;
-    opacity: 0.6;
   }
 
-  /* Illuminated Corner Ornaments */
-  .edition-hero__frame-corner {
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .edition-hero__frame-corner--tl {
-    top: 6px;
-    left: 6px;
-    border-top: 2px solid var(--hc-gold);
-    border-left: 2px solid var(--hc-gold);
-  }
-
-  .edition-hero__frame-corner--tr {
-    top: 6px;
-    right: 6px;
-    border-top: 2px solid var(--hc-gold);
-    border-right: 2px solid var(--hc-gold);
-  }
-
-  .edition-hero__frame-corner--bl {
-    bottom: 6px;
-    left: 6px;
-    border-bottom: 2px solid var(--hc-gold);
-    border-left: 2px solid var(--hc-gold);
-  }
-
-  .edition-hero__frame-corner--br {
-    bottom: 6px;
-    right: 6px;
-    border-bottom: 2px solid var(--hc-gold);
-    border-right: 2px solid var(--hc-gold);
-  }
-
-  .edition-hero__nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.25rem;
-    margin-bottom: 1.5rem;
+  .edition-hero__topbar,
+  .edition-hero__titles,
+  .edition-ledger-grid,
+  .edition-nav-dock__inner,
+  .record-section,
+  .edition-hero .hc-stat-band {
     position: relative;
     z-index: 1;
   }
 
-  .edition-hero__ref-tags {
+  .edition-hero__topbar {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem clamp(1rem, 2.7vw, 2rem);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: color-mix(in srgb, var(--hc-surface-0) 38%, transparent);
+  }
+
+  .hc-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 40px;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color var(--motion-fast) ease, gap var(--motion-fast) ease;
+  }
+
+  .hc-back-link:hover {
+    color: var(--hc-gold);
+    gap: 0.75rem;
+  }
+
+  .edition-hero__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
   }
 
   .edition-ref-tag {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.65rem;
+    min-height: 28px;
+    padding: 0.2rem 0.6rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    border-radius: 999px;
     background: var(--hc-surface-2);
+    color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-size: 0.69rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
     text-transform: uppercase;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-secondary);
+    font-variant-numeric: tabular-nums;
   }
 
   .edition-ref-tag--gold {
     border-color: color-mix(in srgb, var(--hc-gold) 45%, transparent);
+    background: color-mix(in srgb, var(--hc-gold) 9%, var(--hc-surface-2));
     color: var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 10%, var(--hc-surface-2));
+  }
+
+  .edition-ref-tag--status {
+    color: var(--hc-gold-dim);
   }
 
   .edition-hero__titles {
-    margin-bottom: 1.6rem;
-    position: relative;
-    z-index: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+    padding: clamp(2rem, 5vw, 3.4rem) clamp(1rem, 5vw, 4rem) clamp(1.75rem, 4vw, 2.75rem);
   }
 
   .edition-hero__title-ar {
-    margin: 0 0 0.5rem;
+    margin: 0;
+    max-width: 60ch;
     font-family: var(--font-arabic);
-    font-size: clamp(1.45rem, 3.2vw, 1.95rem);
-    line-height: 2.1;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+    line-height: 1.9;
     color: var(--hc-gold);
+    text-align: right;
     direction: rtl;
   }
 
   .edition-hero__title-en {
+    max-width: 27ch;
     margin: 0;
-    font-family: var(--font-serif);
-    font-size: clamp(1.85rem, 4.2vw, 2.75rem);
-    font-weight: 600;
-    line-height: 1.28;
-    letter-spacing: -0.015em;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.2vw, 3.45rem);
+    font-weight: 520;
+    line-height: 1.08;
+    letter-spacing: -0.035em;
     color: var(--hc-text-primary);
   }
 
-  /* ── Archival Ledger Strip ─────────────────────────────────── */
-  .edition-ledger-strip {
+  .edition-ledger-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .ledger-block {
+    min-width: 0;
+    padding: 1rem clamp(0.9rem, 2vw, 1.4rem) 1.1rem;
+    border-right: 1px solid var(--hc-rule-soft);
+  }
+
+  .ledger-block:last-child {
+    border-right: 0;
+  }
+
+  .ledger-block__label {
+    display: block;
+    margin-bottom: 0.38rem;
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .ledger-block__value {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem 2.25rem;
-    padding: 1.1rem 0;
-    margin-bottom: 1.5rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    border-bottom: 1px solid var(--hc-rule-soft);
-    position: relative;
-    z-index: 1;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.83rem;
+    line-height: 1.45;
+    color: var(--hc-text-secondary);
   }
 
-  .edition-ledger-item {
+  .ledger-link {
+    color: var(--hc-gold);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .ledger-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .ledger-meta {
+    color: var(--hc-text-tertiary);
+  }
+
+  .ledger-block--action {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .edition-cite-btn {
     display: inline-flex;
-    align-items: baseline;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: fit-content;
+    min-height: 34px;
+    padding: 0.42rem 0.75rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.73rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, color var(--motion-fast) ease;
+  }
+
+  .edition-cite-btn:hover {
+    border-color: var(--hc-gold);
+    background: var(--hc-surface-3);
+  }
+
+  .edition-cite-btn[data-copied="true"] {
+    color: var(--hc-text-primary);
+    border-color: var(--hc-gold-dim);
+  }
+
+  /* Shared stat band: deliberately separated from the ledger. */
+  .edition-hero .hc-stat-band {
+    margin: 0 clamp(1rem, 5vw, 4rem) 1.25rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 7px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--hc-surface-0) 34%, transparent);
+  }
+
+  .edition-hero .hc-stat {
+    padding: 0.9rem 0.75rem;
+  }
+
+  .edition-hero .hc-stat__num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─────────────── Reader navigation ─────────────── */
+  .edition-nav-dock {
+    margin-top: 1rem;
+    border-block: 1px solid var(--hc-rule-soft);
+    background: color-mix(in srgb, var(--hc-surface-0) 92%, transparent);
+  }
+
+  @media (min-width: 781px) {
+    .edition-nav-dock {
+      position: sticky;
+      top: calc(var(--site-header-height, 72px) + var(--sat, 0px));
+      z-index: 40;
+      backdrop-filter: blur(12px);
+    }
+  }
+
+  .edition-nav-dock__inner {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    min-height: 54px;
+    overflow: hidden;
+  }
+
+  .edition-nav-dock__label {
+    flex: 0 0 auto;
+    font-family: var(--font-ui);
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .edition-nav-dock__links {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .edition-nav-dock__links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dock-link {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.42rem;
+    min-height: 34px;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 650;
+    text-decoration: none;
+    transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease;
+  }
+
+  .dock-link:hover {
+    border-color: var(--hc-rule-soft);
+    background: var(--hc-surface-2);
+    color: var(--hc-text-primary);
+  }
+
+  .dock-link.is-active {
+    border-color: color-mix(in srgb, var(--hc-gold) 50%, var(--hc-rule-soft));
+    background: color-mix(in srgb, var(--hc-gold) 8%, var(--hc-surface-2));
+    color: var(--hc-gold);
+    box-shadow: inset 0 -2px 0 var(--hc-gold);
+  }
+
+  .dock-link__ar {
+    font-family: var(--font-arabic);
+    font-size: 0.8rem;
+    color: var(--hc-gold-dim);
+  }
+
+  .dock-link__count {
+    display: inline-flex;
+    min-width: 1.25rem;
+    justify-content: center;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--hc-surface-3);
+    color: var(--hc-gold);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ─────────────── Content sections ─────────────── */
+  .record-section {
+    margin-top: clamp(3.25rem, 7vw, 6rem);
+    scroll-margin-top: calc(var(--site-header-height, 72px) + 5.5rem);
+  }
+
+  .record-section__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin-bottom: 1.75rem;
+  }
+
+  .record-section__kicker {
+    margin-bottom: 0.42rem;
+  }
+
+  .record-section__title {
+    max-width: 28ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.55rem, 3vw, 2.35rem);
+    font-weight: 520;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    color: var(--hc-text-primary);
+  }
+
+  .record-section__desc {
+    max-width: 76ch;
+    margin: 0.65rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.96rem;
+    line-height: 1.75;
+    color: var(--hc-text-secondary);
+  }
+
+  .record-section__header::after {
+    content: "";
+    display: block;
+    width: min(10rem, 34vw);
+    margin-top: 1rem;
+    border-top: 1px solid var(--hc-gold-dim);
+  }
+
+  /* ─────────────── Bilingual text edition ─────────────── */
+  .critical-spread {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--hc-surface-1);
+  }
+
+  .critical-col {
+    min-width: 0;
+    background: var(--hc-surface-1);
+  }
+
+  .critical-col--en {
+    border-right: 1px solid var(--hc-rule-soft);
+  }
+
+  .critical-col--ar {
+    background: color-mix(in srgb, var(--hc-surface-2) 34%, var(--hc-surface-1));
+  }
+
+  .critical-col__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 48px;
+    padding: 0.65rem 1.1rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: var(--hc-surface-2);
+  }
+
+  .critical-col__tag {
+    display: inline-flex;
+    align-items: center;
     gap: 0.5rem;
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-  }
-
-  .edition-ledger-label {
-    font-weight: 600;
+    font-size: 0.7rem;
+    font-weight: 750;
     letter-spacing: 0.09em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .edition-ledger-val {
-    color: var(--hc-text-secondary);
-    font-weight: 500;
-  }
-
-  .edition-ledger-val--link {
-    color: var(--hc-gold);
-    text-decoration: none;
-    transition: color var(--motion-fast) ease;
-  }
-
-  .edition-ledger-val--link:hover {
-    color: var(--hc-gold-bright);
-    text-decoration: underline;
-  }
-
-  .edition-ledger-val--status {
-    color: var(--hc-gold-dim);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-  }
-
-  /* ── Section Jump Bar ──────────────────────────────────────── */
-  .edition-jump-bar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.65rem 1.25rem;
-    margin-top: 1.4rem;
-    padding-top: 1.1rem;
-    border-top: 1px dashed var(--hc-rule-soft);
-    position: relative;
-    z-index: 1;
-  }
-
-  .edition-jump-bar__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .edition-jump-bar__links {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .edition-jump-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--hc-text-secondary);
-    text-decoration: none;
-    transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease;
-  }
-
-  .edition-jump-link:hover {
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
-    background: var(--hc-surface-3);
-  }
-
-  .edition-jump-link__tag {
-    font-family: var(--font-arabic);
-    font-size: 0.82rem;
-    color: var(--hc-gold-dim);
-  }
-
-  .edition-jump-link__badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0.35rem;
-    border-radius: 9999px;
-    background: var(--hc-surface-3);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-gold);
-  }
-
-  /* ── Section Commons ───────────────────────────────────────── */
-  .edition-section {
-    margin-top: 3.75rem;
-  }
-
-  .edition-section__head {
-    margin-bottom: 1.75rem;
-  }
-
-  .edition-section__kicker {
-    margin-bottom: 0.45rem;
-  }
-
-  .edition-section__title {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.4rem, 2.8vw, 1.85rem);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    color: var(--hc-text-primary);
-  }
-
-  .edition-section__desc {
-    margin: 0;
-    max-width: 74ch;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ── Facing Spread (Critical Edition Layout) ───────────────── */
-  .facing-spread {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-    position: relative;
-    align-items: stretch;
-  }
-
-  .facing-col {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  .facing-col--en {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .facing-col--ar {
-    grid-column: 2;
-    grid-row: 1;
-    border-color: color-mix(in srgb, var(--hc-rule) 65%, var(--hc-rule-soft));
-  }
-
-  .facing-col__meta {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 1.35rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    background: var(--hc-surface-2);
-  }
-
-  .facing-col__label-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .facing-col__dot {
+  .critical-col__dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    display: inline-block;
+    flex: 0 0 auto;
   }
 
-  .facing-col__dot--en {
-    background: var(--hc-text-tertiary);
-  }
+  .critical-col__dot--en { background: var(--hc-text-tertiary); }
+  .critical-col__dot--ar { background: var(--hc-gold); }
 
-  .facing-col__dot--ar {
-    background: var(--hc-gold);
-  }
-
-  .facing-col__lang-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+  .critical-col__caveat,
+  .critical-col__folio {
     color: var(--hc-text-tertiary);
-  }
-
-  .facing-col__lang-label--ar {
-    font-family: var(--font-arabic);
-    font-size: 0.95rem;
-    letter-spacing: 0;
-    text-transform: none;
-    color: var(--hc-gold);
-    direction: rtl;
-  }
-
-  .facing-col__caveat,
-  .facing-col__folio-note {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    color: var(--hc-text-tertiary);
+    font-size: 0.68rem;
+    line-height: 1.35;
+    text-align: right;
   }
 
-  .facing-col__content {
-    padding: 1.75rem 1.85rem;
-    flex: 1 1 auto;
+  .critical-col__prose {
+    padding: clamp(1.5rem, 3vw, 2.75rem) clamp(1.15rem, 3vw, 2.4rem);
   }
 
-  /* Distinct visual emphasis for the prophetic matn spread */
-  .facing-spread--matn .facing-col--en .facing-col__content {
-    border-inline-start: 3px solid var(--hc-gold);
+  .critical-spread--matn .critical-col--en .critical-col__prose {
+    border-left: 3px solid var(--hc-gold);
   }
 
-  .facing-spread--matn .facing-col--ar .facing-col__content {
-    border-inline-end: 3px solid var(--hc-gold);
-  }
-
-  .facing-prose {
-    margin: 0;
+  .critical-spread--matn .critical-col--ar .critical-col__prose {
+    border-right: 3px solid var(--hc-gold);
   }
 
   .facing-prose--en {
+    max-width: 70ch;
     font-family: var(--font-body);
-    font-size: 1.06rem;
-    line-height: 1.9;
+    font-size: clamp(1rem, 1.15vw, 1.1rem);
+    line-height: 1.95;
     color: var(--hc-text-primary);
   }
 
   .facing-prose--ar {
+    max-width: 42ch;
+    margin-left: auto;
     font-family: var(--font-arabic);
-    font-size: 1.4rem;
-    line-height: 2.24;
+    font-size: clamp(1.35rem, 2vw, 1.6rem);
+    line-height: 2.25;
     color: var(--hc-text-primary);
     direction: rtl;
+    text-align: right;
   }
 
   .facing-prose--empty {
     margin: 0;
     font-family: var(--font-body);
     font-size: 0.95rem;
+    line-height: 1.7;
     font-style: italic;
     color: var(--hc-text-tertiary);
   }
 
   .facing-prose :global(em) {
-    font-style: italic;
     color: var(--hc-text-secondary);
   }
 
   .facing-prose :global(strong) {
-    font-weight: 600;
     color: var(--hc-gold);
   }
 
   .facing-prose :global(.folio) {
     display: inline-block;
-    margin: 0 0.35em;
-    padding: 0.1em 0.45em;
+    margin: 0 0.28em;
+    padding: 0.08em 0.42em;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    border-radius: 4px;
     background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-variant-numeric: lining-nums tabular-nums;
-    line-height: 1.45;
     color: var(--hc-gold-dim);
+    font-family: var(--font-ui);
+    font-size: 0.72em;
+    line-height: 1.4;
     vertical-align: 0.08em;
-    cursor: help;
   }
 
-  /* ── Isnād Transmission Lineage ────────────────────────────── */
-  .isnad-lineages-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
-  }
-
-  .isnad-flow-card {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  .isnad-flow-card__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.5rem;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    background: var(--hc-surface-2);
-  }
-
-  .isnad-flow-card__title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-  }
-
-  .isnad-flow-card__title {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .isnad-flow-card__count {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .isnad-flow-card__guide {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .isnad-guide-node {
-    padding: 0.15rem 0.45rem;
-    border-radius: 2px;
-    background: var(--hc-surface-3);
-  }
-
-  .isnad-guide-node--source {
-    color: var(--hc-gold);
-  }
-
-  .isnad-guide-node--compiler {
-    color: var(--hc-text-primary);
-  }
-
-  .isnad-guide-arrow {
-    color: var(--hc-rule);
-    font-size: 0.8rem;
-  }
-
-  .isnad-ladder {
-    list-style: none;
-    margin: 0;
-    padding: 1.25rem 1.5rem 1.5rem;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .isnad-step {
-    display: flex;
-    align-items: stretch;
-    gap: 1.25rem;
-    position: relative;
-    padding: 0.65rem 0;
-  }
-
-  .isnad-stem-track {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 28px;
-    flex-shrink: 0;
-    position: relative;
-  }
-
-  .isnad-node-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-secondary);
-    z-index: 1;
-    transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease;
-  }
-
-  .isnad-step.is-source .isnad-node-badge {
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 12%, var(--hc-surface-2));
-  }
-
-  .isnad-step.is-compiler .isnad-node-badge {
-    border-color: color-mix(in srgb, var(--hc-text-primary) 40%, var(--hc-rule-soft));
-    color: var(--hc-text-primary);
-    background: var(--hc-surface-3);
-  }
-
-  .isnad-stem-line {
-    position: absolute;
-    top: 28px;
-    bottom: -14px;
-    left: 0;
-    right: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 0;
-  }
-
-  .isnad-stem-connector {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: var(--hc-rule-soft);
-  }
-
-  .isnad-verb-pill {
-    position: relative;
-    z-index: 1;
-    margin-top: auto;
-    margin-bottom: auto;
-    padding: 0.05rem 0.32rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-1);
-    font-family: var(--font-arabic);
-    font-size: 0.75rem;
-    line-height: 1.3;
-    color: var(--hc-gold-dim);
-  }
-
-  .isnad-step-body {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex: 1;
-    min-width: 0;
-    gap: 1rem;
-    padding: 0.55rem 0.95rem;
-    border-radius: var(--radius-xs);
-    transition: background var(--motion-fast) ease;
-  }
-
-  .isnad-step:hover .isnad-step-body {
-    background: var(--hc-surface-2);
-  }
-
-  .isnad-step-main {
-    min-width: 0;
-  }
-
-  .isnad-step-role-wrap {
-    margin-bottom: 0.25rem;
-  }
-
-  .isnad-role-badge {
-    display: inline-block;
-    padding: 0.1rem 0.45rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .isnad-role-badge--source {
-    border-color: color-mix(in srgb, var(--hc-gold) 40%, transparent);
-    color: var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 8%, var(--hc-surface-2));
-  }
-
-  .isnad-role-badge--compiler {
-    border-color: color-mix(in srgb, var(--hc-text-primary) 30%, transparent);
-    color: var(--hc-text-primary);
-    background: var(--hc-surface-3);
-  }
-
-  .isnad-step-name {
-    display: inline-block;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 500;
-    line-height: 1.35;
-    color: var(--hc-text-primary);
-    text-decoration: none;
-    transition: color var(--motion-fast) ease;
-  }
-
-  .isnad-step-name:hover {
-    color: var(--hc-gold);
-  }
-
-  .isnad-step-name.is-unlinked {
-    color: var(--hc-text-secondary);
-  }
-
-  .isnad-step-unresolved {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-
-  .isnad-unresolved-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-style: italic;
-    color: var(--hc-text-tertiary);
-  }
-
-  .isnad-step-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  .isnad-death-badge {
-    padding: 0.2rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .isnad-dossier-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    text-decoration: none;
-    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, gap var(--motion-fast) var(--ease-standard);
-  }
-
-  .isnad-dossier-link:hover {
-    border-color: var(--hc-gold);
-    background: var(--hc-surface-2);
-    gap: 0.55rem;
-  }
-
-  .isnad-dossier-arrow {
-    font-size: 0.85rem;
-  }
-
-  /* ── Critical Apparatus Grid ───────────────────────────────── */
-  .apparatus-grid {
+  /* ─────────────── Isnād ─────────────── */
+  .isnad-graph-stack {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
     gap: 1.5rem;
   }
 
-  .apparatus-panel {
-    display: flex;
-    flex-direction: column;
-    padding: 1.6rem 1.75rem;
+  .isnad-path-card {
+    overflow: hidden;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    border-radius: 10px;
     background: var(--hc-surface-1);
   }
 
-  .apparatus-panel__header {
+  .isnad-path-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    flex-wrap: wrap;
+    padding: 0.95rem 1.2rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: var(--hc-surface-2);
+  }
+
+  .isnad-path-card__title-wrap {
     display: flex;
     align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .apparatus-panel__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    color: var(--hc-text-primary);
-  }
-
-  .apparatus-panel__badge {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    font-variant-numeric: lining-nums tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .apparatus-panel__note {
-    margin: 0 0 1.25rem;
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.6;
-    color: var(--hc-text-tertiary);
-  }
-
-  /* Apparatus Stats Stack */
-  .apparatus-stats-stack {
-    display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 0.65rem;
   }
 
-  .apparatus-stat-row {
+  .isnad-path-badge {
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .isnad-path-count {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .isnad-flow-legend {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.66rem;
+  }
+
+  .legend-step {
+    padding: 0.14rem 0.42rem;
+    border-radius: 3px;
+    background: var(--hc-surface-3);
+  }
+
+  .legend-step--source { color: var(--hc-gold); }
+  .legend-step--compiler { color: var(--hc-text-primary); }
+  .legend-sep { color: var(--hc-rule); }
+
+  .isnad-chain-ladder {
+    list-style: none;
+    margin: 0;
+    padding: 1.15rem 1.2rem 1.35rem;
+  }
+
+  .ladder-node {
+    display: grid;
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+    gap: 0.9rem;
+    position: relative;
+    padding: 0.42rem 0;
+  }
+
+  .ladder-spine {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    position: relative;
+  }
+
+  .ladder-spine__circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 6px;
+    background: var(--hc-surface-2);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    z-index: 2;
+  }
+
+  .ladder-node.is-source .ladder-spine__circle {
+    border-color: var(--hc-gold);
+    background: color-mix(in srgb, var(--hc-gold) 12%, var(--hc-surface-2));
+    color: var(--hc-gold);
+  }
+
+  .ladder-node.is-compiler .ladder-spine__circle {
+    border-color: var(--hc-text-primary);
+    color: var(--hc-text-primary);
+    background: var(--hc-surface-3);
+  }
+
+  .ladder-spine__connector {
+    position: absolute;
+    inset: 2rem auto -0.9rem 50%;
+    width: 1px;
+    transform: translateX(-50%);
+  }
+
+  .ladder-spine__line {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, var(--hc-rule), var(--hc-rule-soft));
+  }
+
+  .ladder-verb {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0.04rem 0.35rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    background: var(--hc-surface-1);
+    color: var(--hc-gold-dim);
+    font-family: var(--font-arabic);
+    font-size: 0.72rem;
+    line-height: 1.3;
+  }
+
+  .ladder-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.85rem 1rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    min-width: 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  }
+
+  .ladder-node:hover .ladder-card,
+  .ladder-node:focus-within .ladder-card {
+    border-color: var(--hc-rule-soft);
     background: var(--hc-surface-2);
-    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease;
   }
 
-  .apparatus-stat-row:hover {
-    border-color: color-mix(in srgb, var(--hc-gold) 40%, var(--hc-rule-soft));
-    background: var(--hc-surface-3);
-  }
+  .ladder-card__content { min-width: 0; }
+  .ladder-card__role { margin-bottom: 0.3rem; }
 
-  .apparatus-stat-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .apparatus-stat-name {
+  .role-pill {
+    display: inline-flex;
+    padding: 0.16rem 0.46rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 4px;
+    background: var(--hc-surface-2);
+    color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
+    font-size: 0.64rem;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+
+  .role-pill--source {
+    border-color: color-mix(in srgb, var(--hc-gold) 38%, transparent);
+    color: var(--hc-gold);
+  }
+
+  .role-pill--compiler {
     color: var(--hc-text-primary);
   }
 
-  .apparatus-stat-desc {
-    font-family: var(--font-body);
-    font-size: 0.78rem;
-    line-height: 1.4;
-    color: var(--hc-text-tertiary);
+  .ladder-card__name {
+    display: inline-block;
+    color: var(--hc-text-primary);
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 1.4vw, 1.15rem);
+    font-weight: 520;
+    line-height: 1.35;
+    text-decoration: none;
   }
 
-  .apparatus-stat-count {
-    font-family: var(--font-body);
-    font-size: 1.2rem;
-    font-weight: 600;
-    font-variant-numeric: lining-nums tabular-nums;
+  .ladder-card__name:hover {
     color: var(--hc-gold);
-    flex-shrink: 0;
   }
 
-  /* Gloss Ledger */
-  .gloss-ledger {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .gloss-entry {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1.25rem;
-    padding: 0.65rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .gloss-entry:last-child {
-    border-bottom: none;
-  }
-
-  .gloss-entry__term {
-    font-family: var(--font-arabic);
-    font-size: 1.25rem;
-    line-height: 2.1;
-    color: var(--hc-gold);
-    direction: rtl;
-    flex-shrink: 0;
-  }
-
-  .gloss-entry__def {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.94rem;
-    line-height: 1.55;
+  .ladder-card__name.is-unlinked {
     color: var(--hc-text-secondary);
-    text-align: right;
   }
 
-  /* Subjects Cloud */
-  .subjects-cloud {
+  .ladder-card__unresolved {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.5rem;
   }
 
-  .subject-chip {
+  .unresolved-badge {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-style: italic;
+  }
+
+  .ladder-card__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    flex: 0 0 auto;
+  }
+
+  .death-tag,
+  .dossier-button {
+    min-height: 30px;
+  }
+
+  .death-tag {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.45rem 0.85rem;
+    padding: 0 0.52rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    border-radius: 5px;
     background: var(--hc-surface-2);
+    color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--hc-text-secondary);
-    text-decoration: none;
-    transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease, gap var(--motion-fast) var(--ease-standard);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
   }
 
-  .subject-chip:hover {
-    border-color: var(--hc-gold);
+  .dossier-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.58rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 5px;
+    background: transparent;
     color: var(--hc-gold);
-    background: var(--hc-surface-3);
-    gap: 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-transform: uppercase;
+    transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, gap var(--motion-fast) ease;
   }
 
-  .subject-chip__arrow {
-    font-size: 0.8rem;
+  .dossier-button:hover {
+    border-color: var(--hc-gold);
+    background: var(--hc-surface-2);
+    gap: 0.5rem;
+  }
+
+  /* ─────────────── Apparatus ─────────────── */
+  .apparatus-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .apparatus-card {
+    grid-column: span 6;
+    min-width: 0;
+    padding: 1.35rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 10px;
+    background: var(--hc-surface-1);
+  }
+
+  .apparatus-card:first-child {
+    grid-column: span 8;
+  }
+
+  .apparatus-card:last-child {
+    grid-column: span 4;
+  }
+
+  .apparatus-card__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.45rem;
+  }
+
+  .apparatus-card__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 520;
+    line-height: 1.3;
+    color: var(--hc-text-primary);
+  }
+
+  .apparatus-card__count {
+    flex: 0 0 auto;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.67rem;
+    font-weight: 750;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .apparatus-card__note {
+    margin: 0 0 1rem;
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    line-height: 1.65;
+  }
+
+  .circulation-list {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .circulation-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.75rem 0.85rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .circulation-item:first-child {
+    border-top: 0;
+  }
+
+  .circulation-item__meta {
+    display: grid;
+    gap: 0.12rem;
+  }
+
+  .circulation-item__title {
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+
+  .circulation-item__desc {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .circulation-item__num {
+    color: var(--hc-gold);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lexicon-ledger {
+    margin: 0;
+    padding: 0;
+  }
+
+  .lexicon-entry {
+    display: grid;
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .lexicon-entry:first-child {
+    border-top: 0;
+  }
+
+  .lexicon-entry__ar {
+    margin: 0;
+    color: var(--hc-gold);
+    font-family: var(--font-arabic);
+    font-size: 1.25rem;
+    line-height: 1.8;
+    text-align: right;
+    direction: rtl;
+  }
+
+  .lexicon-entry__en {
+    margin: 0;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .subject-tags-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .subject-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 32px;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 5px;
+    background: var(--hc-surface-2);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease;
+  }
+
+  .subject-pill:hover {
+    border-color: var(--hc-gold);
+    background: var(--hc-surface-3);
+    color: var(--hc-gold);
+  }
+
+  .subject-pill__arrow {
     color: var(--hc-gold-dim);
   }
 
-  /* ── Degraded State Notice ─────────────────────────────────── */
+  /* ─────────────── Degraded state ─────────────── */
   .hadith-degraded {
-    padding: 3.5rem 2rem;
-    margin: 2.5rem auto;
-    max-width: 44rem;
+    max-width: 48rem;
+    margin: 4rem auto;
+    padding: clamp(2rem, 5vw, 4rem);
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
+    border-radius: 10px;
     background: var(--hc-surface-1);
     text-align: center;
   }
 
   .hadith-degraded__badge {
-    display: inline-block;
-    padding: 0.25rem 0.75rem;
-    margin-bottom: 1.25rem;
+    display: inline-flex;
+    padding: 0.28rem 0.7rem;
+    margin-bottom: 1rem;
     border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    border-radius: 999px;
     color: var(--hc-gold);
     background: var(--hc-surface-2);
+    font-family: var(--font-ui);
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
   }
 
   .hadith-degraded__title {
-    margin: 0 0 1rem;
+    margin: 0 0 0.85rem;
     font-family: var(--font-display);
-    font-size: 1.85rem;
-    font-weight: 500;
+    font-size: clamp(1.7rem, 4vw, 2.3rem);
+    font-weight: 520;
+    line-height: 1.2;
     color: var(--hc-text-primary);
   }
 
   .hadith-degraded__text {
-    margin: 0 auto 2rem;
-    max-width: 48ch;
+    max-width: 54ch;
+    margin: 0 auto 1.5rem;
+    color: var(--hc-text-secondary);
     font-family: var(--font-body);
     font-size: 1rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
+    line-height: 1.75;
   }
 
   .hadith-degraded__actions {
@@ -1474,61 +1583,179 @@ const totalParallels = hadith
     justify-content: center;
   }
 
-  /* ── Responsive Reflow ─────────────────────────────────────── */
-  @media (max-width: 780px) {
-    .facing-spread {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 1.25rem;
+  /* ─────────────── Responsive ─────────────── */
+  @media (max-width: 980px) {
+    .edition-ledger-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    /* Bilingual rule: Arabic collapses first on mobile */
-    .facing-col--ar {
-      grid-column: 1;
-      grid-row: 1;
+    .ledger-block:nth-child(2) {
+      border-right: 0;
     }
 
-    .facing-col--en {
-      grid-column: 1;
-      grid-row: 2;
+    .ledger-block:nth-child(-n + 2) {
+      border-bottom: 1px solid var(--hc-rule-soft);
     }
 
-    .edition-hero {
-      padding: 1.6rem 1.35rem;
+    .apparatus-card,
+    .apparatus-card:first-child,
+    .apparatus-card:last-child {
+      grid-column: span 12;
     }
   }
 
-  @media (max-width: 600px) {
-    .edition-hero__nav {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.85rem;
+  @media (max-width: 780px) {
+    .hadith-container {
+      width: min(100% - 1rem, 56rem);
+      padding-top: 0.75rem;
     }
 
-    .edition-ledger-strip {
-      flex-direction: column;
+    .edition-hero__topbar {
       align-items: flex-start;
-      gap: 0.75rem;
+      flex-direction: column;
     }
 
-    .isnad-step-body {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.65rem;
+    .edition-hero__badges {
+      justify-content: flex-start;
     }
 
-    .isnad-step-meta {
+    .edition-hero__titles {
+      padding: 1.6rem 1.1rem 1.45rem;
+    }
+
+    .edition-hero__title-ar {
+      text-align: right;
+    }
+
+    .edition-hero .hc-stat-band {
+      margin: 0 1.1rem 1.1rem;
+    }
+
+    .edition-nav-dock__inner {
+      min-height: 50px;
+    }
+
+    .edition-nav-dock__label {
+      display: none;
+    }
+
+    .critical-spread {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .critical-col--en {
+      border-right: 0;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .critical-col--ar {
+      grid-column: 1;
+    }
+
+    .critical-col__header {
+      min-height: 44px;
+    }
+
+    .critical-col__caveat,
+    .critical-col__folio {
+      display: none;
+    }
+
+    .critical-col__prose {
+      padding: 1.4rem 1rem 1.7rem;
+    }
+
+    .facing-prose--en {
+      font-size: 1rem;
+      line-height: 1.85;
+    }
+
+    .facing-prose--ar {
+      max-width: none;
+      font-size: 1.34rem;
+      line-height: 2.15;
+    }
+
+    .isnad-path-card__header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .isnad-flow-legend {
+      display: none;
+    }
+
+    .isnad-chain-ladder {
+      padding-inline: 0.75rem;
+    }
+
+    .ladder-card {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .ladder-card__meta {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .edition-ledger-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ledger-block,
+    .ledger-block:nth-child(2) {
+      border-right: 0;
+      border-bottom: 1px solid var(--hc-rule-soft);
+    }
+
+    .ledger-block:last-child {
+      border-bottom: 0;
+    }
+
+    .edition-hero__badges {
       width: 100%;
-      justify-content: space-between;
+    }
+
+    .edition-ref-tag {
+      font-size: 0.63rem;
+    }
+
+    .record-section__title {
+      font-size: 1.55rem;
+    }
+
+    .circulation-item {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.4rem;
+    }
+
+    .circulation-item__num {
+      font-size: 1.05rem;
+    }
+
+    .lexicon-entry {
+      grid-template-columns: 1fr;
+    }
+
+    .lexicon-entry__ar {
+      text-align: left;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .edition-ledger-val--link,
-    .isnad-step-name,
-    .isnad-dossier-link,
-    .subject-chip,
-    .edition-jump-link,
-    .apparatus-stat-row {
+    :global(html) {
+      scroll-behavior: auto;
+    }
+
+    .hc-back-link,
+    .dock-link,
+    .ladder-card,
+    .ladder-card__name,
+    .dossier-button,
+    .subject-pill,
+    .edition-cite-btn {
       transition: none;
     }
   }
