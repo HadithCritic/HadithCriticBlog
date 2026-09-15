@@ -121,7 +121,7 @@ R2 needs CORS, because a cross-origin range request is not sent otherwise.
 
 ```bash
 npm run build:corpus                 # build, chunk, meta, verify
-npm run publish:corpus               # stage into dist-db for `npm run dev`
+npm run publish:corpus               # stage into public/ for `npm run dev`
 npm run build                        # the site
 npm run publish:corpus:dist          # copy the corpus into dist/client
 ```
@@ -131,6 +131,11 @@ therefore a local, occasional step, not a CI step: the site builds from
 `src/data/corpus-meta.json`, which is committed. Corpus releases and site
 deployments are separate events, and the version in that file is what ties a
 deployment to a corpus.
+
+`publish:corpus` stages that same version by default. It reads
+`src/data/corpus-meta.json` rather than minting a name the way `build:corpus`
+does, so publishing after a later commit still stages the corpus the site is
+built against. Pass `--version` to stage a different one.
 
 The corpus is deliberately **not** in `public/`. Astro copies `publicDir`
 wholesale into `dist/` on every build, which would mean copying 1.6 GB per
@@ -212,7 +217,7 @@ So there are two suites and a committed fixture.
 
 `tests/fixtures/corpus/` is a miniature corpus cut out of the real one by
 `npm run build:corpus:fixture`: 48 narrations, 161 transmitters, 4 collections,
-41 chunks, about 2.6 MB, committed. Same schema, same derived tables, same
+two chunks, about 2.6 MB, committed. Same schema, same derived tables, same
 Arabic fold, chunked by the same script. The subset is chosen rather than
 random, so it contains the records the data suite names and both spellings of
 the folded-Arabic cases.
@@ -225,9 +230,14 @@ puts the tracked files back.
 Locally, against the real corpus:
 
 ```bash
-npm run publish:corpus     # stage the real corpus for the dev server
+npm run build:e2e          # build with the corpus on its own origin
 npm run test:e2e:corpus    # both suites, including the data assertions
 ```
+
+Stop `npm run dev` first. Playwright reuses a server already answering on 4321,
+and a dev server serves the source rather than that build, so the corpus is
+requested from the wrong origin and every corpus test fails on a 404.
+`scripts/preview-foreground.mjs` refuses to adopt one and says so.
 
 The data suite skips itself when the served corpus announces itself as
 `fixture`, so it cannot quietly pass against the wrong one.

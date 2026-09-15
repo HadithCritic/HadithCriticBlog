@@ -69,6 +69,26 @@ export const ftsCountSql = () =>
   `SELECT COUNT(*) AS n FROM (SELECT rowid FROM hadith_fts WHERE hadith_fts MATCH ? LIMIT ${COUNT_CAP + 1})`;
 
 /**
+ * Read a collection's total from `hadith_book` instead of counting its rows.
+ *
+ * This is rule 1 above applied to the one filter that has a stored answer. The
+ * generic bounded count stops at the cap, so a collection larger than the cap
+ * reported "10,000+" for a figure the corpus already holds exactly: Musannaf
+ * Ibn Abi Shaybah has 39,096 narrations and the catalogue said so on the page
+ * before the reader filtered by it. One indexed row read replaces 10,001, and
+ * the answer is exact rather than a floor.
+ *
+ * It comes off the corpus rather than corpus-meta.json on purpose: the count
+ * then cannot disagree with the rows being paged through, whatever metadata a
+ * build was generated from.
+ *
+ * Only valid when the collection is the single filter, like the shapes around
+ * it; with a query or a narrator as well this would be the collection's whole
+ * total against a narrower list.
+ */
+export const bookCountSql = () => `SELECT hadith_count AS n FROM hadith_book WHERE id = ?`;
+
+/**
  * Count the narrations a narrator appears in, from the chain index alone.
  *
  * The generic form scans `hadith` and evaluates an EXISTS per row, 197,064

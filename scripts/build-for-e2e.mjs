@@ -29,8 +29,13 @@ const port = Number(args.port) || Number(process.env.CORPUS_PORT) || 4322;
 const base = `http://127.0.0.1:${port}/data/corpus/`;
 
 const run = (command, argv, env) => {
-  // `npm` is a .cmd on Windows and needs a shell; `node` must not get one, or
-  // the interpreter path is split on the space in "Program Files".
+  /**
+   * `npm` is a batch file on Windows, and since Node 20.12 spawning one without
+   * a shell is refused outright, so it gets `shell: true` and Node's DEP0190
+   * warning with it. `node` must not get one, or the interpreter path is split
+   * on the space in "Program Files". Nothing here takes an argument from
+   * outside the file, which is what DEP0190 is about.
+   */
   const shell = process.platform === 'win32' && command === 'npm';
   const result = spawnSync(command, argv, {
     cwd: ROOT,

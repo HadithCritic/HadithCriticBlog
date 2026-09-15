@@ -16,6 +16,9 @@
  * the old corpus when a deploy lands finishes on the file they started with
  * instead of reading half of each.
  *
+ * Without `--version` this publishes the version the site is built against, the
+ * one in src/data/corpus-meta.json.
+ *
  * Usage:
  *   node scripts/publish-corpus.mjs --target public [--version <id>] [--copy]
  *   node scripts/publish-corpus.mjs --target dist   [--version <id>]
@@ -34,7 +37,7 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import { ROOT, buildPaths, corpusVersion, heading, megabytes, parseArgs } from './lib/corpus-dist.mjs';
+import { ROOT, buildPaths, heading, megabytes, parseArgs } from './lib/corpus-dist.mjs';
 
 const R2_BUCKET = process.env.CORPUS_R2_BUCKET || 'hadithcritic-corpus';
 
@@ -207,9 +210,39 @@ async function publishToR2(build, args) {
   console.log(`    PUBLIC_CORPUS_VERSION=${build.version}`);
 }
 
+/**
+ * Which version to publish, when no `--version` says.
+ *
+ * Not `corpusVersion()`: that mints a *new* name from today's date and HEAD,
+ * which is right for build-corpus.mjs because it is creating one, and wrong
+ * here because this only moves an existing build. On any day after the release
+ * was cut, or after any commit, it named a directory that does not exist, and
+ * `npm run publish:corpus` failed telling the developer to rebuild a 1.6 GB
+ * corpus they already had.
+ *
+ * The site asks for exactly one version, the one in src/data/corpus-meta.json
+ * that src/lib/corpus-config.ts reads, so that is the one worth staging. A
+ * publish that disagrees with it stages bytes nothing requests.
+ */
+function siteCorpusVersion() {
+  if (process.env.PUBLIC_CORPUS_VERSION) return process.env.PUBLIC_CORPUS_VERSION;
+  const meta = path.join(ROOT, 'src', 'data', 'corpus-meta.json');
+  try {
+    const version = JSON.parse(readFileSync(meta, 'utf8')).corpusVersion;
+    if (version) return version;
+  } catch {
+    // Fall through to the error below, which names the flag to pass instead.
+  }
+  throw new Error(
+    `No corpus version in ${meta}.
+` +
+      'Regenerate it with `npm run corpus:meta`, or name one with --version.'
+  );
+}
+
 async function main() {
   const args = parseArgs();
-  const version = typeof args.version === 'string' ? args.version : corpusVersion();
+  const version = typeof args.version === 'string' ? args.version : siteCorpusVersion();
   const target = typeof args.target === 'string' ? args.target : 'public';
 
   /**

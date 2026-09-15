@@ -28,7 +28,6 @@
 
 import { copyFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import path from 'node:path';
 
 import {
   buildPaths,

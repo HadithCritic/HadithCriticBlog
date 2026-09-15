@@ -40,6 +40,7 @@ import {
   CORPUS_WORKER_URL
 } from './corpus-config';
 import {
+  bookCountSql,
   boundedCountSql,
   exactCount,
   ftsCountSql,
@@ -456,6 +457,7 @@ export async function searchHadith(params: HadithSearchParams): Promise<HadithSe
   const sole = active.length === 1 ? active[0] : null;
   const queryOnly = sole === 'query' && order === HADITH_SORTS.relevance;
   const narratorOnly = sole === 'narrator';
+  const bookOnly = sole === 'book';
 
   const rows = queryOnly
     ? await query<Record<string, unknown>>(ftsPageSql(HADITH_COLUMNS, BM25), [
@@ -475,6 +477,8 @@ export async function searchHadith(params: HadithSearchParams): Promise<HadithSe
     count = readCount((await queryOne<{ n: number }>(ftsCountSql(), [binds[0]]))?.n);
   } else if (narratorOnly) {
     count = readCount((await queryOne<{ n: number }>(narratorCountSql(), [narrator]))?.n);
+  } else if (bookOnly) {
+    count = exactCount(Number((await queryOne<{ n: number }>(bookCountSql(), [book]))?.n ?? 0));
   } else {
     count = readCount((await queryOne<{ n: number }>(boundedCountSql(from, clause), binds))?.n);
   }

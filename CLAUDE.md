@@ -124,6 +124,26 @@ No database server is in the request path for any public page.
   `?page=2` must be read from the URL, never from a data attribute baked into
   the prerendered HTML. This shipped wrong once: the right twenty-five records,
   with the pager insisting it was page one.
+- **Playwright adopts whatever answers on 4321, including `npm run dev`.**
+  `reuseExistingServer` is on so a developer's preview is not restarted under
+  them, but a dev server serves `src/`, not the build, so
+  `PUBLIC_CORPUS_BASE_URL` from `npm run build:e2e` is absent and every corpus
+  test fails on a 404 that reads like a corpus fault. That cost a 7.5 minute
+  run and a wrong diagnosis. `scripts/preview-foreground.mjs` now refuses to
+  adopt a server whose HTML carries `/@vite/client`, and says which command to
+  run. Stop the dev server before any end-to-end run.
+- **A count the corpus already stores is never counted.** `COUNT_CAP` stops a
+  count at 10,000 and reports "10,000+", which is right for a search and wrong
+  for a collection: `hadith_book.hadith_count` holds the exact figure and the
+  catalogue prints it, so filtering to Musannaf Ibn Abi Shaybah replaced 39,096
+  with "10,000+" on the next screen. Any new sole-filter shape should ask
+  whether a stored total exists before adding a scan.
+- **`publish:corpus` stages the version the site asks for.** Its default comes
+  from `src/data/corpus-meta.json`, not from `corpusVersion()`, which mints a
+  fresh name from today's date and HEAD. Minting one here named a directory
+  that does not exist, so the command failed the day after a release telling
+  you to rebuild 1.6 GB you already had. `build-corpus.mjs` is the only script
+  that should mint a version.
 
 ## Rules that are not negotiable
 

@@ -21,11 +21,56 @@ const PORT = process.env.PREVIEW_PORT ?? '4321';
 const URL_ = `http://${HOST}:${PORT}/`;
 const READY_TIMEOUT_MS = 60_000;
 
+/**
+ * `fetch` with a deadline, leaving nothing behind.
+ *
+ * `AbortSignal.timeout()` would be shorter, but its timer stays registered
+ * until it fires, and exiting the process while one is pending trips a libuv
+ * assertion on Windows that turns a deliberate `exit(1)` into exit 127. The
+ * body is drained and the connection closed for the same reason: a socket left
+ * in the keep-alive pool is another handle open at exit.
+ */
+const getWithDeadline = async (ms) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const response = await fetch(URL_, {
+      headers: { connection: 'close' },
+      signal: controller.signal
+    });
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const responds = async () => {
   try {
     // A 404 still proves a server is listening, which is all we need.
-    await fetch(URL_, { signal: AbortSignal.timeout(2_000) });
+    await getWithDeadline(2_000);
     return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Whether whatever is answering on this port is `astro dev` rather than the
+ * built site.
+ *
+ * Playwright adopts an existing server, and a dev server answers on the same
+ * port. Adopting one turns the whole end-to-end suite into a test of the source
+ * tree: it serves src/ rather than dist/, so `PUBLIC_CORPUS_BASE_URL` baked in
+ * by scripts/build-for-e2e.mjs is not there, the corpus is requested from the
+ * site's own origin, and every corpus test fails on a 404 that looks like a
+ * corpus problem. That cost a full 7.5 minute run to diagnose.
+ *
+ * The dev server injects Vite's client into every HTML response and the built
+ * site never does, so one GET separates them.
+ */
+const isDevServer = async () => {
+  try {
+    return (await getWithDeadline(5_000)).includes('/@vite/client');
   } catch {
     return false;
   }
@@ -60,8 +105,24 @@ try {
   console.warn(`[preview] Initial connectivity check failed:`, err);
 }
 
+/**
+ * Set instead of calling `process.exit(1)`: exiting the process outright after
+ * a `fetch` trips a libuv assertion on Windows and reports 127 rather than the
+ * failure this is trying to report. Setting the code and declining to open the
+ * keep-alive handles below lets the loop drain and exit 1 on its own.
+ */
+let bail = false;
+
 if (adopted) {
-  console.log(`[preview] Adopting the server already answering at ${URL_}`);
+  if (await isDevServer()) {
+    console.error(`[preview] A dev server is answering at ${URL_}, not the built site.`);
+    console.error('[preview] These tests run against a build. Stop `npm run dev`, then');
+    console.error('[preview] rebuild with `npm run build:e2e` and run them again.');
+    process.exitCode = 1;
+    bail = true;
+  } else {
+    console.log(`[preview] Adopting the server already answering at ${URL_}`);
+  }
 } else {
   try {
     await astro(['preview', '--background', '--host', HOST, '--port', PORT]);
@@ -112,27 +173,29 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
   process.on(signal, () => void shutdown(signal));
 }
 
-// Keep the event loop actively alive and periodically verify server health.
-// This prevents Node.js 22+ exit code 13 ("Unfinished Top-Level Await") and
-// immediately reports if the server terminates during test execution.
-monitorInterval = setInterval(async () => {
-  if (closing) return;
-  const alive = await responds();
-  if (!alive && !closing) {
-    console.error(`[preview] Server at ${URL_} stopped responding unexpectedly.`);
-    await shutdown('SERVER_DOWN');
-  }
-}, 2_000);
+if (!bail) {
+  // Keep the event loop actively alive and periodically verify server health.
+  // This prevents Node.js 22+ exit code 13 ("Unfinished Top-Level Await") and
+  // immediately reports if the server terminates during test execution.
+  monitorInterval = setInterval(async () => {
+    if (closing) return;
+    const alive = await responds();
+    if (!alive && !closing) {
+      console.error(`[preview] Server at ${URL_} stopped responding unexpectedly.`);
+      await shutdown('SERVER_DOWN');
+    }
+  }, 2_000);
 
-// Also handle stdin closure from parent runner (e.g. Playwright)
-if (process.stdin.isTTY === false) {
-  process.stdin.on('end', () => void shutdown('STDIN_END'));
-  process.stdin.resume();
+  // Also handle stdin closure from parent runner (e.g. Playwright)
+  if (process.stdin.isTTY === false) {
+    process.stdin.on('end', () => void shutdown('STDIN_END'));
+    process.stdin.resume();
+  }
+
+  // Block awaiting signals or process termination
+  await new Promise((resolve) => {
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+      process.on(signal, resolve);
+    }
+  });
 }
-
-// Block awaiting signals or process termination
-await new Promise((resolve) => {
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
-    process.on(signal, resolve);
-  }
-});
