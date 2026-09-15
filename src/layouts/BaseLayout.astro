@@ -44,6 +44,28 @@ const {
   tags = []
 } = Astro.props;
 
+/**
+ * Corpus pages fetch their data from a separate origin, and nothing in the
+ * document references it, so the browser only discovers it when the corpus
+ * client runs. Measured on /hadith/[id], that was 1,039 ms into the page: the
+ * DNS lookup, TCP handshake and TLS negotiation all happened after fonts, CSS,
+ * the emblem and the search index had finished competing for the connection.
+ *
+ * A preconnect moves that handshake to the head, and is emitted only on the
+ * routes that will actually use it so an article page does not open a
+ * connection it never writes to.
+ */
+const corpusOrigin = (() => {
+  const raw = import.meta.env.PUBLIC_CORPUS_BASE_URL;
+  if (!raw || !/^https?:\/\//.test(raw)) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+})();
+const usesCorpus = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname);
+
 const base = Astro.site ?? new URL(Astro.url.origin);
 const canonicalUrl = canonical ? new URL(canonical, base).href : new URL(Astro.url.pathname, base).href;
 const imageUrl = new URL(image, base).href;
@@ -140,6 +162,12 @@ const nodes: Graph[] = noindex
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    {usesCorpus && corpusOrigin && (
+      <Fragment>
+        <link rel="preconnect" href={corpusOrigin} crossorigin="anonymous" />
+        <link rel="dns-prefetch" href={corpusOrigin} />
+      </Fragment>
+    )}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link rel="preload" href="/fonts/glacial-indifference-regular.woff2" as="font" type="font/woff2" crossorigin="anonymous" />

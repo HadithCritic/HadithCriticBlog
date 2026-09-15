@@ -33,6 +33,7 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 | File | What it answers |
 | :--- | :--- |
 | **[docs/static-corpus.md](docs/static-corpus.md)** | How the corpus is built, chunked, published and read. Required before editing anything under `/hadith` or `/narrators`. |
+| **[docs/corpus-performance.md](docs/corpus-performance.md)** | Why corpus pages are slow, measured against production, and the ranked fixes. |
 | **[DATABASE.md](DATABASE.md)** | Why the corpus left D1 and then Turso, what the measurements were, and what Turso is still used for. |
 | **[DESIGN.md](DESIGN.md)** | The authority on anything visual. Enforced at build time by `npm run test:design`. |
 | **[CLAUDE.md](CLAUDE.md)**, **[AGENTS.md](AGENTS.md)** | Working notes and the traps that have cost real time. |

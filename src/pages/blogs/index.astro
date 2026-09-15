@@ -295,13 +295,24 @@ const entries = posts.map((post, index) => ({
 
     const searchMap = new Map<string, SearchDoc>();
 
-    fetch('/search-index.json')
-      .then((res) => res.json() as Promise<SearchDoc[]>)
-      .then((docs) => {
-        docs.forEach((doc) => searchMap.set(doc.id, doc));
-        if (query) applyFilters();
-      })
-      .catch(() => {});
+    /**
+     * 480 KB over the wire, and it only deepens a query that has been typed.
+     * Fetched on the first keystroke, or immediately when the page was opened
+     * with ?q=, rather than on every visit to the archive.
+     */
+    let searchIndexRequest: Promise<void> | null = null;
+
+    const loadSearchIndex = () => {
+      if (searchIndexRequest) return searchIndexRequest;
+      searchIndexRequest = fetch('/search-index.json')
+        .then((res) => res.json() as Promise<SearchDoc[]>)
+        .then((docs) => {
+          docs.forEach((doc) => searchMap.set(doc.id, doc));
+          if (query) applyFilters();
+        })
+        .catch(() => {});
+      return searchIndexRequest;
+    };
 
     function escapeHtml(str: string): string {
       return str
@@ -465,6 +476,7 @@ const entries = posts.map((post, index) => ({
 
     searchInput?.addEventListener('input', () => {
       query = searchInput.value.trim().toLowerCase();
+      if (query) loadSearchIndex();
       syncUrl();
       applyFilters();
     });
@@ -498,6 +510,7 @@ const entries = posts.map((post, index) => ({
     if (requestedQuery && searchInput) {
       searchInput.value = requestedQuery;
       query = requestedQuery.toLowerCase();
+      loadSearchIndex();
     }
     applyFilters();
   }

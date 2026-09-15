@@ -146,6 +146,22 @@ No database server is in the request path for any public page.
   reported it before any check did. `src/lib/corpus-config.ts` now fails a
   production build when `PUBLIC_CORPUS_BASE_URL` is not an absolute origin.
   The value belongs in the Pages project settings as well as in CI.
+- **Cloudflare will not cache a range request against the R2 custom domain.**
+  A Cache Rule on `data.hadithcriticblog.com` makes whole-object GETs `HIT`,
+  verified, including a 10 MiB chunk. A request carrying `Range` still answers
+  `cf-cache-status: DYNAMIC`, and `origin_range_requests: on` does not change
+  it. Since every corpus read is a range request, the rule alone bought nothing
+  for readers: 185 ms per request, 34 serial requests on one narration record,
+  roughly six seconds. `workers/corpus/` is the fix, widening each range to a
+  1 MiB slice cached under a key with no `Range` header. Do not spend time
+  re-testing the rule; it is applied and it is not the lever.
+- **Anything serving corpus bytes must answer `206`, never `200`.**
+  `openCorpus()` probes with `Range: bytes=0-15` and refuses otherwise, because
+  given a whole file sql.js-httpvfs copies from offset 0 into the page it
+  believes it asked for and SQLite reads a database assembled from the wrong
+  pages. It does not error, it returns the wrong narration. This applies to
+  `scripts/lib/corpus-range.mjs`, `scripts/corpus-file-server.mjs` and
+  `workers/corpus/src/index.js` equally.
 - **`publish:corpus` stages the version the site asks for.** Its default comes
   from `src/data/corpus-meta.json`, not from `corpusVersion()`, which mints a
   fresh name from today's date and HEAD. Minting one here named a directory

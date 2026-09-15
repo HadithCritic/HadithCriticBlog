@@ -893,13 +893,30 @@ const searchIndex = allArticles.map((article) => {
     console.error('Failed to load local article catalog', err);
   }
 
+  /**
+   * The deep index is 480 KB over the wire and most readers never open search,
+   * so it is fetched when the dialog is first opened rather than on every page
+   * load. Fetching it at module scope cost every page that bandwidth and, on
+   * corpus pages, delayed the corpus bootstrap by competing with it.
+   *
+   * The catalogue baked into the page still answers a query on its own, so a
+   * reader who types before this arrives gets results immediately and a
+   * re-render once the deeper index is in.
+   */
   let deepCatalog: SearchDoc[] = [];
-  fetch('/search-index.json')
-    .then((res) => res.json() as Promise<SearchDoc[]>)
-    .then((docs) => {
-      deepCatalog = docs;
-    })
-    .catch(() => {});
+  let deepCatalogRequest: Promise<void> | null = null;
+
+  const loadDeepCatalog = () => {
+    if (deepCatalogRequest) return deepCatalogRequest;
+    deepCatalogRequest = fetch('/search-index.json')
+      .then((res) => res.json() as Promise<SearchDoc[]>)
+      .then((docs) => {
+        deepCatalog = docs;
+        if (input?.value.trim()) runSearch(input.value);
+      })
+      .catch(() => {});
+    return deepCatalogRequest;
+  };
 
   let invoker: HTMLElement | null = null;
   let timer = 0;
@@ -909,6 +926,7 @@ const searchIndex = allArticles.map((article) => {
   const open = (button?: HTMLElement) => {
     if (!dialog?.open) {
       invoker = button || (document.activeElement as HTMLElement);
+      loadDeepCatalog();
       dialog?.showModal();
       setTimeout(() => input?.focus(), 50);
     }
