@@ -53,6 +53,23 @@ const IMMUTABLE = 'public, max-age=31536000, immutable';
  */
 const MANIFEST_CACHE = 'public, max-age=300, s-maxage=3600';
 
+/**
+ * Origins allowed to range-request the corpus.
+ *
+ * Both hostnames, because www.hadithcriticblog.com serves the site directly
+ * rather than redirecting to the apex. A reader who arrives on the one that is
+ * not listed gets no corpus at all: the browser refuses to send the cross
+ * origin `Range` and the page never leaves its loading state. Override with a
+ * comma-separated CORPUS_ALLOWED_ORIGIN.
+ */
+const CORS_ORIGINS = (
+  process.env.CORPUS_ALLOWED_ORIGIN ||
+  'https://hadithcriticblog.com,https://www.hadithcriticblog.com'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const readEnvFile = (name) => {
   for (const file of ['.dev.vars', '.env']) {
     try {
@@ -149,7 +166,7 @@ async function publishToR2(build, args) {
         CORSConfiguration: {
           CORSRules: [
             {
-              AllowedOrigins: [process.env.CORPUS_ALLOWED_ORIGIN || 'https://hadithcriticblog.com'],
+              AllowedOrigins: CORS_ORIGINS,
               AllowedMethods: ['GET', 'HEAD'],
               AllowedHeaders: ['range', 'if-match', 'if-none-match'],
               ExposeHeaders: ['content-length', 'content-range', 'accept-ranges', 'etag'],
@@ -159,7 +176,7 @@ async function publishToR2(build, args) {
         }
       })
     );
-    console.log(`  CORS rules applied to ${R2_BUCKET}`);
+    console.log(`  CORS rules applied to ${R2_BUCKET} for ${CORS_ORIGINS.join(', ')}`);
   }
 
   const put = (key, file, contentType, cacheControl) =>

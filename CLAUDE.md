@@ -138,6 +138,14 @@ No database server is in the request path for any public page.
   catalogue prints it, so filtering to Musannaf Ibn Abi Shaybah replaced 39,096
   with "10,000+" on the next screen. Any new sole-filter shape should ask
   whether a stored total exists before adding a scan.
+- **A deployed build must be told where the corpus is.** The default
+  `/data/corpus/` is the dev server's middleware, and nothing else. Cloudflare
+  answers a range request with `200` and the whole file, so a build that falls
+  back to the site's own origin cannot read the corpus at all: every corpus
+  page on the live site said the corpus could not be loaded, and a reader
+  reported it before any check did. `src/lib/corpus-config.ts` now fails a
+  production build when `PUBLIC_CORPUS_BASE_URL` is not an absolute origin.
+  The value belongs in the Pages project settings as well as in CI.
 - **`publish:corpus` stages the version the site asks for.** Its default comes
   from `src/data/corpus-meta.json`, not from `corpusVersion()`, which mints a
   fresh name from today's date and HEAD. Minting one here named a directory
@@ -187,6 +195,9 @@ npm run lint:footnotes
 npm run test:normalize   # Arabic folding and formatting
 npm run build            # astro build + pagefind, ~208 pages
 npm run validate         # all of the above
+
+# `build` and `validate` need the corpus origin, or they refuse:
+PUBLIC_CORPUS_BASE_URL=https://data.hadithcriticblog.com/ npm run validate
 
 node scripts/check-contrast.mjs                # WCAG AA, both themes, key routes
 node scripts/check-contrast.mjs --all-articles # include every article body

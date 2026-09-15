@@ -42,7 +42,17 @@ jobs:
 
       # The real build, from the committed corpus metadata. This is what
       # deploys, so it is checked on its own before anything is swapped out.
+      #
+      # PUBLIC_CORPUS_BASE_URL is not optional for a built site and the build
+      # refuses without it. Leaving it unset once deployed a site that asked
+      # its own origin for the corpus, and Cloudflare static assets answer a
+      # range request with 200 and the whole file, so every corpus page failed
+      # for every reader. Setting it here means CI builds the way the
+      # deployment does; the deployment sets the same variable in its own
+      # project settings.
       - run: npm run build
+        env:
+          PUBLIC_CORPUS_BASE_URL: https://data.hadithcriticblog.com/
 
       # The corpus itself is 1.62 GB and is not in git, so the e2e run serves a
       # miniature corpus cut from it (tests/fixtures/corpus, ~2.6 MB, committed)

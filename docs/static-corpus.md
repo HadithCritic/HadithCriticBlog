@@ -62,12 +62,21 @@ is readable as `window.__corpusVersion`.
 
 ## Where the chunks are served from
 
-Two options, one variable.
+One variable, and on this deployment only one usable answer.
 
 | | `PUBLIC_CORPUS_BASE_URL` | Publish with |
 |---|---|---|
-| Site's own assets | `/data/corpus/` (default) | `npm run publish:corpus:dist` |
-| Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus:r2` |
+| Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus:r2 -- --cors` |
+| Dev server only | `/data/corpus/` (default) | `npm run publish:corpus` |
+
+The site's own assets are **not** an option, for the reason in the next
+section: Cloudflare answers a range request with `200` and the whole file. A
+built site therefore has to be told an absolute origin, and
+`src/lib/corpus-config.ts` fails the build when it is not. That check exists
+because the default shipped once: every corpus page on the deployed site
+reported that the corpus could not be loaded, and the first report came from a
+reader. `npm run publish:corpus:dist` remains for a host that does serve
+ranges; it is not the Cloudflare path.
 
 Nothing else changes, because the manifest's `urlPrefix` is **relative**.
 `sql.js-httpvfs` resolves it against the URL the manifest was fetched from, so
@@ -75,7 +84,7 @@ the same bytes work from either place. An absolute `/data/...` prefix would pin
 the chunks to the site origin no matter where the manifest came from, and
 `scripts/verify-distribution.mjs` fails a build that has one.
 
-The artifact fits the site's own assets comfortably: 1,138 files totalling
+The artifact would fit the site's own assets comfortably: 1,138 files totalling
 1.7 GB against Cloudflare's limits of 20,000 files and 25 MiB per file, so 5.7%
 of the file budget and 40% of the per-file ceiling. Size is not the problem.
 

@@ -34,11 +34,36 @@ export const CORPUS_VERSION: string =
 /**
  * Where versioned corpus directories are served from.
  *
- * Default is the site's own static assets. Set `PUBLIC_CORPUS_BASE_URL` to an
- * absolute origin, `https://data.hadithcriticblog.com/`, to serve the chunks
- * from R2 instead. Must end in a slash; the version is appended to it.
+ * `/data/corpus/` is the dev server's own middleware, which answers ranges.
+ * Any other build has to be told an absolute origin through
+ * `PUBLIC_CORPUS_BASE_URL`, `https://data.hadithcriticblog.com/`. Must end in
+ * a slash; the version is appended to it.
  */
 const RAW_BASE: string = import.meta.env.PUBLIC_CORPUS_BASE_URL || '/data/corpus/';
+
+/**
+ * A built site may not fall back to serving the corpus from its own origin.
+ *
+ * This shipped, and every corpus page on the deployed site failed. Cloudflare
+ * static assets answer a range request with `200` and the whole file, so the
+ * site's own origin cannot serve the corpus at all: `openCorpus()` probes for
+ * `206` and refuses, which is the right answer and a broken page. Nothing
+ * before this point objected, and the first report came from a reader.
+ *
+ * The dev server is exempt because its middleware does answer `206`. Every
+ * other build states the origin: scripts/build-for-e2e.mjs points at the test
+ * corpus server, and a deployment points at R2. Failing the build is the only
+ * moment left where this is cheap to notice.
+ */
+if (import.meta.env.PROD && !/^https?:\/\//.test(RAW_BASE)) {
+  throw new Error(
+    'PUBLIC_CORPUS_BASE_URL is not set, so this build would ask for the corpus ' +
+      "from the site's own origin. Cloudflare static assets answer a range " +
+      'request with 200 and the whole file, which the corpus cannot be read ' +
+      'from. Set it to the origin serving the chunks, for example ' +
+      'https://data.hadithcriticblog.com/, or use `npm run build:e2e`.'
+  );
+}
 
 export const CORPUS_BASE_URL: string = RAW_BASE.endsWith('/') ? RAW_BASE : `${RAW_BASE}/`;
 
