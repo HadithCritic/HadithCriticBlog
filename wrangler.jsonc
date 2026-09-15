@@ -3,9 +3,14 @@
   "name": "hcb",
   "compatibility_date": "2025-05-21",
   "compatibility_flags": ["nodejs_compat"]
-  // The corpus lives on Turso, not D1, so there is no database binding here.
-  // It is reached over HTTPS with TURSO_DATABASE_URL and TURSO_AUTH_TOKEN,
-  // which are secrets (`wrangler secret put`) and deliberately absent from
-  // this file. Locally they come from .dev.vars. See src/lib/db.ts, and
-  // DATABASE.md for why the corpus could not stay on D1.
+  // No database binding, because no public page reads a database. The corpus
+  // is a static SQLite file on R2 that the reader's browser queries over HTTP
+  // range requests; see docs/static-corpus.md. Turso remains only for the
+  // admin notify pages, reached over HTTPS with TURSO_DATABASE_URL and
+  // TURSO_AUTH_TOKEN, which are secrets (`wrangler secret put`) and
+  // deliberately absent from this file. Locally they come from .dev.vars.
+  //
+  // PUBLIC_CORPUS_BASE_URL is not here and must not be: it is inlined into the
+  // client bundle by Vite when `npm run build` runs, so a runtime var on the
+  // Worker has no effect on it. It belongs in the build environment.
 }

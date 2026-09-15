@@ -49,10 +49,12 @@ export default defineConfig({
   },
   vite: {
     // The 1.6 GB static corpus is not in public/, because publicDir is copied
-    // wholesale into dist/ on every build. In development it is served from
-    // dist-db/builds/ by this plugin, with the range support sql.js-httpvfs
-    // requires; for a deployment it is copied into the build output once, by
-    // `npm run publish:corpus:dist`. See docs/static-corpus.md.
+    // wholesale into dist/ on every build. It happened once, by way of a
+    // `--target public` publish that no longer exists, and produced a 1.7 GB
+    // deploy of bytes the site reads from R2. In development the corpus is
+    // served from dist-db/builds/ by this plugin, with the range support
+    // sql.js-httpvfs requires; production reads it from R2. See
+    // docs/static-corpus.md.
     plugins: [corpusDevServer()],
     optimizeDeps: {
       exclude: ['astro:content']

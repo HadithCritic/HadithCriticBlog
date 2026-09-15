@@ -110,7 +110,7 @@ Once the development server is running, open your browser and navigate to:
 | `npm run validate`      | Full suite: footnote lint, unit tests, Arabic normalization parity, type check, design audit, build      |
 | `npm run build:corpus`  | Build, chunk, verify and stage a corpus release from the master database (local only)                    |
 | `npm run verify:corpus` | Row counts, chunk integrity and query parity between the distribution and the master                     |
-| `npm run publish:corpus`| Stage the built corpus where `npm run dev` can serve it                                                  |
+| `npm run publish:corpus`| Upload a built corpus release to R2, where production reads it                                          |
 | `npm run build:e2e`     | Build with the corpus on its own byte-serving origin, which the end-to-end run needs                     |
 | `npm run test:e2e:corpus` | Both corpus suites, including the assertions about what the real corpus contains                       |
 
@@ -136,7 +136,7 @@ The `scripts/` directory contains various Node.js pipelines to maintain the site
 | `chunk-db.mjs`                          | Splits the distribution database into 10 MiB chunks and writes the manifest.                     |
 | `build-corpus-meta.mjs`                 | Generates`src/data/corpus-meta.json` and the narrator sitemap ids. Both are committed.          |
 | `verify-distribution.mjs`               | Row counts, chunk reassembly and query parity against the master. Fails the release, not the page. |
-| `publish-corpus.mjs`                    | Publishes one version to`public/`, to`dist/`, or to R2.                                        |
+| `publish-corpus.mjs`                    | Publishes one version to R2, or into`dist/`for a host that serves byte ranges.                 |
 | `build-static-db.py`                    | Builds the master database from the seed dumps. Local, occasional, and the only Python here.     |
 | `migrate-turso.mjs`, `refresh-stats.mjs`, `verify-corpus.mjs`, `fill-hadith-fts.mjs`, `d1-to-turso.mjs`, `upload-turso.mjs` | The hosted-corpus era. Kept as the record of how the corpus moved; none is part of a current workflow. |
 | `seed-narrators-d1.mjs`                 | Turns`data/generated/` into SQL batches for the register.                                      |
@@ -151,6 +151,6 @@ The platform deploys to **Cloudflare Workers**.
 1. Push changes to the main branch.
 2. Cloudflare builds the project (`npm run build`) via the `@astrojs/cloudflare` adapter and the settings in `wrangler.jsonc`.
 3. Prerendered pages are served as static assets. `/hadith/[id]` and `/narrators/[id]` run on demand and perform no I/O.
-4. The corpus is published separately from the site: `npm run publish:corpus:dist` after the build, or `npm run publish:corpus:r2` to a data hostname. Which one a deployment uses is the `PUBLIC_CORPUS_BASE_URL` variable and nothing else.
+4. The corpus is published separately from the site: `npm run publish:corpus` uploads a release to R2, which is where production reads it from. `PUBLIC_CORPUS_BASE_URL` points the site at it, and a build without it fails rather than falling back to an origin that cannot serve byte ranges.
 
 The corpus needs no credentials: it is public static files. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` remain as secrets for the article notification ledger alone, which is not the corpus.

@@ -5,9 +5,8 @@
  * cases and the manifest is self-locating, so which one a deployment uses is a
  * matter of `PUBLIC_CORPUS_BASE_URL` and nothing else:
  *
- *   public  the site's own static assets, for `npm run dev`
- *   dist    straight into the built output, so a 1.6 GB corpus is copied once
- *           at deploy time rather than once into public/ and again into dist/
+ *   dist    straight into the built output, for a host that serves byte
+ *           ranges. Cloudflare is not one: see docs/static-corpus.md
  *   r2      a bucket served from a data hostname, for when the corpus should
  *           be released independently of the site
  *
@@ -20,7 +19,6 @@
  * one in src/data/corpus-meta.json.
  *
  * Usage:
- *   node scripts/publish-corpus.mjs --target public [--version <id>] [--copy]
  *   node scripts/publish-corpus.mjs --target dist   [--version <id>]
  *   node scripts/publish-corpus.mjs --target r2     [--version <id>] [--cors]
  */
@@ -260,7 +258,7 @@ function siteCorpusVersion() {
 async function main() {
   const args = parseArgs();
   const version = typeof args.version === 'string' ? args.version : siteCorpusVersion();
-  const target = typeof args.target === 'string' ? args.target : 'public';
+  const target = typeof args.target === 'string' ? args.target : 'r2';
 
   /**
    * `--from` points at a directory of versioned builds other than dist-db, so
@@ -292,13 +290,20 @@ async function main() {
 
   heading(`PUBLISH CORPUS  ${version}  ->  ${target}`);
 
-  if (target === 'public' || target === 'dist') {
-    const root =
-      target === 'public'
-        ? path.join(ROOT, 'public', 'data', 'corpus')
-        : path.join(ROOT, 'dist', 'client', 'data', 'corpus');
+  if (target === 'public') {
+    throw new Error(
+      'There is no `public` target. `npm run dev` serves the corpus straight ' +
+        'out of dist-db/builds through the Vite plugin in astro.config.mjs, so ' +
+        'nothing needs staging for it. Copying 1.6 GB into public/ only makes ' +
+        'Astro copy it into dist/ on every build afterwards, which put the whole ' +
+        'corpus into a deploy that reads it from R2.'
+    );
+  }
 
-    if (target === 'dist' && !existsSync(path.join(ROOT, 'dist', 'client'))) {
+  if (target === 'dist') {
+    const root = path.join(ROOT, 'dist', 'client', 'data', 'corpus');
+
+    if (!existsSync(path.join(ROOT, 'dist', 'client'))) {
       throw new Error('dist/client does not exist. Run `npm run build` first.');
     }
 
@@ -313,7 +318,7 @@ async function main() {
     return;
   }
 
-  throw new Error(`Unknown --target ${target}. Use public, dist or r2.`);
+  throw new Error(`Unknown --target ${target}. Use dist or r2.`);
 }
 
 main().catch((error) => {

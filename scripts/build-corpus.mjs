@@ -65,9 +65,8 @@ try {
   heading(`CORPUS ${version} READY`);
   console.log(`  ${path.relative(ROOT, build.dir)}`);
   console.log('\n  Publish it with one of:');
-  console.log(`    node scripts/publish-corpus.mjs --target public --version ${version}`);
-  console.log(`    node scripts/publish-corpus.mjs --target dist   --version ${version}`);
-  console.log(`    node scripts/publish-corpus.mjs --target r2     --version ${version}`);
+  console.log(`    node scripts/publish-corpus.mjs --target r2   --version ${version} --cors`);
+  console.log(`    node scripts/publish-corpus.mjs --target dist --version ${version}`);
 } catch (error) {
   console.error(`\nbuild-corpus failed: ${error.message}`);
   process.exitCode = 1;

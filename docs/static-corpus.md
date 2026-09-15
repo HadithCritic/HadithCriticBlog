@@ -67,7 +67,7 @@ One variable, and on this deployment only one usable answer.
 | | `PUBLIC_CORPUS_BASE_URL` | Publish with |
 |---|---|---|
 | Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus:r2 -- --cors` |
-| Dev server only | `/data/corpus/` (default) | `npm run publish:corpus` |
+| Dev server only | `/data/corpus/` (default) | nothing to stage; served from dist-db/builds |
 
 The site's own assets are **not** an option, for the reason in the next
 section: Cloudflare answers a range request with `200` and the whole file. A
@@ -130,7 +130,7 @@ R2 needs CORS, because a cross-origin range request is not sent otherwise.
 
 ```bash
 npm run build:corpus                 # build, chunk, meta, verify
-npm run publish:corpus               # stage into public/ for `npm run dev`
+npm run publish:corpus               # upload the release to R2, with CORS
 npm run build                        # the site
 npm run publish:corpus:dist          # copy the corpus into dist/client
 ```

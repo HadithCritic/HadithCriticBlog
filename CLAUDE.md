@@ -180,7 +180,7 @@ These are product commitments, not preferences. `DESIGN.md` carries the detail.
 
 ```bash
 npm run build:corpus     # build + chunk + verify a corpus release (needs the master db)
-npm run publish:corpus   # stage it where `npm run dev` serves it
+npm run publish:corpus   # upload a release to R2, where production reads it
 npm run verify:corpus    # row counts, chunk reassembly, query parity vs the master
 
 npm run build:corpus:fixture  # recut the committed CI fixture from the real corpus
@@ -205,7 +205,8 @@ node scripts/check-contrast.mjs --json         # composited bg and DOM path
 ```
 
 `check-contrast.mjs` needs the dev server running, and the corpus staged
-(`npm run publish:corpus`) or the corpus routes fail as "never rendered". It is
+(a build under dist-db/builds, which the dev server reads directly) or the
+corpus routes fail as "never rendered". It is
 not in `validate` only because it needs a live server rather than a build.
 
 Run `check`, `test:design` and `build` before finishing any UI change.

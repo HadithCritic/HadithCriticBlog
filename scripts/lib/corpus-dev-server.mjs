@@ -3,7 +3,7 @@
  *
  * The corpus is 1.6 GB. Putting it in `public/` would work, and would then be
  * copied into `dist/` on every single build, so it lives in `dist-db/builds/`
- * and is published to the deploy output by scripts/publish-corpus.mjs instead.
+ * and is published to R2 by scripts/publish-corpus.mjs instead.
  * This plugin is what makes `/data/corpus/...` resolve during development, from
  * exactly the bytes that will be published.
  *
