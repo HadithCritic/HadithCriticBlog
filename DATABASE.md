@@ -13,6 +13,13 @@
 >
 > Turso still holds one table, `article_notifications`, behind the admin
 > notification route. That is all that is left of it.
+>
+> **The commands below are from the hosted-corpus era.** The npm aliases they
+> used to have are gone, so each one is written here as the `node scripts/...`
+> invocation that still works. Note in particular that `npm run verify:corpus`
+> now means `scripts/verify-distribution.mjs`, which checks a static corpus
+> release against the master file; the Turso checker in this document is
+> `scripts/verify-corpus.mjs` and has to be run by path.
 
 ## Where it lives
 
@@ -184,21 +191,15 @@ is never what gets cached.
 ### Refresh the derived tables after any import
 
 ```bash
-npm run stats:refresh    # recompute corpus_stat and narrator_facet
-npm run stats:check      # report drift without writing
+node scripts/refresh-stats.mjs            # recompute corpus_stat and narrator_facet
+node scripts/refresh-stats.mjs --check    # report drift without writing
 ```
 
-Nothing reads these tables for correctness, so a stale one does not error — it
-shows the reader a wrong count. Treat the refresh as part of an import, not an
-optional extra. `npm run fts:rebuild` and `scripts/verify-corpus.mjs` both
-include it.
-
-### Refresh the derived tables after any import
-
 Three tables are caches of things the pages used to compute per view:
-`corpus_stat`, `narrator_facet` and `narrator_top_hadith`. A stale one does not
-error — it shows a reader a wrong number — so the refresh is part of an import,
-not an optional extra.
+`corpus_stat`, `narrator_facet` and `narrator_top_hadith`. Nothing reads them
+for correctness, so a stale one does not error. It shows the reader a wrong
+count. Treat the refresh as part of an import, not an optional extra;
+`scripts/fill-hadith-fts.mjs` and `scripts/verify-corpus.mjs` both include it.
 
 ### Still costly, and why
 
@@ -226,7 +227,8 @@ billed as row reads at all. Verified before relying on it — a table exported
 cleanly while every ordinary query was still being refused for quota.
 
 ```bash
-npm run db:import     # export from D1, build a local SQLite file, upload it
+node scripts/d1-to-turso.mjs   # export from D1, build a local SQLite file
+node scripts/upload-turso.mjs  # upload that file to Turso
 ```
 
 That is `scripts/d1-to-turso.mjs` then `scripts/upload-turso.mjs`:
@@ -251,14 +253,14 @@ missing the tails of 67 narrations, because migration 0004 never ran in
 production. It is rebuilt on Turso afterwards, where writes work:
 
 ```bash
-npm run fts:rebuild   # migration 0004, fill the index, then verify
+node scripts/fill-hadith-fts.mjs   # migration 0004, fill the index, then verify
 ```
 
 ## Schema and verification
 
 ```bash
-npm run db:migrate            # apply migrations/ in order
-npm run verify:corpus         # 29 checks against whatever TURSO_DATABASE_URL points at
+node scripts/migrate-turso.mjs    # apply migrations/ in order
+node scripts/verify-corpus.mjs   # 29 checks against whatever TURSO_DATABASE_URL points at
 ```
 
 `scripts/migrate-turso.mjs` splits each `.sql` file into statements and sends

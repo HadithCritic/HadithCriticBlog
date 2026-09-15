@@ -66,7 +66,7 @@ One variable, and on this deployment only one usable answer.
 
 | | `PUBLIC_CORPUS_BASE_URL` | Publish with |
 |---|---|---|
-| Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus:r2 -- --cors` |
+| Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus` (already `--target r2 --cors`) |
 | Dev server only | `/data/corpus/` (default) | nothing to stage; served from dist-db/builds |
 
 The site's own assets are **not** an option, for the reason in the next
