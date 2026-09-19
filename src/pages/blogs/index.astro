@@ -2,7 +2,6 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { isNewPost } from '../../lib/new-badge';
-import { CATEGORIES } from '../../lib/categories';
 
 const allPosts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
@@ -19,12 +18,20 @@ const categories = [...categoryCounts.entries()]
 const formatDate = (date: Date) =>
   date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
+const calcReadingMinutes = (post?: (typeof posts)[number]) => {
+  if (!post) return 1;
+  const rawBody = post.body || '';
+  const words = rawBody.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+};
+
 const entries = posts.map((post, index) => ({
   post,
   folio: String(posts.length - index).padStart(3, '0'),
   dateLabel: formatDate(post.data.date),
   dateISO: post.data.date.toISOString().slice(0, 10),
   isNew: isNewPost(post.data.date),
+  readingMinutes: calcReadingMinutes(post),
   tags: post.data.tags ?? []
 }));
 ---
@@ -75,6 +82,7 @@ const entries = posts.map((post, index) => ({
         <!-- Filter Chips Row -->
         <div class="archive-filters-row">
           <div class="archive-filters" role="group" aria-label="Filter by category">
+            <div class="archive-filter-magnet-pill" aria-hidden="true"></div>
             <button type="button" class="filter-tab is-active" data-filter="all">
               <span class="filter-tab__dot" aria-hidden="true"></span>
               <span class="filter-tab__label">All Studies</span>
@@ -105,7 +113,7 @@ const entries = posts.map((post, index) => ({
       </div>
 
       <ol class="ledger" id="ledger" data-motion="ledger">
-        {entries.map(({ post, folio, dateLabel, dateISO, isNew, tags }) => (
+        {entries.map(({ post, folio, dateLabel, dateISO, isNew, readingMinutes, tags }) => (
           <li
             class="ledger-row"
             data-id={post.id}
@@ -114,14 +122,24 @@ const entries = posts.map((post, index) => ({
           >
             <a href={`/blogs/${post.id}`} class="ledger-row__link">
               <div class="ledger-row__meta">
-                <span class="ledger-row__folio">No. {folio}</span>
+                <span class="ledger-row__folio">
+                  <span class="folio-glyph" aria-hidden="true">◈</span>
+                  <span>No. {folio}</span>
+                </span>
                 <time class="ledger-row__date" datetime={dateISO}>{dateLabel}</time>
+                <span class="ledger-row__readtime">
+                  <svg class="readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  <span>{readingMinutes} min read</span>
+                </span>
                 {isNew && <span class="new-badge">New</span>}
               </div>
 
               <div class="ledger-row__body">
                 <div class="ledger-row__header">
-                  <span class="ledger-row__cat" data-category={post.data.category}>{post.data.category}</span>
+                  <span class="ledger-row__cat" data-category={post.data.category}>
+                    <span class="ledger-row__cat-dot" aria-hidden="true"></span>
+                    {post.data.category}
+                  </span>
                   <h2 class="ledger-row__title">{post.data.title}</h2>
                 </div>
 
@@ -130,21 +148,16 @@ const entries = posts.map((post, index) => ({
                 )}
 
                 <div class="ledger-row__match" hidden></div>
-
-                {tags.length > 0 && (
-                  <div class="ledger-row__tags" aria-label="Keywords">
-                    {tags.slice(0, 4).map((tag: string) => (
-                      <span class="ledger-tag">#{tag}</span>
-                    ))}
-                  </div>
-                )}
               </div>
 
-              <div class="ledger-row__arrow" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                  <polyline points="12 5 19 12 12 19" />
-                </svg>
+              <div class="ledger-row__action" aria-hidden="true">
+                <span class="ledger-row__action-label">Read folio</span>
+                <div class="ledger-row__arrow">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </div>
               </div>
             </a>
           </li>
@@ -159,91 +172,10 @@ const entries = posts.map((post, index) => ({
           Clear Filters &amp; View All
         </button>
       </div>
-
-      <nav class="subject-index" aria-labelledby="subject-index-title">
-        <h2 id="subject-index-title" class="subject-index__title">Browse by subject</h2>
-        <ul class="subject-index__list">
-          {CATEGORIES.map((category) => (
-            <li class="subject-index__item">
-              <a href={`/blogs/category/${category.slug}`}>{category.name}</a>
-              <span class="subject-index__count">
-                {categoryCounts.get(category.name) ?? 0}
-              </span>
-              <p class="subject-index__blurb">{category.blurb.split('.')[0]}.</p>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </section>
   </div>
 
   <style>
-    /* The category filter above is client-side and produces no crawlable URL.
-       These are the real addresses for each subject. */
-    .subject-index {
-      margin-top: clamp(3rem, 6vw, 5rem);
-      padding-top: 2rem;
-      border-top: 1px solid var(--hc-rule);
-    }
-
-    .subject-index__title {
-      margin: 0 0 1.75rem;
-      font-family: var(--font-ui);
-      font-size: 0.76rem;
-      font-weight: 700;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--hc-text-tertiary);
-    }
-
-    .subject-index__list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 1.6rem;
-    }
-
-    .subject-index__item {
-      max-width: 64ch;
-      padding-bottom: 1.4rem;
-      border-bottom: 1px solid var(--hc-rule-soft);
-    }
-
-    .subject-index__item:last-child { border-bottom: 0; }
-
-    .subject-index__item a {
-      font-family: var(--font-display);
-      font-size: 1.1rem;
-      font-weight: 500;
-      color: var(--hc-text-primary);
-      text-decoration: none;
-    }
-
-    .subject-index__item a:hover { color: var(--hc-gold); }
-
-    .subject-index__count {
-      margin-left: 0.6rem;
-      font-family: var(--font-ui);
-      font-size: 0.76rem;
-      font-variant-numeric: tabular-nums;
-      color: var(--hc-text-tertiary);
-    }
-
-    .subject-index__blurb {
-      margin: 0.35rem 0 0;
-      font-family: var(--font-body);
-      font-size: 0.92rem;
-      line-height: 1.6;
-      color: var(--hc-text-tertiary);
-    }
-
-    @media (min-width: 900px) {
-      .subject-index__list {
-        grid-template-columns: 1fr 1fr;
-        gap: 1.6rem 3rem;
-      }
-    }
   </style>
 </BaseLayout>
 
@@ -252,8 +184,20 @@ const entries = posts.map((post, index) => ({
     const page = document.querySelector('.archive-page');
     if (!page) return;
 
+    const filterContainer = page.querySelector<HTMLElement>('.archive-filters');
+    const filterMagnetPill = filterContainer?.querySelector<HTMLElement>('.archive-filter-magnet-pill');
     const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-tab')];
     const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
+
+    rows.forEach((row) => {
+      row.addEventListener('mousemove', (e) => {
+        const rect = row.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        row.style.setProperty('--mouse-x', `${x.toFixed(1)}%`);
+        row.style.setProperty('--mouse-y', `${y.toFixed(1)}%`);
+      });
+    });
     const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
     const searchClear = page.querySelector<HTMLButtonElement>('#archive-search-clear');
     const resetBtn = page.querySelector<HTMLButtonElement>('#archive-reset-btn');
@@ -261,6 +205,31 @@ const entries = posts.map((post, index) => ({
     const emptyReset = page.querySelector<HTMLButtonElement>('#ledger-empty-reset');
     const resultCount = page.querySelector<HTMLElement>('#archive-result-count');
     const totalEntries = rows.length;
+
+    const updateMagnetPill = (tab: HTMLElement) => {
+      if (!filterMagnetPill || !filterContainer || !tab) return;
+      const cRect = filterContainer.getBoundingClientRect();
+      const tRect = tab.getBoundingClientRect();
+      const left = tRect.left - cRect.left;
+      const top = tRect.top - cRect.top;
+      filterMagnetPill.style.transform = `translate(${left}px, ${top}px)`;
+      filterMagnetPill.style.width = `${tRect.width}px`;
+      filterMagnetPill.style.height = `${tRect.height}px`;
+      filterMagnetPill.style.opacity = '1';
+      const activeBg = getComputedStyle(tab).getPropertyValue('--tab-active-bg').trim() || 'var(--hc-gold)';
+      filterMagnetPill.style.backgroundColor = activeBg;
+      filterMagnetPill.style.boxShadow = `0 2px 12px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+    };
+
+    if (filterContainer && filterMagnetPill) {
+      filterContainer.setAttribute('data-magnet-ready', 'true');
+      const initialActive = filterContainer.querySelector<HTMLButtonElement>('.filter-tab.is-active');
+      if (initialActive) updateMagnetPill(initialActive);
+      window.addEventListener('resize', () => {
+        const active = filterContainer.querySelector<HTMLButtonElement>('.filter-tab.is-active');
+        if (active) updateMagnetPill(active);
+      }, { passive: true });
+    }
 
     // Scroll progress handler
     const ledgerList = document.getElementById('ledger');
@@ -354,6 +323,7 @@ const entries = posts.map((post, index) => ({
       const chip = chips.find((c) => (c.dataset.filter ?? '').trim().toLowerCase() === normalized) || chips[0];
       activeCategory = chip.dataset.filter ?? 'all';
       chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+      updateMagnetPill(chip);
       updateControls();
       return true;
     };
@@ -413,9 +383,10 @@ const entries = posts.map((post, index) => ({
           visible += 1;
         }
 
-        // Update direct section link and snippet box
+        // Update direct section link, description visibility, and citation box
         const link = row.querySelector<HTMLAnchorElement>('.ledger-row__link');
         const matchBox = row.querySelector<HTMLElement>('.ledger-row__match');
+        const descEl = row.querySelector<HTMLElement>('.ledger-row__desc');
 
         if (link) {
           if (matchSection && matchSection.slug) {
@@ -427,22 +398,38 @@ const entries = posts.map((post, index) => ({
 
         if (matchBox) {
           if (show && matchSnippetHtml) {
+            if (descEl) descEl.hidden = true;
             matchBox.hidden = false;
             const headingLabel = matchSection ? matchSection.heading : 'Article Content';
             matchBox.innerHTML = `
-              <div class="search-match-box">
-                <span class="search-match-badge">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                  <span>Matched in: <strong>${escapeHtml(headingLabel)}</strong></span>
-                </span>
-                <p class="search-match-text">${matchSnippetHtml}</p>
-                <span class="search-match-jump">Jump to this section <span aria-hidden="true">→</span></span>
+              <div class="search-citation">
+                <div class="search-citation__header">
+                  <div class="search-citation__meta">
+                    <span class="search-citation__badge">
+                      <svg class="search-citation__icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                      </svg>
+                      <span>Direct match in</span>
+                    </span>
+                    <strong class="search-citation__section">${escapeHtml(headingLabel)}</strong>
+                  </div>
+                  <span class="search-citation__jump">
+                    <span>Jump to Section</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                  </span>
+                </div>
+                <div class="search-citation__body">
+                  <span class="search-citation__quote-mark" aria-hidden="true">“</span>
+                  <p class="search-citation__text">${matchSnippetHtml}</p>
+                </div>
               </div>
             `;
           } else {
+            if (descEl) descEl.hidden = false;
             matchBox.hidden = true;
             matchBox.innerHTML = '';
           }
@@ -451,8 +438,18 @@ const entries = posts.map((post, index) => ({
 
       if (emptyState) emptyState.hidden = visible > 0;
       if (resultCount) {
-        const catLabel = activeCategory === 'all' ? '' : ` in ${activeCategory}`;
-        resultCount.innerHTML = `Showing <strong>${visible}</strong> of ${totalEntries} studies${catLabel}`;
+        if (query) {
+          const catLabel = activeCategory === 'all' ? '' : ` in <span class="search-feedback-cat">${escapeHtml(activeCategory)}</span>`;
+          resultCount.innerHTML = `
+            <span class="search-status-chip">
+              <span class="search-status-dot" aria-hidden="true"></span>
+              <span>Found <strong>${visible}</strong> ${visible === 1 ? 'study' : 'studies'} matching <span class="search-query-highlight">"${escapeHtml(query)}"</span>${catLabel}</span>
+            </span>
+          `;
+        } else {
+          const catLabel = activeCategory === 'all' ? '' : ` in ${activeCategory}`;
+          resultCount.innerHTML = `Showing <strong>${visible}</strong> of ${totalEntries} studies${catLabel}`;
+        }
       }
       updateControls();
     };
@@ -756,10 +753,30 @@ const entries = posts.map((post, index) => ({
   }
 
   .archive-filters {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-wrap: nowrap;
+  }
+
+  .archive-filter-magnet-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-radius: var(--radius-pill);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 180ms ease,
+      box-shadow 180ms ease,
+      opacity 120ms ease;
   }
 
   /* Unique Category Color System for Filters .
@@ -812,6 +829,8 @@ const entries = posts.map((post, index) => ({
   }
 
   .filter-tab {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -856,6 +875,12 @@ const entries = posts.map((post, index) => ({
     border-color: var(--tab-active-bg, var(--hc-gold));
     font-weight: 700;
     box-shadow: 0 2px 12px color-mix(in srgb, var(--tab-active-bg) 40%, transparent);
+  }
+
+  .archive-filters[data-magnet-ready="true"] .filter-tab.is-active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
   }
 
   .filter-tab.is-active .filter-tab__dot {
@@ -912,18 +937,53 @@ const entries = posts.map((post, index) => ({
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.25rem;
+    min-height: 2.2rem;
   }
 
   .archive-result-count {
     margin: 0;
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.92rem;
-    letter-spacing: 0.04em;
+    font-size: 0.88rem;
+    letter-spacing: 0.03em;
   }
 
   .archive-result-count strong {
     color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  :global(.search-status-chip) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    background: rgba(216, 177, 102, 0.08);
+    border: 1px solid rgba(216, 177, 102, 0.22);
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.84rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  :global(.search-status-dot) {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px var(--hc-gold);
+    flex-shrink: 0;
+  }
+
+  :global(.search-query-highlight) {
+    color: var(--hc-gold);
+    font-weight: 600;
+  }
+
+  :global(.search-feedback-cat) {
+    color: var(--hc-text);
+    font-weight: 600;
   }
 
   .ledger {
@@ -934,22 +994,64 @@ const entries = posts.map((post, index) => ({
   }
 
   .ledger-row {
-    border-bottom: 1px solid var(--hc-rule);
-    transition: background 200ms ease;
+    position: relative;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    transition:
+      background 280ms ease,
+      border-bottom-color 240ms ease,
+      box-shadow 240ms ease;
+  }
+
+  .ledger-row[data-category="Origins & Early History"] {
+    --cat-color: var(--cat-history-text);
+  }
+
+  .ledger-row[data-category="Prophecies & Eschatology"] {
+    --cat-color: var(--cat-prophecies-text);
+  }
+
+  .ledger-row[data-category="Theology & Epistemology"] {
+    --cat-color: var(--cat-theology-text);
+  }
+
+  .ledger-row[data-category="Transmission & Narrators"] {
+    --cat-color: var(--cat-philosophy-text);
   }
 
   .ledger-row:hover {
-    background:
-      linear-gradient(90deg, rgba(216, 177, 102, 0.05) 0%, transparent 80%);
+    background: radial-gradient(
+      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 10%, rgba(20, 19, 18, 0.65)) 0%,
+      rgba(15, 14, 13, 0.4) 55%,
+      transparent 85%
+    );
+    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 35%, var(--hc-rule));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
+      0 10px 28px -10px rgba(0, 0, 0, 0.45);
+  }
+
+  :global([data-theme="light"]) .ledger-row:hover {
+    background: radial-gradient(
+      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 14%, rgba(245, 240, 230, 0.8)) 0%,
+      rgba(240, 234, 222, 0.45) 55%,
+      transparent 85%
+    );
+    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
+      0 6px 20px -6px rgba(0, 0, 0, 0.08);
   }
 
   .ledger-row__link {
     display: grid;
-    grid-template-columns: 140px minmax(0, 1fr) 40px;
+    grid-template-columns: 155px minmax(0, 1fr) auto;
     align-items: center;
-    gap: clamp(1.2rem, 3vw, 2.5rem);
-    padding: clamp(1.4rem, 2.2vw, 2rem) clamp(0.5rem, 1.5vw, 1.25rem);
+    gap: clamp(1.2rem, 2.5vw, 2.4rem);
+    padding: clamp(1.25rem, 1.8vw, 1.65rem) clamp(0.75rem, 1.2vw, 1.35rem);
     text-decoration: none;
+    border-radius: var(--radius-sm);
   }
 
   .ledger-row__meta {
@@ -960,28 +1062,68 @@ const entries = posts.map((post, index) => ({
   }
 
   .ledger-row__folio {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 4px;
+    background: rgba(216, 177, 102, 0.05);
+    border: 1px solid var(--hc-rule-soft);
     color: var(--hc-gold);
-    font-size: 0.81rem;
+    font-size: 0.76rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    font-family: var(--font-mono, monospace);
+    width: fit-content;
+    transition: all 220ms ease;
+  }
+
+  .folio-glyph {
+    font-size: 0.75rem;
+    color: var(--cat-color, var(--hc-gold));
+    opacity: 0.45;
+    transform: scale(0.9);
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease, color 200ms ease;
+  }
+
+  .ledger-row:hover .ledger-row__folio {
+    background: rgba(216, 177, 102, 0.12);
+    border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
+    color: var(--hc-gold-bright, #ffffff);
+    box-shadow: 0 0 12px rgba(216, 177, 102, 0.2);
+  }
+
+  .ledger-row:hover .folio-glyph {
+    opacity: 1;
+    transform: scale(1.15) rotate(45deg);
+    color: var(--cat-color, var(--hc-gold));
   }
 
   .ledger-row__date {
     color: var(--hc-text-tertiary);
-    font-size: 0.92rem;
+    font-size: 0.82rem;
+  }
+
+  .ledger-row__readtime {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
   }
 
   .new-badge {
     display: inline-flex;
     align-items: center;
     width: fit-content;
-    padding: 0.16rem 0.55rem;
+    padding: 0.14rem 0.5rem;
     border-radius: var(--radius-pill);
     background: rgba(224, 90, 71, 0.14);
     border: 1px solid rgba(224, 90, 71, 0.4);
     color: var(--cat-prophecies-text);
-    font-size: 0.79rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -990,7 +1132,7 @@ const entries = posts.map((post, index) => ({
   .ledger-row__body {
     display: flex;
     flex-direction: column;
-    gap: 0.65rem;
+    gap: 0.45rem;
     min-width: 0;
   }
 
@@ -1003,17 +1145,25 @@ const entries = posts.map((post, index) => ({
   .ledger-row__cat {
     display: inline-flex;
     align-items: center;
+    gap: 0.35rem;
     width: fit-content;
-    padding: 0.18rem 0.65rem;
+    padding: 0.12rem 0.55rem;
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-pill);
     color: var(--hc-gold-soft);
     background: rgba(216, 177, 102, 0.06);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.76rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  .ledger-row__cat-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .ledger-row__cat[data-category="Origins & Early History"] {
@@ -1044,112 +1194,196 @@ const entries = posts.map((post, index) => ({
     margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.45rem, 2.2vw, 1.66rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    font-size: clamp(1.35rem, 2vw, 1.58rem);
+    line-height: 1.22;
+    letter-spacing: -0.015em;
     color: var(--hc-text-primary);
-    transition: color 200ms ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 1.5px;
+    transition: color 200ms ease, text-decoration-color 260ms ease;
   }
 
   .ledger-row:hover .ledger-row__title {
     color: var(--hc-gold-soft);
+    text-decoration-color: var(--cat-color, var(--hc-gold));
   }
 
   /* Multi-line rich description preview */
   .ledger-row__desc {
     margin: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     color: var(--hc-text-secondary);
-    font-size: 1.05rem;
-    line-height: 1.62;
+    font-size: 0.98rem;
+    line-height: 1.58;
   }
 
-  /* Deep Content Search Match Box */
+  .ledger-row__desc[hidden] {
+    display: none !important;
+  }
+
+  /* Deep Content Search Match Citation Plaque */
   .ledger-row__match {
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
   }
 
-  .search-match-box {
+  :global(.search-citation) {
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.65rem 0.9rem;
     border-radius: var(--radius-sm);
-    background: rgba(200, 155, 75, 0.08);
-    border: 1px solid rgba(200, 155, 75, 0.28);
-    border-left: 3px solid var(--hc-gold);
-    transition: all 200ms ease;
+    background: rgba(18, 18, 22, 0.85);
+    border: 1px solid rgba(216, 177, 102, 0.24);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    transition: border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
   }
 
-  .ledger-row:hover .search-match-box {
-    background: rgba(200, 155, 75, 0.13);
-    border-color: var(--hc-gold);
+  .ledger-row:hover :global(.search-citation) {
+    border-color: rgba(216, 177, 102, 0.5);
+    background: rgba(24, 24, 30, 0.95);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 24px rgba(216, 177, 102, 0.09);
   }
 
-  .search-match-badge {
+  :global(.search-citation__header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.85rem;
+    background: rgba(216, 177, 102, 0.07);
+    border-bottom: 1px solid rgba(216, 177, 102, 0.14);
+    flex-wrap: wrap;
+  }
+
+  :global(.search-citation__meta) {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  :global(.search-citation__badge) {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(216, 177, 102, 0.14);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    white-space: nowrap;
+    line-height: 1;
   }
 
-  .search-match-text {
+  :global(.search-citation__section) {
+    font-family: var(--font-ui);
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--hc-text);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  :global(.search-citation__jump) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+    padding: 0.22rem 0.6rem;
+    border-radius: var(--radius-xs);
+    background: rgba(216, 177, 102, 0.08);
+    border: 1px solid rgba(216, 177, 102, 0.22);
+    transition: all 180ms ease;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+
+  :global(.search-citation__jump) svg {
+    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .ledger-row:hover :global(.search-citation__jump) {
+    background: var(--hc-gold);
+    color: #0b0b0d;
+    border-color: var(--hc-gold);
+  }
+
+  .ledger-row:hover :global(.search-citation__jump) svg {
+    transform: translateX(3px);
+  }
+
+  :global(.search-citation__body) {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.75rem 0.95rem;
+  }
+
+  :global(.search-citation__quote-mark) {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.6rem;
+    line-height: 0.8;
+    color: var(--hc-gold);
+    opacity: 0.5;
+    user-select: none;
+    flex-shrink: 0;
+    margin-top: 0.15rem;
+  }
+
+  :global(.search-citation__text) {
     margin: 0;
     color: var(--hc-text-secondary);
-    font-size: 0.96rem;
-    line-height: 1.5;
+    font-size: 0.92rem;
+    line-height: 1.6;
     font-style: italic;
   }
 
   :global(.search-match-mark) {
-    background: rgba(216, 177, 102, 0.35);
-    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.24);
+    color: #fcebc7;
+    border-bottom: 2px solid var(--hc-gold);
     font-weight: 700;
     font-style: normal;
+    padding: 0.08em 0.3em;
     border-radius: 2px;
-    padding: 0 3px;
   }
 
-  .search-match-jump {
+  .ledger-row__action {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    color: var(--hc-gold);
+    gap: 0.65rem;
+    flex-shrink: 0;
+  }
+
+  .ledger-row__action-label {
     font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-top: 0.2rem;
-  }
-
-  .ledger-row:hover .search-match-jump {
-    color: var(--hc-gold-soft);
-  }
-
-  .ledger-row__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.2rem;
-  }
-
-  .ledger-tag {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    color: var(--hc-text-tertiary);
-    background: var(--hc-surface-2);
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    border: 1px solid var(--hc-rule-soft);
+    color: var(--cat-color, var(--hc-gold));
+    opacity: 0;
+    transform: translateX(6px);
+    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .ledger-row__arrow {
@@ -1159,15 +1393,22 @@ const entries = posts.map((post, index) => ({
     height: 38px;
     border: 1px solid var(--hc-rule);
     border-radius: 50%;
-    color: var(--hc-gold-dim);
+    color: var(--hc-gold);
+    background: var(--hc-surface-1);
     transition: all 220ms ease;
+  }
+
+  .ledger-row:hover .ledger-row__action-label {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .ledger-row:hover .ledger-row__arrow {
     color: var(--hc-fixed-black, #141312);
-    background: var(--hc-gold);
-    border-color: var(--hc-gold);
-    transform: translateX(4px);
+    border-color: var(--cat-color, var(--hc-gold));
+    background: var(--cat-color, var(--hc-gold));
+    transform: translateX(3px);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 50%, transparent);
   }
 
   /* Empty state */
@@ -1215,17 +1456,13 @@ const entries = posts.map((post, index) => ({
   /* Responsive Adjustments */
   @media (max-width: 900px) {
     .ledger-row__link {
-      grid-template-columns: 1fr;
-      gap: 1rem;
+      grid-template-columns: 140px minmax(0, 1fr) auto;
+      gap: 1.2rem;
+      padding: 1.15rem 0.6rem;
+      align-items: center;
     }
 
-    .ledger-row__meta {
-      flex-direction: row;
-      align-items: baseline;
-      gap: 1rem;
-    }
-
-    .ledger-row__arrow {
+    .ledger-row__action-label {
       display: none;
     }
 
@@ -1234,7 +1471,7 @@ const entries = posts.map((post, index) => ({
     }
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 760px) {
     .archive-hero {
       padding: 3.5rem 0 2rem;
     }
@@ -1249,12 +1486,45 @@ const entries = posts.map((post, index) => ({
     }
 
     .ledger-row__link {
-      padding: 1.25rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding: 1.1rem 0.6rem;
+      align-items: stretch;
+      min-width: 0;
+    }
+
+    .ledger-row__meta {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px dashed var(--hc-rule-soft);
+      gap: 0.5rem;
+    }
+
+    .ledger-row__folio {
+      font-size: 0.75rem;
+    }
+
+    .ledger-row__date {
+      font-size: 0.75rem;
+      color: var(--hc-text-tertiary);
+    }
+
+    .ledger-row__readtime {
+      font-size: 0.75rem;
     }
 
     .ledger-row__title {
-      font-size: 1.35rem;
-      line-height: 1.2;
+      font-size: 1.28rem;
+      line-height: 1.22;
+    }
+
+    .ledger-row__action {
+      display: none;
     }
   }
 </style>

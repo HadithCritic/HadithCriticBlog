@@ -64,6 +64,7 @@ const tocHeadings = headings
   })
   .map((h) => ({ depth: h.depth, text: h.text, slug: h.slug }));
 const showToc = tocHeadings.length >= 2;
+const majorHeadings = tocHeadings.filter((h) => h.depth === 2);
 
 // --- structured data -------------------------------------------------------
 const articleUrl = new URL(`/blogs/${post.id}`, Astro.site).href;
@@ -108,10 +109,31 @@ const crumbs = [
   tags={post.data.tags}
 >
 
-  <!-- Top Slim Reading Progress Bar -->
-  <div class="reading-progress" aria-hidden="true">
-    <div class="reading-progress__bar" data-reading-progress-bar></div>
-  </div>
+  <!-- Top Illuminated Reading Progress Bar with Milestone Pips -->
+  <aside class="reading-progress" aria-label="Reading progress" data-reading-progress>
+    <div class="reading-progress__track">
+      <div class="reading-progress__bar" data-reading-progress-bar>
+        <span class="reading-progress__glow" aria-hidden="true"></span>
+      </div>
+      {majorHeadings.length > 1 && (
+        <div class="reading-progress__milestones" data-reading-milestones>
+          {majorHeadings.map((h) => (
+            <button
+              type="button"
+              class="reading-progress__pip"
+              data-reading-pip
+              data-slug={h.slug}
+              title={h.text}
+              aria-label={`Jump to section: ${h.text}`}
+            >
+              <span class="reading-progress__pip-dot"></span>
+              <span class="reading-progress__tooltip">{h.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  </aside>
 
   <div class="hc-article">
     {/* Deliberately a div. BaseLayout already supplies the page's single main
@@ -222,11 +244,33 @@ const crumbs = [
   function initReadingProgressBar() {
     const bar = document.querySelector<HTMLElement>('[data-reading-progress-bar]');
     const target = document.querySelector<HTMLElement>('[data-reading-progress-source]') || document.getElementById('main-article');
+    const pips = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-reading-pip]'));
 
     if (!bar || !target) return;
 
     const barEl = bar;
     const targetEl = target;
+
+    function positionPips() {
+      if (!pips.length) return;
+      const rect = targetEl.getBoundingClientRect();
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const targetTop = rect.top + scrollTop;
+      const targetHeight = targetEl.offsetHeight;
+      const start = targetTop - 64;
+      const end = Math.max(start + 1, targetTop + targetHeight - window.innerHeight);
+      const totalSpan = Math.max(1, end - start);
+
+      pips.forEach((pip) => {
+        const slug = pip.dataset.slug;
+        if (!slug) return;
+        const heading = document.getElementById(slug);
+        if (!heading) return;
+        const hTop = heading.getBoundingClientRect().top + scrollTop;
+        const ratio = Math.min(0.98, Math.max(0.02, (hTop - start) / totalSpan));
+        pip.style.left = `${(ratio * 100).toFixed(2)}%`;
+      });
+    }
 
     function update() {
       const rect = targetEl.getBoundingClientRect();
@@ -239,7 +283,28 @@ const crumbs = [
       const progress = Math.min(1, Math.max(0, (scrollTop - start) / (end - start)));
 
       barEl.style.transform = `scaleX(${progress})`;
+
+      pips.forEach((pip) => {
+        const leftPercent = parseFloat(pip.style.left || '0') / 100;
+        if (progress >= leftPercent) {
+          pip.classList.add('is-passed');
+        } else {
+          pip.classList.remove('is-passed');
+        }
+      });
     }
+
+    pips.forEach((pip) => {
+      pip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const slug = pip.dataset.slug;
+        if (!slug) return;
+        const heading = document.getElementById(slug);
+        if (heading) {
+          heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
 
     let frame = 0;
     const requestUpdate = () => {
@@ -250,9 +315,13 @@ const crumbs = [
       });
     };
 
+    positionPips();
     update();
     window.addEventListener('scroll', requestUpdate, { passive: true });
-    window.addEventListener('resize', requestUpdate, { passive: true });
+    window.addEventListener('resize', () => {
+      positionPips();
+      requestUpdate();
+    }, { passive: true });
   }
 
   if (document.readyState === 'loading') {
@@ -270,20 +339,133 @@ const crumbs = [
     top: 0;
     left: 0;
     right: 0;
-    height: 2px;
+    height: 3px;
     z-index: 1000;
-    background: transparent;
+    background: rgba(15, 15, 16, 0.45);
     pointer-events: none;
+    transition: background 0.3s ease;
+  }
+
+  [data-theme="light"] .reading-progress {
+    background: rgba(251, 249, 244, 0.55);
+  }
+
+  .reading-progress__track {
+    position: relative;
+    width: 100%;
+    height: 100%;
   }
 
   .reading-progress__bar {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     background: var(--hc-gold);
-    box-shadow: 0 0 8px rgba(216, 177, 102, 0.4);
-    transform: scaleX(0);
     transform-origin: left;
-    transition: transform 80ms ease-out;
+    transform: scaleX(0);
+    transition: transform 60ms linear;
+    will-change: transform;
+  }
+
+  .reading-progress__glow {
+    position: absolute;
+    top: -2px;
+    right: 0;
+    width: 6px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--hc-gold-bright, var(--hc-gold));
+    box-shadow: 0 0 8px var(--hc-gold), 0 0 16px rgba(216, 177, 102, 0.55);
+    opacity: 0.95;
+  }
+
+  [data-theme="light"] .reading-progress__glow {
+    box-shadow: 0 0 6px rgba(111, 80, 25, 0.6);
+  }
+
+  .reading-progress__milestones {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+  }
+
+  .reading-progress__pip {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .reading-progress__pip-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--hc-surface-3);
+    border: 1px solid var(--hc-rule-soft, rgba(216, 177, 102, 0.3));
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .reading-progress__pip:hover .reading-progress__pip-dot {
+    transform: scale(1.6);
+    background: var(--hc-gold);
+    border-color: var(--hc-gold-bright);
+    box-shadow: 0 0 6px rgba(216, 177, 102, 0.6);
+  }
+
+  .reading-progress__pip.is-passed .reading-progress__pip-dot {
+    background: var(--hc-gold);
+    border-color: var(--hc-gold);
+  }
+
+  .reading-progress__tooltip {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: var(--hc-surface-2);
+    color: var(--hc-text-primary);
+    font-family: var(--font-ui, sans-serif);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.2;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--hc-surface-3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 1001;
+  }
+
+  [data-theme="light"] .reading-progress__tooltip {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .reading-progress__pip:hover .reading-progress__tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    .reading-progress__milestones {
+      display: none;
+    }
   }
 
   /* ── Left Rail Back Link ── */
