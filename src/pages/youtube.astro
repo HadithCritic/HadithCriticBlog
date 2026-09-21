@@ -508,33 +508,23 @@ const categoryCounts = categories.reduce(
     <!-- ═══════════════════════════════════════════
          HERO SECTION: Channel Identity & Showcase
          ═══════════════════════════════════════════ -->
-    <header class="yt-hero" id="hero" aria-label="HadithCritic YouTube channel introduction">
+    <header class="yt-hero" id="hero" aria-label="HadithCritic YouTube channel introduction" data-motion="hero">
       <div class="hc-container yt-hero__inner">
         <div class="yt-hero__copy">
+          <div class="yt-hero__eyebrow">
+            <span class="yt-hero__kicker-dot" aria-hidden="true"></span>
+            <span class="yt-hero__kicker">Broadcast Channel</span>
+            <span class="yt-hero__kicker-sep" aria-hidden="true">/</span>
+            <span class="yt-hero__kicker-tag">Video Essays &amp; Debates</span>
+          </div>
+
           <h1 class="yt-hero__title">
-            Evidence-Led <span class="text-gold">Forensics</span> for Hadith Literature
+            Evidence-Led <span class="yt-hero__title-accent">Forensics</span> for Hadith Literature
           </h1>
 
           <p class="yt-hero__lead">
             {channelMeta.description}
           </p>
-
-          <div class="yt-hero__stats">
-            <div class="yt-stat-item">
-              <span class="yt-stat-number">{channelMeta.subscribers}</span>
-              <span class="yt-stat-label">Subscribers</span>
-            </div>
-            <div class="yt-stat-divider" aria-hidden="true"></div>
-            <div class="yt-stat-item">
-              <span class="yt-stat-number">{videos.length}</span>
-              <span class="yt-stat-label">Video Monographs</span>
-            </div>
-            <div class="yt-stat-divider" aria-hidden="true"></div>
-            <div class="yt-stat-item">
-              <span class="yt-stat-number">100%</span>
-              <span class="yt-stat-label">Source-Critical</span>
-            </div>
-          </div>
 
           <div class="yt-hero__actions">
             <a
@@ -551,53 +541,6 @@ const categoryCounts = categories.reduce(
             <a href="#featured" class="hc-btn hc-btn--ghost yt-btn">
               <span>Enter Screening Room ↓</span>
             </a>
-          </div>
-        </div>
-
-        <!-- Channel Stage Card -->
-        <div class="yt-hero__stage">
-          <div class="yt-channel-showcase">
-            <div class="yt-channel-showcase__topbar">
-              <div class="yt-channel-showcase__identity">
-                <img
-                  src={channelMeta.avatar}
-                  alt="HadithCritic Avatar"
-                  class="yt-channel-showcase__avatar"
-                  width="44"
-                  height="44"
-                  loading="eager"
-                />
-                <div class="yt-channel-showcase__titles">
-                  <strong>{channelMeta.name}</strong>
-                  <span>{channelMeta.handle} &bull; {channelMeta.subscribers} subscribers</span>
-                </div>
-              </div>
-
-              <a
-                href="https://www.youtube.com/@HadithCritic"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="yt-channel-showcase__link"
-              >
-                <span>Visit Channel ↗</span>
-              </a>
-            </div>
-
-            <div class="yt-channel-showcase__banner">
-              <img
-                src={channelMeta.banner}
-                alt="HadithCritic YouTube Banner"
-                class="yt-channel-showcase__banner-img"
-                width="1280"
-                height="320"
-                loading="eager"
-              />
-              <div class="yt-channel-showcase__scrim" aria-hidden="true"></div>
-              <div class="yt-channel-showcase__caption">
-                <span class="yt-showcase-pill">Channel Premise</span>
-                <p class="yt-showcase-tagline">“Where evidence dismantles dogma.”</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -754,6 +697,7 @@ const categoryCounts = categories.reduce(
           <!-- Category Filter Tabs -->
           <div class="yt-filter-bar" role="tablist" aria-label="Filter videos by category">
             <div class="yt-filter-tabs" id="yt-filter-tabs">
+              <div class="yt-filter-magnet-pill" aria-hidden="true"></div>
               <button
                 class="yt-filter-tab is-active"
                 type="button"
@@ -761,8 +705,8 @@ const categoryCounts = categories.reduce(
                 aria-selected="true"
                 data-filter="all"
               >
-                <span class="yt-filter-tab__dot" style="--dot-color: var(--hc-gold);" aria-hidden="true"></span>
-                <span>All Investigations</span>
+                <span class="yt-filter-tab__dot" aria-hidden="true"></span>
+                <span class="yt-filter-tab__label">All Investigations</span>
                 <span class="yt-filter-tab__count">{videos.length}</span>
               </button>
               {categories.map((category) => (
@@ -772,13 +716,19 @@ const categoryCounts = categories.reduce(
                   role="tab"
                   aria-selected="false"
                   data-filter={category.key}
+                  data-category={category.key}
                 >
-                  <span class="yt-filter-tab__dot" style={`--dot-color: ${category.color};`} aria-hidden="true"></span>
-                  <span>{category.label}</span>
+                  <span class="yt-filter-tab__dot" aria-hidden="true"></span>
+                  <span class="yt-filter-tab__label">{category.label}</span>
                   <span class="yt-filter-tab__count">{categoryCounts[category.key]}</span>
                 </button>
               ))}
             </div>
+
+            <button type="button" id="yt-reset-btn" class="yt-reset-btn" hidden aria-label="Reset all filters">
+              <span>Reset Filters</span>
+              <span aria-hidden="true">✕</span>
+            </button>
           </div>
         </div>
 
@@ -792,9 +742,10 @@ const categoryCounts = categories.reduce(
 
         <!-- Video Cards Grid -->
         <div class="yt-grid" id="video-grid">
-          {videos.map((video) => {
+          {videos.map((video, idx) => {
             const category = getCategory(video.category);
             const description = getVideoDescription(video);
+            const folio = String(idx + 1).padStart(2, "0");
             return (
               <article
                 class="yt-card"
@@ -810,6 +761,7 @@ const categoryCounts = categories.reduce(
                 data-search={`${video.title} ${description} ${category.label} ${video.date}`.toLowerCase()}
                 style={`--cat-color: ${category.color};`}
               >
+                <!-- Thumbnail & Media Layer -->
                 <div class="yt-card__media">
                   <img
                     src={video.thumbnail}
@@ -819,6 +771,19 @@ const categoryCounts = categories.reduce(
                     loading="lazy"
                     class="yt-card__img"
                   />
+                  <div class="yt-card__vignette" aria-hidden="true"></div>
+
+                  <div class="yt-card__media-top">
+                    <span class="yt-card__folio">DOC · {folio}</span>
+                    <span class="yt-card__duration">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                      <span>{video.duration}</span>
+                    </span>
+                  </div>
+
                   <div class="yt-card__overlay">
                     <span class="yt-card__play-btn" aria-hidden="true">
                       <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
@@ -826,27 +791,31 @@ const categoryCounts = categories.reduce(
                       </svg>
                     </span>
                   </div>
-                  <span class="yt-card__duration">{video.duration}</span>
                 </div>
 
+                <!-- Card Body -->
                 <div class="yt-card__body">
                   <div class="yt-card__header">
                     <span class="yt-card__cat-pill">
                       <span class="yt-card__cat-dot" aria-hidden="true"></span>
-                      {category.label}
+                      <span>{category.label}</span>
                     </span>
-                    <span class="yt-card__year">{video.date}</span>
+                    <time class="yt-card__year">{video.date || '2024'}</time>
                   </div>
 
                   <h3 class="yt-card__title">{video.title}</h3>
                   <p class="yt-card__desc">{description}</p>
 
                   <div class="yt-card__footer">
+                    <span class="yt-card__meta-tag">
+                      <span class="yt-card__meta-glyph" aria-hidden="true">◈</span>
+                      <span>Monograph</span>
+                    </span>
                     <span class="yt-card__action">
-                      <span>Watch in Theater</span>
+                      <span>Stream in Theater</span>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <line x1="12" y1="19" x2="12" y2="5"></line>
-                        <polyline points="5 12 12 5 19 12"></polyline>
+                        <path d="M5 12h14"></path>
+                        <path d="m12 5 7 7-7 7"></path>
                       </svg>
                     </span>
                   </div>
@@ -855,7 +824,7 @@ const categoryCounts = categories.reduce(
                 <button
                   type="button"
                   class="yt-card__hit-button"
-                  aria-label={`Load "${video.title}" into screening room`}
+                  aria-label={`Stream "${video.title}" in screening room`}
                 ></button>
               </article>
             );
@@ -1020,10 +989,13 @@ const categoryCounts = categories.reduce(
       });
     };
 
-    /* ── Live Search & Category Filtering ── */
+    /* ── Live Search & Category Filtering with Magnetic Pill ── */
     const setupFilterAndSearch = () => {
       const searchInput = document.getElementById("yt-search-input");
       const searchClear = document.getElementById("yt-search-clear");
+      const filterTabsContainer = document.getElementById("yt-filter-tabs");
+      const magnetPill = filterTabsContainer?.querySelector(".yt-filter-magnet-pill");
+      const resetBtn = document.getElementById("yt-reset-btn");
       const tabs = [...document.querySelectorAll(".yt-filter-tab")];
       const cards = [...document.querySelectorAll(".yt-card")];
       const emptyState = document.getElementById("yt-empty");
@@ -1032,6 +1004,43 @@ const categoryCounts = categories.reduce(
 
       let activeCategory = "all";
       let activeQuery = "";
+
+      // Dynamic mouse coordinates for card hover spotlight
+      cards.forEach((card) => {
+        card.addEventListener("mousemove", (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          card.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
+          card.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
+        });
+      });
+
+      // Update magnet sliding pill
+      const updateMagnetPill = (tab) => {
+        if (!magnetPill || !filterTabsContainer || !tab) return;
+        const cRect = filterTabsContainer.getBoundingClientRect();
+        const tRect = tab.getBoundingClientRect();
+        const left = tRect.left - cRect.left;
+        const top = tRect.top - cRect.top;
+        magnetPill.style.transform = `translate(${left}px, ${top}px)`;
+        magnetPill.style.width = `${tRect.width}px`;
+        magnetPill.style.height = `${tRect.height}px`;
+        magnetPill.style.opacity = "1";
+        const activeBg = getComputedStyle(tab).getPropertyValue("--tab-active-bg").trim() || "var(--hc-gold)";
+        magnetPill.style.backgroundColor = activeBg;
+        magnetPill.style.boxShadow = `0 2px 14px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+      };
+
+      if (filterTabsContainer && magnetPill) {
+        filterTabsContainer.setAttribute("data-magnet-ready", "true");
+        const initialActive = filterTabsContainer.querySelector(".yt-filter-tab.is-active");
+        if (initialActive) updateMagnetPill(initialActive);
+        window.addEventListener("resize", () => {
+          const active = filterTabsContainer.querySelector(".yt-filter-tab.is-active");
+          if (active) updateMagnetPill(active);
+        }, { passive: true });
+      }
 
       const applyFilters = () => {
         let visibleCount = 0;
@@ -1051,6 +1060,7 @@ const categoryCounts = categories.reduce(
 
         if (emptyState) emptyState.hidden = visibleCount > 0;
         if (searchClear) searchClear.hidden = activeQuery.length === 0;
+        if (resetBtn) resetBtn.hidden = activeCategory === "all" && activeQuery.length === 0;
 
         if (statusText) {
           if (activeQuery) {
@@ -1072,16 +1082,21 @@ const categoryCounts = categories.reduce(
           .replace(/"/g, "&quot;");
       }
 
+      const setActiveTab = (tab) => {
+        tabs.forEach((t) => {
+          const isTarget = t === tab;
+          t.classList.toggle("is-active", isTarget);
+          t.setAttribute("aria-selected", isTarget ? "true" : "false");
+        });
+        activeCategory = tab.dataset.filter || "all";
+        updateMagnetPill(tab);
+        applyFilters();
+      };
+
       // Tab clicks
       tabs.forEach((tab) => {
         tab.addEventListener("click", () => {
-          tabs.forEach((t) => {
-            const isTarget = t === tab;
-            t.classList.toggle("is-active", isTarget);
-            t.setAttribute("aria-selected", isTarget ? "true" : "false");
-          });
-          activeCategory = tab.dataset.filter || "all";
-          applyFilters();
+          setActiveTab(tab);
         });
       });
 
@@ -1091,27 +1106,39 @@ const categoryCounts = categories.reduce(
         applyFilters();
       });
 
-      // Clear search
-      const resetSearch = () => {
+      // Clear / Reset
+      const resetSearchAndFilters = () => {
+        if (searchInput) {
+          searchInput.value = "";
+        }
+        activeQuery = "";
+        const allTab = tabs.find((t) => t.dataset.filter === "all") || tabs[0];
+        if (allTab) {
+          setActiveTab(allTab);
+        } else {
+          activeCategory = "all";
+          applyFilters();
+        }
+      };
+
+      searchClear?.addEventListener("click", () => {
         if (searchInput) {
           searchInput.value = "";
           searchInput.focus();
         }
         activeQuery = "";
         applyFilters();
-      };
-
-      searchClear?.addEventListener("click", resetSearch);
-
-      emptyReset?.addEventListener("click", () => {
-        activeCategory = "all";
-        tabs.forEach((t) => {
-          const isAll = t.dataset.filter === "all";
-          t.classList.toggle("is-active", isAll);
-          t.setAttribute("aria-selected", isAll ? "true" : "false");
-        });
-        resetSearch();
       });
+
+      resetBtn?.addEventListener("click", resetSearchAndFilters);
+      emptyReset?.addEventListener("click", resetSearchAndFilters);
+
+      // Check URL query param ?category=
+      const urlCategory = new URLSearchParams(window.location.search).get("category");
+      if (urlCategory) {
+        const matchingTab = tabs.find((t) => t.dataset.filter === urlCategory);
+        if (matchingTab) setActiveTab(matchingTab);
+      }
 
       // Keyboard shortcut ⌘K / Ctrl+K
       window.addEventListener("keydown", (e) => {
@@ -1120,8 +1147,12 @@ const categoryCounts = categories.reduce(
           searchInput?.focus();
           searchInput?.select();
         } else if (e.key === "Escape" && document.activeElement === searchInput) {
-          resetSearch();
-          searchInput.blur();
+          if (searchInput) {
+            searchInput.value = "";
+            activeQuery = "";
+            applyFilters();
+            searchInput.blur();
+          }
         }
       });
     };
@@ -1173,83 +1204,84 @@ const categoryCounts = categories.reduce(
      HERO SECTION
      ═══════════════════════════════════════════ */
   .yt-hero {
-    min-height: auto;
-    padding-block: 3.25rem 3.25rem;
+    position: relative;
     border-bottom: 1px solid var(--hc-rule);
     background:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(200, 155, 75, 0.08), transparent 70%),
-      var(--hc-surface-0);
+      radial-gradient(ellipse 850px 420px at 15% 25%, rgba(216, 177, 102, 0.05) 0%, transparent 65%),
+      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
+    padding: clamp(3rem, 5.5vw, 4.5rem) 0 clamp(2.25rem, 4vw, 3.25rem);
+    overflow: hidden;
   }
 
-  .yt-hero__inner {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 3.5rem;
+  .yt-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 90% 10%, rgba(216, 177, 102, 0.03), transparent 45%);
+    pointer-events: none;
+  }
+
+  .yt-hero__eyebrow {
+    display: flex;
     align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
   }
 
-  @media (max-width: 980px) {
-    .yt-hero__inner {
-      grid-template-columns: 1fr;
-      gap: 2.5rem;
-    }
+  .yt-hero__kicker-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px var(--hc-gold);
+    flex-shrink: 0;
+  }
+
+  .yt-hero__kicker {
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .yt-hero__kicker-sep {
+    color: var(--hc-rule-strong);
+    font-size: 0.75rem;
+  }
+
+  .yt-hero__kicker-tag {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
   }
 
   .yt-hero__title {
-    margin: 0 0 1.25rem;
+    margin: 0 0 0.85rem;
     font-family: var(--font-display);
-    font-size: clamp(2.1rem, 4vw, 3.1rem);
+    font-size: clamp(2.35rem, 5.2vw, 3.75rem);
     font-weight: 500;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
     color: var(--hc-text-primary);
   }
 
-  .yt-hero__lead {
-    margin: 0 0 2rem;
-    font-size: 1.05rem;
-    line-height: 1.68;
-    color: var(--hc-text-secondary);
-    max-width: 36rem;
-  }
-
-  .yt-hero__stats {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    padding: 1rem 1.25rem;
-    border-radius: var(--radius-md);
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule);
-    margin-bottom: 2rem;
-    width: fit-content;
-  }
-
-  .yt-stat-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .yt-stat-number {
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    font-weight: 600;
+  .yt-hero__title-accent {
+    font-style: normal;
     color: var(--hc-gold);
-    line-height: 1.1;
   }
 
-  .yt-stat-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
+  .yt-hero__lead {
+    margin: 0 0 1.85rem;
+    font-family: var(--font-body);
+    font-size: clamp(1.02rem, 1.25vw, 1.15rem);
+    line-height: 1.65;
     color: var(--hc-text-secondary);
-    letter-spacing: 0.04em;
-  }
-
-  .yt-stat-divider {
-    width: 1px;
-    height: 2rem;
-    background: var(--hc-rule);
+    max-width: 58ch;
   }
 
   .yt-hero__actions {
@@ -1288,81 +1320,6 @@ const categoryCounts = categories.reduce(
     box-shadow: 0 6px 20px rgba(200, 155, 75, 0.35);
   }
 
-  /* Hero Channel Stage Card */
-  .yt-hero__stage {
-    position: relative;
-  }
-
-  .yt-channel-showcase {
-    position: relative;
-    border-radius: var(--radius-md);
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-    transition: border-color 220ms ease, box-shadow 220ms ease;
-  }
-
-  .yt-channel-showcase:hover {
-    border-color: rgba(216, 177, 102, 0.35);
-    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.45), 0 0 24px rgba(216, 177, 102, 0.08);
-  }
-
-  .yt-channel-showcase__topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem;
-    background: var(--hc-surface-2);
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .yt-channel-showcase__identity {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .yt-channel-showcase__avatar {
-    border-radius: 50%;
-    border: 1.5px solid var(--hc-gold);
-    padding: 2px;
-    background: var(--hc-surface-0);
-  }
-
-  .yt-channel-showcase__titles {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .yt-channel-showcase__titles strong {
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .yt-channel-showcase__titles span {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .yt-channel-showcase__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-gold);
-    text-decoration: none;
-    padding: 0.3rem 0.65rem;
-    border-radius: var(--radius-xs);
-    background: rgba(216, 177, 102, 0.08);
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    transition: all 180ms ease;
-  }
 
   .yt-channel-showcase__link:hover {
     background: var(--hc-gold);
@@ -1399,27 +1356,6 @@ const categoryCounts = categories.reduce(
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  .yt-showcase-pill {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    background: rgba(15, 15, 16, 0.8);
-    padding: 0.2rem 0.5rem;
-    border-radius: var(--radius-xs);
-    border: 1px solid rgba(216, 177, 102, 0.3);
-  }
-
-  .yt-showcase-tagline {
-    margin: 0;
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 0.88rem;
-    color: var(--hc-text-primary);
   }
 
   /* ═══════════════════════════════════════════
@@ -1726,14 +1662,16 @@ const categoryCounts = categories.reduce(
      ═══════════════════════════════════════════ */
   .yt-archive {
     padding-block: 4.5rem 6rem;
-    background: var(--hc-surface-0);
+    background:
+      radial-gradient(ellipse 900px 400px at 50% 0%, rgba(216, 177, 102, 0.04) 0%, transparent 70%),
+      var(--hc-surface-0);
   }
 
   .yt-controls {
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
 
   /* Search Box */
@@ -1746,20 +1684,22 @@ const categoryCounts = categories.reduce(
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.65rem 1rem;
-    border-radius: var(--radius-md);
+    min-height: 48px;
+    padding: 0 1rem;
+    border-radius: var(--radius-sm, 8px);
     background: var(--hc-surface-1);
     border: 1px solid var(--hc-rule);
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+    transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
   }
 
   .yt-search-box:focus-within {
     border-color: var(--hc-gold);
-    box-shadow: 0 0 0 1px var(--hc-gold), 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.18);
+    background: var(--hc-surface-2);
   }
 
   .yt-search-icon {
-    color: var(--hc-text-tertiary);
+    color: var(--hc-gold-dim);
     flex-shrink: 0;
   }
 
@@ -1768,8 +1708,8 @@ const categoryCounts = categories.reduce(
     background: transparent;
     border: none;
     color: var(--hc-text-primary);
-    font-family: inherit;
-    font-size: 0.95rem;
+    font-family: var(--font-body);
+    font-size: 1.01rem;
   }
 
   .yt-search-input::-webkit-search-cancel-button,
@@ -1788,32 +1728,40 @@ const categoryCounts = categories.reduce(
     border: none;
     color: var(--hc-text-tertiary);
     cursor: pointer;
-    font-size: 0.9rem;
-    padding: 0.2rem;
+    font-size: 0.95rem;
+    padding: 0.25rem 0.5rem;
     transition: color 180ms ease;
   }
 
   .yt-search-clear:hover {
-    color: var(--hc-gold);
+    color: var(--hc-text-primary);
   }
 
   .yt-search-kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 6px;
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--hc-text-tertiary);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    padding: 0.15rem 0.4rem;
-    border-radius: var(--radius-xs);
-    white-space: nowrap;
+    background: var(--hc-surface-1);
     user-select: none;
+    flex-shrink: 0;
   }
 
-  /* Filter Tabs Bar */
+  /* Filter Tabs Bar with Sliding Magnet Pill */
   .yt-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
     overflow-x: auto;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
   }
 
   .yt-filter-bar::-webkit-scrollbar {
@@ -1821,59 +1769,183 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-filter-tabs {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-wrap: nowrap;
     width: max-content;
-    padding-bottom: 0.25rem;
+  }
+
+  .yt-filter-magnet-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-radius: var(--radius-pill);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 180ms ease,
+      box-shadow 180ms ease,
+      opacity 120ms ease;
+  }
+
+  /* Category Color Palette for YouTube Filters */
+  .yt-filter-tab[data-filter="all"] {
+    --tab-color: var(--hc-gold);
+    --tab-bg: rgba(200, 155, 75, 0.12);
+    --tab-border: rgba(200, 155, 75, 0.35);
+    --tab-active-bg: #c89b4b;
+    --tab-active-text: #141312;
+  }
+
+  .yt-filter-tab[data-category="epistemology"],
+  .yt-filter-tab[data-filter="epistemology"] {
+    --tab-color: #d8b166;
+    --tab-bg: rgba(216, 177, 102, 0.12);
+    --tab-border: rgba(216, 177, 102, 0.35);
+    --tab-active-bg: #c89b4b;
+    --tab-active-text: #141312;
+  }
+
+  .yt-filter-tab[data-category="prophecy"],
+  .yt-filter-tab[data-filter="prophecy"] {
+    --tab-color: var(--cat-prophecies-text, #d47565);
+    --tab-bg: rgba(224, 90, 71, 0.12);
+    --tab-border: rgba(224, 90, 71, 0.35);
+    --tab-active-bg: #c94532;
+    --tab-active-text: #ffffff;
+  }
+
+  .yt-filter-tab[data-category="history"],
+  .yt-filter-tab[data-filter="history"] {
+    --tab-color: var(--cat-history-text, #d5b091);
+    --tab-bg: rgba(212, 139, 82, 0.12);
+    --tab-border: rgba(212, 139, 82, 0.35);
+    --tab-active-bg: #c4783d;
+    --tab-active-text: #ffffff;
+  }
+
+  .yt-filter-tab[data-category="theology"],
+  .yt-filter-tab[data-filter="theology"] {
+    --tab-color: var(--cat-theology-text, #9cb8a4);
+    --tab-bg: rgba(79, 168, 108, 0.12);
+    --tab-border: rgba(79, 168, 108, 0.35);
+    --tab-active-bg: #3f8e58;
+    --tab-active-text: #ffffff;
+  }
+
+  .yt-filter-tab[data-category="philosophy"],
+  .yt-filter-tab[data-filter="philosophy"] {
+    --tab-color: var(--cat-philosophy-text, #a3afc7);
+    --tab-bg: rgba(96, 143, 214, 0.12);
+    --tab-border: rgba(96, 143, 214, 0.35);
+    --tab-active-bg: #4f78b8;
+    --tab-active-text: #ffffff;
   }
 
   .yt-filter-tab {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.45rem 0.9rem;
-    border-radius: 9999px;
+    gap: 0.48rem;
+    padding: 0.42rem 0.95rem;
+    border: 1px solid var(--tab-border, var(--hc-rule));
+    border-radius: var(--radius-pill);
     background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.85rem;
     font-weight: 600;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: all 180ms ease;
     white-space: nowrap;
-  }
-
-  .yt-filter-tab:hover {
-    border-color: rgba(216, 177, 102, 0.4);
-    color: var(--hc-text-primary);
-  }
-
-  .yt-filter-tab.is-active {
-    background: rgba(216, 177, 102, 0.14);
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
+    flex-shrink: 0;
+    transition: all 200ms ease;
   }
 
   .yt-filter-tab__dot {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--dot-color, var(--hc-gold));
+    background: var(--tab-color, var(--hc-gold));
+    box-shadow: 0 0 6px var(--tab-color, var(--hc-gold));
+    display: inline-block;
+    flex-shrink: 0;
+    transition: transform 200ms ease, background 200ms ease, box-shadow 200ms ease;
+  }
+
+  .yt-filter-tab:hover {
+    color: var(--tab-color, var(--hc-text-primary));
+    border-color: var(--tab-color, var(--hc-rule-strong));
+    background: var(--tab-bg, var(--hc-surface-2));
+  }
+
+  .yt-filter-tab:hover .yt-filter-tab__dot {
+    transform: scale(1.25);
+    box-shadow: 0 0 10px var(--tab-color, var(--hc-gold));
+  }
+
+  .yt-filter-tab.is-active {
+    color: var(--tab-active-text, #ffffff);
+    background: var(--tab-active-bg, var(--hc-gold));
+    border-color: var(--tab-active-bg, var(--hc-gold));
+    font-weight: 700;
+    box-shadow: 0 2px 12px color-mix(in srgb, var(--tab-active-bg) 40%, transparent);
+  }
+
+  .yt-filter-tabs[data-magnet-ready="true"] .yt-filter-tab.is-active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .yt-filter-tab.is-active .yt-filter-tab__dot {
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
   }
 
   .yt-filter-tab__count {
-    font-size: 0.75rem;
-    opacity: 0.75;
-    padding: 0.1rem 0.35rem;
-    border-radius: 9999px;
-    background: rgba(0, 0, 0, 0.25);
+    font-size: 0.8rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-pill);
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--hc-text-primary);
   }
 
   .yt-filter-tab.is-active .yt-filter-tab__count {
-    background: rgba(216, 177, 102, 0.25);
-    opacity: 1;
+    background: rgba(255, 255, 255, 0.32);
+    color: currentColor;
+  }
+
+  .yt-reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: var(--radius-pill);
+    border: 1px dashed var(--hc-rule-strong);
+    background: transparent;
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 180ms ease;
+  }
+
+  .yt-reset-btn:hover {
+    border-color: var(--hc-gold);
+    background: rgba(216, 177, 102, 0.1);
   }
 
   /* Status Bar */
@@ -1889,7 +1961,7 @@ const categoryCounts = categories.reduce(
     align-items: center;
     gap: 0.55rem;
     padding: 0.35rem 0.85rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-pill);
     background: rgba(216, 177, 102, 0.08);
     border: 1px solid rgba(216, 177, 102, 0.22);
     color: var(--hc-text-secondary);
@@ -1914,26 +1986,29 @@ const categoryCounts = categories.reduce(
   /* Video Grid */
   .yt-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 1.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.85rem;
   }
 
   @media (max-width: 640px) {
     .yt-grid {
       grid-template-columns: 1fr;
+      gap: 1.35rem;
     }
   }
 
-  /* Video Card */
+  /* Video Card - Premium Architectural Redesign */
   .yt-card {
     position: relative;
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-md);
-    background: var(--hc-surface-1);
+    border-radius: var(--radius-md, 12px);
+    background:
+      radial-gradient(450px circle at var(--mouse-x, 50%) var(--mouse-y, 0%), rgba(216, 177, 102, 0.07), transparent 70%),
+      var(--hc-surface-1);
     border: 1px solid var(--hc-rule);
     overflow: hidden;
-    transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 260ms ease, box-shadow 260ms ease;
   }
 
   .yt-card[hidden] {
@@ -1941,16 +2016,25 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-card:hover {
-    transform: translateY(-3px);
-    border-color: rgba(216, 177, 102, 0.45);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), 0 0 20px rgba(216, 177, 102, 0.08);
+    transform: translateY(-5px);
+    border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 45%, var(--hc-gold) 55%);
+    box-shadow:
+      0 18px 42px -10px rgba(0, 0, 0, 0.55),
+      0 0 28px -6px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 28%, transparent);
   }
 
+  .yt-card:focus-within {
+    border-color: var(--hc-gold);
+    box-shadow: 0 0 0 2px var(--hc-gold);
+  }
+
+  /* Card Media Poster Layer */
   .yt-card__media {
     position: relative;
     aspect-ratio: 16 / 9;
     overflow: hidden;
     background: #000000;
+    border-bottom: 1px solid var(--hc-rule-soft);
   }
 
   .yt-card__img {
@@ -1958,69 +2042,114 @@ const categoryCounts = categories.reduce(
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 260ms ease;
+    transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
   .yt-card:hover .yt-card__img {
-    transform: scale(1.04);
+    transform: scale(1.05);
   }
 
-  .yt-card__overlay {
+  .yt-card__vignette {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.6) 100%);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.5) 0%, transparent 40%, rgba(0, 0, 0, 0.85) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .yt-card__media-top {
+    position: absolute;
+    top: 0.75rem;
+    inset-inline: 0.75rem;
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 220ms ease;
+    z-index: 2;
+    pointer-events: none;
   }
 
-  .yt-card:hover .yt-card__overlay {
-    opacity: 1;
-  }
-
-  .yt-card__play-btn {
-    width: 3.25rem;
-    height: 3.25rem;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    color: #0b0b0d;
-    display: flex;
+  .yt-card__folio {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-    transform: scale(0.9);
-    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .yt-card__play-btn svg {
-    margin-left: 2px;
-  }
-
-  .yt-card:hover .yt-card__play-btn {
-    transform: scale(1);
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-xs, 4px);
+    background: rgba(14, 13, 12, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--hc-gold-soft);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
   }
 
   .yt-card__duration {
-    position: absolute;
-    bottom: 0.65rem;
-    right: 0.65rem;
-    background: rgba(0, 0, 0, 0.85);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-xs, 4px);
+    background: rgba(14, 13, 12, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(255, 255, 255, 0.15);
     color: #ffffff;
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 700;
-    padding: 0.15rem 0.45rem;
-    border-radius: var(--radius-xs);
   }
 
+  .yt-card__duration svg {
+    color: var(--hc-gold);
+    flex-shrink: 0;
+  }
+
+  .yt-card__overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .yt-card__play-btn {
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: 50%;
+    background: rgba(14, 13, 12, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1.5px solid var(--hc-gold);
+    color: var(--hc-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    transform: scale(0.92);
+    transition: all 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .yt-card__play-btn svg {
+    margin-left: 3px;
+  }
+
+  .yt-card:hover .yt-card__play-btn {
+    transform: scale(1.08);
+    background: var(--hc-gold);
+    color: #0b0b0d;
+    box-shadow: 0 0 28px rgba(200, 155, 75, 0.65), 0 10px 30px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Card Body */
   .yt-card__body {
     display: flex;
     flex-direction: column;
-    padding: 1.25rem;
+    padding: 1.35rem 1.35rem 1.15rem;
     flex-grow: 1;
+    z-index: 3;
   }
 
   .yt-card__header {
@@ -2028,19 +2157,24 @@ const categoryCounts = categories.reduce(
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.65rem;
+    margin-bottom: 0.85rem;
   }
 
   .yt-card__cat-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.45rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cat-color, var(--hc-gold)) 30%, transparent);
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    transition: all 200ms ease;
   }
 
   .yt-card__cat-dot {
@@ -2048,36 +2182,41 @@ const categoryCounts = categories.reduce(
     height: 6px;
     border-radius: 50%;
     background: var(--cat-color, var(--hc-gold));
+    box-shadow: 0 0 8px currentColor;
+    flex-shrink: 0;
+  }
+
+  .yt-card:hover .yt-card__cat-pill {
+    border-color: var(--cat-color, var(--hc-gold));
+    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 20%, transparent);
   }
 
   .yt-card__year {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.76rem;
+    font-weight: 600;
     color: var(--hc-text-tertiary);
   }
 
   .yt-card__title {
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.6rem;
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.18rem;
     font-weight: 500;
-    line-height: 1.3;
+    line-height: 1.35;
     color: var(--hc-text-primary);
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    text-underline-offset: 4px;
-    transition: color 180ms ease, text-decoration-color 200ms ease;
+    transition: color 200ms ease;
   }
 
   .yt-card:hover .yt-card__title {
-    color: var(--hc-gold-soft);
-    text-decoration-color: var(--hc-gold);
+    color: var(--hc-gold);
   }
 
   .yt-card__desc {
-    margin: 0 0 1.25rem;
-    font-size: 0.88rem;
-    line-height: 1.55;
+    margin: 0 0 1.35rem;
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.6;
     color: var(--hc-text-secondary);
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -2090,29 +2229,44 @@ const categoryCounts = categories.reduce(
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 0.85rem;
+    padding-top: 1rem;
     border-top: 1px solid var(--hc-rule-soft);
+    gap: 0.75rem;
+  }
+
+  .yt-card__meta-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--hc-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .yt-card__meta-glyph {
+    color: var(--hc-gold-dim);
+    font-size: 0.75rem;
   }
 
   .yt-card__action {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    transition: transform 180ms ease;
+    transition: transform 200ms ease, color 200ms ease;
   }
 
   .yt-card:hover .yt-card__action {
     color: var(--hc-gold-soft);
-  }
-
-  .yt-card:hover .yt-card__action svg {
-    transform: translateY(-2px);
+    transform: translateX(3px);
   }
 
   .yt-card__hit-button {
@@ -2125,6 +2279,12 @@ const categoryCounts = categories.reduce(
     cursor: pointer;
     z-index: 5;
     opacity: 0;
+  }
+
+  .yt-card__hit-button:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--hc-gold);
+    outline-offset: -2px;
   }
 
   /* Empty State */
