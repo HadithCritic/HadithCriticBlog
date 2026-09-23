@@ -111,6 +111,9 @@ function noDatabaseTraffic(urls: string[]) {
 /** A term the served corpus definitely contains, so a search test cannot be vacuous. */
 const COMMON_ARABIC = encodeURIComponent('محمد');
 
+/** The numeric id at the end of a record link, with or without its trailing slash. */
+const idFromHref = (href: string) => Number(/(\d+)\/?$/.exec(href)![1]);
+
 test.describe('hadith corpus', () => {
   test('the index renders its catalogue and totals from generated metadata', async ({ page }) => {
     const urls = watchRequests(page);
@@ -139,7 +142,7 @@ test.describe('hadith corpus', () => {
     const first = page.locator('.corpus-record-card').first();
     await expect(first.locator('a.corpus-record-card__hitarea')).toHaveAttribute(
       'href',
-      /^\/hadith\/\d+$/
+      /^\/hadith\/\d+\/$/
     );
     await expect(first.locator('.corpus-record-card__ar')).toHaveAttribute('lang', 'ar');
     noDatabaseTraffic(urls);
@@ -212,7 +215,7 @@ test.describe('narration record', () => {
       .locator('a.corpus-record-card__hitarea')
       .first()
       .getAttribute('href');
-    return Number(href!.split('/').pop());
+    return idFromHref(href!);
   }
 
   test('renders its texts, isnad and apparatus from the corpus', async ({ page }) => {
@@ -308,7 +311,7 @@ test.describe('narrator register', () => {
       `${m.counts.narrators.toLocaleString()} transmitters`
     );
     await expect(page.locator('.reg-row')).toHaveCount(Math.min(50, m.counts.narrators));
-    await expect(page.locator('.reg-main').first()).toHaveAttribute('href', /^\/narrators\/\d+$/);
+    await expect(page.locator('.reg-main').first()).toHaveAttribute('href', /^\/narrators\/\d+\/$/);
     noDatabaseTraffic(urls);
   });
 
@@ -361,7 +364,7 @@ test.describe('narrator dossier', () => {
     await page.goto('/narrators?sort=criticism');
     await expect(page.locator('.reg-row').first()).toBeVisible({ timeout: CORPUS_TIMEOUT });
     const href = await page.locator('.reg-main').first().getAttribute('href');
-    return Number(href!.split('/').pop());
+    return idFromHref(href!);
   }
 
   test('renders the biography and links both ways', async ({ page }) => {
@@ -373,7 +376,7 @@ test.describe('narrator dossier', () => {
     await expect(page.locator('.rijal-id-pill')).toHaveText(`Transmitter #${id}`);
     await expect(page.locator('.rijal-fact-card')).toHaveCount(4);
     // Links back into the corpus, which is the other half of the relationship.
-    await expect(page.locator(`a[href="/hadith?narrator=${id}"]`).first()).toBeVisible();
+    await expect(page.locator(`a[href="/hadith/?narrator=${id}"]`).first()).toBeVisible();
     noDatabaseTraffic(urls);
   });
 
@@ -405,7 +408,7 @@ test.describe('comparison', () => {
     await page.goto('/narrators');
     await expect(page.locator('.reg-row').first()).toBeVisible({ timeout: CORPUS_TIMEOUT });
     const ids = await page.locator('.reg-main').evaluateAll((links) =>
-      links.slice(0, 3).map((a) => Number(a.getAttribute('href')!.split('/').pop()))
+      links.slice(0, 3).map((a) => Number(/(\d+)\/?$/.exec(a.getAttribute('href')!)![1]))
     );
 
     // Reversed, because the table must follow the order the researcher picked

@@ -30,10 +30,10 @@ export const GET: APIRoute = async () => {
       '',
       category.blurb,
       '',
-      `Subject index: ${SITE.url}/blogs/category/${category.slug}`,
+      `Subject index: ${SITE.url}/blogs/category/${category.slug}/`,
       '',
       ...inCategory.map((p) =>
-        line(p.data.title, `/blogs/${p.id}`, `${p.data.description} (published ${p.data.date.toISOString().slice(0, 10)})`)
+        line(p.data.title, `/blogs/${p.id}/`, `${p.data.description} (published ${p.data.date.toISOString().slice(0, 10)})`)
       ),
       ''
     ].join('\n');

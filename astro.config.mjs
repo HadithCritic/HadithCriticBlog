@@ -8,6 +8,7 @@ import { unified } from '@astrojs/markdown-remark';
 import remarkGfm from 'remark-gfm';
 import { rehypeTableWrap } from './src/lib/rehype-table-wrap.mjs';
 import { corpusDevServer } from './scripts/lib/corpus-dev-server.mjs';
+import { slashRedirects } from './scripts/lib/slash-redirects.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 
@@ -39,7 +40,8 @@ export default defineConfig({
         !page.includes('/admin') &&
         !page.includes('/narrators/compare') &&
         !page.includes('/api/')
-    })
+    }),
+    slashRedirects()
   ],
   markdown: {
     processor: unified({

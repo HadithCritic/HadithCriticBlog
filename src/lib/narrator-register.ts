@@ -130,7 +130,7 @@ export function initNarratorRegister(): void {
           <span aria-hidden="true">${picked ? '−' : '+'}</span>
         </button>
         <span class="reg-index">${index}</span>
-        <a class="reg-main" href="/narrators/${r.id}">
+        <a class="reg-main" href="/narrators/${r.id}/">
           <span class="reg-names">
             <span class="reg-name">${esc(r.name_en || r.name_ar)}</span>
             ${r.name_ar ? `<span class="reg-name-ar" lang="ar" dir="rtl">${esc(r.name_ar)}</span>` : ''}
@@ -355,7 +355,7 @@ export function initNarratorRegister(): void {
     if (!selected.size) return;
     // The comparison view is a real page so it can be linked and shared, which
     // the previous modal-based workspace could not.
-    location.href = `/narrators/compare?ids=${[...selected.keys()].join(',')}`;
+    location.href = `/narrators/compare/?ids=${[...selected.keys()].join(',')}`;
   });
 
   load(false);

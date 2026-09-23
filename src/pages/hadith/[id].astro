@@ -3,6 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
+import { corpusHas } from '../../lib/corpus-ids';
 
 /**
  * Critical edition record for one narration.
@@ -33,6 +34,13 @@ if (!valid) {
 
 const pageTitle = `Hadith ${id} | HadithCritic Critical Edition`;
 
+// An id the corpus does not hold answers 404 and is kept out of the index.
+// The shell still renders, so the reader gets the same "no such record"
+// explanation the client module writes. `undefined` means the id list was
+// cut from another corpus version and cannot be trusted; see corpus-ids.ts.
+const missing = corpusHas('hadith', id) === false;
+if (missing) Astro.response.status = 404;
+
 // The shell depends on the id and the deployment, and on nothing that can
 // fail, so it is unconditionally storable at the edge.
 Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
@@ -40,11 +48,12 @@ Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 
 <BaseLayout
   title={pageTitle}
+  noindex={missing}
   description="A primary source narration in Arabic and English from the HadithCritic corpus, with its transmission chain and critical apparatus."
   crumbs={[
     { name: 'Home', url: '/' },
-    { name: 'Corpus', url: '/hadith' },
-    { name: `Hadith ${id}`, url: `/hadith/${id}` }
+    { name: 'Corpus', url: '/hadith/' },
+    { name: `Hadith ${id}`, url: `/hadith/${id}/` }
   ]}
 >
   <div class="hadith-container" data-hadith-id={id}>
@@ -61,7 +70,7 @@ Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
           which needs JavaScript. The written research on this site does not.
         </p>
         <div class="hadith-degraded__actions">
-          <a class="hc-btn" href="/hadith">Return to the corpus index</a>
+          <a class="hc-btn" href="/hadith/">Return to the corpus index</a>
         </div>
       </div>
     </noscript>

@@ -33,13 +33,27 @@ for (const post of posts) {
   );
 }
 
+const categoryTopPosts = new Map<string, typeof posts>();
+for (const post of posts) {
+  const list = categoryTopPosts.get(post.data.category) ?? [];
+  if (list.length < 3) {
+    list.push(post);
+    categoryTopPosts.set(post.data.category, list);
+  }
+}
+
 const categories = [...categoryCounts.entries()]
   .sort((a, b) => b[1] - a[1])
-  .map(([name, count]) => ({
-    name,
-    count,
-    description: categoryDescriptions[name] ?? "",
-  }));
+  .map(([name, count]) => {
+    const previewPosts = categoryTopPosts.get(name) ?? [];
+    return {
+      name,
+      count,
+      description: categoryDescriptions[name] ?? "",
+      previewPosts,
+      topPost: previewPosts[0] ?? null,
+    };
+  });
 
 const featured = posts[0];
 const featuredThumb = featured?.data.thumbnail ?? GENERIC_THUMB;
@@ -54,13 +68,60 @@ const formatDate = (date: Date) =>
 const folioOf = (post: (typeof posts)[number]) =>
   String(posts.length - posts.indexOf(post)).padStart(3, "0");
 
-const videoIds = [
-  "HWHjCfaPn_0",
-  "6bpJBji3E0M",
-  "3B0rnPGWgKU",
-  "CG5i14GAZTQ",
-  "boG5JTD5yXU",
-  "MLaRB6uGhAk",
+const calcReadingMinutes = (post?: (typeof posts)[number]) => {
+  if (!post) return 1;
+  const rawBody = post.body || "";
+  const words = rawBody.replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+};
+
+const featuredReadingMinutes = calcReadingMinutes(featured);
+
+const previewDataMap: Record<string, any> = {
+  all: {
+    id: featured.id,
+    href: `/blogs/${featured.id}/`,
+    title: featured.data.title,
+    description: featured.data.description,
+    category: featured.data.category,
+    date: formatDate(featured.data.date),
+    rawDate: featured.data.date.toISOString().slice(0, 10),
+    isNew: isNewPost(featured.data.date),
+    thumbnail: featuredThumb,
+    readingMinutes: featuredReadingMinutes,
+    folio: folioOf(featured),
+    tags: (featured.data.tags || []).slice(0, 4),
+    badgeText: "Latest Investigation",
+  },
+};
+
+for (const cat of categories) {
+  if (cat.topPost) {
+    previewDataMap[cat.name] = {
+      id: cat.topPost.id,
+      href: `/blogs/${cat.topPost.id}/`,
+      title: cat.topPost.data.title,
+      description: cat.topPost.data.description,
+      category: cat.topPost.data.category,
+      date: formatDate(cat.topPost.data.date),
+      rawDate: cat.topPost.data.date.toISOString().slice(0, 10),
+      isNew: isNewPost(cat.topPost.data.date),
+      thumbnail: cat.topPost.data.thumbnail ?? GENERIC_THUMB,
+      readingMinutes: calcReadingMinutes(cat.topPost),
+      folio: folioOf(cat.topPost),
+      tags: (cat.topPost.data.tags || []).slice(0, 4),
+      badgeText: `Lead Study // ${cat.name}`,
+    };
+  }
+}
+
+const videos = [
+  { id: "HWHjCfaPn_0", thumb: "/images/yt tn/1.webp" },
+  { id: "6bpJBji3E0M", thumb: "/images/yt tn/3.webp" },
+  { id: "3B0rnPGWgKU", thumb: "/images/yt tn/8.webp" },
+  { id: "CG5i14GAZTQ", thumb: "/images/yt tn/9.webp" },
+  { id: "boG5JTD5yXU", thumb: "/images/yt tn/7.webp" },
+  { id: "MLaRB6uGhAk", thumb: "/images/yt tn/4.webp" },
 ];
 ---
 
@@ -77,10 +138,10 @@ const videoIds = [
           Textual criticism, transmission forensics, and source verification—recovering early Islamic history through rigorous evidentiary research.
         </p>
         <div class="hero-actions">
-          <a href="/blogs" class="hc-btn hero-btn-primary">
+          <a href="/blogs/" class="hc-btn hero-btn-primary">
             Browse the archive <span aria-hidden="true">&rarr;</span>
           </a>
-          <a href="/academia" class="hc-btn hc-btn--ghost hero-btn-ghost">Read the research</a>
+          <a href="/academia/" class="hc-btn hc-btn--ghost hero-btn-ghost">Read the research</a>
         </div>
       </div>
     </div>
@@ -102,123 +163,194 @@ const videoIds = [
             authority, epistemology, and scriptural history.
           </p>
         </div>
-        <a href="/blogs" class="hc-btn hc-btn--ghost">
+        <a href="/blogs/" class="hc-btn hc-btn--ghost">
           Browse all {posts.length} entries <span aria-hidden="true">→</span>
         </a>
       </header>
 
-      <div class="journal-feature-grid">
-        <a
-          href={`/blogs/${featured.id}`}
-          class="journal-feature-card"
-          data-category={featured.data.category}
-        >
-          <div class="journal-feature-media">
-            <img
-              src={featuredThumb}
-              alt={`Cover illustration for ${featured.data.title}`}
-              class="journal-feature-img"
-              loading="eager"
-              decoding="async"
-            />
-            <div class="journal-feature-badge">
-              <span class="feature-badge__dot"></span>
-              <span>Latest Investigation</span>
-            </div>
+      <div class="archive-preview-container">
+        <!-- Live Filter Status Banner (reveals when category is active) -->
+        <div class="archive-filter-banner" id="archive-filter-banner" hidden>
+          <div class="filter-banner__left">
+            <span class="filter-banner__dot" aria-hidden="true"></span>
+            <span class="filter-banner__label">Filtering by Branch:</span>
+            <strong class="filter-banner__cat" id="filter-banner-cat">Category Name</strong>
+            <span class="filter-banner__count" id="filter-banner-count">(N Studies)</span>
           </div>
-          <div class="journal-feature-copy">
-            <div class="journal-feature-top">
-              <span
-                class="journal-category"
-                data-category={featured.data.category}
-                >{featured.data.category}</span
-              >
-              <time
-                class="journal-feature-date"
-                datetime={featured.data.date.toISOString().slice(0, 10)}
-              >
-                {formatDate(featured.data.date)}
-              </time>
-              {
-                isNewPost(featured.data.date) && (
-                  <span class="new-badge">New</span>
-                )
-              }
-            </div>
-            <h3>{featured.data.title}</h3>
-            <p>{featured.data.description}</p>
-            {
-              featured.data.tags && featured.data.tags.length > 0 && (
-                <div class="journal-feature-tags">
-                  {featured.data.tags.slice(0, 4).map((tag: string) => (
-                    <span class="journal-tag">#{tag}</span>
-                  ))}
-                </div>
-              )
-            }
-            <div class="journal-meta">
-              <span class="journal-meta-cta">
-                Read the investigation <span
-                  class="journal-meta-arrow"
-                  aria-hidden="true">→</span
-                >
-              </span>
-            </div>
+          <div class="filter-banner__actions">
+            <a href="/blogs/" class="filter-banner__explore-btn" id="filter-banner-explore-link">
+              Browse All in Category <span aria-hidden="true">→</span>
+            </a>
+            <button type="button" class="filter-banner__reset-btn" id="filter-banner-reset-btn" aria-label="Reset filter to show overall latest">
+              Reset <span aria-hidden="true">✕</span>
+            </button>
           </div>
-        </a>
+        </div>
 
-        <nav class="journal-categories" aria-label="Browse entries by category">
-          {
-            categories.map((category) => (
-              <a
-                href={`/blogs?category=${encodeURIComponent(category.name)}`}
-                class="journal-category-tile"
-                data-category={category.name}
-              >
-                <div class="journal-category-head">
-                  <span class="journal-category-pill">
-                    <span class="journal-category-dot" />
-                    <span>{category.count} Studies</span>
-                  </span>
-                  <span class="journal-category-arrow" aria-hidden="true">
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
+        <div class="journal-feature-grid">
+          <a
+            href={`/blogs/${featured.id}/`}
+            class="journal-feature-card"
+            id="journal-feature-card"
+            data-category={featured.data.category}
+          >
+            <div class="journal-feature-media">
+              <img
+                src={featuredThumb}
+                alt={`Cover illustration for ${featured.data.title}`}
+                class="journal-feature-img"
+                id="journal-feature-img"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
+            <div class="journal-feature-copy">
+              <div class="journal-feature-kicker">
+                <div class="journal-feature-badge" id="journal-feature-badge">
+                  <span class="feature-badge__dot"></span>
+                  <span class="feature-badge__text">Latest Investigation</span>
+                </div>
+                <div class="journal-feature-folio-tag" id="journal-feature-folio">
+                  <span class="folio-tag__prefix">FOLIO</span>
+                  <span class="folio-tag__val">HC-{folioOf(featured)}</span>
+                </div>
+              </div>
+              <div class="journal-feature-top">
+                <span
+                  class="journal-category"
+                  id="journal-feature-cat"
+                  data-category={featured.data.category}
+                >
+                  {featured.data.category}
+                </span>
+                <time
+                  class="journal-feature-date"
+                  id="journal-feature-date"
+                  datetime={featured.data.date.toISOString().slice(0, 10)}
+                >
+                  {formatDate(featured.data.date)}
+                </time>
+                <span class="journal-feature-readtime" id="journal-feature-readtime">
+                  <svg class="readtime-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <span>{featuredReadingMinutes} min read</span>
+                </span>
+                {
+                  isNewPost(featured.data.date) && (
+                    <span class="new-badge" id="journal-feature-new">New</span>
+                  )
+                }
+              </div>
+              <h3 id="journal-feature-title">{featured.data.title}</h3>
+              <p id="journal-feature-desc">{featured.data.description}</p>
+              <div class="journal-feature-tags" id="journal-feature-tags">
+                {
+                  featured.data.tags && featured.data.tags.slice(0, 4).map((tag: string) => (
+                    <span class="journal-tag">#{tag}</span>
+                  ))
+                }
+              </div>
+              <div class="journal-meta">
+                <span class="journal-meta-cta">
+                  Read the investigation <span class="journal-meta-arrow" aria-hidden="true">→</span>
+                </span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Archive Filter Instruction Bar -->
+          <div class="archive-categories-intro">
+            <div class="categories-intro-heading">
+              <span class="intro-glyph" aria-hidden="true">✦</span>
+              <span class="intro-title">Filter by Research Branch</span>
+            </div>
+            <p class="intro-hint">Select a dossier below to preview branch investigations</p>
+          </div>
+
+          <nav class="journal-categories" aria-label="Browse entries by category">
+            {
+              categories.map((category, catIdx) => (
+                <div
+                  class="journal-category-tile dossier-folder"
+                  data-category={category.name}
+                  data-cat-index={catIdx}
+                  role="button"
+                  tabindex="0"
+                  aria-pressed="false"
+                  aria-label={`Filter archive preview by ${category.name}, ${category.count} ${category.count === 1 ? 'Study' : 'Studies'}`}
+                >
+                  <!-- Archival Dossier Header -->
+                  <div class="dossier-tab-header">
+                    <span class="dossier-tab-tag">
+                      <span class="dossier-code">DOSSIER // 0{catIdx + 1}</span>
+                    </span>
+                    <span class="dossier-category-pill">
+                      <span class="journal-category-dot" />
+                      <span>{category.count} {category.count === 1 ? 'Study' : 'Studies'}</span>
+                    </span>
+                  </div>
+
+                  <div class="dossier-body">
+                    <h3 class="journal-category-title">{category.name}</h3>
+                  </div>
+
+                  <!-- Desktop Manuscript Slips (Peek Preview) -->
+                  {category.previewPosts.length > 0 && (
+                    <div class="dossier-slips-pocket" aria-hidden="true">
+                      {category.previewPosts.map((preview, pIdx) => (
+                        <div class={`dossier-slip dossier-slip--${pIdx + 1}`}>
+                          <span class="dossier-slip-folio">No. {folioOf(preview)}</span>
+                          <span class="dossier-slip-title">{preview.data.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <!-- Mobile Compact Slip (clean single-line reference without clipping) -->
+                  {category.previewPosts[0] && (
+                    <div class="dossier-mobile-peek" aria-hidden="true">
+                      <span class="mobile-peek-label">Lead:</span>
+                      <span class="mobile-peek-title">{category.previewPosts[0].data.title}</span>
+                    </div>
+                  )}
+
+                  <div class="journal-category-foot">
+                    <span class="dossier-filter-hint">
+                      <span class="hint-filter-text">Filter Preview</span>
+                      <span class="hint-active-text">Active Filter</span>
+                    </span>
+                    <a
+                      href={`/blogs?category=${encodeURIComponent(category.name)}`}
+                      class="journal-category-foot-link"
+                      tabindex="0"
+                      aria-label={`Open full archive for ${category.name}`}
                     >
-                      <line x1="7" y1="17" x2="17" y2="7" />
-                      <polyline points="7 7 17 7 17 17" />
-                    </svg>
-                  </span>
+                      <span>Explore</span>
+                      <span class="foot-glyph" aria-hidden="true">→</span>
+                    </a>
+                  </div>
                 </div>
-                <h3 class="journal-category-title">{category.name}</h3>
-                {category.description && (
-                  <p class="journal-category-desc">{category.description}</p>
-                )}
-                <div class="journal-category-foot">
-                  <span>Explore Field</span>
-                  <span class="foot-glyph" aria-hidden="true">
-                    →
-                  </span>
-                </div>
-              </a>
-            ))
-          }
-        </nav>
+              ))
+            }
+          </nav>
+        </div>
+
+        <script is:inline id="archive-preview-payloads" type="application/json" set:html={JSON.stringify(previewDataMap)} />
       </div>
 
       <div class="home-ledger-wrap">
         <div class="home-ledger-header">
-          <div>
+          <div class="home-ledger-header-copy">
+            <div class="home-ledger-kicker">
+              <span class="home-ledger-kicker-dot" aria-hidden="true"></span>
+              <span class="home-ledger-kicker-text">Chronological Dispatches</span>
+              <span class="home-ledger-kicker-count">{posts.length} Studies</span>
+            </div>
             <h3 class="home-ledger-title">Latest studies &amp; analysis</h3>
             <p class="home-ledger-subtitle">
-              Recent critical investigations into transmission chains and early
-              texts.
+              Recent critical investigations into transmission chains and early texts.
             </p>
           </div>
           <div
@@ -226,10 +358,12 @@ const videoIds = [
             role="group"
             aria-label="Filter latest studies by category"
           >
+            <div class="home-filter-magnet-pill" aria-hidden="true"></div>
             <button
               type="button"
               class="home-filter-tab is-active"
               data-home-filter="all"
+              data-total-count={posts.length}
             >
               <span class="home-tab__dot" aria-hidden="true"></span>
               <span>All ({posts.length})</span>
@@ -241,6 +375,7 @@ const videoIds = [
                   class="home-filter-tab"
                   data-home-filter={c.name}
                   data-category={c.name}
+                  data-total-count={c.count}
                 >
                   <span class="home-tab__dot" aria-hidden="true" />
                   <span>
@@ -260,54 +395,58 @@ const videoIds = [
                 data-category={post.data.category}
                 hidden={index >= 5}
               >
-                <a href={`/blogs/${post.id}`} class="home-ledger-link">
-                  <span class="home-ledger-folio">
-                    <span class="home-ledger-no">No. {folioOf(post)}</span>
+                <a href={`/blogs/${post.id}/`} class="home-ledger-link">
+                  <div class="home-ledger-folio">
+                    <span class="home-ledger-no">
+                      <span class="folio-glyph" aria-hidden="true">◈</span>
+                      <span>No. {folioOf(post)}</span>
+                    </span>
                     <time datetime={post.data.date.toISOString().slice(0, 10)}>
                       {formatDate(post.data.date)}
                     </time>
-                  </span>
-                  <span class="home-ledger-body">
-                    <span class="home-ledger-top">
+                    <span class="home-ledger-readtime">
+                      <svg class="readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      <span>{calcReadingMinutes(post)} min read</span>
+                    </span>
+                  </div>
+                  <div class="home-ledger-body">
+                    <div class="home-ledger-top">
                       <span
                         class="home-ledger-cat"
                         data-category={post.data.category}
                       >
+                        <span class="home-ledger-cat-dot" aria-hidden="true"></span>
                         {post.data.category}
                       </span>
                       {isNewPost(post.data.date) && (
                         <span class="new-badge">New</span>
                       )}
-                    </span>
-                    <span class="home-ledger-heading">{post.data.title}</span>
+                    </div>
+                    <h4 class="home-ledger-heading">{post.data.title}</h4>
                     {post.data.description && (
-                      <span class="home-ledger-desc">
+                      <p class="home-ledger-desc">
                         {post.data.description}
-                      </span>
+                      </p>
                     )}
-                    {post.data.tags && post.data.tags.length > 0 && (
-                      <span class="home-ledger-tags">
-                        {post.data.tags.slice(0, 3).map((tag: string) => (
-                          <span class="home-tag">#{tag}</span>
-                        ))}
-                      </span>
-                    )}
-                  </span>
-                  <span class="home-ledger-arrow" aria-hidden="true">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                      <polyline points="12 5 19 12 12 19" />
-                    </svg>
-                  </span>
+                  </div>
+                  <div class="home-ledger-action" aria-hidden="true">
+                    <span class="home-ledger-action-label">Read folio</span>
+                    <div class="home-ledger-arrow">
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                      </svg>
+                    </div>
+                  </div>
                 </a>
               </li>
             ))
@@ -315,7 +454,11 @@ const videoIds = [
         </ol>
 
         <div class="home-ledger-footer">
-          <a href="/blogs" class="hc-btn hc-btn--ghost" id="home-ledger-cta">
+          <div class="home-ledger-footer-status">
+            <span class="home-ledger-footer-dot" aria-hidden="true"></span>
+            <span id="home-ledger-count-label">Showing 5 of {posts.length} investigations</span>
+          </div>
+          <a href="/blogs/" class="hc-btn hc-btn--ghost home-ledger-cta-btn" id="home-ledger-cta">
             Explore All {posts.length} Studies in Archive <span
               aria-hidden="true">→</span
             >
@@ -341,23 +484,25 @@ const videoIds = [
             form.
           </p>
         </div>
-        <a href="/youtube" class="hc-btn hc-btn--ghost">
+        <a href="/youtube/" class="hc-btn hc-btn--ghost">
           Visit the channel <span aria-hidden="true">→</span>
         </a>
       </header>
 
       <div class="youtube-grid">
         {
-          videoIds.map((id) => (
+          videos.map((vid) => (
             <button
               type="button"
               class="yt-lite"
-              data-video-id={id}
+              data-video-id={vid.id}
               aria-label="Play video lecture"
             >
               <img
-                src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
+                src={vid.thumb}
                 alt=""
+                width="800"
+                height="450"
                 loading="lazy"
                 decoding="async"
               />
@@ -393,25 +538,23 @@ const videoIds = [
             Large-scale <em>projects</em>
           </h2>
           <p class="hc-copy journal-header-copy">
-            Research infrastructure for reports, chains, variants, transmitters,
-            and source comparison.
+            Research infrastructure for source criticism, transmission analysis, and manuscript verification.
           </p>
         </div>
-        <a href="/projects" class="hc-btn hc-btn--ghost">
+        <a href="/projects/" class="hc-btn hc-btn--ghost">
           See all projects <span aria-hidden="true">→</span>
         </a>
       </header>
 
       <div class="projects-renovation">
-        <!-- PRIMARY LIVE MODULES: 2 COLUMNS ON DESKTOP -->
         <div class="projects-live-grid">
           <!-- MODULE 1: HADITH CORPUS -->
           <a
-            href="/hadith"
+            href="/hadith/"
             class="project-module-card project-module-card--link"
           >
             <div class="project-module-card__header">
-              <span class="project-module-card__kicker">Core Corpus</span>
+              <span class="project-module-card__kicker">01 / Corpus</span>
             </div>
 
             <div class="project-module-card__title-row">
@@ -420,18 +563,17 @@ const videoIds = [
             </div>
 
             <p class="project-module-card__desc">
-              Searchable critical edition of 276,347 narrations across 33 collections.
-              Bilingual full-text retrieval in Arabic and English, with every chain linked to the narrator register.
+              Searchable critical edition of 276,347 narrations across 33 collections with bilingual full-text retrieval and linked chains.
             </p>
 
             <div class="project-stats-band" aria-label="Corpus statistics">
               <div class="project-stat-item">
                 <span class="project-stat-item__num">276,347</span>
-                <span class="project-stat-item__lbl">Attested Reports</span>
+                <span class="project-stat-item__lbl">Reports</span>
               </div>
               <div class="project-stat-item">
                 <span class="project-stat-item__num">33</span>
-                <span class="project-stat-item__lbl">Compilations</span>
+                <span class="project-stat-item__lbl">Collections</span>
               </div>
               <div class="project-stat-item">
                 <span class="project-stat-item__num">Bilingual</span>
@@ -439,47 +581,34 @@ const videoIds = [
               </div>
             </div>
 
-            <div class="project-module-card__pills-row">
-              <span class="project-pills-label">Key Compilations</span>
-              <div class="project-pills">
-                <span class="project-pill">Ṣaḥīḥ al-Bukhārī</span>
-                <span class="project-pill">Ṣaḥīḥ Muslim</span>
-                <span class="project-pill">Musnad Aḥmad</span>
-                <span class="project-pill">Al-Kāfī</span>
-                <span class="project-pill project-pill--more">+29 collections</span>
-              </div>
-            </div>
-
             <div class="project-module-card__footer">
               <span class="project-module-card__cta">
-                Explore the corpus <span aria-hidden="true">→</span>
+                Explore corpus <span aria-hidden="true">→</span>
               </span>
-              <span class="project-module-card__meta">Open access · No login required</span>
             </div>
           </a>
 
-          <!-- MODULE 2: NARRATOR BIOGRAPHIES -->
+          <!-- MODULE 2: RIJAL REGISTER -->
           <a
-            href="/narrators"
+            href="/narrators/"
             class="project-module-card project-module-card--link"
           >
             <div class="project-module-card__header">
-              <span class="project-module-card__kicker">Rijāl Register</span>
+              <span class="project-module-card__kicker">02 / Register</span>
             </div>
 
             <div class="project-module-card__title-row">
-              <h3 class="project-module-card__title">Narrator Biographies</h3>
+              <h3 class="project-module-card__title">Rijāl Register</h3>
               <span class="project-module-card__ar" dir="rtl" lang="ar">طبقات الرواة والرجال</span>
             </div>
 
             <p class="project-module-card__desc">
-              Prosopographical register of 24,300+ hadith transmitters across 14 generations.
-              Provides attributed reliability evaluations from classical rijāl authorities and teacher-student networks.
+              Prosopographical register of 20,950+ transmitters across 14 generations with teacher–student lineage and classical evaluations.
             </p>
 
             <div class="project-stats-band" aria-label="Transmitter statistics">
               <div class="project-stat-item">
-                <span class="project-stat-item__num">24,300+</span>
+                <span class="project-stat-item__num">20,950</span>
                 <span class="project-stat-item__lbl">Transmitters</span>
               </div>
               <div class="project-stat-item">
@@ -487,17 +616,8 @@ const videoIds = [
                 <span class="project-stat-item__lbl">Generations</span>
               </div>
               <div class="project-stat-item">
-                <span class="project-stat-item__num">Networked</span>
-                <span class="project-stat-item__lbl">Teacher–Student</span>
-              </div>
-            </div>
-
-            <div class="project-module-card__pills-row">
-              <span class="project-pills-label">Evaluative Apparatus</span>
-              <div class="project-pills">
-                <span class="project-pill">Ibn Ḥajar (Taqrīb)</span>
-                <span class="project-pill">Al-Dhahabī (Mīzān)</span>
-                <span class="project-pill">Network Trees</span>
+                <span class="project-stat-item__num">Attributed</span>
+                <span class="project-stat-item__lbl">Evaluations</span>
               </div>
             </div>
 
@@ -505,81 +625,49 @@ const videoIds = [
               <span class="project-module-card__cta">
                 Browse register <span aria-hidden="true">→</span>
               </span>
-              <span class="project-module-card__meta">Indexed biographical dossiers</span>
             </div>
           </a>
-        </div>
 
-        <!-- BOTTOM FULL-WIDTH MODULE: ACADEMIC STUDIES & ICMA MONOGRAPHS -->
-        <a href="/projects/academic-studies" class="project-workbench-banner project-workbench-banner--link">
-          <div class="project-workbench-banner__main">
-            <div class="project-workbench-banner__header">
-              <span class="project-workbench-banner__kicker">ICMA Archive & Critical Register</span>
+          <!-- MODULE 3: ACADEMIC STUDIES -->
+          <a
+            href="/projects/academic-studies/"
+            class="project-module-card project-module-card--link"
+          >
+            <div class="project-module-card__header">
+              <span class="project-module-card__kicker">03 / Studies</span>
             </div>
 
-            <div class="project-workbench-banner__title-row">
-              <h3 class="project-workbench-banner__title">Academic Studies & ICMA Monographs</h3>
-              <span class="project-workbench-banner__ar" dir="rtl" lang="ar">الدراسات الأكاديمية ونقد الأسانيد والمتون</span>
+            <div class="project-module-card__title-row">
+              <h3 class="project-module-card__title">Academic Studies</h3>
+              <span class="project-module-card__ar" dir="rtl" lang="ar">الدراسات الأكاديمية</span>
             </div>
 
-            <p class="project-workbench-banner__desc">
-              Specialized research repository of 27 isnād-cum-matn monographs and the complete 17-part Harald Motzki case study corpus—correlating transmission chains with textual variation to reconstruct early historical horizons.
+            <p class="project-module-card__desc">
+              Specialized isnād-cum-matn monographs and Harald Motzki case studies reconstructing early transmission horizons and textual origins.
             </p>
 
-            <div class="project-stats-band" aria-label="ICMA archive statistics">
+            <div class="project-stats-band" aria-label="Academic studies statistics">
               <div class="project-stat-item">
                 <span class="project-stat-item__num">27</span>
-                <span class="project-stat-item__lbl">ICMA Monographs</span>
+                <span class="project-stat-item__lbl">Monographs</span>
               </div>
               <div class="project-stat-item">
                 <span class="project-stat-item__num">17</span>
-                <span class="project-stat-item__lbl">Motzki Case Studies</span>
+                <span class="project-stat-item__lbl">Motzki Studies</span>
               </div>
               <div class="project-stat-item">
                 <span class="project-stat-item__num">1st–3rd C.</span>
-                <span class="project-stat-item__lbl">Dating Termini</span>
+                <span class="project-stat-item__lbl">Termini</span>
               </div>
             </div>
 
-            <div class="project-workbench-banner__footer">
-              <span class="project-workbench-banner__cta">
-                Explore Academic Studies Shelf <span aria-hidden="true">→</span>
+            <div class="project-module-card__footer">
+              <span class="project-module-card__cta">
+                Read studies <span aria-hidden="true">→</span>
               </span>
-              <span class="project-workbench-banner__meta">27 Archival Dossiers · 17 Motzki Case Studies · Open Access</span>
             </div>
-          </div>
-
-          <div class="project-workbench-banner__pillars">
-            <div class="banner-dossier-header">
-              <span class="banner-dossier-tag">ICMA ARCHIVE</span>
-              <span class="banner-dossier-sep">/</span>
-              <span class="banner-dossier-ref">ACTIVE DOSSIER PREVIEW</span>
-            </div>
-
-            <div class="banner-dossier-study">
-              <div class="banner-dossier-meta">
-                <span class="banner-dossier-code">ICMA-01 · MONOGRAPH</span>
-                <span class="banner-dossier-dating">Terminus: c. 86–96 AH</span>
-              </div>
-              <h4 class="banner-dossier-title">The White Minaret Hadith & the Damascus Descent</h4>
-            </div>
-
-            <ul class="workbench-pillars-list">
-              <li>
-                <span class="workbench-pillar__bullet" aria-hidden="true">◇</span>
-                <span><strong>Isnād-cum-matn analysis:</strong> Syrian regional isnād axis correlated with Umayyad mosque architecture</span>
-              </li>
-              <li>
-                <span class="workbench-pillar__bullet" aria-hidden="true">◇</span>
-                <span><strong>Motzki source reconstruction:</strong> 17 Brill & academic case studies testing teacher corpora</span>
-              </li>
-              <li>
-                <span class="workbench-pillar__bullet" aria-hidden="true">◇</span>
-                <span><strong>Apparatus forensics:</strong> Differentiating genuine early common links from back-projected isnāds</span>
-              </li>
-            </ul>
-          </div>
-        </a>
+          </a>
+        </div>
       </div>
     </div>
   </section>
@@ -596,7 +684,7 @@ const videoIds = [
             Questions, corrections, collaboration, and source submissions are
             welcome.
           </p>
-          <a href="/contact" class="hc-btn">Write to HadithCritic</a>
+          <a href="/contact/" class="hc-btn">Write to HadithCritic</a>
         </div>
       </div>
     </div>
@@ -834,37 +922,181 @@ const videoIds = [
     max-width: 56ch;
   }
 
-  /* Featured study */
+  /* Featured study & Archive Preview */
+
+  .archive-preview-container {
+    position: relative;
+    margin-top: 0.5rem;
+  }
+
+  /* Live Filter Status Banner */
+  .archive-filter-banner[hidden] {
+    display: none;
+  }
+
+  .archive-filter-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.15rem;
+    margin-bottom: 1.25rem;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(
+      90deg,
+      rgba(216, 177, 102, 0.12) 0%,
+      var(--hc-surface-1) 100%
+    );
+    border: 1px solid rgba(216, 177, 102, 0.35);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    animation: bannerFadeSlide 240ms ease forwards;
+  }
+
+  @keyframes bannerFadeSlide {
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .filter-banner__left {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-banner__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px var(--hc-gold);
+  }
+
+  .filter-banner__label {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hc-text-tertiary);
+    font-weight: 600;
+  }
+
+  .filter-banner__cat {
+    font-family: var(--font-display);
+    font-size: 0.98rem;
+    color: var(--hc-gold);
+    font-weight: 600;
+  }
+
+  .filter-banner__count {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .filter-banner__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .filter-banner__explore-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--hc-gold);
+    padding: 0.3rem 0.75rem;
+    border-radius: var(--radius-pill);
+    background: rgba(216, 177, 102, 0.12);
+    border: 1px solid rgba(216, 177, 102, 0.3);
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+
+  .filter-banner__explore-btn:hover {
+    background: rgba(216, 177, 102, 0.22);
+    border-color: var(--hc-gold);
+  }
+
+  .filter-banner__reset-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-pill);
+    color: var(--hc-text-secondary);
+    padding: 0.3rem 0.65rem;
+    cursor: pointer;
+    transition: background 180ms ease, color 180ms ease;
+  }
+
+  .filter-banner__reset-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--hc-text-primary);
+  }
 
   .journal-feature-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .journal-feature-card {
+    position: relative;
     display: grid;
     grid-template-columns: 1.15fr 1fr;
+    align-items: center;
+    gap: clamp(1.25rem, 2vw, 2rem);
+    padding: clamp(1rem, 1.6vw, 1.4rem);
     overflow: hidden;
     border-radius: var(--radius-sm);
     text-decoration: none;
     border: 1px solid var(--cat-border, var(--hc-rule));
-    background: linear-gradient(
-      135deg,
-      var(--cat-bg, var(--hc-surface-1)) 0%,
-      var(--hc-surface-0) 100%
-    );
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+    background:
+      radial-gradient(
+        800px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+        rgba(216, 177, 102, 0.08),
+        transparent 45%
+      ),
+      linear-gradient(
+        135deg,
+        var(--cat-bg, var(--hc-surface-1)) 0%,
+        var(--hc-surface-0) 100%
+      );
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
     transition:
       border-color 300ms ease,
       box-shadow 300ms ease,
-      transform 300ms var(--ease);
+      transform 300ms var(--ease),
+      opacity 200ms ease;
+  }
+
+  .journal-feature-card.is-transitioning {
+    opacity: 0.38;
+    transform: scale(0.995);
   }
 
   .journal-feature-card:hover {
     border-color: var(--cat-color, var(--hc-gold));
     box-shadow:
-      0 20px 50px rgba(0, 0, 0, 0.28),
+      0 20px 50px rgba(0, 0, 0, 0.3),
       0 0 24px var(--cat-bg, rgba(216, 177, 102, 0.18));
     transform: translateY(-2px);
   }
@@ -872,18 +1104,14 @@ const videoIds = [
   .journal-feature-media {
     position: relative;
     width: 100%;
-    height: 100%;
-    min-height: 280px;
+    aspect-ratio: 16 / 9;
     display: flex;
     align-items: center;
     justify-content: center;
-    background:
-      radial-gradient(
-        circle at 30% 20%,
-        rgba(216, 177, 102, 0.07),
-        transparent 45%
-      ),
-      var(--hc-surface-2);
+    background: #080808;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hc-rule-soft);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
     overflow: hidden;
   }
 
@@ -893,34 +1121,36 @@ const videoIds = [
     object-fit: contain;
     object-position: center;
     display: block;
-    filter: saturate(0.95) contrast(1.02);
-    transition: transform 500ms var(--ease);
+    transition: transform 400ms var(--ease);
   }
 
   .journal-feature-card:hover .journal-feature-img {
-    transform: scale(1.03);
+    transform: scale(1.02);
+  }
+
+  .journal-feature-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.1rem;
   }
 
   .journal-feature-badge {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.3rem 0.75rem;
+    padding: 0.25rem 0.65rem;
     border-radius: var(--radius-pill);
-    background: rgba(20, 19, 18, 0.85);
-    border: 1px solid rgba(216, 177, 102, 0.4);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(20, 19, 18, 0.9);
+    border: 1px solid rgba(216, 177, 102, 0.45);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 
   .feature-badge__dot {
@@ -931,19 +1161,44 @@ const videoIds = [
     box-shadow: 0 0 8px var(--hc-gold);
   }
 
+  .journal-feature-folio-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 4px;
+    background: var(--hc-surface-2);
+    border: 1px solid var(--hc-rule-soft);
+  }
+
+  .folio-tag__prefix {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    color: var(--hc-text-tertiary);
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  .folio-tag__val {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--hc-gold);
+  }
+
   .journal-feature-copy {
-    padding: clamp(1.5rem, 3vw, 2.25rem);
+    padding: 0;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    gap: 1.1rem;
+    justify-content: center;
+    gap: 0.85rem;
   }
 
   .journal-feature-top {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
   }
 
   .journal-category {
@@ -955,16 +1210,30 @@ const videoIds = [
     color: var(--cat-color, var(--hc-gold-soft));
     background: var(--cat-bg, rgba(216, 177, 102, 0.08));
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.09em;
     font-weight: 700;
   }
 
   .journal-feature-date {
     font-family: var(--font-ui);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--hc-text-tertiary);
+  }
+
+  .journal-feature-readtime {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .readtime-icon {
+    color: var(--hc-gold);
+    opacity: 0.85;
   }
 
   .new-badge {
@@ -976,7 +1245,7 @@ const videoIds = [
     border: 1px solid rgba(224, 90, 71, 0.4);
     color: var(--cat-prophecies-text);
     font-family: var(--font-ui);
-    font-size: 0.79rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -988,8 +1257,8 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.4rem, 2.4vw, 1.91rem);
-    line-height: 1.15;
+    font-size: clamp(1.38rem, 2.2vw, 1.85rem);
+    line-height: 1.18;
     text-wrap: balance;
     transition: color 250ms ease;
   }
@@ -1001,10 +1270,10 @@ const videoIds = [
   .journal-feature-copy > p {
     color: var(--hc-text-secondary);
     margin: 0;
-    font-size: 1.06rem;
+    font-size: 1.02rem;
     line-height: 1.62;
     display: -webkit-box;
-    -webkit-line-clamp: 4;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -1012,22 +1281,27 @@ const videoIds = [
   .journal-feature-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.38rem;
   }
 
   .journal-tag {
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.78rem;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-2);
-    padding: 0.12rem 0.5rem;
+    padding: 0.12rem 0.48rem;
     border-radius: 4px;
     border: 1px solid var(--hc-rule-soft);
+    transition: color 180ms ease, border-color 180ms ease;
+  }
+
+  .journal-feature-card:hover .journal-tag {
+    border-color: var(--cat-border, var(--hc-rule));
   }
 
   .journal-meta {
     margin-top: auto;
-    padding-top: 0.5rem;
+    padding-top: 0.4rem;
   }
 
   .journal-meta-cta {
@@ -1036,7 +1310,7 @@ const videoIds = [
     gap: 0.5rem;
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1055,37 +1329,83 @@ const videoIds = [
     transform: translateX(4px);
   }
 
-  /* Category tiles deck */
+  /* Category Filter Introduction */
+  .archive-categories-intro {
+    margin-top: 1.75rem;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .categories-intro-heading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .intro-glyph {
+    color: var(--hc-gold);
+    font-size: 0.82rem;
+  }
+
+  .intro-title {
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-secondary);
+  }
+
+  .intro-hint {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  /* Category tiles deck - Archival Dossier Folders */
 
   .journal-categories {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1.25rem;
-    margin-top: 1.5rem;
+    gap: 1.15rem;
+    margin-top: 0.75rem;
   }
 
   .journal-category-tile {
+    cursor: pointer;
     position: relative;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: clamp(1.25rem, 2vw, 1.6rem);
+    padding: clamp(0.95rem, 1.4vw, 1.2rem);
     border-radius: var(--radius-sm);
     text-decoration: none;
     border: 1px solid var(--cat-border, var(--hc-rule));
     border-top: 3px solid var(--cat-color, var(--hc-gold));
-    background: linear-gradient(
-      180deg,
-      var(--cat-bg, rgba(216, 177, 102, 0.08)) 0%,
-      var(--hc-surface-1) 35%,
-      var(--hc-surface-0) 100%
-    );
+    background:
+      radial-gradient(
+        400px circle at var(--card-spotlight-x, 50%) var(--card-spotlight-y, 50%),
+        var(--cat-bg, rgba(216, 177, 102, 0.1)),
+        transparent 50%
+      ),
+      linear-gradient(
+        180deg,
+        var(--cat-bg, rgba(216, 177, 102, 0.08)) 0%,
+        var(--hc-surface-1) 32%,
+        var(--hc-surface-0) 100%
+      );
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
     transition:
-      border-color 250ms ease,
-      background 250ms ease,
-      box-shadow 250ms ease,
-      transform 250ms var(--ease);
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background 220ms ease;
   }
 
   .journal-category-tile:hover {
@@ -1093,29 +1413,53 @@ const videoIds = [
     box-shadow:
       0 14px 32px rgba(0, 0, 0, 0.25),
       0 0 20px var(--cat-bg, rgba(216, 177, 102, 0.15));
-    transform: translateY(-4px);
+    transform: translateY(-3px);
   }
 
-  .journal-category-head {
+  .journal-category-tile.is-active {
+    border-color: var(--cat-color, var(--hc-gold));
+    box-shadow:
+      0 16px 36px rgba(0, 0, 0, 0.32),
+      0 0 24px var(--cat-bg, rgba(216, 177, 102, 0.25));
+    background: linear-gradient(
+      180deg,
+      var(--cat-bg, rgba(216, 177, 102, 0.2)) 0%,
+      var(--hc-surface-2) 32%,
+      var(--hc-surface-1) 100%
+    );
+    transform: translateY(-3px);
+  }
+
+  .dossier-tab-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.1rem;
+    margin-bottom: 0.85rem;
+    gap: 0.4rem;
   }
 
-  .journal-category-pill {
+  .dossier-tab-tag {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--hc-text-tertiary);
+    text-transform: uppercase;
+  }
+
+  .dossier-category-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.2rem 0.6rem;
+    gap: 0.35rem;
+    padding: 0.18rem 0.52rem;
     border-radius: var(--radius-pill);
     background: var(--cat-bg, rgba(216, 177, 102, 0.1));
     border: 1px solid var(--cat-border, var(--hc-rule));
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -1127,22 +1471,10 @@ const videoIds = [
     box-shadow: 0 0 6px var(--cat-color, var(--hc-gold));
   }
 
-  .journal-category-arrow {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    color: var(--hc-text-tertiary);
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-surface-2);
-    transition: all 220ms ease;
-  }
-
-  .journal-category-tile:hover .journal-category-arrow {
-    color: var(--cat-color, var(--hc-gold));
-    border-color: var(--cat-color, var(--hc-gold));
-    transform: translate(2px, -2px);
+  .dossier-body {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
   }
 
   .journal-category-title {
@@ -1150,36 +1482,171 @@ const videoIds = [
     color: var(--hc-text-primary);
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.25rem, 1.6vw, 1.32rem);
-    line-height: 1.18;
+    font-size: clamp(1.15rem, 1.4vw, 1.28rem);
+    line-height: 1.2;
     letter-spacing: -0.01em;
+    min-height: 2.6rem;
     transition: color 220ms ease;
   }
 
-  .journal-category-tile:hover .journal-category-title {
+  .journal-category-tile:hover .journal-category-title,
+  .journal-category-tile.is-active .journal-category-title {
     color: var(--cat-color, var(--hc-gold-soft));
   }
 
   .journal-category-desc {
-    margin: 0 0 1.25rem;
+    margin: 0 0 0.75rem;
     color: var(--hc-text-secondary);
-    font-size: 0.99rem;
-    line-height: 1.55;
-    flex-grow: 1;
+    font-size: 0.88rem;
+    line-height: 1.48;
+  }
+
+  /* Interior Manuscript Slips Pocket */
+  .dossier-slips-pocket {
+    position: relative;
+    margin: 0.4rem 0 0.85rem;
+    height: 58px;
+  }
+
+  .dossier-slip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: var(--radius-sm);
+    background: var(--hc-surface-2);
+    border: 1px solid var(--hc-rule-soft);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--hc-text-secondary);
+    transition:
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      border-color 200ms ease,
+      opacity 200ms ease,
+      box-shadow 200ms ease;
+  }
+
+  .dossier-slip-folio {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    color: var(--hc-gold);
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .dossier-slip-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+    font-size: 0.75rem;
+  }
+
+  .dossier-slip--1 {
+    top: 0;
+    z-index: 3;
+    transform: translateY(0) scale(1);
+  }
+
+  .dossier-slip--2 {
+    top: 6px;
+    z-index: 2;
+    transform: translateY(6px) scale(0.96);
+    background: var(--hc-surface-1);
+    opacity: 0.85;
+  }
+
+  .dossier-slip--3 {
+    top: 12px;
+    z-index: 1;
+    transform: translateY(12px) scale(0.92);
+    background: var(--hc-surface-0);
+    opacity: 0.65;
+  }
+
+  .journal-category-tile:hover .dossier-slip--1,
+  .journal-category-tile.is-active .dossier-slip--1 {
+    transform: translateY(-8px) scale(1);
+    border-color: var(--cat-border, var(--hc-rule-strong));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+    color: var(--hc-text-primary);
+  }
+
+  .journal-category-tile:hover .dossier-slip--2,
+  .journal-category-tile.is-active .dossier-slip--2 {
+    transform: translateY(2px) scale(0.97);
+    opacity: 0.95;
+    border-color: var(--cat-border, var(--hc-rule));
+  }
+
+  .journal-category-tile:hover .dossier-slip--3,
+  .journal-category-tile.is-active .dossier-slip--3 {
+    transform: translateY(12px) scale(0.94);
+    opacity: 0.8;
+  }
+
+  /* Mobile Compact Peek - hidden on desktop */
+  .dossier-mobile-peek {
+    display: none;
   }
 
   .journal-category-foot {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding-top: 0.85rem;
+    padding-top: 0.75rem;
     border-top: 1px solid var(--hc-rule-soft);
-    color: var(--cat-color, var(--hc-gold));
+    margin-top: auto;
+  }
+
+  .dossier-filter-hint {
     font-family: var(--font-ui);
-    font-size: 0.83rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-size: 0.75rem;
     text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--hc-text-tertiary);
+    font-weight: 600;
+  }
+
+  .hint-active-text {
+    display: none;
+  }
+
+  .journal-category-tile.is-active .hint-filter-text {
+    display: none;
+  }
+
+  .journal-category-tile.is-active .hint-active-text {
+    display: inline;
+    color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .journal-category-foot-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--cat-color, var(--hc-gold));
+    padding: 0.18rem 0.48rem;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--cat-border, var(--hc-rule-soft));
+    transition: background 180ms ease, border-color 180ms ease;
+  }
+
+  .journal-category-foot-link:hover {
+    background: var(--cat-bg, rgba(216, 177, 102, 0.16));
+    border-color: var(--cat-color, var(--hc-gold));
   }
 
   .journal-category-foot .foot-glyph {
@@ -1187,7 +1654,7 @@ const videoIds = [
   }
 
   .journal-category-tile:hover .journal-category-foot .foot-glyph {
-    transform: translateX(4px);
+    transform: translateX(3px);
   }
 
   /* Latest entries ledger */
@@ -1201,8 +1668,47 @@ const videoIds = [
     justify-content: space-between;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    gap: 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .home-ledger-header-copy {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-ledger-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+  }
+
+  .home-ledger-kicker-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px rgba(216, 177, 102, 0.7);
+  }
+
+  .home-ledger-kicker-text {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .home-ledger-kicker-count {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    color: var(--hc-text-tertiary);
+    padding: 0.08rem 0.45rem;
+    border-radius: var(--radius-pill);
+    background: var(--hc-surface-2);
+    border: 1px solid var(--hc-rule-soft);
   }
 
   .home-ledger-title {
@@ -1210,20 +1716,41 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.36rem, 2.4vw, 1.78rem);
+    font-size: clamp(1.42rem, 2.5vw, 1.85rem);
     color: var(--hc-text-primary);
   }
 
   .home-ledger-subtitle {
     margin: 0.35rem 0 0;
     color: var(--hc-text-secondary);
-    font-size: 1.03rem;
+    font-size: 1.02rem;
+    line-height: 1.5;
   }
 
   .home-ledger-filters {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+  }
+
+  .home-filter-magnet-pill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-radius: var(--radius-pill);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
+      background-color 180ms ease,
+      box-shadow 180ms ease,
+      opacity 120ms ease;
   }
 
   /* Unique Category Color System for Home Filters .
@@ -1274,6 +1801,8 @@ const videoIds = [
   }
 
   .home-filter-tab {
+    position: relative;
+    z-index: 2;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -1323,6 +1852,12 @@ const videoIds = [
       color-mix(in srgb, var(--home-tab-active-bg) 40%, transparent);
   }
 
+  .home-ledger-filters[data-magnet-ready="true"] .home-filter-tab.is-active {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
   .home-filter-tab.is-active .home-tab__dot {
     background: currentColor;
   }
@@ -1335,46 +1870,124 @@ const videoIds = [
   }
 
   .home-ledger-row {
+    position: relative;
     border-bottom: 1px solid var(--hc-rule-soft);
-    transition: background 200ms ease;
+    transition:
+      background 280ms ease,
+      border-bottom-color 240ms ease,
+      box-shadow 240ms ease;
+  }
+
+  .home-ledger-row[data-category="Origins & Early History"] {
+    --cat-color: var(--cat-history-text);
+  }
+
+  .home-ledger-row[data-category="Prophecies & Eschatology"] {
+    --cat-color: var(--cat-prophecies-text);
+  }
+
+  .home-ledger-row[data-category="Theology & Epistemology"] {
+    --cat-color: var(--cat-theology-text);
+  }
+
+  .home-ledger-row[data-category="Transmission & Narrators"] {
+    --cat-color: var(--cat-philosophy-text);
+  }
+
+  .home-ledger-row:hover {
+    background: radial-gradient(
+      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 10%, rgba(20, 19, 18, 0.65)) 0%,
+      rgba(15, 14, 13, 0.4) 55%,
+      transparent 85%
+    );
+    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 35%, var(--hc-rule));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
+      0 10px 28px -10px rgba(0, 0, 0, 0.45);
+  }
+
+  :global([data-theme="light"]) .home-ledger-row:hover {
+    background: radial-gradient(
+      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 14%, rgba(245, 240, 230, 0.8)) 0%,
+      rgba(240, 234, 222, 0.45) 55%,
+      transparent 85%
+    );
+    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
+      0 6px 20px -6px rgba(0, 0, 0, 0.08);
   }
 
   .home-ledger-link {
     display: grid;
-    grid-template-columns: 120px minmax(0, 1fr) 36px;
+    grid-template-columns: 155px minmax(0, 1fr) auto;
     align-items: center;
-    gap: clamp(1.1rem, 2.5vw, 2.25rem);
-    padding: clamp(1.2rem, 2vw, 1.6rem) clamp(0.4rem, 1.2vw, 1rem);
+    gap: clamp(1.2rem, 2.5vw, 2.4rem);
+    padding: clamp(1.15rem, 1.6vw, 1.45rem) clamp(0.75rem, 1.2vw, 1.35rem);
     text-decoration: none;
-    transition: background 250ms ease;
-  }
-
-  .home-ledger-link:hover {
-    background: linear-gradient(
-      90deg,
-      rgba(216, 177, 102, 0.06),
-      transparent 60%
-    );
+    border-radius: var(--radius-sm);
   }
 
   .home-ledger-folio {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.35rem;
     font-family: var(--font-ui);
   }
 
   .home-ledger-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 4px;
+    background: rgba(216, 177, 102, 0.05);
+    border: 1px solid var(--hc-rule-soft);
     color: var(--hc-gold);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    font-family: var(--font-mono, monospace);
+    width: fit-content;
+    transition: all 220ms ease;
+  }
+
+  .folio-glyph {
+    font-size: 0.75rem;
+    color: var(--cat-color, var(--hc-gold));
+    opacity: 0.45;
+    transform: scale(0.9);
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease, color 200ms ease;
+  }
+
+  .home-ledger-row:hover .home-ledger-no {
+    background: rgba(216, 177, 102, 0.12);
+    border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
+    color: var(--hc-gold-bright, #ffffff);
+    box-shadow: 0 0 12px rgba(216, 177, 102, 0.2);
+  }
+
+  .home-ledger-row:hover .folio-glyph {
+    opacity: 1;
+    transform: scale(1.15) rotate(45deg);
+    color: var(--cat-color, var(--hc-gold));
   }
 
   .home-ledger-folio time {
     color: var(--hc-text-tertiary);
-    font-size: 0.87rem;
+    font-size: 0.82rem;
+  }
+
+  .home-ledger-readtime {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
   }
 
   .home-ledger-body {
@@ -1387,24 +2000,33 @@ const videoIds = [
   .home-ledger-top {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.65rem;
+    flex-wrap: wrap;
   }
 
   .home-ledger-cat {
     display: inline-flex;
     align-items: center;
-    min-height: 24px;
-    padding: 0.15rem 0.6rem;
+    gap: 0.35rem;
+    min-height: 22px;
+    padding: 0.12rem 0.55rem;
     border: 1px solid var(--hc-rule);
     border-radius: var(--radius-pill);
     color: var(--hc-gold-soft);
     background: rgba(216, 177, 102, 0.06);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.09em;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
+  }
+
+  .home-ledger-cat-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .home-ledger-cat[data-category="Origins & Early History"] {
@@ -1432,67 +2054,122 @@ const videoIds = [
   }
 
   .home-ledger-heading {
+    margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.35rem, 1.9vw, 1.53rem);
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+    font-size: clamp(1.24rem, 1.7vw, 1.45rem);
+    line-height: 1.22;
+    letter-spacing: -0.015em;
     color: var(--hc-text-primary);
-    transition: color 250ms ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 6px;
+    text-decoration-thickness: 1.5px;
+    transition: color 200ms ease, text-decoration-color 260ms ease;
   }
 
-  .home-ledger-link:hover .home-ledger-heading {
+  .home-ledger-row:hover .home-ledger-heading {
     color: var(--hc-gold-soft);
+    text-decoration-color: var(--cat-color, var(--hc-gold));
   }
 
   .home-ledger-desc {
+    margin: 0;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     color: var(--hc-text-secondary);
-    font-size: 1.04rem;
-    line-height: 1.6;
+    font-size: 0.94rem;
+    line-height: 1.55;
   }
 
-  .home-ledger-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.2rem;
+  .home-ledger-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-shrink: 0;
   }
 
-  .home-tag {
+  .home-ledger-action-label {
     font-family: var(--font-ui);
-    font-size: 0.8rem;
-    color: var(--hc-text-tertiary);
-    background: var(--hc-surface-2);
-    padding: 0.1rem 0.45rem;
-    border-radius: 4px;
-    border: 1px solid var(--hc-rule-soft);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cat-color, var(--hc-gold));
+    opacity: 0;
+    transform: translateX(6px);
+    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    white-space: nowrap;
+    pointer-events: none;
   }
 
   .home-ledger-arrow {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border: 1px solid var(--hc-rule);
     border-radius: 50%;
-    color: var(--hc-gold-dim);
-    transition: all 250ms ease;
+    color: var(--hc-gold);
+    background: var(--hc-surface-1);
+    transition: all 220ms ease;
   }
 
-  .home-ledger-link:hover .home-ledger-arrow {
+  .home-ledger-row:hover .home-ledger-action-label {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .home-ledger-row:hover .home-ledger-arrow {
     color: var(--hc-fixed-black, #141312);
-    border-color: var(--hc-gold);
-    background: var(--hc-gold);
-    transform: translateX(4px);
+    border-color: var(--cat-color, var(--hc-gold));
+    background: var(--cat-color, var(--hc-gold));
+    transform: translateX(3px);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 50%, transparent);
   }
 
   .home-ledger-footer {
-    margin-top: 2rem;
-    text-align: center;
+    margin-top: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    border-radius: var(--radius-sm);
+    background: var(--hc-surface-1);
+    border: 1px solid var(--hc-rule-soft);
+  }
+
+  :global([data-theme="light"]) .home-ledger-footer {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-rule);
+  }
+
+  .home-ledger-footer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .home-ledger-footer-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--hc-gold);
+    box-shadow: 0 0 8px rgba(216, 177, 102, 0.6);
+  }
+
+  .home-ledger-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
   }
 
   /* Video lectures */
@@ -1630,18 +2307,16 @@ const videoIds = [
     border: 0;
   }
 
-  /* Projects Renovation — 2-Tier Research Infrastructure */
+  /* Projects Section — 3-Column Minimalist Research Suite */
 
   .projects-renovation {
     display: flex;
     flex-direction: column;
-    gap: 1.75rem;
   }
 
-  /* Live Modules Grid (Tier 1: 2-column desktop) */
   .projects-live-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5rem;
     align-items: stretch;
   }
@@ -1650,19 +2325,19 @@ const videoIds = [
     position: relative;
     display: flex;
     flex-direction: column;
-    padding: clamp(1.75rem, 2.8vw, 2.5rem);
+    padding: clamp(1.5rem, 2.2vw, 2rem);
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs);
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--hc-surface-2) 75%, transparent),
+      color-mix(in srgb, var(--hc-surface-2) 65%, transparent),
       var(--hc-surface-0)
     );
     text-decoration: none;
     transition:
-      transform 300ms var(--ease),
-      border-color 300ms ease,
-      box-shadow 300ms ease;
+      transform var(--motion-base) var(--ease),
+      border-color var(--motion-base) ease,
+      box-shadow var(--motion-base) ease;
   }
 
   .project-module-card::before {
@@ -1670,23 +2345,23 @@ const videoIds = [
     position: absolute;
     inset: 0;
     background: radial-gradient(
-      circle at 90% 0%,
-      rgba(216, 177, 102, 0.08),
+      circle at 85% 0%,
+      rgba(216, 177, 102, 0.07),
       transparent 55%
     );
     pointer-events: none;
-    opacity: 0.65;
-    transition: opacity 300ms ease;
+    opacity: 0.5;
+    transition: opacity var(--motion-base) ease;
   }
 
   .project-module-card--link:hover {
     border-color: var(--hc-gold-dim);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
   }
 
   :global([data-theme="light"]) .project-module-card--link:hover {
-    box-shadow: 0 16px 40px rgba(111, 80, 25, 0.1);
+    box-shadow: 0 12px 32px rgba(111, 80, 25, 0.08);
   }
 
   .project-module-card--link:hover::before {
@@ -1697,69 +2372,24 @@ const videoIds = [
   .project-module-card__header {
     display: flex;
     align-items: center;
-    margin-bottom: 0.85rem;
-  }
-
-  .project-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.24rem 0.7rem;
-    border-radius: var(--radius-pill);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .project-badge--live {
-    color: var(--hc-gold-bright);
-    background: color-mix(in srgb, var(--hc-gold) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--hc-gold) 35%, transparent);
-  }
-
-  :global([data-theme="light"]) .project-badge--live {
-    color: var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 10%, #fbf9f4);
-    border-color: color-mix(in srgb, var(--hc-gold) 35%, transparent);
-  }
-
-  .project-badge__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    animation: proj-dot-pulse 2.4s ease-in-out infinite;
-  }
-
-  @keyframes proj-dot-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.45; transform: scale(0.85); }
-  }
-
-  .project-badge--soon {
-    color: var(--hc-text-tertiary);
-    background: color-mix(in srgb, var(--hc-surface-3) 40%, transparent);
-    border: 1px dashed var(--hc-rule);
+    margin-bottom: 0.75rem;
   }
 
   .project-module-card__kicker {
     font-family: var(--font-ui);
     font-size: 0.76rem;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
   /* Card Title & Arabic Subtitle */
   .project-module-card__title-row {
-    margin-bottom: 0.85rem;
+    margin-bottom: 0.75rem;
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.2rem;
   }
 
   .project-module-card__title {
@@ -1768,15 +2398,15 @@ const videoIds = [
     font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
-    font-size: clamp(1.5rem, 2.2vw, 1.88rem);
-    line-height: 1.15;
+    font-size: clamp(1.35rem, 1.8vw, 1.6rem);
+    line-height: 1.2;
   }
 
   .project-module-card__ar {
     font-family: var(--font-arabic);
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     color: var(--hc-gold-dim);
-    line-height: 1.3;
+    line-height: 1.35;
   }
 
   :global([data-theme="light"]) .project-module-card__ar {
@@ -1786,19 +2416,18 @@ const videoIds = [
 
   /* Card Description */
   .project-module-card__desc {
-    font-size: 0.96rem;
+    font-size: 0.92rem;
     line-height: 1.6;
     color: var(--hc-text-secondary);
-    margin-bottom: 1.35rem;
+    margin: 0 0 1.25rem;
   }
 
-  /* Apparatus Stats Band — Spacious, Open-Faced Editorial Layout */
+  /* Apparatus Stats Band — Clean, Refined Minimalist Layout */
   .project-stats-band {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.5rem;
-    margin: 0.5rem 0 1.5rem;
-    padding: 1rem 0;
+    grid-template-columns: repeat(3, 1fr);
+    margin: auto 0 1.25rem;
+    padding: 0.75rem 0;
     border-block: 1px solid var(--hc-rule);
     background: transparent;
   }
@@ -1806,10 +2435,10 @@ const videoIds = [
   .project-stat-item {
     position: relative;
     min-width: 0;
-    padding-inline: 0.85rem;
+    padding-inline: 0.4rem;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.2rem;
   }
 
   .project-stat-item:first-child {
@@ -1826,201 +2455,48 @@ const videoIds = [
     inset-block: 0.15rem;
     left: 0;
     width: 1px;
-    background: var(--hc-rule);
+    background: var(--hc-rule-soft);
   }
 
   .project-stat-item__num {
     display: block;
     font-family: var(--font-display);
-    font-size: clamp(1.25rem, 2vw, 1.6rem);
+    font-size: clamp(1rem, 1.2vw, 1.25rem);
     font-weight: 600;
     color: var(--hc-gold);
-    line-height: 1.1;
+    line-height: 1.15;
     letter-spacing: -0.01em;
     font-variant-numeric: lining-nums tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .project-stat-item__lbl {
     display: block;
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
-    line-height: 1.3;
-    overflow-wrap: break-word;
-  }
-
-  /* Pills Row */
-  .project-module-card__pills-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1.75rem;
-  }
-
-  .project-pills-label {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .project-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .project-pill {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--radius-sm);
-    background: color-mix(in srgb, var(--hc-surface-3) 45%, transparent);
-    border: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-secondary);
-    letter-spacing: 0.02em;
+    line-height: 1.2;
     white-space: nowrap;
-  }
-
-  .project-pill--more {
-    color: var(--hc-gold-dim);
-    border-style: dashed;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Card Footer */
   .project-module-card__footer {
     margin-top: auto;
-    padding-top: 1.15rem;
+    padding-top: 1rem;
     border-top: 1px solid var(--hc-rule);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    flex-wrap: wrap;
   }
 
   .project-module-card__cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    transition: color 200ms ease, transform 200ms ease;
-  }
-
-  .project-module-card--link:hover .project-module-card__cta {
-    color: var(--hc-gold-bright);
-    transform: translateX(3px);
-  }
-
-  .project-module-card__meta {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    color: var(--hc-text-tertiary);
-    letter-spacing: 0.03em;
-  }
-
-  /* Tier 2: Academic Studies Core Module Banner */
-  .project-workbench-banner {
-    display: grid;
-    grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
-    gap: 2.25rem;
-    align-items: center;
-    padding: clamp(1.75rem, 2.5vw, 2.35rem);
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: var(--radius-sm);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--hc-surface-2) 40%, transparent),
-      color-mix(in srgb, var(--hc-surface-1) 80%, transparent)
-    );
-  }
-
-  .project-workbench-banner__header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .project-workbench-banner__kicker {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .project-workbench-banner__title-row {
-    margin-bottom: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .project-workbench-banner__title {
-    margin: 0;
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-size: clamp(1.35rem, 1.8vw, 1.65rem);
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.015em;
-  }
-
-  .project-workbench-banner__ar {
-    font-family: var(--font-arabic);
-    font-size: 1.1rem;
-    color: var(--hc-gold-dim);
-    line-height: 1.3;
-  }
-
-  .project-workbench-banner__desc {
-    font-size: 0.94rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-    margin-bottom: 1.25rem;
-  }
-
-  .project-workbench-banner__footer {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-  }
-
-  .project-workbench-banner--link {
-    text-decoration: none;
-    transition:
-      transform 300ms var(--ease),
-      border-color 300ms ease,
-      box-shadow 300ms ease;
-  }
-
-  .project-workbench-banner--link:hover {
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-    transform: translateY(-3px);
-  }
-
-  :global([data-theme="light"]) .project-workbench-banner--link:hover {
-    box-shadow: 0 16px 40px rgba(111, 80, 25, 0.1);
-  }
-
-  .project-workbench-banner__cta {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -2033,115 +2509,9 @@ const videoIds = [
     transition: color 200ms ease, transform 200ms ease;
   }
 
-  .project-workbench-banner--link:hover .project-workbench-banner__cta {
+  .project-module-card--link:hover .project-module-card__cta {
     color: var(--hc-gold-bright);
     transform: translateX(3px);
-  }
-
-  .project-workbench-banner__meta {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  /* Workbench Pillars & Dossier Preview */
-  .project-workbench-banner__pillars {
-    border-left: 1px solid var(--hc-rule);
-    padding-left: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-  }
-
-  .banner-dossier-header {
-    display: flex;
-    align-items: baseline;
-    gap: 0.45rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .banner-dossier-tag {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold);
-  }
-
-  .banner-dossier-sep {
-    color: var(--hc-text-tertiary);
-    font-size: 0.76rem;
-  }
-
-  .banner-dossier-ref {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .banner-dossier-study {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .banner-dossier-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-  }
-
-  .banner-dossier-code {
-    color: var(--hc-gold-dim);
-    font-weight: 600;
-  }
-
-  .banner-dossier-dating {
-    color: var(--hc-text-tertiary);
-  }
-
-  .banner-dossier-title {
-    margin: 0.1rem 0 0;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 500;
-    line-height: 1.3;
-    color: var(--hc-text-primary);
-  }
-
-  .workbench-pillars-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .workbench-pillars-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
-    font-size: 0.88rem;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  .workbench-pillars-list li strong {
-    color: var(--hc-text-primary);
-  }
-
-  .workbench-pillar__bullet {
-    color: var(--hc-gold-dim);
-    font-size: 0.8rem;
-    line-height: 1.5;
-    flex-shrink: 0;
   }
 
   /* Closing band */
@@ -2178,8 +2548,8 @@ const videoIds = [
   }
 
   .closing-lead {
-    margin: 1rem 0 1.6rem;
-    color: var(--hc-parchment-deep);
+    margin: 1.15rem 0 2rem;
+    color: var(--hc-fixed-muted);
     font-size: 1.14rem;
     line-height: 1.65;
     max-width: 44ch;
@@ -2208,6 +2578,10 @@ const videoIds = [
   /* Responsive */
 
   @media (max-width: 1024px) {
+    .projects-live-grid {
+      grid-template-columns: 1fr;
+    }
+
     .journal-feature-grid,
     .journal-feature-card {
       grid-template-columns: 1fr;
@@ -2216,7 +2590,7 @@ const videoIds = [
     .journal-feature-media {
       min-height: auto;
       aspect-ratio: 16 / 9;
-      max-height: 400px;
+      width: 100%;
     }
 
     .youtube-grid {
@@ -2225,41 +2599,29 @@ const videoIds = [
   }
 
   @media (max-width: 900px) {
-    .projects-live-grid,
-    .project-workbench-banner {
+    .projects-live-grid {
       grid-template-columns: 1fr;
-    }
-
-    .project-workbench-banner__pillars {
-      border-left: none;
-      border-top: 1px solid var(--hc-rule);
-      padding-left: 0;
-      padding-top: 1.5rem;
     }
 
     .journal-categories {
       grid-template-columns: repeat(2, 1fr);
     }
     .home-ledger-link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
+      grid-template-columns: 140px minmax(0, 1fr) auto;
+      gap: 1.2rem;
+      padding: 1.05rem 0.6rem;
+      align-items: center;
     }
 
-    .home-ledger-folio {
-      grid-column: 1 / -1;
-      grid-template-columns: auto auto;
-      align-items: baseline;
-      gap: 0.85rem;
-    }
-
-    .home-ledger-arrow {
+    .home-ledger-action-label {
       display: none;
     }
   }
 
   @media (max-width: 760px) {
     .journal-categories {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
     }
     .hero-section {
       min-height: auto;
@@ -2341,7 +2703,24 @@ const videoIds = [
       margin-top: 1.25rem;
     }
 
+    .archive-filter-banner {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.65rem;
+      padding: 0.75rem 0.9rem;
+    }
+
+    .filter-banner__actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
     .journal-feature-card {
+      grid-template-columns: 1fr;
+      padding: 0.85rem;
+      gap: 1rem;
       min-height: auto;
     }
 
@@ -2349,19 +2728,107 @@ const videoIds = [
       min-height: auto;
       aspect-ratio: 16 / 9;
       width: 100%;
+      border-radius: var(--radius-sm);
     }
 
     .journal-feature-copy {
-      padding: 1.25rem 1.15rem;
+      padding: 0.25rem 0.2rem 0.5rem;
+      gap: 0.75rem;
     }
 
     .journal-feature-copy h3 {
-      font-size: clamp(1.45rem, 6vw, 1.66rem);
-      line-height: 1.15;
+      font-size: clamp(1.28rem, 5.2vw, 1.55rem);
+      line-height: 1.2;
     }
 
     .journal-feature-copy > p {
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: 2;
+      font-size: 0.94rem;
+      line-height: 1.55;
+    }
+
+    .journal-feature-tags {
+      gap: 0.3rem;
+    }
+
+    .journal-tag {
+      font-size: 0.75rem;
+      padding: 0.1rem 0.4rem;
+    }
+
+    .journal-category-tile {
+      padding: 0.85rem 0.75rem;
+    }
+
+    .journal-category-title {
+      font-size: 0.98rem;
+      line-height: 1.22;
+      min-height: auto;
+      margin-bottom: 0.35rem;
+    }
+
+    .journal-category-desc {
+      display: none;
+    }
+
+    .dossier-tab-header {
+      margin-bottom: 0.5rem;
+      gap: 0.3rem;
+    }
+
+    .dossier-tab-tag {
+      font-size: 0.75rem;
+    }
+
+    .dossier-category-pill {
+      padding: 0.12rem 0.38rem;
+      font-size: 0.75rem;
+    }
+
+    .dossier-slips-pocket {
+      display: none;
+    }
+
+    .dossier-mobile-peek {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem 0.45rem;
+      background: var(--hc-surface-2);
+      border: 1px solid var(--hc-rule-soft);
+      border-radius: 4px;
+      margin: 0.35rem 0 0.55rem;
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      color: var(--hc-text-secondary);
+    }
+
+    .mobile-peek-label {
+      color: var(--hc-gold);
+      font-weight: 700;
+      flex-shrink: 0;
+      font-size: 0.75rem;
+    }
+
+    .mobile-peek-title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.75rem;
+    }
+
+    .journal-category-foot {
+      padding-top: 0.5rem;
+      font-size: 0.75rem;
+    }
+
+    .dossier-filter-hint {
+      font-size: 0.75rem;
+    }
+
+    .journal-category-foot-link {
+      padding: 0.15rem 0.42rem;
+      font-size: 0.75rem;
     }
 
     .home-ledger-header {
@@ -2391,19 +2858,82 @@ const videoIds = [
     }
 
     .home-ledger-link {
-      grid-template-columns: minmax(0, 1fr);
-      padding-inline: max(0.5rem, var(--sal, 0px)) max(0.5rem, var(--sar, 0px));
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding: 1.1rem 0.6rem;
+      align-items: stretch;
       min-width: 0;
     }
 
     .home-ledger-folio {
-      gap: 0.45rem 0.75rem;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px dashed var(--hc-rule-soft);
+      gap: 0.5rem;
+    }
+
+    .home-ledger-no {
+      font-size: 0.75rem;
+    }
+
+    .home-ledger-folio time {
+      font-size: 0.75rem;
+      color: var(--hc-text-tertiary);
+    }
+
+    .home-ledger-readtime {
+      font-size: 0.75rem;
+    }
+
+    .home-ledger-body {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      min-width: 0;
     }
 
     .home-ledger-title {
       font-size: clamp(1.45rem, 8vw, 1.57rem);
       overflow-wrap: break-word;
       word-break: break-word;
+    }
+
+    .home-ledger-heading {
+      font-size: 1.05rem;
+      line-height: 1.25;
+    }
+
+    .home-ledger-desc {
+      font-size: 0.85rem;
+      line-height: 1.45;
+      -webkit-line-clamp: 2;
+    }
+
+    .home-ledger-action {
+      display: none;
+    }
+
+    .home-ledger-footer {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.85rem;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .home-ledger-footer-status {
+      justify-content: center;
+      font-size: 0.78rem;
+    }
+
+    .home-ledger-cta-btn {
+      justify-content: center;
+      width: 100%;
     }
 
     .home-ledger-cat {
@@ -2433,11 +2963,7 @@ const videoIds = [
     }
 
     .project-module-card {
-      padding: 1.35rem;
-    }
-
-    .project-workbench-banner {
-      padding: 1.35rem;
+      padding: 1.25rem;
     }
   }
 </style>
@@ -2466,14 +2992,53 @@ const videoIds = [
     }
 
     // Home Ledger Filter Tabs - Show first 5 blogs of each category
+    const filterContainer = document.querySelector<HTMLElement>(".home-ledger-filters");
+    const filterMagnetPill = filterContainer?.querySelector<HTMLElement>(".home-filter-magnet-pill");
     const filterTabs =
       document.querySelectorAll<HTMLButtonElement>(".home-filter-tab");
     const ledgerRows = [
       ...document.querySelectorAll<HTMLLIElement>(".home-ledger-row"),
     ];
+
+    ledgerRows.forEach((row) => {
+      row.addEventListener("mousemove", (e) => {
+        const rect = row.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        row.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
+        row.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
+      });
+    });
     const ctaBtn = document.getElementById("home-ledger-cta");
 
-    const applyFilter = (filter: string) => {
+    const updateMagnetPill = (tab: HTMLElement) => {
+      if (!filterMagnetPill || !filterContainer || !tab) return;
+      const cRect = filterContainer.getBoundingClientRect();
+      const tRect = tab.getBoundingClientRect();
+      const left = tRect.left - cRect.left;
+      const top = tRect.top - cRect.top;
+      filterMagnetPill.style.transform = `translate(${left}px, ${top}px)`;
+      filterMagnetPill.style.width = `${tRect.width}px`;
+      filterMagnetPill.style.height = `${tRect.height}px`;
+      filterMagnetPill.style.opacity = "1";
+      const activeBg = getComputedStyle(tab).getPropertyValue('--home-tab-active-bg').trim() || 'var(--hc-gold)';
+      filterMagnetPill.style.backgroundColor = activeBg;
+      filterMagnetPill.style.boxShadow = `0 2px 10px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+    };
+
+    if (filterContainer && filterMagnetPill) {
+      filterContainer.setAttribute("data-magnet-ready", "true");
+      const initialActive = filterContainer.querySelector<HTMLButtonElement>(".home-filter-tab.is-active");
+      if (initialActive) updateMagnetPill(initialActive);
+      window.addEventListener("resize", () => {
+        const active = filterContainer.querySelector<HTMLButtonElement>(".home-filter-tab.is-active");
+        if (active) updateMagnetPill(active);
+      }, { passive: true });
+    }
+
+    const countLabel = document.getElementById("home-ledger-count-label");
+
+    const applyFilter = (filter: string, totalCount?: string) => {
       let count = 0;
       ledgerRows.forEach((row) => {
         const rowCategory = row.dataset.category ?? "";
@@ -2486,6 +3051,14 @@ const videoIds = [
           row.hidden = true;
         }
       });
+
+      if (countLabel) {
+        if (filter === "all") {
+          countLabel.textContent = `Showing ${count} of ${ledgerRows.length} investigations`;
+        } else {
+          countLabel.textContent = `Showing ${count} of ${totalCount || count} in ${filter}`;
+        }
+      }
 
       if (ctaBtn) {
         if (filter === "all") {
@@ -2505,10 +3078,180 @@ const videoIds = [
     filterTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
         const filter = tab.dataset.homeFilter ?? "all";
+        const totalCount = tab.dataset.totalCount;
         filterTabs.forEach((t) => t.classList.toggle("is-active", t === tab));
-        applyFilter(filter);
+        updateMagnetPill(tab);
+        applyFilter(filter, totalCount);
       });
     });
+
+    // --- Archive Feature & Dossier Filter Controller ---
+    const initArchiveFeature = () => {
+      const card = document.getElementById("journal-feature-card") as HTMLAnchorElement | null;
+      const banner = document.getElementById("archive-filter-banner");
+      const bannerCat = document.getElementById("filter-banner-cat");
+      const bannerCount = document.getElementById("filter-banner-count");
+      const bannerExplore = document.getElementById("filter-banner-explore-link") as HTMLAnchorElement | null;
+      const bannerReset = document.getElementById("filter-banner-reset-btn");
+      const payloadEl = document.getElementById("archive-preview-payloads");
+      if (!card || !payloadEl) return;
+
+      let payloads: Record<string, any> = {};
+      try {
+        payloads = JSON.parse(payloadEl.textContent || "{}");
+      } catch {
+        return;
+      }
+
+      const categoryFolders = document.querySelectorAll<HTMLElement>(".journal-category-tile.dossier-folder");
+      let activeFilter: string | null = null;
+
+      // Mouse-tracking spotlight on preview card
+      card.addEventListener("mousemove", (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        card.style.setProperty("--spotlight-x", `${x.toFixed(1)}%`);
+        card.style.setProperty("--spotlight-y", `${y.toFixed(1)}%`);
+      });
+
+      // Mouse-tracking spotlight on category folder cards
+      categoryFolders.forEach((folder) => {
+        folder.addEventListener("mousemove", (e) => {
+          const rect = folder.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          folder.style.setProperty("--card-spotlight-x", `${x.toFixed(1)}%`);
+          folder.style.setProperty("--card-spotlight-y", `${y.toFixed(1)}%`);
+        });
+      });
+
+      const updatePreview = (catName: string | null) => {
+        const data = (catName && payloads[catName]) ? payloads[catName] : payloads["all"];
+        if (!data) return;
+
+        card.classList.add("is-transitioning");
+
+        setTimeout(() => {
+          card.href = data.href;
+          card.setAttribute("data-category", data.category);
+
+          const img = document.getElementById("journal-feature-img") as HTMLImageElement | null;
+          if (img) {
+            img.src = data.thumbnail;
+            img.alt = `Cover illustration for ${data.title}`;
+          }
+
+          const badge = document.getElementById("journal-feature-badge");
+          if (badge) {
+            const text = badge.querySelector<HTMLElement>(".feature-badge__text");
+            if (text) text.textContent = data.badgeText || "Investigation";
+          }
+
+          const folio = document.getElementById("journal-feature-folio");
+          if (folio) {
+            const val = folio.querySelector<HTMLElement>(".folio-tag__val");
+            if (val) val.textContent = `HC-${data.folio}`;
+          }
+
+          const catEl = document.getElementById("journal-feature-cat");
+          if (catEl) {
+            catEl.textContent = data.category;
+            catEl.setAttribute("data-category", data.category);
+          }
+
+          const dateEl = document.getElementById("journal-feature-date");
+          if (dateEl) {
+            dateEl.textContent = data.date;
+            dateEl.setAttribute("datetime", data.rawDate);
+          }
+
+          const readTime = document.getElementById("journal-feature-readtime");
+          if (readTime) {
+            const span = readTime.querySelector("span");
+            if (span) span.textContent = `${data.readingMinutes} min read`;
+          }
+
+          const newBadge = document.getElementById("journal-feature-new");
+          if (newBadge) {
+            newBadge.style.display = data.isNew ? "inline-flex" : "none";
+          }
+
+          const titleEl = document.getElementById("journal-feature-title");
+          if (titleEl) titleEl.textContent = data.title;
+
+          const descEl = document.getElementById("journal-feature-desc");
+          if (descEl) descEl.textContent = data.description;
+
+          const tagsEl = document.getElementById("journal-feature-tags");
+          if (tagsEl) {
+            tagsEl.innerHTML = (data.tags || [])
+              .map((t: string) => `<span class="journal-tag">#${t}</span>`)
+              .join("");
+          }
+
+          card.classList.remove("is-transitioning");
+        }, 140);
+
+        if (catName && catName !== "all" && payloads[catName]) {
+          if (banner && bannerCat && bannerExplore) {
+            banner.hidden = false;
+            bannerCat.textContent = catName;
+            if (bannerCount) {
+              const folder = [...categoryFolders].find((f) => f.dataset.category === catName);
+              const countPill = folder?.querySelector(".dossier-category-pill span:last-child");
+              bannerCount.textContent = countPill ? `(${countPill.textContent})` : "";
+            }
+            bannerExplore.href = `/blogs?category=${encodeURIComponent(catName)}`;
+            bannerExplore.innerHTML = `Browse All in ${catName} <span aria-hidden="true">→</span>`;
+          }
+        } else {
+          if (banner) banner.hidden = true;
+        }
+
+        categoryFolders.forEach((folder) => {
+          const isActive = folder.dataset.category === catName;
+          folder.classList.toggle("is-active", isActive);
+          folder.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+      };
+
+      categoryFolders.forEach((folder) => {
+        folder.addEventListener("click", (e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest(".journal-category-foot-link")) {
+            return;
+          }
+          e.preventDefault();
+          const cat = folder.dataset.category ?? "";
+          if (activeFilter === cat) {
+            activeFilter = null;
+            updatePreview(null);
+          } else {
+            activeFilter = cat;
+            updatePreview(cat);
+          }
+        });
+
+        folder.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            const target = e.target as HTMLElement;
+            if (target.closest(".journal-category-foot-link")) return;
+            e.preventDefault();
+            folder.click();
+          }
+        });
+      });
+
+      if (bannerReset) {
+        bannerReset.addEventListener("click", () => {
+          activeFilter = null;
+          updatePreview(null);
+        });
+      }
+    };
+
+    initArchiveFeature();
   }
 
   if (document.readyState === "loading") {

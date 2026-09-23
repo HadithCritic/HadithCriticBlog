@@ -51,7 +51,7 @@ export const POST: APIRoute = async ({ request, site }) => {
     });
   }
 
-  const canonicalUrl = new URL(`/blogs/${entry.id}`, site).href;
+  const canonicalUrl = new URL(`/blogs/${entry.id}/`, site).href;
   const content = buildNewArticleEmail({
     title: entry.data.title,
     description: entry.data.description,

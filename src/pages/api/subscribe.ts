@@ -4,16 +4,36 @@ import type { APIRoute } from 'astro';
 import { env } from 'cloudflare:workers';
 import { subscribeSchema } from '../../lib/subscribe-schema.mjs';
 import { addContactToSegment } from '../../lib/resend.mjs';
+import { clientKey, isAllowedOrigin, isHoneypotFilled } from '../../lib/subscribe-guard.mjs';
+
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
 
 export const POST: APIRoute = async ({ request }) => {
+  if (!isAllowedOrigin(request.headers.get('Origin'), request.url)) {
+    return json({ success: false, error: 'Subscribe from the site itself.' }, 403);
+  }
+
+  if (env.SUBSCRIBE_LIMITER) {
+    const { success } = await env.SUBSCRIBE_LIMITER.limit({ key: clientKey(request.headers) });
+    if (!success) {
+      return json({ success: false, error: 'Too many attempts. Please wait a minute and try again.' }, 429);
+    }
+  }
+
   const body = await request.json().catch(() => null);
+
+  // A filled honeypot gets the same answer a person would, so a bot learns
+  // nothing from the response, but nothing is sent to Resend.
+  if (isHoneypotFilled(body)) return json({ success: true }, 200);
+
   const parsed = subscribeSchema.safeParse(body);
 
   if (!parsed.success) {
-    return new Response(JSON.stringify({ success: false, error: 'Enter a valid email address.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ success: false, error: 'Enter a valid email address.' }, 400);
   }
 
   try {
@@ -22,15 +42,9 @@ export const POST: APIRoute = async ({ request }) => {
       segmentId: env.RESEND_SEGMENT_ID,
     });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ success: true }, 200);
   } catch (error) {
     console.error('Subscribe failed', error);
-    return new Response(JSON.stringify({ success: false, error: 'Something went wrong. Please try again.' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ success: false, error: 'Something went wrong. Please try again.' }, 502);
   }
 };

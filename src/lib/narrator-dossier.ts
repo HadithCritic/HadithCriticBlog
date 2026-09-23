@@ -65,7 +65,7 @@ function heroMarkup(detail: NarratorDetail): string {
   return `
     <header class="rijal-hero">
       <div class="rijal-hero__top">
-        <a class="rijal-back" href="/narrators">
+        <a class="rijal-back" href="/narrators/">
           <span class="rijal-back__arrow">←</span>
           <span>Rijāl Register</span>
         </a>
@@ -235,7 +235,7 @@ function transmissionsSection(dossier: NarratorDossier): string {
         ${transmissions
           .map(
             (t) => `
-          <a class="rijal-transmission-card" href="/hadith/${t.id}">
+          <a class="rijal-transmission-card" href="/hadith/${t.id}/">
             <div class="rijal-tcard__header">
               <span class="rijal-tcard__src">${escapeHtml(t.book_en)} № ${escapeHtml(
                 t.hadith_num
@@ -263,7 +263,7 @@ function transmissionsSection(dossier: NarratorDossier): string {
       </div>
 
       <div class="rijal-view-more">
-        <a class="rijal-btn rijal-btn--gold" href="/hadith?narrator=${detail.id}">
+        <a class="rijal-btn rijal-btn--gold" href="/hadith/?narrator=${detail.id}">
           View All ${transmissionCount.toLocaleString()} Narrations in Corpus →
         </a>
       </div>
@@ -330,7 +330,7 @@ function chainsSection(dossier: NarratorDossier, linkable: Set<number>): string 
                         detail.nameEn || detail.nameAr
                       )}</span>`
                     : linkable.has(nid)
-                      ? `<a class="rijal-node__name" href="/narrators/${nid}">${escapeHtml(
+                      ? `<a class="rijal-node__name" href="/narrators/${nid}/">${escapeHtml(
                           displayName
                         )}</a>`
                       : `<span class="rijal-node__name">${escapeHtml(displayName)}</span>`;
@@ -520,7 +520,7 @@ function networkSection(detail: NarratorDetail, linkable: Set<number>): string {
           <li class="rijal-net-item">
             ${
               linkable.has(person.id)
-                ? `<a class="rijal-net-link" href="/narrators/${person.id}">${escapeHtml(
+                ? `<a class="rijal-net-link" href="/narrators/${person.id}/">${escapeHtml(
                     person.name
                   )}</a>`
                 : `<span class="rijal-net-plain">${escapeHtml(person.name)}</span>`
@@ -575,8 +575,8 @@ function degraded(badge: string, id: number, title: string, body: string): strin
       <h1 class="rijal-degraded__title">${escapeHtml(title)}</h1>
       <p class="rijal-degraded__text">${escapeHtml(body)}</p>
       <div class="rijal-degraded__actions">
-        <a class="rijal-btn" href="/narrators">← Return to Rijāl Register</a>
-        <a class="rijal-btn rijal-btn--gold" href="/hadith?narrator=${id}">Search Narrations for #${id}</a>
+        <a class="rijal-btn" href="/narrators/">← Return to Rijāl Register</a>
+        <a class="rijal-btn rijal-btn--gold" href="/hadith/?narrator=${id}">Search Narrations for #${id}</a>
       </div>
     </div>`;
 }

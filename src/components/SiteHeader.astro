@@ -1,12 +1,14 @@
 ---
-const pathname = Astro.url.pathname;
+// Links carry the trailing slash the site is served at, but a page can be
+// reached either way, so compare without it.
+const pathname = Astro.url.pathname.replace(/(.)\/$/, '$1');
 const links = [
-  { href: '/blogs', label: 'Blog', active: pathname === '/blogs' || pathname.startsWith('/blogs/') },
-  { href: '/academia', label: 'Academia', active: pathname === '/academia' },
-  { href: '/projects', label: 'Projects', active: pathname === '/projects' },
-  { href: '/resources', label: 'Resources', active: pathname === '/resources' },
-  { href: '/youtube', label: 'YouTube', active: pathname === '/youtube' },
-  { href: '/contact', label: 'Contact', active: pathname === '/contact' }
+  { href: '/blogs/', label: 'Blog', active: pathname === '/blogs' || pathname.startsWith('/blogs/') },
+  { href: '/academia/', label: 'Academia', active: pathname === '/academia' },
+  { href: '/projects/', label: 'Projects', active: pathname === '/projects' },
+  { href: '/resources/', label: 'Resources', active: pathname === '/resources' },
+  { href: '/youtube/', label: 'YouTube', active: pathname === '/youtube' },
+  { href: '/contact/', label: 'Contact', active: pathname === '/contact' }
 ];
 ---
 
@@ -17,15 +19,67 @@ const links = [
       <span class="header-brand-name">HadithCritic</span>
     </a>
     <nav class="header-nav" aria-label="Main navigation">
-      {links.map((link) => <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>{link.label}</a>)}
+      {links.map((link) => (
+        <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>
+          <span class="hc-header-link__label">{link.label}</span>
+          <span class="hc-header-link__indicator" aria-hidden="true"></span>
+        </a>
+      ))}
     </nav>
     <div class="header-actions">
-      <button class="header-search-btn" type="button" data-search-trigger aria-label="Search HadithCritic"><span aria-hidden="true">Search</span><kbd>Ctrl K</kbd></button>
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle light and dark theme">
-        <svg class="theme-toggle__icon theme-toggle__icon--sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
-        <svg class="theme-toggle__icon theme-toggle__icon--moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+      <button class="header-search-btn" type="button" data-search-trigger aria-label="Search HadithCritic archive">
+        <svg class="header-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span class="header-search-label">Search</span>
+        <kbd class="header-search-kbd" aria-hidden="true">
+          <span class="header-search-kbd-mod">Ctrl</span>
+          <span class="header-search-kbd-key">K</span>
+        </kbd>
       </button>
-      <button class="header-menu-toggle" id="menuToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNav"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+
+      <button
+        class="theme-toggle"
+        id="themeToggle"
+        type="button"
+        role="switch"
+        aria-checked="false"
+        aria-label="Toggle light and dark theme"
+        title="Switch to light theme"
+      >
+        <span class="theme-toggle__capsule" aria-hidden="true">
+          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--moon">
+            <svg class="theme-toggle__glyph" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          </span>
+          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--sun">
+            <svg class="theme-toggle__glyph" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+            </svg>
+          </span>
+          <span class="theme-toggle__thumb">
+            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              <circle cx="16.5" cy="7.5" r="0.75" fill="currentColor" stroke="none"></circle>
+            </svg>
+            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4.2"></circle>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+            </svg>
+          </span>
+        </span>
+      </button>
+
+      <button class="header-menu-toggle" id="menuToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNav">
+        <span class="hamburger-box" aria-hidden="true">
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </span>
+      </button>
     </div>
   </div>
 </header>
@@ -44,8 +98,17 @@ const links = [
     </button>
   </div>
   <button class="mobile-search" type="button" data-search-trigger aria-label="Search HadithCritic">
-    <span>Search the archive</span>
-    <kbd aria-hidden="true">Ctrl K</kbd>
+    <span class="mobile-search-left">
+      <svg class="mobile-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <span>Search the archive</span>
+    </span>
+    <kbd class="mobile-search-kbd" aria-hidden="true">
+      <span class="header-search-kbd-mod">Ctrl</span>
+      <span class="header-search-kbd-key">K</span>
+    </kbd>
   </button>
   <div class="mobile-nav-links">
     {links.map((link) => <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>{link.label}</a>)}
@@ -53,28 +116,392 @@ const links = [
 </nav>
 
 <style>
-  .site-header { position: sticky; top: 0; z-index: 50; border-bottom: 1px solid var(--hc-rule); background: var(--hc-surface-0); transition: border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
-  .site-header.is-scrolled { border-color: var(--hc-rule-strong); box-shadow: var(--hc-header-shadow); }
-  .header-inner { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 1.25rem; padding-top: var(--safe-top); }
-  .header-brand { display: inline-flex; align-items: center; gap: .75rem; flex: 0 0 auto; color: var(--hc-text-primary); text-decoration: none; }
-  .header-emblem { width: 32px; height: 32px; object-fit: contain; } .header-brand-name { font: 600 clamp(1.2rem, 2vw, 1.27rem)/1 var(--font-display); letter-spacing: -.02em; }
-  .header-nav { display: flex; align-items: center; justify-content: center; gap: clamp(.7rem, 1.7vw, 1.55rem); }
-  .hc-header-link { position: relative; display: inline-flex; align-items: center; min-height: 44px; color: var(--hc-text-secondary); font: 700 0.85rem/1 var(--font-ui); letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
-  .hc-header-link::after { position: absolute; bottom: 4px; left: 0; width: 100%; height: 1px; content: ''; background: var(--hc-gold); transform: scaleX(0); transform-origin: left; transition: transform var(--motion-base) var(--ease-standard); }
-  .hc-header-link:hover, .hc-header-link[aria-current='page'] { color: var(--hc-text-primary); }.hc-header-link[aria-current='page']::after, .hc-header-link:hover::after { transform: scaleX(1); }
-  .header-actions { display: flex; align-items: center; gap: .5rem; }.header-search-btn, .header-menu-toggle, .theme-toggle, .mobile-search, .mobile-nav-close-btn { min-height: 44px; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); background: transparent; font: 700 0.82rem/1 var(--font-ui); letter-spacing: .07em; text-transform: uppercase; cursor: pointer; }
-  .theme-toggle { display: grid; width: 44px; place-content: center; }
-  .theme-toggle:hover { color: var(--hc-text-primary); border-color: var(--hc-rule-strong); }
-  .theme-toggle__icon--sun { display: none; }
-  [data-theme="light"] .theme-toggle__icon--sun { display: block; }
-  [data-theme="light"] .theme-toggle__icon--moon { display: none; }
-  .header-search-btn { display: inline-flex; align-items: center; gap: .55rem; padding: .55rem .65rem; }.header-search-btn kbd { padding: .18rem .32rem; border: 1px solid var(--hc-rule-soft); color: var(--hc-gold-soft); font: inherit; }
-  .header-menu-toggle { display: none; width: 44px; padding: 0; place-content: center; gap: 4px; }.hamburger-line { display: block; width: 18px; height: 1px; background: currentColor; transition: transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard); }.header-menu-toggle.is-open .hamburger-line:nth-child(1) { transform: translateY(5px) rotate(45deg); }.header-menu-toggle.is-open .hamburger-line:nth-child(2) { opacity: 0; }.header-menu-toggle.is-open .hamburger-line:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
-  .mobile-nav-backdrop { position: fixed; z-index: 99; inset: 0; background: rgba(7,7,8,.68); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-  .header-mobile-nav { display: none; }
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid var(--hc-rule);
+    background: rgba(var(--hc-scrim), 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transition: border-color var(--motion-base) var(--ease-standard),
+                box-shadow var(--motion-base) var(--ease-standard),
+                background var(--motion-base) var(--ease-standard);
+  }
+  .site-header.is-scrolled {
+    border-bottom-color: var(--hc-rule-strong);
+    box-shadow: var(--hc-header-shadow);
+    background: rgba(var(--hc-scrim), 0.96);
+  }
+  .header-inner {
+    display: flex;
+    min-height: 72px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding-top: var(--safe-top);
+  }
+  .header-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+    color: var(--hc-text-primary);
+    text-decoration: none;
+    transition: opacity var(--motion-fast) var(--ease-standard);
+  }
+  .header-emblem {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    transition: transform var(--motion-base) var(--ease-standard);
+  }
+  .header-brand-name {
+    font: 600 clamp(1.2rem, 2vw, 1.28rem)/1 var(--font-display);
+    letter-spacing: -0.02em;
+    transition: color var(--motion-fast) var(--ease-standard);
+  }
+  .header-brand:hover .header-emblem {
+    transform: scale(1.05);
+  }
+  .header-brand:hover .header-brand-name {
+    color: var(--hc-gold-bright);
+  }
+  .header-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.4rem, 1.3vw, 1.15rem);
+  }
+  .hc-header-link {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+    color: var(--hc-text-secondary);
+    font: 700 0.82rem/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+    border-radius: var(--radius-xs);
+    transition: color var(--motion-fast) var(--ease-standard);
+  }
+  .hc-header-link__indicator {
+    position: absolute;
+    bottom: 6px;
+    left: 0.6rem;
+    right: 0.6rem;
+    height: 2px;
+    background: var(--hc-gold);
+    border-radius: 1px;
+    transform: scaleX(0);
+    transform-origin: center;
+    opacity: 0;
+    transition: transform var(--motion-base) var(--ease-standard),
+                opacity var(--motion-base) var(--ease-standard);
+  }
+  .hc-header-link:hover {
+    color: var(--hc-text-primary);
+  }
+  .hc-header-link:hover .hc-header-link__indicator {
+    transform: scaleX(0.5);
+    opacity: 0.6;
+  }
+  .hc-header-link[aria-current='page'] {
+    color: var(--hc-gold);
+  }
+  .hc-header-link[aria-current='page'] .hc-header-link__indicator {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .header-search-btn,
+  .header-menu-toggle,
+  .mobile-search,
+  .mobile-nav-close-btn {
+    min-height: 40px;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    color: var(--hc-text-secondary);
+    background: rgba(var(--hc-scrim), 0.55);
+    font: 700 0.82rem/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color var(--motion-fast) var(--ease-standard),
+                background var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                box-shadow var(--motion-fast) var(--ease-standard),
+                transform var(--motion-fast) var(--ease-standard);
+  }
+  .header-search-btn:hover,
+  .header-menu-toggle:hover {
+    border-color: var(--hc-gold-dim);
+    background: var(--hc-surface-2);
+    color: var(--hc-text-primary);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  }
+
+  /* Search button styling */
+  .header-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.4rem 0.55rem 0.4rem 0.75rem;
+  }
+  .header-search-icon {
+    color: var(--hc-gold);
+    opacity: 0.9;
+    flex-shrink: 0;
+    transition: transform var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                opacity var(--motion-fast) var(--ease-standard);
+  }
+  .header-search-btn:hover .header-search-icon {
+    transform: scale(1.1);
+    opacity: 1;
+    color: var(--hc-gold-bright);
+  }
+  .header-search-label {
+    letter-spacing: 0.08em;
+  }
+  .header-search-kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0.18rem 0.4rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 2px;
+    background: var(--hc-surface-2);
+    color: var(--hc-gold-soft);
+    font: 700 0.75rem/1 var(--font-ui);
+    letter-spacing: 0.04em;
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    transition: border-color var(--motion-fast) var(--ease-standard),
+                color var(--motion-fast) var(--ease-standard),
+                background var(--motion-fast) var(--ease-standard);
+  }
+  .header-search-btn:hover .header-search-kbd {
+    border-color: var(--hc-rule);
+    background: var(--hc-surface-3);
+    color: var(--hc-gold-bright);
+  }
+
+  /* Bespoke Archival Theme Capsule Switch */
+  .theme-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 62px;
+    height: 36px;
+    min-height: 36px;
+    padding: 3px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--hc-rule);
+    background: rgba(var(--hc-scrim), 0.65);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color var(--motion-fast) var(--ease-standard),
+                background var(--motion-fast) var(--ease-standard),
+                box-shadow var(--motion-fast) var(--ease-standard);
+  }
+  .theme-toggle:hover {
+    border-color: var(--hc-gold-dim);
+    background: rgba(var(--hc-scrim), 0.85);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(216, 177, 102, 0.15);
+  }
+  .theme-toggle:active .theme-toggle__thumb {
+    transform: translateY(-50%) scale(0.92);
+  }
+  .theme-toggle__capsule {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+    padding: 0 4px;
+  }
+  .theme-toggle__glyph-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: var(--hc-text-tertiary);
+    opacity: 0.45;
+    transition: opacity var(--motion-base) var(--ease-standard),
+                color var(--motion-base) var(--ease-standard);
+  }
+  .theme-toggle:hover .theme-toggle__glyph-slot {
+    opacity: 0.7;
+  }
+  .theme-toggle__glyph {
+    flex-shrink: 0;
+  }
+  .theme-toggle__thumb {
+    position: absolute;
+    top: 50%;
+    left: 2px;
+    transform: translateY(-50%) translateX(0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--hc-surface-3), var(--hc-surface-1));
+    border: 1px solid rgba(216, 177, 102, 0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 8px rgba(216, 177, 102, 0.25);
+    transition: transform 280ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
+                background var(--motion-base) var(--ease-standard),
+                border-color var(--motion-base) var(--ease-standard),
+                box-shadow var(--motion-base) var(--ease-standard);
+  }
+  .theme-toggle__thumb-icon {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    transition: transform 260ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
+                opacity 200ms ease,
+                color 200ms ease;
+  }
+  .theme-toggle__thumb-icon--moon {
+    color: var(--hc-gold-soft);
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  .theme-toggle__thumb-icon--sun {
+    color: var(--hc-gold);
+    transform: rotate(-90deg) scale(0.5);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Light theme styling for the capsule switch */
+  :global([data-theme="light"]) .theme-toggle {
+    background: rgba(var(--hc-scrim), 0.75);
+    border-color: var(--hc-rule);
+    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.12);
+  }
+  :global([data-theme="light"]) .theme-toggle:hover {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-gold-dim);
+    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.16), 0 0 8px rgba(111, 80, 25, 0.12);
+  }
+  :global([data-theme="light"]) .theme-toggle__thumb {
+    transform: translateY(-50%) translateX(26px);
+    background: linear-gradient(135deg, #ffffff, var(--hc-surface-1));
+    border-color: rgba(111, 80, 25, 0.45);
+    box-shadow: 0 2px 6px rgba(43, 40, 36, 0.18), 0 0 8px rgba(111, 80, 25, 0.15);
+  }
+  :global([data-theme="light"]) .theme-toggle:active .theme-toggle__thumb {
+    transform: translateY(-50%) translateX(26px) scale(0.92);
+  }
+  :global([data-theme="light"]) .theme-toggle__thumb-icon--moon {
+    transform: rotate(90deg) scale(0.5);
+    opacity: 0;
+    pointer-events: none;
+  }
+  :global([data-theme="light"]) .theme-toggle__thumb-icon--sun {
+    color: var(--hc-gold);
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  :global([data-theme="light"]) .header-search-btn,
+  :global([data-theme="light"]) .header-menu-toggle {
+    background: rgba(var(--hc-scrim), 0.7);
+    border-color: var(--hc-rule);
+    box-shadow: none;
+  }
+  :global([data-theme="light"]) .header-search-btn:hover,
+  :global([data-theme="light"]) .header-menu-toggle:hover {
+    background: var(--hc-surface-2);
+    border-color: var(--hc-gold-dim);
+    box-shadow: 0 2px 10px rgba(43, 40, 36, 0.08);
+  }
+  :global([data-theme="light"]) .header-search-kbd {
+    background: var(--hc-surface-1);
+    border-color: var(--hc-rule);
+    color: var(--hc-gold);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+  }
+  :global([data-theme="light"]) .header-search-btn:hover .header-search-kbd {
+    background: var(--hc-surface-3);
+    border-color: var(--hc-gold-dim);
+  }
+
+  /* Mobile menu button */
+  .header-menu-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    place-content: center;
+  }
+  .hamburger-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 18px;
+    height: 14px;
+  }
+  .hamburger-line {
+    display: block;
+    width: 18px;
+    height: 1.5px;
+    background: currentColor;
+    border-radius: 1px;
+    transition: transform var(--motion-fast) var(--ease-standard),
+                opacity var(--motion-fast) var(--ease-standard);
+  }
+  .header-menu-toggle.is-open .hamburger-line:nth-child(1) {
+    transform: translateY(5.5px) rotate(45deg);
+  }
+  .header-menu-toggle.is-open .hamburger-line:nth-child(2) {
+    opacity: 0;
+  }
+  .header-menu-toggle.is-open .hamburger-line:nth-child(3) {
+    transform: translateY(-5.5px) rotate(-45deg);
+  }
+
+  .mobile-nav-backdrop {
+    position: fixed;
+    z-index: 99;
+    inset: 0;
+    background: rgba(7, 7, 8, 0.68);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .header-mobile-nav {
+    display: none;
+  }
+
   @media (max-width: 980px) {
-    .header-nav, .header-search-btn { display: none; }
-    .header-menu-toggle { display: grid; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .header-nav,
+    .header-search-btn {
+      display: none;
+    }
+    .header-menu-toggle {
+      display: grid;
+    }
     .header-mobile-nav {
       position: fixed;
       z-index: 100;
@@ -91,7 +518,8 @@ const links = [
       box-shadow: -12px 0 40px rgba(0, 0, 0, 0.75);
       transform: translateX(102%);
       visibility: hidden;
-      transition: transform var(--motion-slow) var(--ease-emphasis), visibility 0s linear var(--motion-slow);
+      transition: transform var(--motion-slow) var(--ease-emphasis),
+                  visibility 0s linear var(--motion-slow);
     }
     .header-mobile-nav.is-open {
       transform: translateX(0);
@@ -124,10 +552,11 @@ const links = [
     }
     .mobile-nav-close-btn {
       display: grid;
-      width: 44px;
-      height: 44px;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
       place-content: center;
-      border-radius: 4px;
+      border-radius: var(--radius-xs);
       border: 1px solid var(--hc-rule);
       color: var(--hc-text-secondary);
       background: var(--hc-surface-2);
@@ -136,7 +565,8 @@ const links = [
       -webkit-tap-highlight-color: transparent;
       transition: color 160ms ease, border-color 160ms ease;
     }
-    .mobile-nav-close-btn:hover, .mobile-nav-close-btn:active {
+    .mobile-nav-close-btn:hover,
+    .mobile-nav-close-btn:active {
       color: var(--hc-gold);
       border-color: var(--hc-gold-dim);
     }
@@ -149,6 +579,8 @@ const links = [
     }
     .header-mobile-nav .hc-header-link {
       display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
       width: 100%;
       min-height: 48px;
       align-items: center;
@@ -158,29 +590,62 @@ const links = [
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+    .header-mobile-nav .hc-header-link__indicator {
+      display: none;
+    }
     .mobile-search {
       display: flex;
       align-items: center;
       justify-content: space-between;
       width: 100%;
       padding: 0.65rem 0.85rem;
-      color: var(--hc-gold-soft);
+      color: var(--hc-text-secondary);
       background: var(--hc-surface-2);
       border: 1px solid var(--hc-rule);
-      border-radius: 4px;
+      border-radius: var(--radius-xs);
       text-align: left;
       cursor: pointer;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
-    .mobile-search kbd {
+    .mobile-search:hover,
+    .mobile-search:active {
+      border-color: var(--hc-gold-dim);
+      color: var(--hc-text-primary);
+      background: var(--hc-surface-3);
+    }
+    .mobile-search-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .mobile-search-icon {
+      color: var(--hc-gold);
+      flex-shrink: 0;
+    }
+    .mobile-search-kbd {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
       padding: 0.15rem 0.35rem;
       border: 1px solid var(--hc-rule-soft);
-      color: var(--hc-gold-dim);
-      font: inherit;
+      border-radius: 2px;
+      background: var(--hc-surface-1);
+      color: var(--hc-gold-soft);
+      font: 700 0.75rem/1 var(--font-ui);
     }
   }
-  @media (prefers-reduced-motion: reduce) { .site-header, .hc-header-link::after, .header-mobile-nav, .hamburger-line { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .site-header,
+    .hc-header-link__indicator,
+    .header-mobile-nav,
+    .hamburger-line,
+    .theme-toggle,
+    .theme-toggle__thumb,
+    .theme-toggle__thumb-icon {
+      transition: none !important;
+    }
+  }
 </style>
 
 <script>
@@ -193,7 +658,9 @@ const links = [
   const footer = document.querySelector<HTMLElement>('.site-footer');
   let scrollY = 0;
   const onScroll = () => header?.classList.toggle('is-scrolled', window.scrollY > 20);
-  window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
   const setMenu = (open: boolean, returnFocus = false) => {
     if (!toggle || !menu || !backdrop) return;
     if (open) {
@@ -226,18 +693,52 @@ const links = [
       if (returnFocus) toggle.focus();
     }
   };
+
   toggle?.addEventListener('click', () => setMenu(!menu?.classList.contains('is-open')));
   closeBtn?.addEventListener('click', () => setMenu(false, true));
   backdrop?.addEventListener('click', () => setMenu(false, true));
-  menu?.addEventListener('click', (event) => { if ((event.target as Element).closest('a')) setMenu(false); });
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && menu?.classList.contains('is-open')) setMenu(false, true); });
-  window.addEventListener('resize', () => { if (window.innerWidth > 980 && menu?.classList.contains('is-open')) setMenu(false); });
-  document.querySelectorAll<HTMLElement>('[data-search-trigger]').forEach((button) => button.addEventListener('click', () => { setMenu(false); document.dispatchEvent(new CustomEvent('hc:search-open', { detail: button })); }));
+  menu?.addEventListener('click', (event) => {
+    if ((event.target as Element).closest('a')) setMenu(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && menu?.classList.contains('is-open')) setMenu(false, true);
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 980 && menu?.classList.contains('is-open')) setMenu(false);
+  });
+  document.querySelectorAll<HTMLElement>('[data-search-trigger]').forEach((button) =>
+    button.addEventListener('click', () => {
+      setMenu(false);
+      document.dispatchEvent(new CustomEvent('hc:search-open', { detail: button }));
+    })
+  );
+
   const themeToggle = document.querySelector<HTMLButtonElement>('#themeToggle');
+  const updateToggleAria = (theme: string) => {
+    if (themeToggle) {
+      const isLight = theme === 'light';
+      themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+      themeToggle.setAttribute('title', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+      themeToggle.setAttribute('aria-checked', isLight ? 'true' : 'false');
+    }
+  };
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+  updateToggleAria(currentTheme);
+
   themeToggle?.addEventListener('click', () => {
     const root = document.documentElement;
     const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
     root.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    updateToggleAria(next);
   });
+
+  // Display macOS command glyph if on Apple platform
+  const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMac) {
+    document.querySelectorAll('.header-search-kbd-mod').forEach((el) => {
+      el.textContent = '⌘';
+    });
+  }
 </script>
+

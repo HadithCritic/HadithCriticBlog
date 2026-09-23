@@ -39,7 +39,11 @@ export const CORPUS_VERSION: string =
  * `PUBLIC_CORPUS_BASE_URL`, `https://data.hadithcriticblog.com/`. Must end in
  * a slash; the version is appended to it.
  */
-const RAW_BASE: string = import.meta.env.PUBLIC_CORPUS_BASE_URL || '/data/corpus/';
+const DEFAULT_PROD_BASE = 'https://data.hadithcriticblog.com/';
+
+const RAW_BASE: string =
+  import.meta.env.PUBLIC_CORPUS_BASE_URL ||
+  (import.meta.env.PROD ? DEFAULT_PROD_BASE : '/data/corpus/');
 
 /**
  * A built site may not fall back to serving the corpus from its own origin.

@@ -47,7 +47,7 @@ const FIELDS: Field[] = [
 
 const emptyMarkup = (max: number) => `
   <p class="compare-empty">
-    No transmitters selected. Open the <a href="/narrators">register</a> and add up to ${max} with
+    No transmitters selected. Open the <a href="/narrators/">register</a> and add up to ${max} with
     the <strong>+</strong> control on each row.
   </p>`;
 
@@ -56,7 +56,7 @@ function tableMarkup(records: NarratorRecord[]): string {
     .map(
       (r) => `
       <th scope="col">
-        <a href="/narrators/${r.id}">${escapeHtml(r.name_en || r.name_ar)}</a>
+        <a href="/narrators/${r.id}/">${escapeHtml(r.name_en || r.name_ar)}</a>
         <span class="compare-id">#${r.id}</span>
       </th>`
     )
@@ -109,7 +109,7 @@ export async function initNarratorCompare(): Promise<void> {
             ? 'The corpus could not be loaded, so this comparison cannot be assembled right now.'
             : 'The comparison could not be loaded.'
         }
-        Each transmitter still has their own page in the <a href="/narrators">register</a>.
+        Each transmitter still has their own page in the <a href="/narrators/">register</a>.
       </p>`;
   }
 }

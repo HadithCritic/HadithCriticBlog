@@ -3,7 +3,7 @@ import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
 import MotionRuntime from '../components/MotionRuntime.astro';
-import { SITE, OG, organization, website, webPage, breadcrumbs, graph, type Crumb, type Graph } from '../lib/seo';
+import { SITE, OG, organization, website, webPage, breadcrumbs, graph, withTrailingSlash, type Crumb, type Graph } from '../lib/seo';
 import '../styles/global.css';
 import '../styles/motion.css';
 import '../styles/footer.css';
@@ -55,8 +55,13 @@ const {
  * routes that will actually use it so an article page does not open a
  * connection it never writes to.
  */
+// Keep `import.meta` off the start of a line: the Cloudflare adapter's
+// dependency scan treats any line beginning with `import` as an import
+// statement and strips everything up to the next quoted string, which broke
+// the scan with a parse error on `})();`.
+const env = import.meta.env;
 const corpusOrigin = (() => {
-  const raw = import.meta.env.PUBLIC_CORPUS_BASE_URL;
+  const raw = env.PUBLIC_CORPUS_BASE_URL || (env.PROD ? 'https://data.hadithcriticblog.com/' : null);
   if (!raw || !/^https?:\/\//.test(raw)) return null;
   try {
     return new URL(raw).origin;
@@ -67,7 +72,7 @@ const corpusOrigin = (() => {
 const usesCorpus = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname);
 
 const base = Astro.site ?? new URL(Astro.url.origin);
-const canonicalUrl = canonical ? new URL(canonical, base).href : new URL(Astro.url.pathname, base).href;
+const canonicalUrl = withTrailingSlash(new URL(canonical ?? Astro.url.pathname, base).href);
 const imageUrl = new URL(image, base).href;
 
 // The generated cards are all 1200x630. A remote article thumbnail is not, so
