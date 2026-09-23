@@ -101,7 +101,7 @@ test('the sample narration keeps its identity, chain and apparatus', async ({ pa
   await expect(page.locator('.isnad-path-card')).toHaveCount(2);
   await expect(page.locator('.role-pill--compiler').first()).toBeVisible();
   await expect(
-    page.locator(`.ladder-card__name[href="/narrators/${EXPECTED.malikId}"]`).first()
+    page.locator(`.ladder-card__name[href="/narrators/${EXPECTED.malikId}/"]`).first()
   ).toBeVisible();
 
   // All four sections, which only this record's shape produces.
@@ -117,11 +117,33 @@ test('the sample dossier carries its criticism and network', async ({ page }) =>
   });
   await expect(page).toHaveTitle(new RegExp(EXPECTED.malikName));
   await expect(page.locator('.rijal-critic-accordion').first()).toBeVisible();
-  await expect(page.locator('.rijal-net-link').first()).toHaveAttribute('href', /^\/narrators\/\d+$/);
+  await expect(page.locator('.rijal-net-link').first()).toHaveAttribute('href', /^\/narrators\/\d+\/$/);
   await expect(page.locator('.rijal-transmission-card').first()).toHaveAttribute(
     'href',
-    /^\/hadith\/\d+$/
+    /^\/hadith\/\d+\/$/
   );
+});
+
+test('an id the corpus does not hold answers 404 and is kept out of the index', async ({ page }) => {
+  // Hadith ids are sparse: 1 to 3 do not exist, 4 does. Before the shells
+  // checked, every numeric id answered an indexable 200.
+  for (const [path, status] of [
+    ['/hadith/3/', 404],
+    ['/hadith/999999999/', 404],
+    [`/hadith/${EXPECTED.sampleHadith}/`, 200],
+    [`/narrators/${EXPECTED.malikId}/`, 200],
+    ['/narrators/999999/', 404]
+  ] as const) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(status);
+    const robots = await page.locator('meta[name="robots"]').getAttribute('content');
+    expect(robots, path).toMatch(status === 404 ? /^noindex/ : /^index/);
+  }
+  // The 404 still renders the shell, so the reader gets the explanation
+  // rather than a blank page.
+  await expect(page.locator('.rijal-degraded__title')).toContainText('not in this register', {
+    timeout: CORPUS_TIMEOUT
+  });
 });
 
 test('both spellings of a folded name find the same narrations', async ({ page }) => {

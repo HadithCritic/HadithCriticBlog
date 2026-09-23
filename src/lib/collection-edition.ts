@@ -60,7 +60,7 @@ function narrationRecord(row: HadithRecord, bookTitle: string): string {
 
   return `
     <article class="narration-record">
-      <a class="narration-record__hitlink" href="/hadith/${row.id}">
+      <a class="narration-record__hitlink" href="/hadith/${row.id}/">
         <div class="narration-record__meta-header">
           <div class="narration-record__docket">
             <span class="narration-record__num">${docket}</span>
@@ -109,7 +109,7 @@ function narrationRecord(row: HadithRecord, bookTitle: string): string {
 }
 
 function pager(slug: string, page: number, pages: number, rows: HadithRecord[]): string {
-  const pageUrl = (n: number) => `/hadith/collection/${slug}?page=${n}`;
+  const pageUrl = (n: number) => `/hadith/collection/${slug}/?page=${n}`;
   const first = rows[0]?.id;
   const last = rows[rows.length - 1]?.id;
   const nextUrl = last ? `${pageUrl(page + 1)}&after=${last}` : pageUrl(page + 1);

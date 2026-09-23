@@ -52,6 +52,7 @@ try {
   ]);
 
   run('build-corpus-meta.mjs', versionArgs);
+  run('build-corpus-ids.mjs', versionArgs);
 
   if (!args['skip-verify']) {
     run('verify-distribution.mjs', [...versionArgs, ...masterArgs]);

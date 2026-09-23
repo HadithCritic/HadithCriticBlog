@@ -32,7 +32,21 @@ export const ID = {
 
 import { COLLECTION_CARDS } from './og-cards';
 
-const abs = (path: string) => new URL(path, SITE.url).href;
+/**
+ * Pages are served at their trailing-slash URL: the static host answers
+ * `/blogs/x` with a 307 to `/blogs/x/`. A canonical or structured-data URL
+ * without the slash therefore names a redirect rather than the page, so every
+ * page URL is normalized here. Paths whose last segment has an extension
+ * (`/rss.xml`, `/og/x.png`) are files and are left alone.
+ */
+export function withTrailingSlash(url: string): string {
+  const parsed = new URL(url, SITE.url);
+  const last = parsed.pathname.split('/').pop() ?? '';
+  if (!parsed.pathname.endsWith('/') && !last.includes('.')) parsed.pathname += '/';
+  return parsed.href;
+}
+
+const abs = (path: string) => withTrailingSlash(new URL(path, SITE.url).href);
 
 /**
  * Social preview cards.

@@ -77,7 +77,7 @@ function stateToSearch(state: SearchState): string {
   if (state.subject) p.set('subject', state.subject);
   if (state.page > 1) p.set('page', String(state.page));
   const query = p.toString();
-  return query ? `/hadith?${query}` : '/hadith';
+  return query ? `/hadith/?${query}` : '/hadith/';
 }
 
 /* -------------------------------------------------------------------------- */
@@ -93,7 +93,7 @@ function recordCard(row: HadithSearchRow, query: string, index: number, revealCa
   return `
     <li class="corpus-result hc-reveal" style="--reveal-delay:${Math.min(index, revealCap)}">
       <article class="corpus-record-card">
-        <a class="corpus-record-card__hitarea" href="/hadith/${row.id}">
+        <a class="corpus-record-card__hitarea" href="/hadith/${row.id}/">
           <div class="corpus-record-card__top">
             <div class="corpus-record-card__breadcrumbs">
               <span class="corpus-record-card__book">${escapeHtml(row.book_en)}</span>
@@ -192,7 +192,7 @@ function filterChips(state: SearchState, narratorName: string | null): string {
   if (state.narrator > 0) {
     chips.push(
       `<span class="filter-chip"><span class="filter-chip__key">Transmitter:</span>
-         <a class="filter-chip__link" href="/narrators/${state.narrator}">${escapeHtml(
+         <a class="filter-chip__link" href="/narrators/${state.narrator}/">${escapeHtml(
            narratorName || `#${state.narrator}`
          )}</a></span>`
     );
@@ -208,7 +208,7 @@ function filterChips(state: SearchState, narratorName: string | null): string {
     <span class="corpus-active-filters__label">Active Constraints:</span>
     <div class="corpus-active-filters__list">
       ${chips.join('')}
-      <a class="filter-chip-clear" href="/hadith">Clear All Filters</a>
+      <a class="filter-chip-clear" href="/hadith/">Clear All Filters</a>
     </div>`;
 }
 
@@ -288,7 +288,7 @@ export function initHadithSearch(): void {
       results.innerHTML = '';
       setFilters(state, null);
       showCatalogue(true);
-      if (push) history.pushState(null, '', '/hadith');
+      if (push) history.pushState(null, '', '/hadith/');
       return;
     }
 
@@ -355,7 +355,7 @@ export function initHadithSearch(): void {
                      spellings (for example عائشة and عايشة) are normalized automatically.
                      Consider broadening your scope or querying specific root keywords.
                    </p>
-                   <a class="filter-chip-clear" href="/hadith">Reset Search Filters</a>
+                   <a class="filter-chip-clear" href="/hadith/">Reset Search Filters</a>
                  </div>`
           }
         </section>`;

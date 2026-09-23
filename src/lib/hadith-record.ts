@@ -47,7 +47,7 @@ function heroMarkup(detail: HadithDetail, id: number, pathCount: number, totalPa
   return `
     <header class="edition-hero">
       <div class="edition-hero__topbar">
-        <a class="hc-back-link" href="/hadith/collection/${escapeHtml(hadith.book_slug)}">
+        <a class="hc-back-link" href="/hadith/collection/${escapeHtml(hadith.book_slug)}/">
           <span>←</span>
           <span>${escapeHtml(hadith.book_en)}</span>
         </a>
@@ -76,7 +76,7 @@ function heroMarkup(detail: HadithDetail, id: number, pathCount: number, totalPa
         <div class="ledger-block">
           <span class="ledger-block__label">Bibliographic Citation</span>
           <div class="ledger-block__value">
-            <a href="/hadith/collection/${escapeHtml(hadith.book_slug)}" class="ledger-link">
+            <a href="/hadith/collection/${escapeHtml(hadith.book_slug)}/" class="ledger-link">
               ${escapeHtml(hadith.book_en)}
             </a>
             ${
@@ -232,7 +232,7 @@ function ladderNode(node: ChainNode, index: number, total: number): string {
       : `<span class="role-pill">Intermediate Transmitter #${index + 1}</span>`;
 
   const name = node.narrator_id
-    ? `<a class="ladder-card__name" href="/narrators/${node.narrator_id}">${escapeHtml(
+    ? `<a class="ladder-card__name" href="/narrators/${node.narrator_id}/">${escapeHtml(
         node.name_en || node.name
       )}</a>`
     : `<div class="ladder-card__unresolved">
@@ -266,7 +266,7 @@ function ladderNode(node: ChainNode, index: number, total: number): string {
           ${node.death_hijri ? `<span class="death-tag">d. ${node.death_hijri} AH</span>` : ''}
           ${
             node.narrator_id
-              ? `<a class="dossier-button" href="/narrators/${node.narrator_id}">
+              ? `<a class="dossier-button" href="/narrators/${node.narrator_id}/">
                    <span>Dossier</span>
                    <span class="dossier-arrow">→</span>
                  </a>`
@@ -399,7 +399,7 @@ function apparatusSection(detail: HadithDetail, totalParallels: number): string 
           ${subjects
             .map(
               (s) => `
-            <a class="subject-pill" href="/hadith?subject=${encodeURIComponent(s.label_en)}">
+            <a class="subject-pill" href="/hadith/?subject=${encodeURIComponent(s.label_en)}">
               <span>${escapeHtml(s.label_en)}</span>
               <span class="subject-pill__arrow">→</span>
             </a>`
@@ -488,7 +488,7 @@ function degraded(badge: string, title: string, body: string): string {
       <h1 class="hadith-degraded__title">${escapeHtml(title)}</h1>
       <p class="hadith-degraded__text">${escapeHtml(body)}</p>
       <div class="hadith-degraded__actions">
-        <a class="hc-btn" href="/hadith">← Return to Corpus Index</a>
+        <a class="hc-btn" href="/hadith/">← Return to Corpus Index</a>
       </div>
     </div>`;
 }

@@ -43,7 +43,7 @@ test.describe('Mobile Navigation', () => {
     // Open again to test clicking a navigation link
     await toggle.click();
     await expect(mobileNav).toBeVisible();
-    const blogLink = mobileNav.locator('a[href="/blogs"]');
+    const blogLink = mobileNav.locator('a[href="/blogs/"]');
     await expect(blogLink).toBeVisible();
     await blogLink.click();
 
@@ -54,7 +54,7 @@ test.describe('Mobile Navigation', () => {
     // Now test navigating to /academia from /blogs
     await toggle.click();
     await expect(mobileNav).toBeVisible();
-    const academiaLink = mobileNav.locator('a[href="/academia"]');
+    const academiaLink = mobileNav.locator('a[href="/academia/"]');
     await expect(academiaLink).toBeVisible();
     await academiaLink.click();
     await expect(page).toHaveURL(/\/academia/);
@@ -63,7 +63,7 @@ test.describe('Mobile Navigation', () => {
     // Now test navigating to /projects from /academia
     await toggle.click();
     await expect(mobileNav).toBeVisible();
-    const projectsLink = mobileNav.locator('a[href="/projects"]');
+    const projectsLink = mobileNav.locator('a[href="/projects/"]');
     await expect(projectsLink).toBeVisible();
     await projectsLink.click();
     await expect(page).toHaveURL(/\/projects/);

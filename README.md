@@ -30,14 +30,14 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 
 ### Where the docs are
 
-| File | What it answers |
-| :--- | :--- |
-| **[docs/static-corpus.md](docs/static-corpus.md)** | How the corpus is built, chunked, published and read. Required before editing anything under `/hadith` or `/narrators`. |
-| **[docs/corpus-performance.md](docs/corpus-performance.md)** | Why corpus pages are slow, measured against production, and the ranked fixes. |
-| **[DATABASE.md](DATABASE.md)** | Why the corpus left D1 and then Turso, what the measurements were, and what Turso is still used for. |
-| **[DESIGN.md](DESIGN.md)** | The authority on anything visual. Enforced at build time by `npm run test:design`. |
-| **[CLAUDE.md](CLAUDE.md)**, **[AGENTS.md](AGENTS.md)** | Working notes and the traps that have cost real time. |
-| **[docs/COMPONENT-GUIDE.md](docs/COMPONENT-GUIDE.md)** | The MDX components available inside an article. |
+| File                                                              | What it answers                                                                                                            |
+| :---------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+| **[docs/static-corpus.md](docs/static-corpus.md)**           | How the corpus is built, chunked, published and read. Required before editing anything under`/hadith` or `/narrators`. |
+| **[docs/corpus-performance.md](docs/corpus-performance.md)** | Why corpus pages are slow, measured against production, and the ranked fixes.                                              |
+| **[DATABASE.md](DATABASE.md)**                               | Why the corpus left D1 and then Turso, what the measurements were, and what Turso is still used for.                       |
+| **[DESIGN.md](DESIGN.md)**                                   | The authority on anything visual. Enforced at build time by`npm run test:design`.                                        |
+| **[CLAUDE.md](CLAUDE.md)**, **[AGENTS.md](AGENTS.md)**  | Working notes and the traps that have cost real time.                                                                      |
+| **[docs/COMPONENT-GUIDE.md](docs/COMPONENT-GUIDE.md)**       | The MDX components available inside an article.                                                                            |
 
 ---
 
@@ -98,16 +98,16 @@ npm install
 
 Nothing is required to run the articles side of the site. The variables below matter for the corpus and for the one remaining database.
 
-| Variable | Read from | Needed for |
-| :--- | :--- | :--- |
-| `PUBLIC_CORPUS_BASE_URL` | build environment | Any **built** site. Vite inlines it into the client bundle, so a Worker runtime variable has no effect on it. A production build without it fails on purpose, because Cloudflare static assets cannot serve byte ranges. Leave it unset for `npm run dev`, where the dev server answers ranges itself. |
-| `PUBLIC_CORPUS_VERSION` | build environment | Pinning or rolling back to a corpus version other than the one in `src/data/corpus-meta.json`. |
-| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | `.dev.vars` locally, `wrangler secret put` in production | The admin notification pages only. No public page reads a database. |
-| `CLOUDFLARE_*` (API token, account id, R2 S3 keys) | `../.env.local`, outside the repo | `npm run publish:corpus`, which uploads to R2. |
-| `CORPUS_MASTER_DB` | shell | Pointing the corpus build at a master database outside `dist-db/`. |
-| `CORPUS_VERSION` | shell | Republishing under an existing version name instead of minting a new one. |
-| `CORPUS_R2_BUCKET`, `CORPUS_ALLOWED_ORIGIN` | shell | Overriding the publish bucket or the CORS origins. |
-| `CORPUS_PORT`, `CORPUS_ROOT` | shell | The standalone corpus file server the end-to-end run uses. |
+| Variable                                             | Read from                                                    | Needed for                                                                                                                                                                                                                                                                                                    |
+| :--------------------------------------------------- | :----------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PUBLIC_CORPUS_BASE_URL`                           | build environment                                            | Any**built** site. Vite inlines it into the client bundle, so a Worker runtime variable has no effect on it. A production build without it fails on purpose, because Cloudflare static assets cannot serve byte ranges. Leave it unset for `npm run dev`, where the dev server answers ranges itself. |
+| `PUBLIC_CORPUS_VERSION`                            | build environment                                            | Pinning or rolling back to a corpus version other than the one in`src/data/corpus-meta.json`.                                                                                                                                                                                                               |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`         | `.dev.vars` locally, `wrangler secret put` in production | The admin notification pages only. No public page reads a database.                                                                                                                                                                                                                                           |
+| `CLOUDFLARE_*` (API token, account id, R2 S3 keys) | `../.env.local`, outside the repo                          | `npm run publish:corpus`, which uploads to R2.                                                                                                                                                                                                                                                              |
+| `CORPUS_MASTER_DB`                                 | shell                                                        | Pointing the corpus build at a master database outside`dist-db/`.                                                                                                                                                                                                                                           |
+| `CORPUS_VERSION`                                   | shell                                                        | Republishing under an existing version name instead of minting a new one.                                                                                                                                                                                                                                     |
+| `CORPUS_R2_BUCKET`, `CORPUS_ALLOWED_ORIGIN`      | shell                                                        | Overriding the publish bucket or the CORS origins.                                                                                                                                                                                                                                                            |
+| `CORPUS_PORT`, `CORPUS_ROOT`                     | shell                                                        | The standalone corpus file server the end-to-end run uses.                                                                                                                                                                                                                                                    |
 
 `.dev.vars` and `.env.local` are both gitignored. `wrangler.jsonc` deliberately carries no database binding and no corpus URL.
 
@@ -165,30 +165,30 @@ To exercise a **built** site against the real corpus, use `npm run build:e2e`. S
 
 #### Available Development Commands
 
-| Command | Action |
-| :--- | :--- |
-| `npm run dev` | Start the Astro development server at `http://127.0.0.1:4321` |
-| `npm run build` | Build the site to `./dist/` and generate the Pagefind search index |
-| `npm run preview` | Preview the production build locally at `http://127.0.0.1:4321` (required to test search functionality) |
-| `npm run check` | Astro and TypeScript type check |
-| `npm run validate` | Full suite: footnote lint, unit tests, Arabic normalization parity, type check, design audit, build |
-| `npm run lint:footnotes` | Footnote structure lint across the articles |
-| `npm run test:design` | Enforce the conventions in DESIGN.md |
-| `npm run test:notifications` | Unit tests for the notification lib and the email templates |
-| `npm run test:normalize` | Arabic normalization and formatting parity, JS against SQL |
-| `npm run test:e2e` | The full Playwright suite |
-| `npm run test:e2e:corpus` | Both corpus suites, including the assertions about what the real corpus contains |
-| `npm run build:e2e` | Build with the corpus on its own byte-serving origin, which the end-to-end run needs |
-| `npm run build:e2e:fixture` | The same, against the committed miniature corpus |
-| `npm run build:corpus` | Build, chunk, verify and stage a corpus release from the master database (local only) |
-| `npm run build:corpus:fixture` | Cut the committed miniature corpus out of the real one |
-| `npm run corpus:meta` | Regenerate `src/data/corpus-meta.json` and the narrator sitemap ids |
-| `npm run verify:corpus` | Row counts, chunk integrity and query parity between the distribution and the master |
-| `npm run publish:corpus` | Upload a built corpus release to R2, with CORS, where production reads it |
-| `npm run publish:corpus:dist` | Copy a release into `dist/client` instead, for a host that serves byte ranges |
-| `npm run use:corpus-fixture`, `npm run use:corpus-real` | Swap the committed corpus metadata for the fixture's, and back |
-| `npm run build:narrators` | Rebuild the register seed inputs under `data/generated/` |
-| `npm run build:og` | Regenerate the Open Graph card images |
+| Command                                                     | Action                                                                                                   |
+| :---------------------------------------------------------- | :------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                                             | Start the Astro development server at`http://127.0.0.1:4321`                                           |
+| `npm run build`                                           | Build the site to`./dist/` and generate the Pagefind search index                                      |
+| `npm run preview`                                         | Preview the production build locally at`http://127.0.0.1:4321` (required to test search functionality) |
+| `npm run check`                                           | Astro and TypeScript type check                                                                          |
+| `npm run validate`                                        | Full suite: footnote lint, unit tests, Arabic normalization parity, type check, design audit, build      |
+| `npm run lint:footnotes`                                  | Footnote structure lint across the articles                                                              |
+| `npm run test:design`                                     | Enforce the conventions in DESIGN.md                                                                     |
+| `npm run test:notifications`                              | Unit tests for the notification lib and the email templates                                              |
+| `npm run test:normalize`                                  | Arabic normalization and formatting parity, JS against SQL                                               |
+| `npm run test:e2e`                                        | The full Playwright suite                                                                                |
+| `npm run test:e2e:corpus`                                 | Both corpus suites, including the assertions about what the real corpus contains                         |
+| `npm run build:e2e`                                       | Build with the corpus on its own byte-serving origin, which the end-to-end run needs                     |
+| `npm run build:e2e:fixture`                               | The same, against the committed miniature corpus                                                         |
+| `npm run build:corpus`                                    | Build, chunk, verify and stage a corpus release from the master database (local only)                    |
+| `npm run build:corpus:fixture`                            | Cut the committed miniature corpus out of the real one                                                   |
+| `npm run corpus:meta`                                     | Regenerate`src/data/corpus-meta.json` and the narrator sitemap ids                                     |
+| `npm run verify:corpus`                                   | Row counts, chunk integrity and query parity between the distribution and the master                     |
+| `npm run publish:corpus`                                  | Upload a built corpus release to R2, with CORS, where production reads it                                |
+| `npm run publish:corpus:dist`                             | Copy a release into`dist/client` instead, for a host that serves byte ranges                           |
+| `npm run use:corpus-fixture`, `npm run use:corpus-real` | Swap the committed corpus metadata for the fixture's, and back                                           |
+| `npm run build:narrators`                                 | Rebuild the register seed inputs under`data/generated/`                                                |
+| `npm run build:og`                                        | Regenerate the Open Graph card images                                                                    |
 
 *Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
 
@@ -217,30 +217,30 @@ npm run publish:corpus   # upload that version to R2
 
 The `scripts/` directory holds the data pipelines and audits.
 
-| Script | Purpose |
-| :--- | :--- |
-| `build-static-db.py` | Builds the master database from the seed dumps. Local, occasional, and the only Python here. |
-| `build-corpus.mjs` | Runs the four stages below in order. The normal way to cut a corpus release. |
-| `build-distribution-db.mjs` | Master to distribution: ANALYZE, VACUUM, integrity check. |
-| `chunk-db.mjs` | Splits the distribution database into 10 MiB chunks and writes the manifest. |
-| `build-corpus-meta.mjs` | Generates `src/data/corpus-meta.json` and the narrator sitemap ids. Both are committed. |
-| `verify-distribution.mjs` | Row counts, chunk reassembly and query parity against the master. Fails the release, not the page. |
-| `publish-corpus.mjs` | Publishes one version to R2, or into `dist/` for a host that serves byte ranges. |
-| `build-corpus-fixture.mjs` | Cuts the miniature corpus CI serves out of the real one. Output is committed. |
-| `use-corpus-fixture.mjs` | Swaps the committed corpus metadata for the fixture's, and back. |
-| `corpus-file-server.mjs` | Serves corpus chunks with real byte ranges, which `astro preview` cannot. Used by the e2e run. |
-| `build-for-e2e.mjs` | Builds the site pointed at that server, optionally against the fixture. |
-| `lib/corpus-range.mjs` | The byte-serving implementation, shared by the dev middleware and that server. |
-| `build-narrators.mjs` | Builds the register seed inputs in `data/generated/` from the al-Kashif source. |
-| `seed-narrators-d1.mjs` | Turns `data/generated/` into SQL batches for the register. |
-| `build-og-images.mjs` | Generates the Open Graph card images with Satori. |
-| `build-quran-data.cjs` | Generates Quranic verse JSON data for quick citations within blog articles. |
-| `optimize-images.cjs` | Converts heavy PNG/JPG files in `public/` to optimized WebP. |
-| `convert_to_mdx.cjs` | Converts legacy content formats into standardized MDX. |
-| `test-search.mjs` | Runs end-to-end queries against the compiled Pagefind search index. |
-| `design-audit.mjs`, `check-contrast.mjs` | Enforce DESIGN.md and WCAG AA at build time. |
-| `lint-footnotes.mjs` | Footnote structure lint across the articles. |
-| `migrate-turso.mjs`, `refresh-stats.mjs`, `verify-corpus.mjs`, `fill-hadith-fts.mjs`, `d1-to-turso.mjs`, `upload-turso.mjs`, `measure-reads.mjs` | The hosted-corpus era. Kept as the record of how the corpus moved. None is part of a current workflow, and each is run as `node scripts/<name>.mjs` rather than through npm. |
+| Script                                                                                                                                                         | Purpose                                                                                                                                                                       |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-static-db.py`                                                                                                                                         | Builds the master database from the seed dumps. Local, occasional, and the only Python here.                                                                                  |
+| `build-corpus.mjs`                                                                                                                                           | Runs the four stages below in order. The normal way to cut a corpus release.                                                                                                  |
+| `build-distribution-db.mjs`                                                                                                                                  | Master to distribution: ANALYZE, VACUUM, integrity check.                                                                                                                     |
+| `chunk-db.mjs`                                                                                                                                               | Splits the distribution database into 10 MiB chunks and writes the manifest.                                                                                                  |
+| `build-corpus-meta.mjs`                                                                                                                                      | Generates`src/data/corpus-meta.json` and the narrator sitemap ids. Both are committed.                                                                                      |
+| `verify-distribution.mjs`                                                                                                                                    | Row counts, chunk reassembly and query parity against the master. Fails the release, not the page.                                                                            |
+| `publish-corpus.mjs`                                                                                                                                         | Publishes one version to R2, or into`dist/` for a host that serves byte ranges.                                                                                             |
+| `build-corpus-fixture.mjs`                                                                                                                                   | Cuts the miniature corpus CI serves out of the real one. Output is committed.                                                                                                 |
+| `use-corpus-fixture.mjs`                                                                                                                                     | Swaps the committed corpus metadata for the fixture's, and back.                                                                                                              |
+| `corpus-file-server.mjs`                                                                                                                                     | Serves corpus chunks with real byte ranges, which`astro preview` cannot. Used by the e2e run.                                                                               |
+| `build-for-e2e.mjs`                                                                                                                                          | Builds the site pointed at that server, optionally against the fixture.                                                                                                       |
+| `lib/corpus-range.mjs`                                                                                                                                       | The byte-serving implementation, shared by the dev middleware and that server.                                                                                                |
+| `build-narrators.mjs`                                                                                                                                        | Builds the register seed inputs in`data/generated/` from the al-Kashif source.                                                                                              |
+| `seed-narrators-d1.mjs`                                                                                                                                      | Turns`data/generated/` into SQL batches for the register.                                                                                                                   |
+| `build-og-images.mjs`                                                                                                                                        | Generates the Open Graph card images with Satori.                                                                                                                             |
+| `build-quran-data.cjs`                                                                                                                                       | Generates Quranic verse JSON data for quick citations within blog articles.                                                                                                   |
+| `optimize-images.cjs`                                                                                                                                        | Converts heavy PNG/JPG files in`public/` to optimized WebP.                                                                                                                 |
+| `convert_to_mdx.cjs`                                                                                                                                         | Converts legacy content formats into standardized MDX.                                                                                                                        |
+| `test-search.mjs`                                                                                                                                            | Runs end-to-end queries against the compiled Pagefind search index.                                                                                                           |
+| `design-audit.mjs`, `check-contrast.mjs`                                                                                                                   | Enforce DESIGN.md and WCAG AA at build time.                                                                                                                                  |
+| `lint-footnotes.mjs`                                                                                                                                         | Footnote structure lint across the articles.                                                                                                                                  |
+| `migrate-turso.mjs`, `refresh-stats.mjs`, `verify-corpus.mjs`, `fill-hadith-fts.mjs`, `d1-to-turso.mjs`, `upload-turso.mjs`, `measure-reads.mjs` | The hosted-corpus era. Kept as the record of how the corpus moved. None is part of a current workflow, and each is run as`node scripts/<name>.mjs` rather than through npm. |
 
 ---
 

@@ -41,6 +41,8 @@ const { variant } = Astro.props;
           inputmode="email"
           aria-describedby={`subscribe-note-${variant}`}
         />
+        <!-- Honeypot: never shown or focusable, so only a bot fills it. -->
+        <input type="text" name="website" hidden tabindex="-1" autocomplete="off" />
         <button type="submit">
           <span>Subscribe</span>
           <span aria-hidden="true">→</span>
@@ -69,7 +71,9 @@ const { variant } = Astro.props;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const email = new FormData(form).get("email");
+      const data = new FormData(form);
+      const email = data.get("email");
+      const website = data.get("website");
       if (typeof email !== "string" || !email) return;
 
       const submitButton = form.querySelector('button[type="submit"]');
@@ -82,7 +86,7 @@ const { variant } = Astro.props;
         const response = await fetch("/api/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, website }),
         });
         const result = (await response.json()) as {
           success: boolean;

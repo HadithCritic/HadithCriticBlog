@@ -3,6 +3,7 @@ export const prerender = false;
 
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
+import { corpusHas } from '../../lib/corpus-ids';
 
 /**
  * Rijal dossier for one transmitter.
@@ -31,6 +32,13 @@ if (!valid) {
 
 const pageTitle = `Transmitter #${id} | Rijal Dossier | HadithCritic`;
 
+// An id the corpus does not hold answers 404 and is kept out of the index.
+// The shell still renders, so the reader gets the same "no such record"
+// explanation the client module writes. `undefined` means the id list was
+// cut from another corpus version and cannot be trusted; see corpus-ids.ts.
+const missing = corpusHas('narrators', id) === false;
+if (missing) Astro.response.status = 404;
+
 // The shell depends on the id and the deployment, and on nothing that can
 // fail, so it is unconditionally storable at the edge.
 Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
@@ -38,12 +46,13 @@ Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 
 <BaseLayout
   title={pageTitle}
+  noindex={missing}
   description="A biographical entry in the HadithCritic rijal register: attributed classical verdicts, transmission network, and recorded narrations."
-  canonical={`/narrators/${id}`}
+  canonical={`/narrators/${id}/`}
   crumbs={[
     { name: 'Home', url: '/' },
-    { name: 'Rijāl Register', url: '/narrators' },
-    { name: `#${id}`, url: `/narrators/${id}` }
+    { name: 'Rijāl Register', url: '/narrators/' },
+    { name: `#${id}`, url: `/narrators/${id}/` }
   ]}
 >
   <article class="rijal-page" data-narrator-id={id}>
@@ -60,7 +69,7 @@ Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
           which needs JavaScript. The written research on this site does not.
         </p>
         <div class="rijal-degraded__actions">
-          <a class="rijal-btn" href="/narrators">Return to the register</a>
+          <a class="rijal-btn" href="/narrators/">Return to the register</a>
         </div>
       </div>
     </noscript>
