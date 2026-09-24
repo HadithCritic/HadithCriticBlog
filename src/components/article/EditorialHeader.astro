@@ -1,205 +1,296 @@
 ---
 interface Props {
-  category: string;
+  category?: string;
   wordCount?: number;
   readingMinutes?: number;
   author?: string;
   title: string;
   description?: string;
   date?: string;
+  dateISO?: string;
+  tags?: string[];
   heroImage?: string;
   heroAlt?: string;
 }
 
 const {
-  category,
-  wordCount = 0,
-  readingMinutes = 1,
-  author = 'HadithCritic',
-  title,
-  description,
-  date,
-  heroImage,
-  heroAlt
+  category, wordCount = 0, readingMinutes, author = 'HadithCritic',
+  title, description, date, dateISO, tags = [], heroImage, heroAlt
 } = Astro.props;
+const hasReading = (readingMinutes ?? 0) > 0 || wordCount > 0;
+const metadataCount = Number(Boolean(author)) + Number(Boolean(date)) + Number(hasReading);
+const visibleTags = tags.slice(0, 3);
+const remainingTags = tags.slice(3);
 ---
 
 <header class="editorial-header">
-  {category && (
-    <div class="editorial-header__category">
+  <div class="editorial-header__intro">
+    {category && (
       <a href={`/blogs?category=${encodeURIComponent(category)}`} class="editorial-header__category-link">
         {category}
       </a>
+    )}
+    <h1 class="editorial-header__title">{title}</h1>
+    {description && <p class="editorial-header__standfirst">{description}</p>}
+  </div>
+
+  {metadataCount > 0 && (
+    <dl class="editorial-header__meta" style={`--hero-meta-columns: ${metadataCount}; --hero-mobile-columns: ${Math.min(metadataCount, 2)}`}>
+      {author && (
+        <div class="editorial-header__meta-item">
+          <dt>Author</dt>
+          <dd>{author}</dd>
+        </div>
+      )}
+      {date && (
+        <div class="editorial-header__meta-item">
+          <dt>Published</dt>
+          <dd><time datetime={dateISO}>{date}</time></dd>
+        </div>
+      )}
+      {hasReading && (
+        <div class="editorial-header__meta-item">
+          <dt>Reading time</dt>
+          <dd class="editorial-header__reading">
+            {(readingMinutes ?? 0) > 0 && <span>{readingMinutes} min read</span>}
+            {wordCount > 0 && <span class="editorial-header__word-count">{wordCount.toLocaleString('en-US')} words</span>}
+          </dd>
+        </div>
+      )}
+    </dl>
+  )}
+
+  {tags.length > 0 && (
+    <div class="editorial-header__topics" aria-label="Article topics">
+      <span class="editorial-header__topics-label">Topics</span>
+      {visibleTags.map((tag) => <span class="editorial-header__tag">{tag}</span>)}
+      {remainingTags.length > 0 && (
+        <details class="editorial-header__more-topics">
+          <summary>{remainingTags.length} more<span class="sr-only"> topics</span></summary>
+          <ul>
+            {remainingTags.map((tag) => <li class="editorial-header__tag">{tag}</li>)}
+          </ul>
+        </details>
+      )}
     </div>
   )}
-
-  <div class="editorial-header__meta">
-    {wordCount > 0 && (
-      <>
-        <span>{wordCount.toLocaleString('en-US')} Words</span>
-        <span class="meta-sep" aria-hidden="true">|</span>
-      </>
-    )}
-    <span>{readingMinutes} Min Read</span>
-    <span class="meta-sep" aria-hidden="true">|</span>
-    <span class="meta-author">{author}</span>
-    {date && (
-      <>
-        <span class="meta-sep" aria-hidden="true">|</span>
-        <span class="meta-date">{date}</span>
-      </>
-    )}
-  </div>
-
-  <h1 class="editorial-header__title">{title}</h1>
-
-  {description && (
-    <p class="editorial-header__standfirst">{description}</p>
-  )}
-
-  <div class="editorial-header__ornament" aria-hidden="true">
-    <span class="ornament-line"></span>
-    <span class="ornament-glyph">✦</span>
-    <span class="ornament-line"></span>
-  </div>
 
   {heroImage && (
-    <div class="editorial-header__media">
-      <figure class="editorial-header__plate">
-        <img src={heroImage} alt={heroAlt || `Cover illustration for ${title}`} loading="eager" />
-      </figure>
-    </div>
+    <figure class="editorial-header__plate">
+      <img src={heroImage} alt={heroAlt || `Cover illustration for ${title}`} loading="eager" fetchpriority="high" decoding="async" />
+    </figure>
   )}
 </header>
 
 <style>
+  /* One reading grid, natural title height, and optional metadata for every post. */
   .editorial-header {
+    width: 100%;
+    max-width: var(--hc-article-measure, 53rem);
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+    padding: clamp(0.75rem, 2vw, 1.5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
+    border-bottom: 1px solid var(--hc-rule-soft);
     text-align: center;
-    margin-bottom: clamp(2.5rem, 5vw, 3.75rem);
-    padding-bottom: 0.5rem;
+    overflow-wrap: anywhere;
   }
 
-  .editorial-header__category {
-    margin-bottom: 1rem;
+  .editorial-header__intro {
+    display: grid;
+    justify-items: center;
+    gap: clamp(1rem, 2.5vw, 1.5rem);
+    margin-bottom: clamp(1.5rem, 3vw, 2rem);
   }
 
   .editorial-header__category-link {
-    display: inline-block;
+    max-width: 100%;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--hc-rule-strong);
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.16em;
+    line-height: 1.5;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--hc-gold);
     text-decoration: none;
-    transition: color 180ms ease;
+    transition: color 160ms ease;
   }
 
   .editorial-header__category-link:hover {
     color: var(--hc-gold-bright);
   }
 
-  .editorial-header__meta {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .meta-sep {
-    color: var(--hc-rule-strong);
-    opacity: 0.6;
-  }
-
-  .meta-author {
-    color: var(--hc-text-secondary);
-  }
-
-  .meta-date {
-    color: var(--hc-text-tertiary);
-  }
-
   .editorial-header__title {
-    max-width: 32ch;
-    margin: 0 auto 1.25rem;
+    width: 100%;
+    margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(2.15rem, 4.2vw, 3.4rem);
-    font-weight: 600;
-    line-height: 1.08;
+    font-size: clamp(2rem, 1rem + 2.2vw, 3rem);
+    font-weight: 500;
+    line-height: 1.16;
     letter-spacing: -0.025em;
     color: var(--hc-text-primary);
     text-wrap: balance;
   }
 
   .editorial-header__standfirst {
-    max-width: 48ch;
-    margin: 0 auto 1.75rem;
+    width: 100%;
+    margin: 0;
     font-family: var(--font-body);
-    font-size: clamp(1.1rem, 1.35vw, 1.25rem);
-    font-style: italic;
-    line-height: 1.55;
+    font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+    font-weight: 400;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+    text-wrap: pretty;
+  }
+
+  .editorial-header__meta {
+    display: grid;
+    grid-template-columns: repeat(var(--hero-meta-columns), minmax(0, 1fr));
+    margin: 0;
+    padding: 1.25rem 0;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-sm);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--hc-text-primary) 3%, transparent), transparent), var(--hc-surface-1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .editorial-header__meta-item {
+    min-width: 0;
+    padding-inline: 1rem;
+  }
+
+  .editorial-header__meta-item + .editorial-header__meta-item {
+    border-inline-start: 1px solid var(--hc-rule-soft);
+  }
+
+  .editorial-header__meta dt,
+  .editorial-header__topics-label {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.5;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
+  }
+
+  .editorial-header__meta dd {
+    margin: 0.4rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.6;
+    color: var(--hc-text-primary);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .editorial-header__reading {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.15rem 0.6rem;
+  }
+
+  .editorial-header__word-count {
+    color: var(--hc-text-secondary);
+    font-weight: 400;
+  }
+
+  .editorial-header__topics {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    line-height: 1.5;
     color: var(--hc-text-secondary);
   }
 
-  .editorial-header__ornament {
+  .editorial-header__topics-label {
+    margin-inline-end: 0.25rem;
+  }
+
+  .editorial-header__tag {
+    max-width: 100%;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--hc-surface-2) 40%, transparent);
+  }
+
+  .editorial-header__more-topics summary {
+    min-height: 32px;
+    align-content: center;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: var(--hc-rule-soft);
+    text-underline-offset: 3px;
+  }
+
+  .editorial-header__more-topics summary:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .editorial-header__more-topics[open] {
+    flex-basis: 100%;
+  }
+
+  .editorial-header__more-topics ul {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
     justify-content: center;
-    gap: 1rem;
-    max-width: 220px;
-    margin: 2rem auto;
-    color: var(--hc-gold);
-    opacity: 0.55;
-  }
-
-  .ornament-line {
-    flex: 1;
-    height: 1px;
-    background: var(--hc-rule);
-  }
-
-  .ornament-glyph {
-    font-size: 0.85rem;
-    color: var(--hc-gold);
-  }
-
-  .editorial-header__media {
-    margin-top: 2rem;
-    margin-bottom: 1.5rem;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
   }
 
   .editorial-header__plate {
-    margin: 0;
-    padding: 6px;
-    border: 1px solid var(--hc-rule);
-    background: color-mix(in srgb, var(--hc-surface-1) 80%, transparent);
-    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
-    border-radius: 2px;
+    display: grid;
+    margin: clamp(1.5rem, 3vw, 2rem) 0 0;
+    padding: 0;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-sm);
+    background: var(--hc-surface-0);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    overflow: hidden;
   }
 
   .editorial-header__plate img {
     display: block;
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
-    border: 1px solid var(--hc-rule-soft);
+    max-height: 34rem;
+    aspect-ratio: auto 16 / 9;
+    object-fit: contain;
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 600px) {
     .editorial-header__title {
-      font-size: clamp(1.75rem, 7vw, 2.3rem);
+      font-size: clamp(1.875rem, 6vw, 2.25rem);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
     }
-    .editorial-header__standfirst {
-      font-size: 1.05rem;
+
+    .editorial-header__meta {
+      grid-template-columns: repeat(var(--hero-mobile-columns), minmax(0, 1fr));
+      row-gap: 1rem;
+      padding-block: 1rem;
+    }
+
+    .editorial-header__meta-item {
+      padding-inline: 0.75rem;
+    }
+
+    .editorial-header__meta-item:nth-child(3) {
+      grid-column: 1 / -1;
+      padding-top: 1rem;
+      border-inline-start: 0;
+      border-top: 1px solid var(--hc-rule-soft);
     }
   }
 </style>

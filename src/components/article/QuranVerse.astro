@@ -62,6 +62,7 @@ const arabicPlain = arabicSegments.map((s) => s.text).join(" \u06DD ");
 
 const verseEntries = found.filter((f) => f.en);
 const english = verseEntries.map((f) => f.en);
+const englishPlain = english.join(" ");
 const ref = label || `Quran ${verse}`;
 const hasData = Boolean(arabicSegments.length || english.length);
 ---
@@ -142,18 +143,19 @@ const hasData = Boolean(arabicSegments.length || english.length);
             </div>
           )}
           {english.length > 0 && (
-            <div class="quran-verse__english" data-english-text>
-              {verseEntries.map((f) => (
-                <p class="qv-verse">
-                  {f.ref.includes(":") && (
-                    <span class="qv-verse-num" aria-hidden="true">
+            <p class="quran-verse__english" data-english-text data-copy-text={englishPlain}>
+              {verseEntries.map((f, index) => (
+                <>
+                  <span class="qv-verse">{f.en}</span>
+                  {index < verseEntries.length - 1 && (
+                    <span class="qv-verse-num" aria-label={`Verse ${f.ref.split(":")[1]}`}>
                       {f.ref.split(":")[1]}
                     </span>
                   )}
-                  {f.en}
-                </p>
+                  {' '}
+                </>
               ))}
-            </div>
+            </p>
           )}
           <div class="quran-verse__ref" data-ref-text={ref}>
             <span class="quran-verse__ref-icon" aria-hidden="true">
@@ -191,7 +193,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
 
         const textToCopy = buildCitation({
           primary: arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent,
-          quoted: englishEl?.textContent,
+          quoted: englishEl?.getAttribute("data-copy-text") || englishEl?.textContent,
           reference: refVal
         });
         if (!textToCopy) return;
@@ -215,22 +217,10 @@ const hasData = Boolean(arabicSegments.length || english.length);
     margin: 2.75rem 0;
     padding: 0;
     border: 1px solid var(--hc-rule);
-    border-top: 3px solid var(--hc-gold);
+    border-top: 1px solid var(--hc-rule-strong);
     border-radius: var(--radius-sm);
-    background:
-      radial-gradient(
-        circle at 85% 10%,
-        rgba(216, 177, 102, 0.06),
-        transparent 45%
-      ),
-      linear-gradient(
-        140deg,
-        color-mix(in srgb, var(--hc-surface-2) 88%, transparent),
-        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
-      );
-    box-shadow:
-      0 1px 0 rgba(216, 177, 102, 0.08) inset,
-      0 16px 45px rgba(0, 0, 0, 0.16);
+    background: color-mix(in srgb, var(--hc-surface-2) 65%, transparent);
+    box-shadow: none;
     overflow: hidden;
   }
 
@@ -239,7 +229,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--hc-rule);
-    background: rgba(15, 15, 16, 0.35);
+    background: transparent;
   }
 
   .quran-verse__badge {
@@ -247,9 +237,9 @@ const hasData = Boolean(arabicSegments.length || english.length);
     align-items: center;
     gap: 0.45rem;
     padding: 0.45rem 1.1rem;
-    background: rgba(216, 177, 102, 0.08);
-    border-right: 1px solid var(--hc-rule);
-    color: var(--hc-gold);
+    background: transparent;
+    border-right: 1px solid var(--hc-rule-soft);
+    color: var(--hc-text-secondary);
     font-family: var(--font-ui);
     font-size: 0.8rem;
     font-weight: 700;
@@ -366,44 +356,32 @@ const hasData = Boolean(arabicSegments.length || english.length);
 
   .quran-verse__english {
     font-family: var(--font-body);
-    font-size: clamp(1.06rem, 0.3vw + 1.02rem, 1.2rem);
-    line-height: 1.78;
+    font-size: 1em;
+    line-height: 1.75;
     color: var(--hc-text-secondary);
-    padding-left: 1.15rem;
-    border-left: 2px solid var(--hc-gold-dim);
+    padding-left: 0;
+    border-left: 0;
     font-style: italic;
-    margin-bottom: 1.25rem;
-  }
-
-  .quran-verse__english .qv-verse {
-    margin: 0 0 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
+    margin: 0 0 1.25rem;
   }
 
   .qv-verse-num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.35em;
-    height: 1.35em;
-    margin-right: 0.55em;
-    border: 1.5px solid var(--hc-gold-dim);
+    width: 1.4em;
+    height: 1.4em;
+    margin-inline: 0.4em;
+    border: 1px solid var(--hc-rule-strong);
     border-radius: 50%;
     background: rgba(216, 177, 102, 0.08);
     font-family: var(--font-ui);
-    font-size: 0.68em;
+    font-size: 0.72em;
     font-style: normal;
     font-weight: 700;
     line-height: 1;
-    color: var(--hc-gold);
+    color: var(--hc-text-secondary);
     vertical-align: 0.05em;
-  }
-
-  .quran-verse__english .qv-verse:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
   }
 
   .quran-verse__missing {
@@ -432,29 +410,19 @@ const hasData = Boolean(arabicSegments.length || english.length);
   }
 
   :global([data-theme="light"]) .quran-verse {
-    background:
-      radial-gradient(
-        circle at 85% 10%,
-        rgba(176, 126, 44, 0.08),
-        transparent 45%
-      ),
-      linear-gradient(
-        140deg,
-        rgba(251, 249, 244, 0.98),
-        rgba(244, 239, 229, 0.96)
-      );
+    background: color-mix(in srgb, var(--hc-surface-2) 65%, transparent);
     border-color: var(--hc-rule);
-    border-top-color: var(--hc-gold);
-    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
+    border-top-color: var(--hc-rule-strong);
+    box-shadow: none;
   }
 
   :global([data-theme="light"]) .quran-verse__header {
-    background: rgba(240, 234, 220, 0.6);
+    background: transparent;
   }
 
   :global([data-theme="light"]) .quran-verse__badge {
-    background: rgba(176, 126, 44, 0.1);
-    color: var(--hc-gold);
+    background: transparent;
+    color: var(--hc-text-secondary);
   }
 
   :global([data-theme="light"]) .quran-verse__copy {
@@ -487,15 +455,15 @@ const hasData = Boolean(arabicSegments.length || english.length);
     }
 
     .quran-verse__english {
-      padding-left: 0.85rem;
-      font-size: 1.12rem;
-      line-height: 1.68;
+      padding-left: 0;
+      font-size: 1em;
+      line-height: 1.72;
     }
 
     .qv-verse-num {
-      width: 1.2em;
-      height: 1.2em;
-      margin-right: 0.45em;
+      width: 1.35em;
+      height: 1.35em;
+      margin-inline: 0.3em;
     }
   }
 </style>

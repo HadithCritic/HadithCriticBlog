@@ -334,6 +334,35 @@ where this material needs it.
 - Numerals in any column context carry `font-variant-numeric: lining-nums
   tabular-nums`.
 
+### Article reading
+
+- The article body defaults to Poppins at 17px on phones and up to 18px on wide
+  screens, with 1.72–1.74 leading. All normal prose paragraphs have a first
+  line indent, including openings and paragraphs directly after headings.
+  Reader size settings also scale English text in source quotations. Keep the
+  small setting at least 16px.
+- The standard measure is 48rem and the wide measure is 53rem. The article
+  title, standfirst, metadata, thumbnail, and prose share that measure and are
+  centered in the reading column. Section headings are centered as well.
+- Every post uses `EditorialHeader`: a centered category, balanced title and
+  standfirst, followed by a neutral metadata band with explicit author,
+  publication date and reading-time labels. The toolbar follows the same
+  reading measure. Metadata wraps into two columns plus a reading-time row on
+  phones; absent fields leave no empty cells. Topics show three labels and a
+  native disclosure for the rest. Cover images retain the full artwork, with
+  a soft border and restrained shadow. All surfaces use the shared theme tokens.
+- Qurʾānic Arabic uses Amiri Quran with generous Arabic leading. English
+  translations, Bible excerpts, and hadith translations use the body face and
+  share its reading scale. Distinguish source types through their labels and
+  references, not thick gold borders or decorative shadows. English verses in
+  a multi-verse Qurʾān citation flow as one passage, with subtle verse markers
+  between them and the full reference at the end. Bible excerpt text is
+  justified within its citation component.
+- Footnote references remain real anchors to the notes. The dialog is a
+  progressive enhancement for short citation reading, especially on phones.
+  Its citation link scrolls to and focuses the matching note. Notes and
+  bibliography entries use compact, readable rows.
+
 ### The button exception
 
 `.hc-btn` and its variants sit in Glacial at ~15px, weight 500, light tracking,

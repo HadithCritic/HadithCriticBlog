@@ -7,7 +7,7 @@
     <div class="footnote-sheet__header">
       <div class="footnote-sheet__title-wrap">
         <span class="footnote-sheet__icon" aria-hidden="true">❖</span>
-        <h3 id="footnoteTitle" class="footnote-sheet__title">Citation</h3>
+        <h3 id="footnoteTitle" class="footnote-sheet__title">Footnote</h3>
       </div>
       <button type="button" class="footnote-sheet__close" id="footnoteClose" aria-label="Close citation">
         <span aria-hidden="true">✕</span>
@@ -20,7 +20,7 @@
 
     <div class="footnote-sheet__footer">
       <a href="#footnote-label" class="footnote-sheet__jump" id="footnoteJumpLink">
-        <span>View in full bibliography</span>
+        <span>Go to this citation</span>
         <span aria-hidden="true">&darr;</span>
       </a>
     </div>
@@ -40,9 +40,12 @@
     const closeDialog = () => {
       if (dialog.open) {
         dialog.close();
-        document.body.style.overflow = '';
       }
     };
+
+    dialog.addEventListener('close', () => {
+      document.body.style.overflow = '';
+    });
 
     closeBtn.addEventListener('click', closeDialog);
     dialog.addEventListener('click', (e) => {
@@ -50,8 +53,19 @@
     });
 
     if (jumpLink) {
-      jumpLink.addEventListener('click', () => {
+      jumpLink.addEventListener('click', (event) => {
+        event.preventDefault();
+        const targetId = jumpLink.hash.slice(1);
+        const targetEl = document.getElementById(targetId);
         closeDialog();
+        if (!targetEl) return;
+        history.pushState(null, '', `#${targetId}`);
+        targetEl.setAttribute('tabindex', '-1');
+        targetEl.focus({ preventScroll: true });
+        targetEl.scrollIntoView({
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start'
+        });
       });
     }
 
@@ -63,17 +77,19 @@
 
     // Intercept footnote reference clicks
     const footnoteLinks = document.querySelectorAll<HTMLAnchorElement>(
-      'sup a[data-footnote-ref], a[data-footnote-ref], sup a[href*="fn"], a[href^="#user-content-fn-"], a[href^="#fn-"], a[href^="#fn"]'
+      'a[data-footnote-ref], sup a[href^="#user-content-fn-"], sup a[href^="#fn-"]'
     );
 
     footnoteLinks.forEach((link) => {
+      if (link.dataset.footnotePopupBound || link.closest('.footnotes')) return;
+      link.dataset.footnotePopupBound = 'true';
       link.addEventListener('click', (e) => {
         const href = link.getAttribute('href');
         if (!href || !href.startsWith('#')) return;
 
         const targetId = href.slice(1);
         const targetEl = document.getElementById(targetId) || document.getElementById(`user-content-${targetId}`);
-        if (!targetEl) return;
+        if (!targetEl || typeof dialog.showModal !== 'function') return;
 
         e.preventDefault();
 
@@ -84,7 +100,7 @@
 
         // Extract footnote label/number
         const refText = link.textContent?.trim() || '';
-        titleEl.textContent = refText ? `Footnote [${refText}]` : 'Citation & Reference';
+        titleEl.textContent = refText ? `Footnote ${refText}` : 'Footnote';
 
         if (jumpLink) {
           jumpLink.setAttribute('href', `#${targetId}`);
@@ -92,10 +108,8 @@
 
         contentEl.innerHTML = clone.innerHTML;
 
-        if (typeof dialog.showModal === 'function') {
-          dialog.showModal();
-          document.body.style.overflow = 'hidden';
-        }
+        dialog.showModal();
+        document.body.style.overflow = 'hidden';
       });
     });
   }
@@ -115,9 +129,9 @@
     max-width: 580px;
     padding: 0;
     border: 0;
-    border-radius: var(--radius-md, 12px) var(--radius-md, 12px) 0 0;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     background: var(--hc-surface-1, #141312);
-    box-shadow: 0 -12px 45px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 -12px 45px rgba(0, 0, 0, 0.3);
     color: var(--hc-text-primary);
   }
 
@@ -137,8 +151,7 @@
   }
 
   .footnote-dialog::backdrop {
-    background: rgba(7, 7, 8, 0.7);
-    backdrop-filter: blur(4px);
+    background: rgba(7, 7, 8, 0.6);
   }
 
   .footnote-sheet {
@@ -161,7 +174,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    color: var(--hc-gold);
+    color: var(--hc-text-secondary);
   }
 
   .footnote-sheet__icon {
@@ -175,7 +188,7 @@
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--hc-gold);
+    color: var(--hc-text-primary);
   }
 
   .footnote-sheet__close {
@@ -236,12 +249,12 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    color: var(--hc-text-tertiary);
+    color: var(--hc-text-secondary);
     font-family: var(--font-ui);
     /* 0.75rem is 12px, the floor DESIGN.md sets and scripts/design-audit.mjs
        enforces. This was 0.74rem, which the audit on main never checked
        because the floor rule only existed on the other branch. */
-    font-size: 0.75rem;
+    font-size: 0.81rem;
     font-weight: 600;
     text-decoration: none;
     transition: color 180ms ease;
@@ -254,8 +267,14 @@
   @media (min-width: 768px) {
     .footnote-dialog {
       margin: auto;
-      border-radius: var(--radius-md, 12px);
+      border-radius: var(--radius-sm);
       border: 1px solid var(--hc-rule);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .footnote-dialog[open] {
+      animation: none;
     }
   }
 

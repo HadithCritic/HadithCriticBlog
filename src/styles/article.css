@@ -8,14 +8,15 @@
   position: relative;
 }
 
-/* ── Editorial Desk 3-Column Grid ── */
+/* ── Editorial Desk 2-Column Documentation / Scholarly Grid ── */
 .editorial-desk-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2rem;
-  width: min(100%, clamp(1280px, 78vw, 1680px));
+  width: 100%;
+  max-width: 1480px;
   margin-inline: auto;
-  padding: clamp(1rem, 2.5vw, 2.5rem) clamp(0.75rem, 2vw, 2rem) 5rem;
+  padding: clamp(1rem, 2vw, 2.5rem) clamp(1rem, 3vw, 3.5rem) 5rem;
 }
 
 .desk-left-rail {
@@ -24,17 +25,18 @@
 
 .desk-center-col {
   min-width: 0;
+  max-width: 960px;
   width: 100%;
 }
 
 .desk-right-rail {
-  display: none;
+  display: none !important;
 }
 
 @media (min-width: 1180px) {
   .editorial-desk-grid {
-    grid-template-columns: 19.5rem minmax(0, 1fr) 2.25rem;
-    column-gap: clamp(1.75rem, 3vw, 3rem);
+    grid-template-columns: 18.5rem minmax(0, 1fr);
+    column-gap: clamp(2rem, 3.5vw, 4.5rem);
     align-items: start;
   }
 
@@ -44,24 +46,21 @@
     max-height: calc(100vh - 6.5rem);
     overflow-y: auto;
     scrollbar-width: thin;
-    padding-right: 0.35rem;
+    padding-right: 0.5rem;
   }
 
   .desk-right-rail {
-    display: block;
-    min-width: 0;
-    align-self: stretch;
-    height: 100%;
+    display: none !important;
   }
 }
 
 .hc-article-body {
   width: 100%;
-  max-width: 760px;
+  max-width: var(--hc-article-measure, 53rem);
   margin-inline: auto;
   font-family: var(--font-body);
-  font-size: clamp(1.02rem, 0.3vw + 0.96rem, 1.13rem);
-  line-height: 1.85;
+  font-size: clamp(1.0625rem, 0.25vw + 1rem, 1.125rem);
+  line-height: 1.74;
   color: var(--hc-text-primary);
   overflow-wrap: break-word;
   transition: max-width 200ms ease, font-size 180ms ease;
@@ -69,31 +68,30 @@
 
 /* ── Reading Preferences Overrides ── */
 .physical-sheet[data-reading-size="s"] .hc-article-body {
-  font-size: clamp(0.94rem, 0.25vw + 0.9rem, 1.02rem);
-  line-height: 1.76;
+  font-size: 1rem;
+  line-height: 1.72;
 }
 
 .physical-sheet[data-reading-size="m"] .hc-article-body {
-  font-size: clamp(1.02rem, 0.3vw + 0.96rem, 1.13rem);
-  line-height: 1.85;
+  font-size: clamp(1.0625rem, 0.25vw + 1rem, 1.125rem);
+  line-height: 1.74;
 }
 
 .physical-sheet[data-reading-size="l"] .hc-article-body {
-  font-size: clamp(1.12rem, 0.35vw + 1.05rem, 1.25rem);
-  line-height: 1.92;
+  font-size: 1.25rem;
+  line-height: 1.78;
 }
 
-.physical-sheet[data-reading-measure="wide"] .hc-article-body {
-  max-width: 880px;
+.physical-sheet[data-reading-measure="wide"] {
+  --hc-article-measure: 53rem;
 }
 
-.physical-sheet[data-reading-measure="standard"] .hc-article-body {
-  max-width: 760px;
+.physical-sheet[data-reading-measure="standard"] {
+  --hc-article-measure: 48rem;
 }
 
 .physical-sheet[data-reading-align="left"] .hc-article-body>p {
   text-align: left;
-  text-indent: 0;
 }
 
 .physical-sheet[data-reading-align="justify"] .hc-article-body>p {
@@ -110,111 +108,82 @@
   min-width: 0;
 }
 
-.hc-article-body p {
-  margin: 0 0 1.45rem;
-  color: var(--hc-text-primary);
-}
-
-/* Justify the main flowing prose only (direct children of the article
-   body). Paragraphs nested inside components -- blockquotes, panels,
-   QuoteBlock, ClaimBox, VerdictBox, etc. -- keep whatever alignment
-   those components already set, since this selector never reaches them. */
 .hc-article-body>p {
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
+  margin: 0 0 1.35rem;
+  color: var(--hc-text-primary);
+  font-size: inherit;
+  line-height: inherit;
 }
 
-/* RTL/Arabic runs stay right-aligned, never justified -- justify on
-   right-to-left scripts is visually broken in most browsers. This is
-   redundant with the higher-specificity :lang(ar) rule below, but kept
-   explicit for clarity. */
+/* Book-style indents distinguish consecutive paragraphs without adding space. */
+.hc-article-body>p {
+  text-align: left;
+  text-indent: 1.5em;
+}
+
+/* RTL/Arabic runs stay right-aligned, never justified */
 .hc-article-body>p[dir="rtl"] {
   text-align: right;
   hyphens: manual;
 }
 
-/* First-line paragraph indent, book/journal style. Applied to every
-   flowing paragraph EXCEPT the one immediately opening the article or a
-   section -- in print typesetting the paragraph right after a heading
-   (or the very start of the piece) is already set apart by the heading
-   itself, so indenting it too just looks like a stray tab. */
-.hc-article-body>p {
-  text-indent: 1.75em;
-}
-
-.hc-article-body>p:first-of-type,
-.hc-article-body h2+p,
-.hc-article-body h3+p,
-.hc-article-body h4+p,
+/* A deliberate drop cap replaces the normal first-line indent. */
 .hc-article-body>p.has-dropcap {
   text-indent: 0;
-}
-
-/* Lead paragraph: the first paragraph reads as a deck */
-.hc-article-body>p:first-of-type {
-  font-size: 1.18em;
-  line-height: 1.7;
-  color: var(--hc-text-primary);
 }
 
 /* Drop caps are opt-in for deliberately typeset studies. */
 .hc-article-body>p.has-dropcap::first-letter {
   float: left;
   font-family: var(--font-display);
-  font-size: 3.82rem;
-  line-height: 0.8;
+  font-size: 3.4rem;
+  line-height: 0.85;
   padding-right: 0.75rem;
   padding-top: 0.25rem;
   color: var(--hc-gold);
   font-weight: 500;
 }
 
-
 /* Headings ----------------------------------------------------------- */
 .hc-article-body h2,
 .hc-article-body h3,
 .hc-article-body h4 {
   font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   scroll-margin-top: 6rem;
+  text-align: center;
   text-wrap: balance;
 }
 
 .hc-article-body h2 {
   position: relative;
-  margin-top: 3.5rem;
-  margin-bottom: 1.25rem;
-  padding-top: 1.5rem;
+  margin-top: 2.75rem;
+  margin-bottom: 0.85rem;
+  padding-top: 1.25rem;
   border-top: 1px solid var(--hc-rule-soft);
-  font-family: var(--font-display);
-  font-size: clamp(1.55rem, 2.3vw, 2.05rem);
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.5rem, 1vw + 1.25rem, 1.8rem);
+  line-height: 1.3;
   color: var(--hc-text-primary);
-  scroll-margin-top: 6rem;
-  text-align: center;
 }
 
 .hc-article-body h3 {
-  margin-top: 2.6rem;
-  margin-bottom: 0.9rem;
-  font-size: clamp(1.32rem, 1.9vw, 1.62rem);
-  line-height: 1.1;
+  margin-top: 2rem;
+  margin-bottom: 0.65rem;
+  font-size: clamp(1.25rem, 0.5vw + 1.1rem, 1.4rem);
+  line-height: 1.35;
   color: var(--hc-text-primary);
-  text-align: center;
 }
 
 .hc-article-body h4 {
-  margin-top: 2rem;
-  margin-bottom: 0.75rem;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
   font-family: var(--font-ui);
-  font-size: 1.06rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hc-gold);
+  color: var(--hc-text-secondary);
 }
 
 .hc-article-body a {
@@ -267,14 +236,14 @@
    and any cited source text. Arabic glyphs fall back to Naskh. -------- */
 .hc-article-body blockquote {
   position: relative;
-  margin: 2.5rem 0;
-  padding: 1.5rem 2rem;
+  margin: 2.25rem 0;
+  padding: 1.25rem 1.65rem;
   border: 1px solid var(--hc-rule);
   background: color-mix(in srgb, var(--hc-surface-2) 55%, transparent);
-  font-style: normal;
-  font-size: 1.23rem;
-  line-height: 1.6;
-  color: var(--hc-text-tertiary);
+  font-style: italic;
+  font-size: inherit;
+  line-height: 1.72;
+  color: var(--hc-text-primary);
 }
 
 .hc-article-body blockquote> :last-child {
@@ -380,7 +349,7 @@
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   font-family: var(--font-body);
-  font-size: 1.06rem;
+  font-size: 0.95rem;
   background: color-mix(in srgb, var(--hc-surface-1) 50%, transparent);
   overflow-wrap: break-word;
 }
@@ -538,7 +507,7 @@
   position: relative;
   padding-left: 1.4rem;
   margin-bottom: 0.85rem;
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   line-height: 1.65;
   color: var(--hc-text-secondary);
 }
@@ -566,30 +535,38 @@
 }
 
 /* Footnotes / reference lists ---------------------------------------- */
-.hc-article-body h2+.footnotes,
-.hc-article-body h2+section.footnotes {
-  margin-top: -0.5rem;
-  padding-top: 0;
-}
-
 .hc-article-body .footnotes {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-  font-size: 1.06rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hc-rule-soft);
+  font-size: 1rem;
+  line-height: 1.65;
   color: var(--hc-text-secondary);
 }
 
 .hc-article-body .footnotes ol {
   margin: 0;
-  padding-left: 1.5rem;
+  padding-left: 1.75rem;
 }
 
 .hc-article-body .footnotes li {
-  margin-bottom: 0.75rem;
-  padding: 0.25rem 0.5rem;
+  margin: 0;
+  padding: 0.65rem 0.25rem;
+  scroll-margin-top: 6rem;
+  border-bottom: 1px solid var(--hc-rule-soft);
   border-radius: var(--radius-xs);
   transition: background 400ms ease;
+}
+
+.hc-article-body .footnotes li:last-child {
+  border-bottom: 0;
+}
+
+.hc-article-body .footnotes li p {
+  margin: 0;
+  font-size: inherit;
+  line-height: inherit;
+  text-indent: 0;
 }
 
 .hc-article-body .footnotes li:target {
@@ -598,9 +575,9 @@
 }
 
 .hc-article-body .footnotes li::marker {
-  color: var(--hc-gold);
-  font-weight: 700;
-  font-size: 0.95rem;
+  color: var(--hc-text-secondary);
+  font-weight: 600;
+  font-size: 0.88rem;
 }
 
 .hc-article-body .footnotes a[data-footnote-backref] {
@@ -732,17 +709,18 @@
 
 @media (max-width: 700px) {
   .hc-article-body {
-    width: min(100% - 1.5rem, 760px);
-    /* Ensure safe area padding on notched devices */
-    padding-left: max(0.75rem, var(--sal, 0px));
-    padding-right: max(0.75rem, var(--sar, 0px));
-    font-size: 1.15rem;
-    line-height: 1.78;
+    width: 100%;
+    font-size: 1.0625rem;
+    line-height: 1.72;
+  }
+
+  .hc-article-body>p {
+    text-indent: 1.25em;
   }
 
   .hc-article-body>p:first-of-type {
-    font-size: 1.08em;
-    line-height: 1.72;
+    font-size: inherit;
+    line-height: inherit;
   }
 
   .hc-article-body>p:first-of-type::first-letter {
@@ -756,9 +734,9 @@
   }
 
   .hc-article-body h2 {
-    margin-top: 2.5rem;
-    padding-top: 1.1rem;
-    font-size: clamp(1.45rem, 8vw, 1.7rem);
+    margin-top: 2.2rem;
+    padding-top: 1rem;
+    font-size: 1.45rem;
     /* Prevent heading overflow */
     overflow-wrap: break-word;
     word-break: break-word;
@@ -766,23 +744,23 @@
   }
 
   .hc-article-body h3 {
-    margin-top: 2rem;
-    font-size: clamp(1.35rem, 7vw, 1.49rem);
+    margin-top: 1.8rem;
+    font-size: 1.23rem;
     overflow-wrap: break-word;
     word-break: break-word;
     hyphens: auto;
   }
 
   .hc-article-body h4 {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     letter-spacing: 0.06em;
   }
 
   .hc-article-body blockquote {
-    margin: 2rem 0;
-    padding: 1.1rem;
-    font-size: 1.12rem;
-    line-height: 1.65;
+    margin: 1.75rem 0;
+    padding: 1rem;
+    font-size: inherit;
+    line-height: 1.68;
     /* Prevent quote overflow */
     overflow-wrap: break-word;
   }

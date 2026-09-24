@@ -1,2567 +1,2189 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import GeometricEmblem from '../components/GeometricEmblem.astro';
+import BibleVerse from '../components/article/BibleVerse.astro';
+import QuranVerse from '../components/article/QuranVerse.astro';
+import HadithBlock from '../components/article/HadithBlock.astro';
+import ClaimBox from '../components/article/ClaimBox.astro';
+import VerdictBox from '../components/article/VerdictBox.astro';
+import ContextNote from '../components/article/ContextNote.astro';
+import QuoteBlock from '../components/article/QuoteBlock.astro';
+import SectionDivider from '../components/article/SectionDivider.astro';
+import EditorialToc from '../components/article/EditorialToc.astro';
+import fs from 'node:fs';
+import path from 'node:path';
 
-// Canonical Palette derived directly from DESIGN.md and global.css
-const palette = [
-  {
-    name: 'Surface Ground',
-    token: '--hc-surface-0',
-    dark: '#0F0F10',
-    light: '#FBF9F4',
-    contrast: '15.8:1 AAA',
-    role: 'Canonical page ground in dark mode; warm paper ground in light mode.'
-  },
-  {
-    name: 'Surface Panel',
-    token: '--hc-surface-1',
-    dark: '#141312',
-    light: '#F2ECE0',
-    contrast: '14.2:1 AAA',
-    role: 'Primary container surface, navigation bar, and structural modules.'
-  },
-  {
-    name: 'Surface Elevated',
-    token: '--hc-surface-2',
-    dark: '#1E1D1B',
-    light: '#E8E2D5',
-    contrast: '12.4:1 AAA',
-    role: 'Elevated plates, search bars, toolbars, and active card backgrounds.'
-  },
-  {
-    name: 'Surface Card / Well',
-    token: '--hc-surface-3',
-    dark: '#26231F',
-    light: '#DFD8CB',
-    contrast: '10.8:1 AAA',
-    role: 'Nested cards, input wells, and hairline boundary backgrounds.'
-  },
-  {
-    name: 'Antique Gold',
-    token: '--hc-gold',
-    dark: '#D8B166',
-    light: '#6F5019',
-    contrast: '7.8:1 AAA',
-    role: 'Primary active accent, kickers, active states, focus ring, and emblems.'
-  },
-  {
-    name: 'Parchment Cream',
-    token: '--hc-fixed-parchment',
-    dark: '#F2EBDC',
-    light: '#F2EBDC',
-    contrast: '13.5:1 AAA',
-    role: 'Fixed parchment evidence cards, manuscript quotes, and source sheets.'
-  },
-  {
-    name: 'Umber Bronze',
-    token: '--hc-umber',
-    dark: '#A46A3F',
-    light: '#8A4C27',
-    contrast: '4.6:1 AA',
-    role: 'Historical context notes, caution banners, and secondary chapter accents.'
-  },
-  {
-    name: 'Text Primary',
-    token: '--hc-text-primary',
-    dark: '#F2EBDC',
-    light: '#2B2824',
-    contrast: '14.5:1 AAA',
-    role: 'High-contrast headline and running reading text across all views.'
-  },
-  {
-    name: 'Text Secondary',
-    token: '--hc-text-secondary',
-    dark: '#B8AD99',
-    light: '#6B635A',
-    contrast: '7.2:1 AAA',
-    role: 'Lede text, apparatus subheadings, metadata timestamps, and descriptions.'
-  },
-  {
-    name: 'Text Tertiary',
-    token: '--hc-text-tertiary',
-    dark: '#8C8A86',
-    light: '#635E56',
-    contrast: '4.7:1 AA',
-    role: 'The dimmest legible text token on the site (12px minimum floor).'
-  }
-];
+let designMdContent = '';
+try {
+  designMdContent = fs.readFileSync(path.resolve(process.cwd(), 'DESIGN.md'), 'utf-8');
+} catch (e) {
+  console.warn('Could not read DESIGN.md at build time', e);
+}
 
-const tokenGroups = [
+// ── Colors (21 Core Tokens + Taxonomy/Status) ─────────────────────────────
+const colorGroups = [
   {
-    title: 'Surfaces & Grounds',
-    description: 'Four warm-tinted tiers. Never pure black, never sterile white.',
-    items: [
-      ['--hc-surface-0', '#0F0F10', 'Page background field'],
-      ['--hc-surface-1', '#141312', 'Panels, headers, chrome'],
-      ['--hc-surface-2', '#1E1D1B', 'Elevated ledger cards'],
-      ['--hc-surface-3', '#26231F', 'Input wells, nested cards']
+    category: 'Brand & Accent',
+    subtitle: 'Sparing, hierarchy & active-state voltage (<5% viewport footprint).',
+    colors: [
+      { name: 'Antique Gold', token: '--hc-gold', darkHex: '#d8b166', lightHex: '#6f5019', contrast: '7.8:1 AAA', role: 'Active links, emblems, focus rings, and primary hierarchy.' },
+      { name: 'Gold Bright', token: '--hc-gold-bright', darkHex: '#e8c878', lightHex: '#63440f', contrast: '9.2:1 AAA', role: 'Hover states, active focus indicators, and luminous accents.' },
+      { name: 'Gold Soft', token: '--hc-gold-soft', darkHex: '#e2c783', lightHex: '#795820', contrast: '8.5:1 AAA', role: 'Selection backgrounds and button gradient stops.' },
+      { name: 'Gold Dim', token: '--hc-gold-dim', darkHex: '#9d7a3c', lightHex: '#7a5920', contrast: '4.6:1 AA', role: 'Quiet apparatus borders and subtle ornament lines.' },
+      { name: 'Accent Copper', token: '--hc-copper', darkHex: '#c48b68', lightHex: '#8a4c27', contrast: '5.2:1 AA', role: 'Text-safe warm copper for apparatus notes and diagrams.' },
+      { name: 'Accent Umber', token: '--hc-umber', darkHex: '#a46a3f', lightHex: '#8a4c27', contrast: '4.5:1 AA', role: 'Historical context notes, caution banners, and chapter cards.' },
+      { name: 'Accent Prophecy', token: '--hc-prophecy', darkHex: '#7b2d24', lightHex: '#a84b3e', contrast: '4.5:1 AA', role: 'Sparing rubric red for critical prophecy and warning callouts.' },
     ]
   },
   {
-    title: 'Text Tiers',
-    description: 'Calibrated for WCAG 2.2 AA (4.5:1 body, 3:1 large) in both modes.',
-    items: [
-      ['--hc-text-primary', '#F2EBDC', 'Primary prose and headlines'],
-      ['--hc-text-secondary', '#B8AD99', 'Metadata, ledes, and captions'],
-      ['--hc-text-tertiary', '#8C8A86', 'Dimmest allowed text (floor)'],
-      ['--hc-text-inverse', '#0F0F10', 'Text on gold / accent fills']
+    category: 'Surface',
+    subtitle: 'Warm-tinted layered grounds, panels, elevated cards, and manuscript sheets.',
+    colors: [
+      { name: 'Canvas Ground', token: '--hc-surface-0', darkHex: '#0f0f10', lightHex: '#fbf9f4', contrast: '15.8:1 AAA', role: 'Canonical page canvas; deep tinted-black in dark, ivory in light.' },
+      { name: 'Surface Panel', token: '--hc-surface-1', darkHex: '#141312', lightHex: '#f2ece0', contrast: '14.2:1 AAA', role: 'Structural panels, persistent navigation bars, and chrome.' },
+      { name: 'Surface Elevated', token: '--hc-surface-2', darkHex: '#1e1d1b', lightHex: '#e8e2d5', contrast: '12.4:1 AAA', role: 'Elevated ledger cards, searchbars, toolbars, and active trays.' },
+      { name: 'Surface Card / Well', token: '--hc-surface-3', darkHex: '#26231f', lightHex: '#dfd8cb', contrast: '10.8:1 AAA', role: 'Nested card modules, input wells, and border backdrops.' },
+      { name: 'Fixed Parchment', token: '--hc-fixed-parchment', darkHex: '#f2ebdc', lightHex: '#f2ebdc', contrast: '13.5:1 AAA', role: 'Fixed parchment evidence cards, manuscript quotes, and source sheets.' },
+      { name: 'Surface Umber Sheet', token: '--hc-surface-umber', darkHex: '#6e3b24', lightHex: '#f4ede6', contrast: '4.8:1 AA', role: 'Deep umber background for historical context notes and apparatus.' },
     ]
   },
   {
-    title: 'Gold Accents',
-    description: 'Signals hierarchy and division. Never large-area fill (<5% viewport).',
-    items: [
-      ['--hc-gold', '#D8B166', 'Active links, emblems, focus rings'],
-      ['--hc-gold-bright', '#E8C878', 'Hover states and glow accents'],
-      ['--hc-gold-soft', '#E2C783', 'Selection and button gradient stops'],
-      ['--hc-gold-dim', '#9D7A3C', 'Quiet metadata accent borders']
+    category: 'Text',
+    subtitle: 'High-contrast typography tiers calibrated for WCAG 2.2 AA in both modes.',
+    colors: [
+      { name: 'Text Primary', token: '--hc-text-primary', darkHex: '#f2ebdc', lightHex: '#2b2824', contrast: '14.5:1 AAA', role: 'High-contrast headline and running reading text across all views.' },
+      { name: 'Text Secondary', token: '--hc-text-secondary', darkHex: '#b8ad99', lightHex: '#6b635a', contrast: '7.2:1 AAA', role: 'Lede text, apparatus subheadings, metadata timestamps, and descriptions.' },
+      { name: 'Text Tertiary / Muted', token: '--hc-text-tertiary', darkHex: '#8c8a86', lightHex: '#635e56', contrast: '4.7:1 AA', role: 'The dimmest legible text token on the site (12px minimum floor).' },
+      { name: 'Text Inverse', token: '--hc-text-inverse', darkHex: '#0f0f10', lightHex: '#fbf9f4', contrast: '15.8:1 AAA', role: 'High-contrast text on solid gold buttons and active accents.' },
+      { name: 'Parchment Ink', token: '--hc-fixed-parchment-ink', darkHex: '#1a1715', lightHex: '#1a1715', contrast: '14.0:1 AAA', role: 'Deep manuscript ink used on parchment cards across both themes.' },
     ]
   },
   {
-    title: 'Rules & Dividers',
-    description: 'Hairlines (1px) separating critical apparatus modules.',
-    items: [
-      ['--hc-rule', 'rgba(216,177,102,.32)', 'Default gold hairline border'],
-      ['--hc-rule-soft', 'rgba(242,235,220,.14)', 'Interior card dividers'],
-      ['--hc-rule-strong', 'rgba(216,177,102,.55)', 'Active states and hero frames']
+    category: 'Borders & Hairlines',
+    subtitle: 'Structural dividers, inset card outlines, and apparatus hairlines.',
+    colors: [
+      { name: 'Hairline Rule', token: '--hc-rule', darkHex: 'rgba(216,177,102,0.32)', lightHex: 'rgba(111,80,25,0.28)', contrast: 'Structural', role: '1px structural border for cards, panels, and ledger divisions.' },
+      { name: 'Rule Soft', token: '--hc-rule-soft', darkHex: 'rgba(242,235,220,0.14)', lightHex: 'rgba(43,40,36,0.12)', contrast: 'Structural', role: 'Subtle interior dividers and quiet metadata item separators.' },
+      { name: 'Rule Strong', token: '--hc-rule-strong', darkHex: 'rgba(216,177,102,0.55)', lightHex: 'rgba(111,80,25,0.50)', contrast: 'Structural', role: 'Active hover outlines, primary frames, and emphasized boundaries.' },
+    ]
+  },
+  {
+    category: 'Taxonomy & Status (Appendix)',
+    subtitle: 'Non-evaluative article categories and semantic application states.',
+    colors: [
+      { name: 'Taxonomy: History', token: '--cat-history-text', darkHex: '#c99a72', lightHex: '#8a4c27', contrast: '5.6:1 AA', role: 'Category hue for Origins & Early History studies.' },
+      { name: 'Taxonomy: Prophecies', token: '--cat-prophecies-text', darkHex: '#c8705f', lightHex: '#8f3316', contrast: '5.1:1 AA', role: 'Category hue for Prophecies & Eschatology studies.' },
+      { name: 'Taxonomy: Theology', token: '--cat-theology-text', darkHex: '#7fa389', lightHex: '#255e34', contrast: '5.8:1 AA', role: 'Category hue for Theology & Epistemology studies.' },
+      { name: 'Taxonomy: Philosophy', token: '--cat-philosophy-text', darkHex: '#8595b5', lightHex: '#324a73', contrast: '5.4:1 AA', role: 'Category hue for Philosophy & Methodology studies.' },
+      { name: 'Status: Success', token: '--hc-success', darkHex: '#81c784', lightHex: '#2e6b2e', contrast: '6.2:1 AA', role: 'Form confirmation and positive status notices.' },
+      { name: 'Status: Danger', token: '--hc-danger', darkHex: '#e2907a', lightHex: '#8f3316', contrast: '5.6:1 AA', role: 'Critical warnings and negative argument emphasis.' },
+      { name: 'Search Highlight', token: '--hc-highlight', darkHex: 'rgba(216,177,102,0.26)', lightHex: 'rgba(176,126,44,0.18)', contrast: 'Wash', role: 'Search hit highlighting and textual illumination.' },
     ]
   }
 ];
 
-const typography = [
+// ── Typography (11 Core Tokens) ───────────────────────────────────────────
+const typographyTokens = [
   {
-    label: 'Display & Headlines',
-    family: 'Poppins',
-    weight: '500 Medium',
-    casing: 'Sentence case · Never letterspaced',
-    token: '--font-display',
-    sample: 'Better narrations through better questions.',
-    className: 'type-display',
-    role: 'Used for page titles, article headlines, section titles, and pull-quote lead-ins.'
+    token: 'display-hero',
+    className: 'hc-title--xl',
+    font: 'Poppins',
+    spec: 'clamp(2.98rem, 7vw, 5.1rem) · 500 Medium · lh 1.1 · -0.035em',
+    sample: 'Critical Evidence.',
+    role: 'Primary homepage and flagship portal display headlines.'
   },
   {
-    label: 'Scholarly Body Text',
-    family: 'Poppins',
-    weight: '400 Regular',
-    casing: 'Sentence case · 1.72 line-height',
-    token: '--font-body',
-    sample: 'Long-form textual criticism should feel deliberate, source-critical, and calm.',
-    className: 'type-body',
-    role: 'Standard reading prose, analysis treatises, historical commentary, and tables.'
+    token: 'display-section',
+    className: 'hc-title--lg',
+    font: 'Poppins',
+    spec: 'clamp(2.55rem, 6vw, 4.93rem) · 500 Medium · lh 1.15 · -0.035em',
+    sample: 'Historical Transmission',
+    role: 'Major archive section and dossier display headers.'
   },
   {
-    label: 'Apparatus & Metadata UI',
-    family: 'Glacial Indifference',
-    weight: '600–700 Bold',
-    casing: 'UPPERCASE · 0.10–0.14em tracking',
-    token: '--font-ui',
-    sample: 'ISNĀD · RĀWĪ · MATN · WITNESS · RECENSION · APPARATUS',
-    className: 'type-ui',
-    role: 'Strictly for apparatus UI: navigation, breadcrumbs, buttons, tabs, and data labels.'
+    token: 'display-title-md',
+    className: 'hc-title--md',
+    font: 'Poppins',
+    spec: 'clamp(1.91rem, 4vw, 3.4rem) · 500 Medium · lh 1.2 · -0.035em',
+    sample: 'Origins & Early History',
+    role: 'Standard collection covers and category title headers.'
   },
   {
-    label: 'Classical Arabic',
-    family: 'Amiri',
-    weight: '400 Regular',
-    casing: '2.05 line-height (--leading-arabic)',
-    token: '--font-arabic',
-    sample: 'حديث صحيح إذا اتصل سنده وعدل رواته وضبطوا ما رووا.',
-    className: 'type-arabic',
-    role: 'Full Arabic hadith text, narrator names, chain nodes, and variant matn glosses.'
+    token: 'heading-h2',
+    className: 'spec-h2',
+    font: 'Poppins',
+    spec: 'clamp(1.4rem, 3vw, 1.8rem) · 600 SemiBold · lh 1.3 · -0.02em',
+    sample: 'Textual Variants in the Canon',
+    role: 'In-page article section headers and analytical dividers.'
+  },
+  {
+    token: 'heading-h3',
+    className: 'spec-h3',
+    font: 'Poppins',
+    spec: '1.18rem · 600 SemiBold · lh 1.35 · -0.015em',
+    sample: 'The Common Link Hypothesis',
+    role: 'Article subsections and apparatus grouping titles.'
+  },
+  {
+    token: 'body-prose',
+    className: 'spec-body',
+    font: 'Poppins',
+    spec: '1rem (16px) · 400 Regular · lh 1.75 · 68–75ch',
+    sample: 'Every attribution is treated as an empirical claim to be investigated rather than an article of faith. We reconstruct earliest transmission paths.',
+    role: 'Standard monograph reading prose, treatises, and critical analysis.'
+  },
+  {
+    token: 'body-copy-lead',
+    className: 'spec-lead',
+    font: 'Poppins',
+    spec: '1.08rem · 400 Regular · lh 1.68',
+    sample: 'An independent scholarly archive presenting evidence-led studies of hadith literature, early Islamic history, and source criticism.',
+    role: 'Article standfirsts, introductory summaries, and abstract text.'
+  },
+  {
+    token: 'body-small',
+    className: 'spec-small',
+    font: 'Poppins',
+    spec: '0.95rem · 400 Regular · lh 1.6',
+    sample: 'Citations follow the standard Leiden system with references to primary manuscript catalogues.',
+    role: 'Table contents, captions, secondary citations, and footnotes.'
+  },
+  {
+    token: 'ui-eyebrow-label',
+    className: 'spec-eyebrow',
+    font: 'Glacial Indifference',
+    spec: '0.81rem (13px) · 700 Bold · UPPERCASE · +0.14em',
+    sample: 'CRITICAL APPARATUS · ISNĀD ANALYSIS · 276,347 NARRATIONS',
+    role: 'Strictly apparatus UI: category kickers, table headers, breadcrumbs, and tags.'
+  },
+  {
+    token: 'ui-button',
+    className: 'spec-btn-label',
+    font: 'Glacial Indifference',
+    spec: '15px · 500 Medium · Sentence case · +0.04em',
+    sample: 'Explore the Corpus →',
+    role: 'Interactive button controls, primary callouts, and search actions.'
+  },
+  {
+    token: 'arabic-quran',
+    className: 'spec-quran',
+    font: 'Amiri Quran',
+    spec: 'clamp(1.27rem, 1.2vw + 1.25rem, 1.57rem) · lh 2.05 · RTL',
+    sample: 'قُتِلَ أَصْحَٰبُ ٱلْأُخْدُودِ ۝٤ ٱلنَّارِ ذَاتِ ٱلْوَقُودِ ۝٥',
+    role: 'Authentic Qurʾānic script supporting full waqf and vocalisation marks.'
   }
 ];
 
-const dimensions = [
-  {
-    label: 'Maximum Container',
-    token: '--wrap',
-    value: '1240px',
-    desc: 'Outer boundary for grids, tables, and page modules.'
-  },
-  {
-    label: 'Reading Measure',
-    token: '--wrap-reading',
-    value: '780px',
-    desc: 'Optimal 68–75ch measure for long-form critical reading.'
-  },
-  {
-    label: 'Container Padding',
-    token: '--pad',
-    value: 'clamp(1.2rem, 4vw, 2.5rem)',
-    desc: 'Responsive inline gutter (1rem on mobile <=640px).'
-  },
-  {
-    label: 'Section Spacing',
-    token: '--section-y',
-    value: 'clamp(2.5rem, 5vw, 4.5rem)',
-    desc: 'Balanced vertical rhythm between major page sections.'
-  },
-  {
-    label: 'Typography Floor',
-    token: 'min-size',
-    value: '12px / 0.75rem',
-    desc: 'Strict non-negotiable floor; no text may fall below 12px.'
-  },
-  {
-    label: 'Arabic Line Height',
-    token: '--leading-arabic',
-    value: '2.05',
-    desc: 'Generous vertical clearance for ḥarakāt and vowel diacritics.'
-  },
-  {
-    label: 'YouTube Thumbnail',
-    token: 'fixed-ratio',
-    value: '1280 × 720',
-    desc: 'Locked 16:9 composition. Keep the title and primary evidence legible at reduced mobile size.'
-  }
+// ── Layout (12 Tokens) ───────────────────────────────────────────────────
+const radiiTokens = [
+  { name: 'none', token: '0px', value: '0px', usage: 'Hard tables, strict manuscript matrices' },
+  { name: 'xs', token: '--radius-xs', value: '2px', usage: 'Buttons, cards, panels: the site default' },
+  { name: 'sm', token: '--radius-sm', value: '4px', usage: 'Inputs, small chips, dialogs, book plates' },
+  { name: 'pill', token: '--radius-pill', value: '999px', usage: 'Actionable filter chips & status tags only' },
 ];
 
-const northStar = [
-  {
-    num: '01',
-    title: 'Evidence before inheritance',
-    copy: 'A report earns authority through verifiable manuscript recensions and stemmatic witnesses, never reputation alone.'
-  },
-  {
-    num: '02',
-    title: 'Method before verdict',
-    copy: 'Visual components make transmission chains, common links, and variant readings visible rather than preaching a theological grade.'
-  },
-  {
-    num: '03',
-    title: 'Critique with adab',
-    copy: 'The voice is sober, rigorous, and academic. Confidence emerges from cited apparatuses and primary witnesses, not polemic volume.'
-  }
+const spacingTokens = [
+  { name: 'xs', token: '--space-xs', px: '4px', barWidth: '8px' },
+  { name: 'sm', token: '--space-sm', px: '8px', barWidth: '16px' },
+  { name: 'md', token: '--space-md', px: '12px', barWidth: '24px' },
+  { name: 'base', token: '--space-base', px: '16px', barWidth: '36px' },
+  { name: 'lg', token: '--space-lg', px: '24px', barWidth: '56px' },
+  { name: 'xl', token: '--space-xl', px: '32px', barWidth: '80px' },
+  { name: '2xl', token: '--space-2xl', px: '48px', barWidth: '120px' },
+  { name: '3xl', token: '--space-3xl', px: '72px', barWidth: '160px' },
 ];
 
-const contentRules = [
-  {
-    rule: 'Zero Traffic-Light Grading',
-    desc: 'Never display reliability scores, star ratings, or green/red ṣaḥīḥ/ḍaʿīf badges. Classical jarḥ wa-taʿdīl statements are presented as attributed historical source data in neutral ink.'
-  },
-  {
-    rule: 'Prose Measure 68–75ch',
-    desc: 'Reading text never spans wider than 75 characters. Excessively wide columns cause reading fatigue in academic literature.'
-  },
-  {
-    rule: 'Roman Headings Only',
-    desc: 'No italic display typography. Emphasis is carried through weight, scale, and antique gold rules rather than slanted type.'
-  },
-  {
-    rule: 'Bilingual Ordering',
-    desc: 'English precedes Arabic in the DOM. On screens >=780px, English sits left and Arabic right; on mobile, Arabic renders first.'
-  }
+const layoutSpecs = [
+  { label: 'Container Max-Width', token: '--wrap', value: '1240px', desc: 'Standard width for grids, catalogues, and site chrome.' },
+  { label: 'Reading Measure', token: '--wrap-reading', value: '780px', desc: '68–75ch optimal typographical measure for reading.' },
+  { label: 'Wide Reading Measure', token: '--wrap-wide', value: '940px', desc: 'Expanded scholarly measure for complex tables & facing notes.' },
+  { label: 'Editorial Desk Grid', token: '--desk-grid', value: '1480px', desc: 'Full 2-column scholarly apparatus workspace.' },
 ];
 
-const voice = [
-  ['Precise', 'Name the claim, source, chain, and judgment without ornamental hedging.'],
-  ['Readable', 'Use scholarly terms when needed, then explain what they do.'],
-  ['Accountable', 'Show where a conclusion comes from, especially when the judgment is strong.'],
-  ['Restrained', 'Let evidence carry weight. Avoid spectacle where a footnote is stronger.']
-];
 
-const youtubePrinciples = [
-  {
-    num: '01',
-    title: 'Evidence is the hook',
-    copy: 'Lead with an archival object, manuscript fragment, map, engraving, or transmission diagram rather than a reaction face or decorative spectacle.'
-  },
-  {
-    num: '02',
-    title: 'Typography carries the claim',
-    copy: 'Use Poppins for the readable headline, with one restrained antique-gold emphasis. Titles stay short enough to survive YouTube-scale reduction.'
-  },
-  {
-    num: '03',
-    title: 'Annotation replaces clickbait',
-    copy: 'Use thin editorial rules, circles, marginal labels, and provenance marks as the visual language of criticism. No giant arrows, glow outlines, or meme-style emphasis.'
-  }
-];
 
-const youtubeFamilies = [
+const faqs = [
   {
-    name: 'History',
-    kicker: 'HISTORY · SOURCE CRITICISM',
-    title: 'The Baghdad Prophecy',
-    accent: 'Prophecy',
-    meta: 'MAP · CHRONICLE · TRANSMISSION',
-    mode: 'history',
-    desc: 'Archival Tigris siege stemma, coordinate grid (656 AH), and contemporary chronicle collation.'
+    q: 'How is the HadithCritic design system specified?',
+    a: 'The system is defined in DESIGN.md at the workspace root, sourced directly from CSS variables in src/styles/global.css, article.css, and footer.css. Every token is verified by automated contrast and design audits.'
   },
   {
-    name: 'Prophecy',
-    kicker: 'PROPHECIES · TEXTUAL FULFILLMENT',
-    title: 'The Crucifixion',
-    accent: 'Crucifixion',
-    meta: 'NARRATIVE · PROPHECY · RECEPTION',
-    mode: 'prophecy',
-    desc: 'Intercalated manuscript folios with variant Quranic readings and classical exegetical stemma.'
+    q: 'Why is there no authenticity grading color system?',
+    a: 'Authenticity scoring (traffic-light green/yellow/red badges) is strictly forbidden across the site. HadithCritic operates on historical-critical methodology: classical evaluations are presented purely as attributed historical source data in neutral ink, never as empirical verdicts.'
   },
   {
-    name: 'Theology',
-    kicker: 'THEOLOGY · AUTHORITY',
-    title: 'The Hadith Argument',
-    accent: 'Argument',
-    meta: 'SOURCE · AUTHORITY · RECENSION',
-    mode: 'theology',
-    desc: 'Usūl dialectic apparatus measuring solitary transmission against Quranic sufficiency.'
+    q: 'How does the system ensure WCAG 2.2 AA contrast compliance?',
+    a: 'Every color is audited not as a raw token, but against the fully composited background stack (including paper noise, category washes, and radial gradients). The test script scripts/check-contrast.mjs validates all 93 routes in both dark and light modes.'
   },
   {
-    name: 'Epistemology',
-    kicker: 'EPISTEMOLOGY · TRANSMISSION',
-    title: 'Can Hadith Reach Certainty?',
-    accent: 'Certainty?',
-    meta: 'ISNĀD · WITNESS · METHOD',
-    mode: 'epistemology',
-    desc: 'Isnād-cum-matn analysis plate tracking common links, partial links, and regional divergence.'
+    q: 'Can this design spec be used directly in Cursor, Claude, or Copilot?',
+    a: 'Yes. The DESIGN.md file follows the open Agent Design Schema. You can copy the raw markdown using the button above and supply it to coding agents to replicate exact components, spacing, and typography.'
   }
 ];
 ---
 
 <BaseLayout
-  title="Brand Guidelines & Design System | HadithCritic"
-  description="HadithCritic brand architecture, design tokens, typography, dimensions, and critical apparatus standards."
+  title="HadithCritic Design System — Colors 21, Typography 11, Layout 12, Components 21"
+  description="HadithCritic's scholarly design system spec. Dark manuscript archive (#0f0f10), antique gold (#d8b166), Poppins, Glacial Indifference, Amiri, 21 colors, 21 components."
 >
-  <div class="brand-page">
-    <!-- ═══════════════════════════════════════════
-         HERO SECTION
-         ═══════════════════════════════════════════ -->
-    <section class="brand-hero" aria-labelledby="brand-title">
-      <div class="brand-frame" aria-hidden="true"></div>
-      <div class="hc-container brand-hero__inner">
-        <div class="brand-hero__copy">
-          <p class="hc-eyebrow">HadithCritic · Design Architecture</p>
-          <h1 id="brand-title" class="brand-hero__title">The Critical Apparatus.</h1>
-          <p class="brand-hero__lead">
-            HadithCritic pairs a dark manuscript archive with antique gold rules, parchment evidence
-            surfaces, and an Amiri-based classical Arabic layer to make source criticism rigorous, fair,
-            and citable.
+  <main class="brand-spec-page">
+    <div class="wrap">
+      
+      <!-- ── Breadcrumb & Top Bar ──────────────────────────────────────── -->
+      <nav class="spec-breadcrumbs" aria-label="Breadcrumb">
+        <a href="/" class="spec-breadcrumb-link">HadithCritic</a>
+        <span class="spec-breadcrumb-sep" aria-hidden="true">/</span>
+        <span class="spec-breadcrumb-current">Design System</span>
+      </nav>
+
+      <!-- ── Hero Spec Header ─────────────────────────────────────────── -->
+      <section class="spec-hero">
+        <div class="spec-hero__left">
+          <div class="spec-eyebrow">DESIGN SYSTEM SPECIFICATION · V2.4</div>
+          <h1 class="spec-hero__title">HadithCritic Design System</h1>
+          <p class="spec-hero__lede">
+            A dark manuscript archive visual system: tinted-black ground, antique gold as the single accent, 
+            parchment and umber text tiers, and classical Naskh typography calibrated for rigorous historical-critical inquiry.
           </p>
-          <div class="brand-hero__actions">
-            <a href="#palette" class="hc-btn">Color Palette</a>
-            <a href="#typography" class="hc-btn hc-btn--ghost">Typography Stack</a>
-            <a href="#dimensions" class="hc-btn hc-btn--ghost">System Dimensions</a>
-            <a href="#youtube" class="hc-btn hc-btn--ghost">YouTube Thumbnail System</a>
+
+          <div class="spec-hero__actions">
+            <button type="button" class="hc-btn" id="copyDesignMdBtn" data-copy-action="design-md">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy DESIGN.md Spec</span>
+            </button>
+            <a href="#explore-system" class="hc-btn hc-btn--ghost">
+              <span>Explore The System ↓</span>
+            </a>
+          </div>
+
+          <!-- 01-05 Key Distinctives (as in shadcn anthropic) -->
+          <div class="spec-distinctives">
+            <h2 class="spec-distinctives__title">WHAT MAKES IT DISTINCT</h2>
+            <ol class="spec-distinctives__list">
+              <li>
+                <span class="num">01</span>
+                <div>
+                  <strong>Dark Manuscript Archive Surface</strong>
+                  <p>Tinted-black canvas (<code>#0f0f10</code>) over two low-opacity radial glows, paired with a paper grain noise field.</p>
+                </div>
+              </li>
+              <li>
+                <span class="num">02</span>
+                <div>
+                  <strong>Sparing Antique Gold Voltage</strong>
+                  <p>Antique Gold (<code>#d8b166</code>) carries hierarchy and active state only; stays under ~5% of any viewport.</p>
+                </div>
+              </li>
+              <li>
+                <span class="num">03</span>
+                <div>
+                  <strong>Rigorous WCAG 2.2 AA Contrast Architecture</strong>
+                  <p>Audited against composited backgrounds (4.5:1 body, 3:1 large); zero pure white, zero pitch black.</p>
+                </div>
+              </li>
+              <li>
+                <span class="num">04</span>
+                <div>
+                  <strong>Tri-Scriptural Typographic Hierarchy</strong>
+                  <p>Geometric Latin (Poppins) for reading, uppercase apparatus (Glacial) for metadata, and classical Naskh (Amiri) for Arabic.</p>
+                </div>
+              </li>
+              <li>
+                <span class="num">05</span>
+                <div>
+                  <strong>Non-Negotiable Neutral Critical Apparatus</strong>
+                  <p>No traffic-light authenticity grades or reliability badges anywhere. Attributed evidence in neutral apparatus ink.</p>
+                </div>
+              </li>
+            </ol>
           </div>
         </div>
 
-        <aside class="brand-hero__spec" aria-label="Brand snapshot">
-          <div class="brand-lockup">
-            <div class="brand-lockup__emblem">
-              <GeometricEmblem size="56px" />
+        <!-- Quick Spec Side Card (Shadcn Anthropic pattern) -->
+        <aside class="spec-hero__side">
+          <div class="spec-summary-card">
+            <div class="spec-summary-card__swatch">
+              <div class="swatch-color" style="background-color: var(--hc-gold);"></div>
+              <div class="swatch-meta">
+                <span class="swatch-label">PRIMARY ACCENT</span>
+                <span class="swatch-code">#d8b166</span>
+                <span class="swatch-sub">Antique Gold · 7.8:1 AAA</span>
+              </div>
             </div>
-            <div>
-              <strong>HadithCritic</strong>
-              <span>Digital Research Archive &amp; Critical Edition Press</span>
+
+            <div class="spec-summary-card__rows">
+              <div class="summary-row">
+                <span class="row-label">TYPEFACES</span>
+                <span class="row-val">Poppins · Glacial · Amiri</span>
+              </div>
+              <div class="summary-row">
+                <span class="row-label">COMPONENTS</span>
+                <span class="row-val highlight">21</span>
+              </div>
+              <div class="summary-row">
+                <span class="row-label">COLOR TOKENS</span>
+                <span class="row-val highlight">21</span>
+              </div>
+              <div class="summary-row">
+                <span class="row-label">TYPE TOKENS</span>
+                <span class="row-val">11</span>
+              </div>
+              <div class="summary-row">
+                <span class="row-label">BASE RADIUS</span>
+                <span class="row-val">2px (Crisp)</span>
+              </div>
+              <div class="summary-row">
+                <span class="row-label">WCAG COMPLIANCE</span>
+                <span class="row-val">2.2 AA (Audited)</span>
+              </div>
             </div>
-          </div>
-          <div class="brand-spec-grid">
-            <div class="spec-cell">
-              <span class="spec-cell__label">Ground</span>
-              <strong class="spec-cell__val">#0F0F10</strong>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-cell__label">Accent</span>
-              <strong class="spec-cell__val">#D8B166</strong>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-cell__label">Evidence</span>
-              <strong class="spec-cell__val">Parchment</strong>
-            </div>
-            <div class="spec-cell">
-              <span class="spec-cell__label">Standard</span>
-              <strong class="spec-cell__val">WCAG AA</strong>
+
+            <div class="spec-summary-card__jump">
+              <span class="jump-title">JUMP TO SECTION</span>
+              <div class="jump-links">
+                <a href="#explore-system" data-tab-target="colors" class="jump-link">Colors (21) →</a>
+                <a href="#explore-system" data-tab-target="typography" class="jump-link">Typography (11) →</a>
+                <a href="#explore-system" data-tab-target="layout" class="jump-link">Layout (12) →</a>
+                <a href="#explore-system" data-tab-target="components" class="jump-link">Components (21) →</a>
+                <a href="#explore-system" data-tab-target="preview" class="jump-link">Live Preview →</a>
+              </div>
             </div>
           </div>
         </aside>
-      </div>
-    </section>
+      </section>
 
-    <!-- ═══════════════════════════════════════════
-         SECTION I: NORTH STAR PRINCIPLES
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section hc-container" aria-labelledby="north-star-title">
-      <header class="brand-section__head">
-        <span class="hc-eyebrow">Section I · Foundations</span>
-        <h2 id="north-star-title">Editorial North Star</h2>
-      </header>
-
-      <div class="brand-principles">
-        {northStar.map((item) => (
-          <article class="principle-card">
-            <span class="principle-card__num">{item.num}</span>
-            <h3>{item.title}</h3>
-            <p>{item.copy}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION II: CANONICAL PALETTE
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--band" id="palette" aria-labelledby="palette-title">
-      <div class="hc-container">
-        <header class="brand-section__head brand-section__head--split">
-          <div>
-            <span class="hc-eyebrow">Section II · Color System</span>
-            <h2 id="palette-title">Canonical Palette</h2>
-          </div>
-          <p>
-            Two calibrated themes: dark archive ground is default; warm parchment is light override.
-            Accent footprint remains strictly below 5% of any viewport.
+      <!-- ── Explorer Section with Tabs ───────────────────────────────── -->
+      <section id="explore-system" class="spec-explorer">
+        <div class="spec-explorer__header">
+          <h2 class="spec-explorer__title">Explore HadithCritic</h2>
+          <p class="spec-explorer__subtitle">
+            Inspect the complete visual system: palette swatches, typography scale, responsive layout, isolated component previews, and live composition.
           </p>
-        </header>
 
-        <div class="palette-grid">
-          {palette.map((color) => (
-            <article class="swatch-card">
-              <div class="swatch-card__sample" style={`background-color: ${color.dark};`}>
-                <span class="swatch-card__badge">{color.contrast}</span>
+          <!-- Tab Navigation Bar -->
+          <div class="spec-tab-bar" role="tablist" aria-label="Design System Explorer Tabs">
+            <button type="button" class="spec-tab is-active" role="tab" id="tab-colors" aria-controls="panel-colors" aria-selected="true" data-tab="colors">
+              <span>Colors</span>
+              <span class="tab-count">21</span>
+            </button>
+            <button type="button" class="spec-tab" role="tab" id="tab-typography" aria-controls="panel-typography" aria-selected="false" data-tab="typography">
+              <span>Typography</span>
+              <span class="tab-count">11</span>
+            </button>
+            <button type="button" class="spec-tab" role="tab" id="tab-layout" aria-controls="panel-layout" aria-selected="false" data-tab="layout">
+              <span>Layout</span>
+              <span class="tab-count">12</span>
+            </button>
+            <button type="button" class="spec-tab" role="tab" id="tab-components" aria-controls="panel-components" aria-selected="false" data-tab="components">
+              <span>Components</span>
+              <span class="tab-count">21</span>
+            </button>
+            <button type="button" class="spec-tab" role="tab" id="tab-preview" aria-controls="panel-preview" aria-selected="false" data-tab="preview">
+              <span>Preview</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ── TAB 1: COLORS (21) ────────────────────────────────────── -->
+        <div class="spec-panel" id="panel-colors" role="tabpanel" aria-labelledby="tab-colors">
+          {colorGroups.map((group) => (
+            <div class="spec-color-group">
+              <div class="group-header">
+                <h3 class="group-title">{group.category}</h3>
+                <p class="group-subtitle">{group.subtitle}</p>
               </div>
-              <div class="swatch-card__body">
-                <div class="swatch-card__header">
-                  <h3>{color.name}</h3>
-                  <code>{color.token}</code>
-                </div>
-                <div class="swatch-card__values">
-                  <span>Dark: <strong>{color.dark}</strong></span>
-                  <span>Light: <strong>{color.light}</strong></span>
-                </div>
-                <p>{color.role}</p>
+
+              <div class="swatches-grid">
+                {group.colors.map((color) => (
+                  <div class="swatch-card" data-token={color.token} data-hex={color.darkHex}>
+                    <div 
+                      class="swatch-card__color" 
+                      style={`background-color: ${color.darkHex};`}
+                      aria-label={`${color.name} swatch`}
+                    >
+                      <button 
+                        type="button" 
+                        class="swatch-copy-overlay" 
+                        data-copy-hex={color.darkHex}
+                        title={`Copy ${color.darkHex}`}
+                        aria-label={`Copy hex code ${color.darkHex}`}
+                      >
+                        <span class="copy-text">Copy</span>
+                      </button>
+                    </div>
+
+                    <div class="swatch-card__details">
+                      <div class="swatch-card__head">
+                        <span class="swatch-name">{color.name}</span>
+                        <span class="swatch-badge">{color.contrast}</span>
+                      </div>
+                      <code class="swatch-token">{color.token}</code>
+                      <div class="swatch-hex-row">
+                        <span class="hex-val">Dark: {color.darkHex}</span>
+                        {color.lightHex && color.lightHex !== color.darkHex && (
+                          <span class="hex-val-light">Light: {color.lightHex}</span>
+                        )}
+                      </div>
+                      <p class="swatch-role">{color.role}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </article>
+            </div>
           ))}
         </div>
-      </div>
-    </section>
 
-    <!-- ═══════════════════════════════════════════
-         SECTION III: DESIGN TOKENS
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section hc-container" aria-labelledby="tokens-title">
-      <header class="brand-section__head brand-section__head--split">
-        <div>
-          <span class="hc-eyebrow">Section III · Architecture</span>
-          <h2 id="tokens-title">System Tokens</h2>
-        </div>
-        <p>
-          Public pages consume CSS custom properties via <code>--hc-*</code>. Raw hex values are
-          strictly confined to token definitions in <code>global.css</code>.
-        </p>
-      </header>
-
-      <div class="token-grid">
-        {tokenGroups.map((group) => (
-          <article class="token-panel">
-            <header class="token-panel__head">
-              <h3>{group.title}</h3>
-              <p>{group.description}</p>
-            </header>
-            <dl class="token-list">
-              {group.items.map(([token, val, role]) => (
-                <div class="token-row">
-                  <dt><code>{token}</code></dt>
-                  <dd>
-                    <span class="token-val">{val}</span>
-                    <span class="token-role">{role}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </article>
-        ))}
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION IV: TYPOGRAPHY HIERARCHY
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--band" id="typography" aria-labelledby="type-title">
-      <div class="hc-container">
-        <header class="brand-section__head brand-section__head--split">
-          <div>
-            <span class="hc-eyebrow">Section IV · Typography</span>
-            <h2 id="type-title">Typographic Stack</h2>
-          </div>
-          <p>
-            The system pairs <strong>Poppins</strong> for reading prose with <strong>Glacial Indifference</strong>
-            for uppercase apparatus metadata, and <strong>Amiri</strong> for classical Arabic. Contrast
-            relies on case, tracking, weight, and size band rather than arbitrary font switching.
-          </p>
-        </header>
-
-        <div class="type-specimen">
-          {typography.map((item) => (
-            <article class="type-row">
-              <div class="type-row__info">
-                <span class="type-row__label">{item.label}</span>
-                <h3>{item.family}</h3>
+        <!-- ── TAB 2: TYPOGRAPHY (11) ─────────────────────────────────── -->
+        <div class="spec-panel is-hidden" id="panel-typography" role="tabpanel" aria-labelledby="tab-typography">
+          <div class="spec-type-list">
+            {typographyTokens.map((type) => (
+              <div class="spec-type-row">
                 <div class="type-row__meta">
-                  <span>Weight: <strong>{item.weight}</strong></span>
-                  <span>Rule: <strong>{item.casing}</strong></span>
+                  <div class="type-row__tag">
+                    <span class="token-name">{type.token}</span>
+                    <span class="token-font">{type.font}</span>
+                  </div>
+                  <div class="type-row__spec">{type.spec}</div>
+                  <div class="type-row__role">{type.role}</div>
                 </div>
-                <code>{item.token}</code>
-                <p class="type-row__role">{item.role}</p>
+
+                <div class="type-row__preview">
+                  <div class={`type-specimen ${type.className}`} dir={type.font === 'Amiri Quran' ? 'rtl' : 'ltr'}>
+                    {type.sample}
+                  </div>
+                </div>
               </div>
-              <div class="type-row__preview">
-                <p
-                  class:list={['type-row__sample', item.className]}
-                  lang={item.className === 'type-arabic' ? 'ar' : 'en'}
-                  dir={item.className === 'type-arabic' ? 'rtl' : 'ltr'}
-                >
-                  {item.sample}
-                </p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION V: DIMENSIONS & SCALES
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section hc-container" id="dimensions" aria-labelledby="dimensions-title">
-      <header class="brand-section__head brand-section__head--split">
-        <div>
-          <span class="hc-eyebrow">Section V · Layout Specs</span>
-          <h2 id="dimensions-title">Dimensions &amp; Rhythm</h2>
-        </div>
-        <p>
-          Strict layout limits protect reading comfort. Reading measures never exceed 75ch, and no
-          content label falls below the 12px accessibility floor.
-        </p>
-      </header>
-
-      <div class="dimensions-grid">
-        {dimensions.map((dim) => (
-          <article class="dimension-card">
-            <span class="dimension-card__token"><code>{dim.token}</code></span>
-            <strong class="dimension-card__val">{dim.value}</strong>
-            <h3>{dim.label}</h3>
-            <p>{dim.desc}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION VI: EMBLEM & IDENTITY
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--band" aria-labelledby="logo-title">
-      <div class="hc-container">
-        <header class="brand-section__head brand-section__head--split">
-          <div>
-            <span class="hc-eyebrow">Section VI · Visual Identity</span>
-            <h2 id="logo-title">Emblem &amp; Clear Space</h2>
-          </div>
-          <p>
-            The HadithCritic mark is an interlocking fractured chain of narration. It functions as
-            an authoritative manuscript seal, never as arbitrary page decoration.
-          </p>
-        </header>
-
-        <div class="logo-grid">
-          <article class="logo-panel logo-panel--dark">
-            <div class="logo-panel__canvas">
-              <GeometricEmblem size="96px" />
-            </div>
-            <h3>Archive Ground</h3>
-            <p>Antique gold on <code>--hc-surface-0</code>. Primary brand treatment.</p>
-          </article>
-
-          <article class="logo-panel logo-panel--light">
-            <div class="logo-panel__canvas">
-              <GeometricEmblem size="96px" />
-            </div>
-            <h3>Parchment Ground</h3>
-            <p>Deep gold on <code>--hc-fixed-parchment</code>. Used on citations &amp; sheets.</p>
-          </article>
-
-          <article class="logo-rules">
-            <h3>Clear Space Rule</h3>
-            <p>
-              Maintain clear space equal to at least <strong>30% of the mark height</strong> on all
-              four sides. No text, rules, or edges may intrude into this boundary.
-            </p>
-            <div class="logo-prohibitions">
-              <h4>Strict Prohibitions</h4>
-              <ul>
-                <li>Never rotate or skew the chain nodes.</li>
-                <li>Never apply drop shadows or neon glows.</li>
-                <li>Never use the emblem as an inline bullet.</li>
-                <li>Never alter the hexagonal link geometry.</li>
-              </ul>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION VII: COMPONENT LANGUAGE
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section hc-container" aria-labelledby="components-title">
-      <header class="brand-section__head brand-section__head--split">
-        <div>
-          <span class="hc-eyebrow">Section VII · Component Architecture</span>
-          <h2 id="components-title">Research Components</h2>
-        </div>
-        <p>
-          Components resemble physical philological artifacts: parchment sheets, contextual apparatus
-          margins, and structured transmission ledgers.
-        </p>
-      </header>
-
-      <div class="component-grid">
-        <!-- DEMO 1: Parchment Evidence Card -->
-        <article class="demo-card demo-card--parchment">
-          <div class="demo-card__header">
-            <span class="demo-card__kicker">CRITICAL EVIDENCE · RECENSION 04</span>
-            <span class="demo-card__badge">ARCHIVAL</span>
-          </div>
-          <h3 class="demo-card__title">The Earliest Extant Witnesses of the Qunūt Reports</h3>
-          <p class="demo-card__summary">
-            Synthesizing 4 independent recensions of Musannaf Ibn Abī Shaybah across Medina and Kufa.
-          </p>
-          <dl class="demo-card__stats">
-            <div>
-              <dt>Terminus</dt>
-              <dd>c. 110 AH</dd>
-            </div>
-            <div>
-              <dt>Witnesses</dt>
-              <dd>4 Codices</dd>
-            </div>
-            <div>
-              <dt>Variants</dt>
-              <dd>3 Stemma</dd>
-            </div>
-          </dl>
-        </article>
-
-        <!-- DEMO 2: Umber Context Note -->
-        <article class="demo-card demo-card--umber">
-          <div class="demo-card__header">
-            <span class="demo-card__kicker">HISTORICAL TRANSMISSION CONTEXT</span>
-          </div>
-          <p class="demo-card__text">
-            This tradition circulated during the Second Civil War (680–692 CE). Early transmitters
-            in Damascus and Kufa preserve divergent matn clauses reflecting early regional legal
-            divergence.
-          </p>
-          <div class="demo-card__footer">
-            <span>Apparatus Witness</span>
-            <strong>Al-Mizzī, Tahdhīb al-Kamāl, 14/220</strong>
-          </div>
-        </article>
-
-        <!-- DEMO 3: Isnād Apparatus Plate -->
-        <article class="demo-card demo-card--apparatus">
-          <div class="demo-card__header">
-            <span class="demo-card__kicker">ISNĀD TRANSMISSION NEXUS</span>
-          </div>
-          <ol class="apparatus-nodes">
-            <li>
-              <span class="node-idx">01</span>
-              <span class="node-name">Mālik b. Anas</span>
-              <span class="node-tag">Madinan Common Link</span>
-            </li>
-            <li>
-              <span class="node-idx">02</span>
-              <span class="node-name">Nāfiʿ Mawlā Ibn ʿUmar</span>
-              <span class="node-tag">Informant Nexus</span>
-            </li>
-            <li>
-              <span class="node-idx">03</span>
-              <span class="node-name">ʿAbd Allāh b. ʿUmar</span>
-              <span class="node-tag">Companion Source</span>
-            </li>
-          </ol>
-          <div class="demo-card__meta-bar">
-            <span>Strand: <strong>Ḥijāzī Core</strong></span>
-            <span>Apparatus: <strong>Muttasil</strong></span>
-          </div>
-        </article>
-
-        <!-- DEMO 4: Methodology Chips -->
-        <article class="demo-card demo-card--chips">
-          <div class="demo-card__header">
-            <span class="demo-card__kicker">METHODOLOGY &amp; TAXONOMY CHIPS</span>
-          </div>
-          <p class="chips-desc">
-            Standardized metadata badges used across catalog filters and research registers:
-          </p>
-          <div class="chips-cloud">
-            {[
-              'Muttasil (Connected)',
-              'Marfūʿ (Prophetic)',
-              'Mawqūf (Companion)',
-              'Common Link',
-              'Matn Variant',
-              'ICMA Monograph',
-              'Jarḥ wa-Taʿdīl',
-              'Stemmatics'
-            ].map((chip) => (
-              <span class="hc-badge">{chip}</span>
             ))}
           </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION VIII: NON-NEGOTIABLES & RULES
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--band" aria-labelledby="rules-title">
-      <div class="hc-container">
-        <header class="brand-section__head brand-section__head--split">
-          <div>
-            <span class="hc-eyebrow">Section VIII · Editorial Discipline</span>
-            <h2 id="rules-title">Content Non-Negotiables</h2>
-          </div>
-          <p>
-            Editorial discipline preserves the scholarly authority of HadithCritic. The visual
-            layer must never smuggle in unearned verdicts or visual gimmicks.
-          </p>
-        </header>
-
-        <div class="rules-grid">
-          {contentRules.map((rule) => (
-            <article class="rule-card">
-              <h3>{rule.rule}</h3>
-              <p>{rule.desc}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION IX: VOICE & ADAB
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section hc-container" aria-labelledby="voice-title">
-      <header class="brand-section__head brand-section__head--split">
-        <div>
-          <span class="hc-eyebrow">Section IX · Tone of Voice</span>
-          <h2 id="voice-title">Voice &amp; Register</h2>
-        </div>
-        <p>HadithCritic speaks with the calm precision of a critical philologist, not a polemical tribunal.</p>
-      </header>
-
-      <div class="voice-list">
-        {voice.map(([name, copy]) => (
-          <article class="voice-card">
-            <h3>{name}</h3>
-            <p>{copy}</p>
-          </article>
-        ))}
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION X: YOUTUBE THUMBNAIL SYSTEM
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--band" id="youtube" aria-labelledby="youtube-title">
-      <div class="hc-container">
-        <header class="brand-section__head brand-section__head--split">
-          <div>
-            <span class="hc-eyebrow">Section X · Video Identity</span>
-            <h2 id="youtube-title">YouTube Thumbnail System</h2>
-          </div>
-          <p>
-            The thumbnail is a miniature critical-edition plate: archival evidence first, restrained
-            typography second, and antique-gold annotation as the connective tissue. The system preserves
-            HadithCritic's editorial character without importing generic reaction-channel conventions.
-          </p>
-        </header>
-
-        <div class="youtube-principles">
-          {youtubePrinciples.map((item) => (
-            <article class="youtube-principle">
-              <span class="youtube-principle__num">{item.num}</span>
-              <h3>{item.title}</h3>
-              <p>{item.copy}</p>
-            </article>
-          ))}
         </div>
 
-        <div class="youtube-showcase">
-          {youtubeFamilies.map((item) => (
-            <article class:list={['youtube-thumb-card', `youtube-thumb-card--${item.mode}`]}>
-              <div class="youtube-thumb">
-                <div class="youtube-thumb__top-rule"></div>
-                <div class="youtube-thumb__inner">
-                  <div class="youtube-thumb__copy">
-                    <span class="youtube-thumb__brand">HADITHCRITIC</span>
-                    <span class="youtube-thumb__kicker">{item.kicker}</span>
-                    <h3>
-                      {item.title.split(' ').map((word, index, words) => (
-                        <span class={word.includes(item.accent.replace('?', '')) ? 'is-accent' : ''}>
-                          {word}{index < words.length - 1 ? ' ' : ''}
-                        </span>
-                      ))}
-                    </h3>
-                    <span class="youtube-thumb__meta">{item.meta}</span>
+        <!-- ── TAB 3: LAYOUT (12) ────────────────────────────────────── -->
+        <div class="spec-panel is-hidden" id="panel-layout" role="tabpanel" aria-labelledby="tab-layout">
+          <div class="layout-grid-section">
+            
+            <!-- Radii Scale -->
+            <div class="layout-card">
+              <h3 class="layout-card__title">Corner Radii (4 Tokens)</h3>
+              <p class="layout-card__desc">Corners are crisp or minimally softened. Large radii outside pills are prohibited.</p>
+              
+              <div class="radii-stage">
+                {radiiTokens.map((r) => (
+                  <div class="radius-specimen">
+                    <div class="radius-box" style={`border-radius: ${r.value};`}></div>
+                    <span class="radius-name">{r.name}</span>
+                    <span class="radius-val">{r.value}</span>
+                    <span class="radius-desc">{r.usage}</span>
                   </div>
-                  <div class="youtube-thumb__evidence" aria-hidden="true">
-                    {item.mode === 'history' && (
-                      <svg class="evidence-svg" viewBox="0 0 240 180" fill="none">
-                        <!-- Map Coordinate Grid -->
-                        <path d="M 20 20 H 220 M 20 90 H 220 M 20 160 H 220" stroke="rgba(216,177,102,0.18)" stroke-dasharray="2 3" />
-                        <path d="M 60 20 V 160 M 120 20 V 160 M 180 20 V 160" stroke="rgba(216,177,102,0.18)" stroke-dasharray="2 3" />
-                        <!-- Tigris River Curve -->
-                        <path d="M 190 20 C 170 50 155 70 145 90 C 135 110 120 135 110 160" stroke="#d8b166" stroke-width="1.75" stroke-opacity="0.85" />
-                        <!-- Round City Baghdad Fortification Rings -->
-                        <circle cx="105" cy="85" r="32" stroke="#d8b166" stroke-width="1.2" stroke-opacity="0.9" fill="rgba(15,15,16,0.7)" />
-                        <circle cx="105" cy="85" r="22" stroke="rgba(216,177,102,0.5)" stroke-dasharray="3 2" />
-                        <circle cx="105" cy="85" r="4" fill="#d8b166" />
-                        <!-- Siege Trajectory Vectors -->
-                        <path d="M 180 50 L 132 75" stroke="#a46a3f" stroke-width="1.5" marker-end="url(#arrow)" />
-                        <path d="M 160 130 L 122 100" stroke="#a46a3f" stroke-width="1.5" />
-                        <!-- Coordinates Stamp -->
-                        <text x="30" y="152" fill="#d8b166" font-family="var(--font-ui)" font-size="9" font-weight="700" letter-spacing="1">33°20′N · 656 AH</text>
-                        <text x="105" y="125" fill="#f2ebdc" font-family="var(--font-ui)" font-size="8" text-anchor="middle" letter-spacing="1">BAGHDAD</text>
-                      </svg>
-                    )}
+                ))}
+              </div>
+            </div>
 
-                    {item.mode === 'prophecy' && (
-                      <svg class="evidence-svg" viewBox="0 0 240 180" fill="none">
-                        <!-- Codex Folio Double Border -->
-                        <rect x="25" y="16" width="190" height="148" rx="2" stroke="rgba(216,177,102,0.3)" />
-                        <rect x="31" y="22" width="178" height="136" rx="2" stroke="rgba(216,177,102,0.18)" stroke-dasharray="2 2" />
-                        <!-- Central Geometric 8-Point Rosette -->
-                        <rect x="106" y="55" width="28" height="28" stroke="#d8b166" stroke-width="1.2" transform="rotate(45 120 69)" fill="rgba(216,177,102,0.08)" />
-                        <circle cx="120" cy="69" r="10" stroke="#d8b166" stroke-width="1" />
-                        <!-- Text Collation Lines -->
-                        <line x1="45" y1="105" x2="195" y2="105" stroke="rgba(242,235,220,0.6)" stroke-width="1" />
-                        <line x1="45" y1="120" x2="195" y2="120" stroke="rgba(242,235,220,0.6)" stroke-width="1" />
-                        <line x1="45" y1="135" x2="160" y2="135" stroke="rgba(242,235,220,0.4)" stroke-width="1" />
-                        <!-- Marginalia Variant Nodes (Rubrication) -->
-                        <circle cx="178" cy="135" r="4.5" fill="#c48b68" />
-                        <circle cx="178" cy="135" r="2" fill="#f2ebdc" />
-                        <text x="45" y="42" fill="#d8b166" font-family="var(--font-ui)" font-size="8.5" font-weight="700" letter-spacing="1">SURAH 4:157 · CODEX</text>
-                      </svg>
-                    )}
+            <!-- Spacing Scale -->
+            <div class="layout-card">
+              <h3 class="layout-card__title">Spacing & Rhythm (8 Tokens)</h3>
+              <p class="layout-card__desc">A 4px modular spacing scale maintaining disciplined vertical rhythm.</p>
+              
+              <div class="spacing-list">
+                {spacingTokens.map((s) => (
+                  <div class="spacing-row">
+                    <div class="spacing-meta">
+                      <span class="spacing-token">{s.token}</span>
+                      <span class="spacing-px">{s.px}</span>
+                    </div>
+                    <div class="spacing-bar-wrap">
+                      <div class="spacing-bar" style={`width: ${s.barWidth};`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                    {item.mode === 'theology' && (
-                      <svg class="evidence-svg" viewBox="0 0 240 180" fill="none">
-                        <!-- Usūl Balance Dialectic -->
-                        <line x1="40" y1="90" x2="200" y2="90" stroke="#d8b166" stroke-width="1.75" />
-                        <polygon points="120,50 112,90 128,90" fill="rgba(216,177,102,0.25)" stroke="#d8b166" stroke-width="1.2" />
-                        <circle cx="120" cy="50" r="4" fill="#d8b166" />
-                        <!-- Left Scale: Quran Qat'i -->
-                        <line x1="55" y1="90" x2="55" y2="120" stroke="rgba(216,177,102,0.6)" />
-                        <rect x="25" y="120" width="60" height="26" rx="2" stroke="#d8b166" stroke-width="1.2" fill="rgba(15,15,16,0.85)" />
-                        <text x="55" y="136" fill="#f2ebdc" font-family="var(--font-ui)" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="0.8">QATʿĪ</text>
-                        <!-- Right Scale: Ahad Zanni -->
-                        <line x1="185" y1="90" x2="185" y2="130" stroke="rgba(216,177,102,0.6)" />
-                        <rect x="155" y="130" width="60" height="26" rx="2" stroke="#a46a3f" stroke-width="1.2" fill="rgba(15,15,16,0.85)" />
-                        <text x="185" y="146" fill="#c48b68" font-family="var(--font-ui)" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="0.8">ZANNĪ</text>
-                        <!-- Treatise Label -->
-                        <text x="120" y="32" fill="#d8b166" font-family="var(--font-ui)" font-size="8.5" font-weight="700" text-anchor="middle" letter-spacing="1">USŪL AL-FIQH APPARATUS</text>
-                      </svg>
-                    )}
+            <!-- Containers & Measures -->
+            <div class="layout-card layout-card--full">
+              <h3 class="layout-card__title">Containers & Reading Measures</h3>
+              <p class="layout-card__desc">Strict line measures designed to keep scholarly prose between 68 and 75 characters.</p>
 
-                    {item.mode === 'epistemology' && (
-                      <svg class="evidence-svg" viewBox="0 0 240 180" fill="none">
-                        <!-- ICMA Stemma Tree -->
-                        <!-- Prophet & Companion Source -->
-                        <circle cx="120" cy="24" r="5" fill="rgba(216,177,102,0.3)" stroke="#d8b166" stroke-width="1.2" />
-                        <line x1="120" y1="29" x2="120" y2="52" stroke="#d8b166" stroke-width="1.2" stroke-dasharray="2 2" />
-                        <!-- Common Link (CL) -->
-                        <rect x="110" y="52" width="20" height="20" rx="2" stroke="#d8b166" stroke-width="1.5" fill="rgba(216,177,102,0.18)" />
-                        <text x="120" y="65" fill="#d8b166" font-family="var(--font-ui)" font-size="8.5" font-weight="700" text-anchor="middle">CL</text>
-                        <!-- Radiating Regional Branches -->
-                        <line x1="112" y1="72" x2="52" y2="120" stroke="#d8b166" stroke-width="1.2" />
-                        <line x1="120" y1="72" x2="120" y2="120" stroke="#d8b166" stroke-width="1.2" />
-                        <line x1="128" y1="72" x2="188" y2="120" stroke="#d8b166" stroke-width="1.2" />
-                        <!-- Partial Common Links (PCL) / Recensions -->
-                        <circle cx="52" cy="120" r="6" stroke="#c48b68" stroke-width="1.2" fill="rgba(15,15,16,0.9)" />
-                        <text x="52" y="138" fill="#f2ebdc" font-family="var(--font-ui)" font-size="7.5" text-anchor="middle">KUFA</text>
-                        <circle cx="120" cy="120" r="6" stroke="#d8b166" stroke-width="1.2" fill="rgba(15,15,16,0.9)" />
-                        <text x="120" y="138" fill="#f2ebdc" font-family="var(--font-ui)" font-size="7.5" text-anchor="middle">MEDINA</text>
-                        <circle cx="188" cy="120" r="6" stroke="#c48b68" stroke-width="1.2" fill="rgba(15,15,16,0.9)" />
-                        <text x="188" y="138" fill="#f2ebdc" font-family="var(--font-ui)" font-size="7.5" text-anchor="middle">BASRA</text>
-                        <!-- Chronology Axis -->
-                        <text x="120" y="162" fill="#d8b166" font-family="var(--font-ui)" font-size="8" font-weight="700" text-anchor="middle" letter-spacing="1">ISNĀD-CUM-MATN ANALYSIS</text>
-                      </svg>
-                    )}
+              <div class="container-specs">
+                {layoutSpecs.map((spec) => (
+                  <div class="container-spec-item">
+                    <div class="spec-head">
+                      <span class="spec-label">{spec.label}</span>
+                      <code class="spec-code">{spec.token}</code>
+                    </div>
+                    <div class="spec-val">{spec.value}</div>
+                    <p class="spec-desc">{spec.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── TAB 4: COMPONENTS (21) ────────────────────────────────── -->
+        <div class="spec-panel is-hidden" id="panel-components" role="tabpanel" aria-labelledby="tab-components">
+          <div class="components-stage-header">
+            <p class="components-stage-desc">21 components rendered with their authentic styles, tokens, and interactions.</p>
+          </div>
+
+          <div class="components-grid">
+            
+            <!-- 1. Button Primary -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <button type="button" class="hc-btn">Button Primary</button>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-btn</span>
+                <span class="comp-name">Button Primary (44px target)</span>
+              </div>
+            </div>
+
+            <!-- 2. Button Ghost -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <button type="button" class="hc-btn hc-btn--ghost">Button Ghost</button>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-btn--ghost</span>
+                <span class="comp-name">Button Ghost (Hairline)</span>
+              </div>
+            </div>
+
+            <!-- 3. Back Link -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <a href="#explore-system" class="hc-back-link">
+                  <span aria-hidden="true">←</span>
+                  <span>Back to Research Archive</span>
+                </a>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-back-link</span>
+                <span class="comp-name">Back Link (Gap Shift Motion)</span>
+              </div>
+            </div>
+
+            <!-- 4. Animated Underline -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <a href="#explore-system" class="hc-ulink" style="color: var(--hc-gold); font-size: 1.05rem;">
+                  Animated Underline Link
+                </a>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-ulink</span>
+                <span class="comp-name">Animated Underline (Gradient Growth)</span>
+              </div>
+            </div>
+
+            <!-- 5. Search Bar -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div class="hc-searchbar" style="width: 100%; max-width: 480px;">
+                  <input type="search" class="hc-searchbar__input" placeholder="Search 276,347 narrations..." />
+                  <button type="button" class="hc-searchbar__submit">Search</button>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-searchbar</span>
+                <span class="comp-name">Corpus Search Bar</span>
+              </div>
+            </div>
+
+            <!-- 6. Stat Band -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div class="hc-stat-band" style="width: 100%;">
+                  <div class="hc-stat">
+                    <span class="hc-stat__num">276,347</span>
+                    <span class="hc-stat__label">HADITH CORPUS</span>
+                  </div>
+                  <div class="hc-stat">
+                    <span class="hc-stat__num">20,950</span>
+                    <span class="hc-stat__label">RIJĀL REGISTER</span>
+                  </div>
+                  <div class="hc-stat">
+                    <span class="hc-stat__num">93</span>
+                    <span class="hc-stat__label">CRITICAL STUDIES</span>
                   </div>
                 </div>
-                <div class="youtube-thumb__emblem" aria-hidden="true"><GeometricEmblem size="20px" /></div>
-                <div class="youtube-thumb__footer">CRITICAL APPARATUS · 16:9 ARCHIVAL PLATE</div>
               </div>
-              <div class="youtube-thumb-card__body">
-                <span class="youtube-thumb-card__family">{item.name}</span>
-                <p>{item.desc}</p>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-stat-band / .hc-stat</span>
+                <span class="comp-name">Scholarly Ledger Stat Band</span>
+              </div>
+            </div>
+
+            <!-- 7. Parchment Card -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <div class="hc-card hc-card--parchment" style="padding: 1.25rem; width: 100%;">
+                  <div class="hc-eyebrow" style="margin-bottom: 0.5rem;">PRIMARY SOURCE</div>
+                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6;">Kitāb al-Ṭabaqāt al-Kabīr, Ibn Saʿd (d. 230 AH).</p>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-card--parchment</span>
+                <span class="comp-name">Parchment Manuscript Card</span>
+              </div>
+            </div>
+
+            <!-- 8. Umber Card -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <div class="hc-article-panel hc-article-panel--umber" style="padding: 1.25rem; width: 100%;">
+                  <div class="hc-eyebrow" style="color: var(--hc-fixed-parchment); margin-bottom: 0.5rem;">HISTORICAL CONTEXT</div>
+                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--hc-fixed-parchment);">Umayyad fiscal administration during the governorship of ʿUmar II.</p>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-article-panel--umber</span>
+                <span class="comp-name">Umber Apparatus Panel</span>
+              </div>
+            </div>
+
+            <!-- 9. Inset Card -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <div class="hc-card" style="padding: 1.25rem; width: 100%;">
+                  <div class="hc-eyebrow" style="margin-bottom: 0.5rem;">LEDGER RECORD</div>
+                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6;">Double hairline border with inset hairline depth.</p>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-card</span>
+                <span class="comp-name">Standard Inset Hairline Card</span>
+              </div>
+            </div>
+
+            <!-- 10. Category Chips -->
+            <div class="component-card">
+              <div class="component-card__stage" style="gap: 0.5rem; flex-wrap: wrap;">
+                <span class="hc-chip" data-category="Origins & Early History" style="border-color: rgba(184,138,100,0.4); color: #c99a72;">History</span>
+                <span class="hc-chip" data-category="Theology & Epistemology" style="border-color: rgba(106,140,116,0.4); color: #7fa389;">Theology</span>
+                <span class="hc-chip" data-category="Prophecies" style="border-color: rgba(168,75,62,0.4); color: #c8705f;">Prophecies</span>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-chip</span>
+                <span class="comp-name">Actionable Taxonomy Chips</span>
+              </div>
+            </div>
+
+            <!-- 11. Bible Verse -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <BibleVerse reference="Jeremiah 7:31" eyebrow="Hebrew Bible">
+                    "And they have built the high places of Topheth, which is in the valley of the son of Hinnom, to burn their sons and their daughters in the fire."
+                  </BibleVerse>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;BibleVerse /&gt;</span>
+                <span class="comp-name">Comparative Bible Verse Component</span>
+              </div>
+            </div>
+
+            <!-- 12. Quran Verse -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <QuranVerse verse="85:4-5" />
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;QuranVerse /&gt;</span>
+                <span class="comp-name">Qurʾānic Ayah Component with Muṣḥaf Numbers</span>
+              </div>
+            </div>
+
+            <!-- 13. Hadith Block -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <HadithBlock 
+                    arabic="إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ" 
+                    translation="Actions are judged only by intentions." 
+                    source="Ṣaḥīḥ al-Bukhārī 1" 
+                    label="Canonical Report"
+                    type="canonical"
+                  />
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;HadithBlock /&gt;</span>
+                <span class="comp-name">Bilingual Hadith Report Block</span>
+              </div>
+            </div>
+
+            <!-- 14. Claim Box -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <ClaimBox title="Working Thesis">
+                    The topographical references in early apocalyptic traditions reflect Topheth in the Valley of Hinnom rather than Najrān.
+                  </ClaimBox>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;ClaimBox /&gt;</span>
+                <span class="comp-name">Analytical Claim Box</span>
+              </div>
+            </div>
+
+            <!-- 15. Verdict Box -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <VerdictBox title="Analytical Assessment" status="Historical-Critical Verdict">
+                    The geographical and linguistic evidence establishes that Q85 preserves an authentic Valley of Hinnom substrate.
+                  </VerdictBox>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;VerdictBox /&gt;</span>
+                <span class="comp-name">Analytical Verdict Box (Left-Aligned)</span>
+              </div>
+            </div>
+
+            <!-- 16. Context Note -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <ContextNote title="Historical Setting" collapsible={false}>
+                    The Valley of Hinnom (Gehenna) southwest of Jerusalem served as an ancient boundary marker between Judah and Benjamin.
+                  </ContextNote>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;ContextNote /&gt;</span>
+                <span class="comp-name">Historical Context Apparatus Note</span>
+              </div>
+            </div>
+
+            <!-- 17. Quote Block -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <QuoteBlock author="Ignáz Goldziher" source="Muslim Studies, Vol. II">
+                    "The hadith does not serve as a documentation for the period it purports to describe, but as a mirror of the successive stages of development."
+                  </QuoteBlock>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;QuoteBlock /&gt;</span>
+                <span class="comp-name">Scholarly Quote Block</span>
+              </div>
+            </div>
+
+            <!-- 18. Section Divider -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <SectionDivider title="Part II: Geographical Evidence" subtitle="Comparative Topography of the Levant" />
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;SectionDivider /&gt;</span>
+                <span class="comp-name">Section Divider with Emblem</span>
+              </div>
+            </div>
+
+            <!-- 19. Editorial TOC -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <div style="width: 100%;">
+                  <EditorialToc headings={[
+                    { depth: 2, text: 'Introduction & Scope', slug: 'intro' },
+                    { depth: 2, text: 'The Valley of Hinnom', slug: 'hinnom' },
+                    { depth: 3, text: 'Biblical Topheth', slug: 'topheth' }
+                  ]} />
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">&lt;EditorialToc /&gt;</span>
+                <span class="comp-name">Editorial Desk Table of Contents</span>
+              </div>
+            </div>
+
+            <!-- 20. Scholarly Data Table -->
+            <div class="component-card component-card--wide">
+              <div class="component-card__stage">
+                <div class="hc-table-wrap" style="width: 100%; margin: 0;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Transmitter</th>
+                        <th>Generation</th>
+                        <th>City</th>
+                        <th>Preserved Corpora</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>Ibn Shihāb al-Zuhrī</strong></td>
+                        <td>Tābiʿī (3rd)</td>
+                        <td>Medina</td>
+                        <td>4,219 Narrations</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Qatādah b. Diʿāmah</strong></td>
+                        <td>Tābiʿī (3rd)</td>
+                        <td>Basra</td>
+                        <td>2,840 Narrations</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.hc-table-wrap table</span>
+                <span class="comp-name">Apparatus Data Table</span>
+              </div>
+            </div>
+
+            <!-- 21. Footnotes / Backref -->
+            <div class="component-card">
+              <div class="component-card__stage">
+                <div class="footnotes" style="width: 100%; font-size: 0.92rem;">
+                  <ol style="margin: 0; padding-left: 1.25rem;">
+                    <li>
+                      See Motzki, <em>The Origins of Islamic Jurisprudence</em> (Leiden: Brill, 2002), pp. 18–24.
+                      <a href="#explore-system" data-footnote-backref aria-label="Back to content">↩</a>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+              <div class="component-card__info">
+                <span class="comp-token">.footnotes li / backref</span>
+                <span class="comp-name">Apparatus Footnote with 24px Target</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── TAB 5: PREVIEW ────────────────────────────────────────── -->
+        <div class="spec-panel is-hidden" id="panel-preview" role="tabpanel" aria-labelledby="tab-preview">
+          <div class="preview-toolbar">
+            <span class="preview-toolbar__label">INTERACTIVE PREVIEW CANVAS</span>
+            <div class="preview-toolbar__actions">
+              <button type="button" class="preview-mode-btn is-active" id="previewThemeDark">Dark Mode</button>
+              <button type="button" class="preview-mode-btn" id="previewThemeLight">Light Mode</button>
+            </div>
+          </div>
+
+          <div class="preview-stage" id="previewCanvas" data-preview-theme="dark">
+            <article class="preview-sheet">
+              <div class="preview-header">
+                <div class="hc-eyebrow" style="color: var(--hc-gold);">ORIGINS &amp; EARLY HISTORY · CRITICAL STUDY #81</div>
+                <h2 class="preview-title">The "People of the Canyon" in Q85: A Case for the Valley of Hinnom</h2>
+                <p class="preview-standfirst">
+                  A topographical re-examination of the <em>Ukhdūd</em> traditions in early exegetical literature, demonstrating 
+                  an unbroken lexical correspondence with the ancient Topheth of Jerusalem.
+                </p>
+                <div class="preview-meta">
+                  <span>8,420 WORDS</span>
+                  <span class="sep">•</span>
+                  <span>26 MIN READ</span>
+                  <span class="sep">•</span>
+                  <span>HADITHCRITIC EDITORIAL</span>
+                </div>
+              </div>
+
+              <div class="preview-body">
+                <p>
+                  Classical commentators routinely identified the "people of the canyon" (<em>aṣḥāb al-ukhdūd</em>) in Sūrah al-Burūj with a persecution 
+                  of Christians in South Arabian Najrān. However, close reading of the Qurʾānic vocabulary against Hebrew Bible substrates reveals 
+                  that the imagery reflects the Valley of Hinnom.
+                </p>
+
+                <div style="margin: 1.5rem 0;">
+                  <ClaimBox title="Textual Thesis">
+                    The topographical references in early apocalyptic traditions reflect Topheth in the Valley of Hinnom rather than South Arabia.
+                  </ClaimBox>
+                </div>
+
+                <div style="margin: 1.5rem 0;">
+                  <HadithBlock 
+                    arabic="إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى"
+                    translation="Actions are judged by intentions, and each person will have only what they intended."
+                    source="Ṣaḥīḥ al-Bukhārī 1"
+                    label="Canonic Text"
+                    type="canonical"
+                  />
+                </div>
+
+                <p>
+                  By treating each report as historical data rather than dogma, we uncover the evolution of early Islamic textual traditions 
+                  with empirical clarity.
+                </p>
+
+                <div class="preview-actions">
+                  <a href="/blogs" class="hc-btn">Read Complete Monograph →</a>
+                  <a href="/hadith" class="hc-btn hc-btn--ghost">Explore Narration Variants</a>
+                </div>
               </div>
             </article>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── FAQ Accordion Section ───────────────────────────────────── -->
+      <section class="spec-faq">
+        <h2 class="spec-faq__title">HadithCritic Design System FAQ</h2>
+        <div class="spec-faq__list">
+          {faqs.map((faq) => (
+            <details class="spec-faq__item">
+              <summary class="spec-faq__question">
+                <span>{faq.q}</span>
+                <span class="faq-icon" aria-hidden="true">+</span>
+              </summary>
+              <div class="spec-faq__answer">
+                <p>{faq.a}</p>
+              </div>
+            </details>
           ))}
         </div>
+      </section>
 
-        <div class="youtube-spec-grid">
-          <article class="youtube-spec-panel">
-            <header>
-              <span class="hc-eyebrow">Thumbnail Anatomy</span>
-              <h3>Every plate follows the same hierarchy</h3>
-            </header>
-            <ol class="youtube-anatomy">
-              <li><span>01</span><strong>Evidence image</strong><em>Map · manuscript · engraving · chain</em></li>
-              <li><span>02</span><strong>Editorial kicker</strong><em>Category + method in compact UI type</em></li>
-              <li><span>03</span><strong>Primary title</strong><em>Poppins, cream, sentence case</em></li>
-              <li><span>04</span><strong>Gold emphasis</strong><em>One keyword or phrase only</em></li>
-              <li><span>05</span><strong>Source metadata</strong><em>Quiet footer; never competing with title</em></li>
-            </ol>
-          </article>
+      <!-- Raw DESIGN.md content for instant 1-click clipboard copy -->
+      <script type="text/plain" id="rawDesignMd" is:inline set:html={designMdContent}></script>
 
-          <article class="youtube-spec-panel">
-            <header>
-              <span class="hc-eyebrow">Hard Prohibitions</span>
-              <h3>Do not import generic YouTube language</h3>
-            </header>
-            <ul class="youtube-donts">
-              <li>No bright red arrows or oversized directional graphics.</li>
-              <li>No neon outlines, glow text, or yellow marker effects.</li>
-              <li>No reaction-face cutouts or exaggerated expressions.</li>
-              <li>No giant all-caps verdict words competing with the title.</li>
-              <li>No heavy drop shadows, glossy effects, or decorative gradients.</li>
-              <li>Gold remains a signal color and stays within the brand's restrained footprint.</li>
-            </ul>
-          </article>
-        </div>
-
-        <aside class="youtube-formula">
-          <div>
-            <span class="hc-eyebrow">Production Formula</span>
-            <h3>Evidence → Title → Annotation → Source</h3>
-          </div>
-          <p>
-            A viewer should be able to identify the subject, read the claim, and understand that the image
-            represents documentary evidence—all before the thumbnail is enlarged. The design communicates
-            investigation, not spectacle.
-          </p>
-        </aside>
-      </div>
-    </section>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION XI: IMPLEMENTATION CHECKLIST
-         ═══════════════════════════════════════════ -->
-    <section class="brand-section brand-section--final" id="implementation" aria-labelledby="implementation-title">
-      <div class="hc-container implementation-grid">
-        <div>
-          <span class="hc-eyebrow">Section XI · Code Implementation</span>
-          <h2 id="implementation-title">Implementation Guide</h2>
-          <p>
-            The single locked source of truth lives in <code>DESIGN.md</code> and <code>src/styles/global.css</code>.
-            When documentation and shipped CSS disagree, verify the shipped stylesheets first and keep
-            tokens strictly synchronized.
-          </p>
-        </div>
-
-        <div class="do-dont-grid">
-          <article class="do-card">
-            <h3>Do</h3>
-            <ul>
-              <li>Use <code>--hc-*</code> CSS variables for all surfaces and borders.</li>
-              <li>Maintain 68–75ch optimal measure for reading columns.</li>
-              <li>Keep hairline apparatus rules at 1px thickness.</li>
-              <li>Run Arabic text at <code>2.05</code> line height with <code>lang="ar"</code>.</li>
-              <li>Present historical jarḥ statements in neutral apparatus ink.</li>
-            </ul>
-          </article>
-
-          <article class="dont-card">
-            <h3>Do Not</h3>
-            <ul>
-              <li>Never use green/red traffic-light grading badges anywhere.</li>
-              <li>Never set text below the 12px (0.75rem) accessibility floor.</li>
-              <li>Never wash entire viewports in gold background fills.</li>
-              <li>Never use italic display headlines or italic emphasis words.</li>
-              <li>Never hide critical research text behind abstract gradient blobs.</li>
-            </ul>
-          </article>
-        </div>
-      </div>
-    </section>
-  </div>
+    </div>
+  </main>
 </BaseLayout>
 
+<script>
+  function initBrandExplorer() {
+    // ── Tab Switching ───────────────────────────────────────────────────────
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.spec-tab');
+    const panels = document.querySelectorAll<HTMLElement>('.spec-panel');
+
+    function switchTab(targetTabId: string) {
+      tabs.forEach((tab) => {
+        const isActive = tab.getAttribute('data-tab') === targetTabId;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+      });
+
+      panels.forEach((panel) => {
+        const matches = panel.id === `panel-${targetTabId}`;
+        panel.classList.toggle('is-hidden', !matches);
+      });
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-tab');
+        if (target) switchTab(target);
+      });
+    });
+
+    // Handle Quick Jump links in Side Card
+    document.querySelectorAll<HTMLAnchorElement>('[data-tab-target]').forEach((link) => {
+      link.addEventListener('click', () => {
+        const target = link.getAttribute('data-tab-target');
+        if (target) {
+          switchTab(target);
+          const explorer = document.getElementById('explore-system');
+          if (explorer) explorer.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // ── 1-Click Clipboard Copying ───────────────────────────────────────────
+    async function copyToClipboard(text: string, labelEl?: HTMLElement | null) {
+      try {
+        await navigator.clipboard.writeText(text);
+        if (labelEl) {
+          const original = labelEl.textContent;
+          labelEl.textContent = 'Copied!';
+          setTimeout(() => {
+            labelEl.textContent = original;
+          }, 1600);
+        }
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+    }
+
+    // Color Swatch Copy
+    document.querySelectorAll<HTMLButtonElement>('[data-copy-hex]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const hex = btn.getAttribute('data-copy-hex');
+        const textSpan = btn.querySelector('.copy-text') as HTMLElement | null;
+        if (hex) copyToClipboard(hex, textSpan);
+      });
+    });
+
+    // Copy DESIGN.md button
+    const copyMdBtn = document.getElementById('copyDesignMdBtn');
+    if (copyMdBtn) {
+      copyMdBtn.addEventListener('click', async () => {
+        const span = copyMdBtn.querySelector('span');
+        const originalText = span ? span.textContent : '';
+        const rawEl = document.getElementById('rawDesignMd');
+        const content = rawEl?.textContent?.trim() || `# HadithCritic Design System\n\n- Ground: #0F0F10\n- Gold: #D8B166\n- Text: #F2EBDC\n- Fonts: Poppins, Glacial Indifference, Amiri\n- Radius: 2px\n- 21 Components, 21 Colors, 11 Type Tokens.`;
+        
+        await copyToClipboard(content);
+        if (span) span.textContent = 'Copied DESIGN.md!';
+        setTimeout(() => {
+          if (span) span.textContent = originalText;
+        }, 2000);
+      });
+    }
+
+    // ── Preview Canvas Theme Toggle ─────────────────────────────────────────
+    const previewCanvas = document.getElementById('previewCanvas');
+    const darkBtn = document.getElementById('previewThemeDark');
+    const lightBtn = document.getElementById('previewThemeLight');
+
+    if (previewCanvas && darkBtn && lightBtn) {
+      darkBtn.addEventListener('click', () => {
+        previewCanvas.setAttribute('data-preview-theme', 'dark');
+        darkBtn.classList.add('is-active');
+        lightBtn.classList.remove('is-active');
+      });
+
+      lightBtn.addEventListener('click', () => {
+        previewCanvas.setAttribute('data-preview-theme', 'light');
+        lightBtn.classList.add('is-active');
+        darkBtn.classList.remove('is-active');
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBrandExplorer);
+  } else {
+    initBrandExplorer();
+  }
+  document.addEventListener('astro:page-load', initBrandExplorer);
+</script>
+
 <style>
-  /* ═══════════════════════════════════════════
-     BRAND PAGE BASE & HERO
-     ═══════════════════════════════════════════ */
-  .brand-page {
-    overflow-x: clip;
-    background:
-      radial-gradient(ellipse 700px 350px at 85% 8%, rgba(216, 177, 102, 0.07), transparent 70%),
-      radial-gradient(ellipse 600px 300px at 15% 45%, rgba(164, 106, 63, 0.08), transparent 70%),
-      var(--hc-surface-0);
+  .brand-spec-page {
+    padding-top: clamp(2rem, 4vw, 3.5rem);
+    padding-bottom: 6rem;
+    min-height: 100vh;
   }
 
-  .brand-hero {
-    position: relative;
-    min-height: clamp(520px, 72vh, 760px);
-    display: grid;
-    align-items: center;
-    overflow: hidden;
-    border-bottom: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(90deg, rgba(15, 15, 16, 0.98) 0%, rgba(15, 15, 16, 0.92) 45%, rgba(15, 15, 16, 0.45) 75%, rgba(15, 15, 16, 0.15) 100%),
-      url('/images/asset1.webp') right center / contain no-repeat;
-  }
-
-  :global([data-theme="light"]) .brand-hero {
-    background:
-      linear-gradient(90deg, rgba(251, 249, 244, 0.98) 0%, rgba(251, 249, 244, 0.92) 45%, rgba(251, 249, 244, 0.45) 75%, rgba(251, 249, 244, 0.15) 100%),
-      url('/images/asset1-light.webp') right center / contain no-repeat;
-  }
-
-  .brand-frame {
-    position: absolute;
-    inset: 16px;
-    border: 1px solid rgba(216, 177, 102, 0.18);
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .brand-frame::before,
-  .brand-frame::after {
-    content: "";
-    position: absolute;
-    width: 36px;
-    height: 36px;
-    border: 1px solid var(--hc-gold);
-  }
-
-  .brand-frame::before {
-    top: -1px;
-    left: -1px;
-    border-right: 0;
-    border-bottom: 0;
-  }
-
-  .brand-frame::after {
-    right: -1px;
-    bottom: -1px;
-    border-left: 0;
-    border-top: 0;
-  }
-
-  .brand-hero__inner {
-    position: relative;
-    z-index: 3;
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-    align-items: center;
-    gap: clamp(2rem, 5vw, 4.5rem);
-    padding-block: clamp(4.5rem, 8vw, 6.5rem);
-  }
-
-  .brand-hero__copy {
-    max-width: 680px;
-  }
-
-  .brand-hero__title {
-    margin: 0.65rem 0 0;
-    font-family: var(--font-display);
-    font-size: clamp(2.4rem, 5.2vw, 3.95rem);
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    line-height: 1.1;
-    color: var(--hc-text-primary);
-  }
-
-  .brand-hero__lead {
-    max-width: 54ch;
-    margin: 1.25rem 0 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: clamp(1.02rem, 1.15vw, 1.15rem);
-    line-height: 1.7;
-  }
-
-  .brand-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    margin-top: 2rem;
-  }
-
-  /* Hero Spec Card */
-  .brand-hero__spec {
-    position: relative;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-1);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-  }
-
-  .brand-lockup {
+  /* ── Breadcrumb ── */
+  .spec-breadcrumbs {
     display: flex;
     align-items: center;
-    gap: 1.15rem;
-    padding: 1.35rem 1.5rem;
-    border-bottom: 1px solid var(--hc-rule);
-    background: var(--hc-surface-2);
-  }
-
-  .brand-lockup__emblem {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  .brand-lockup strong {
-    display: block;
-    color: var(--hc-gold);
-    font-family: var(--font-display);
-    font-size: 1.45rem;
-    font-weight: 500;
-    line-height: 1.15;
-  }
-
-  .brand-lockup span {
-    display: block;
-    margin-top: 0.25rem;
-    color: var(--hc-text-secondary);
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
     font-family: var(--font-ui);
-    font-size: 0.76rem;
-    letter-spacing: 0.04em;
-    line-height: 1.4;
-  }
-
-  .brand-spec-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1px;
-    background: var(--hc-rule);
-  }
-
-  .spec-cell {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 1.1rem 1.35rem;
-    background: var(--hc-surface-1);
-    gap: 0.25rem;
-  }
-
-  .spec-cell__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.10em;
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--hc-text-tertiary);
   }
 
-  .spec-cell__val {
-    font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--hc-text-primary);
+  .spec-breadcrumb-link {
+    color: var(--hc-text-tertiary);
+    text-decoration: none;
+    transition: color 160ms ease;
   }
 
-  /* ═══════════════════════════════════════════
-     COMMON SECTION HEADINGS & WRAPPERS
-     ═══════════════════════════════════════════ */
-  .brand-section {
-    padding-block: var(--section-y, clamp(2.5rem, 5vw, 4.5rem));
+  .spec-breadcrumb-link:hover {
+    color: var(--hc-gold);
   }
 
-  .brand-section--band {
-    border-block: 1px solid var(--hc-rule);
-    background:
-      radial-gradient(circle at 85% 15%, rgba(216, 177, 102, 0.04), transparent 45%),
-      var(--hc-surface-1);
+  .spec-breadcrumb-sep {
+    color: var(--hc-rule-strong);
+    opacity: 0.6;
   }
 
-  .brand-section__head {
-    margin-bottom: clamp(1.85rem, 3.5vw, 2.75rem);
+  .spec-breadcrumb-current {
+    color: var(--hc-gold);
   }
 
-  .brand-section__head--split {
+  /* ── Hero Spec Section ── */
+  .spec-hero {
     display: grid;
-    grid-template-columns: minmax(260px, 0.55fr) minmax(320px, 0.45fr);
-    align-items: end;
-    gap: clamp(1.5rem, 4vw, 3.5rem);
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    margin-bottom: 4rem;
+    align-items: start;
   }
 
-  .brand-section__head h2 {
-    margin: 0.35rem 0 0;
+  @media (min-width: 1024px) {
+    .spec-hero {
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
+      gap: clamp(2.5rem, 4vw, 4.5rem);
+    }
+  }
+
+  .spec-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+    margin-bottom: 0.85rem;
+  }
+
+  .spec-hero__title {
+    margin: 0 0 1.25rem;
     font-family: var(--font-display);
-    font-size: clamp(1.75rem, 3vw, 2.45rem);
+    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
     font-weight: 500;
-    letter-spacing: -0.025em;
     line-height: 1.15;
+    letter-spacing: -0.03em;
     color: var(--hc-text-primary);
   }
 
-  .brand-section__head p:not(.hc-eyebrow) {
+  .spec-hero__lede {
+    font-family: var(--font-body);
+    font-size: 1.12rem;
+    line-height: 1.7;
+    color: var(--hc-text-secondary);
+    margin: 0 0 2rem;
+    max-width: 64ch;
+  }
+
+  .spec-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 3rem;
+  }
+
+  /* 01-05 Distinctives */
+  .spec-distinctives {
+    border-top: 1px solid var(--hc-rule-soft);
+    padding-top: 2rem;
+  }
+
+  .spec-distinctives__title {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+    margin: 0 0 1.5rem;
+  }
+
+  .spec-distinctives__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-col;
+    gap: 1.4rem;
+  }
+
+  .spec-distinctives__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.2rem;
+  }
+
+  .spec-distinctives__list .num {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
+    color: var(--hc-gold-dim);
+    line-height: 1.5;
+    padding-top: 0.1rem;
+    flex: 0 0 1.5rem;
+  }
+
+  .spec-distinctives__list strong {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .spec-distinctives__list p {
     margin: 0;
     font-family: var(--font-body);
-    font-size: clamp(0.95rem, 1.1vw, 1.05rem);
-    line-height: 1.65;
+    font-size: 0.95rem;
+    line-height: 1.6;
     color: var(--hc-text-secondary);
   }
 
-  /* ═══════════════════════════════════════════
-     SECTION I: NORTH STAR CARDS
-     ═══════════════════════════════════════════ */
-  .brand-principles {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1px;
+  .spec-distinctives__list code {
+    font-size: 0.85em;
+    color: var(--hc-gold-soft);
+    background: rgba(216, 177, 102, 0.1);
+    padding: 0.1em 0.3em;
+    border-radius: 2px;
+  }
+
+  /* ── Quick Spec Side Card ── */
+  .spec-summary-card {
     border: 1px solid var(--hc-rule);
-    background: var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
     overflow: hidden;
   }
 
-  .principle-card {
-    padding: clamp(1.5rem, 2.5vw, 2.25rem);
-    background: var(--hc-surface-1);
+  :global([data-theme="light"]) .spec-summary-card {
+    background: #fbf9f4;
+    box-shadow: 0 4px 16px rgba(43, 40, 36, 0.08);
+  }
+
+  .spec-summary-card__swatch {
+    padding: 1.5rem;
+    background: var(--hc-surface-2);
+    border-bottom: 1px solid var(--hc-rule-soft);
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+  }
+
+  :global([data-theme="light"]) .spec-summary-card__swatch {
+    background: #f2ece0;
+  }
+
+  .swatch-color {
+    width: 60px;
+    height: 60px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+  }
+
+  .swatch-meta {
     display: flex;
     flex-direction: column;
-    transition: background 180ms ease;
+    gap: 0.15rem;
   }
 
-  .principle-card:hover {
-    background: var(--hc-surface-2);
-  }
-
-  .principle-card__num {
-    display: inline-block;
+  .swatch-label {
     font-family: var(--font-ui);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--hc-gold);
-    margin-bottom: 1.15rem;
   }
 
-  .principle-card h3 {
-    margin: 0;
+  .swatch-code {
     font-family: var(--font-display);
-    font-size: clamp(1.2rem, 1.8vw, 1.45rem);
-    font-weight: 500;
-    line-height: 1.2;
+    font-size: 1.45rem;
+    font-weight: 600;
     color: var(--hc-text-primary);
   }
 
-  .principle-card p {
-    margin: 0.75rem 0 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.65;
+  .swatch-sub {
+    font-size: 0.82rem;
     color: var(--hc-text-secondary);
   }
 
-  /* ═══════════════════════════════════════════
-     SECTION II: PALETTE GRID
-     ═══════════════════════════════════════════ */
-  .palette-grid {
+  .spec-summary-card__rows {
+    padding: 1.25rem 1.5rem;
+  }
+
+  .summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-size: 0.9rem;
+  }
+
+  .summary-row:last-child {
+    border-bottom: none;
+  }
+
+  .row-label {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .row-val {
+    font-family: var(--font-body);
+    font-weight: 500;
+    color: var(--hc-text-primary);
+  }
+
+  .row-val.highlight {
+    color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .spec-summary-card__jump {
+    padding: 1.25rem 1.5rem;
+    background: rgba(216, 177, 102, 0.035);
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .jump-title {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--hc-gold);
+    margin-bottom: 0.75rem;
+  }
+
+  .jump-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .jump-link {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 600;
+    color: var(--hc-text-secondary);
+    text-decoration: none;
+    transition: color 160ms ease, transform 160ms ease;
+  }
+
+  .jump-link:hover {
+    color: var(--hc-gold);
+    transform: translateX(3px);
+  }
+
+  /* ── Explorer Section ── */
+  .spec-explorer {
+    margin-top: 2rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .spec-explorer__header {
+    margin-bottom: 2.5rem;
+  }
+
+  .spec-explorer__title {
+    margin: 0 0 0.65rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+    font-weight: 500;
+    color: var(--hc-text-primary);
+  }
+
+  .spec-explorer__subtitle {
+    margin: 0 0 2rem;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--hc-text-secondary);
+    max-width: 65ch;
+  }
+
+  /* ── Tab Bar (Shadcn Anthropic Style) ── */
+  .spec-tab-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--hc-rule);
+    padding-bottom: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .spec-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--hc-text-tertiary);
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: color 180ms ease;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+
+  .spec-tab:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .spec-tab.is-active {
+    color: var(--hc-gold);
+    border-bottom-color: var(--hc-gold);
+    font-weight: 700;
+  }
+
+  .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    background: rgba(216, 177, 102, 0.1);
+    color: var(--hc-gold);
+  }
+
+  .spec-tab.is-active .tab-count {
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+  }
+
+  /* Panels */
+  .spec-panel {
+    padding-top: 2.5rem;
+  }
+
+  .spec-panel.is-hidden {
+    display: none;
+  }
+
+  /* ── Tab 1: Colors Layout ── */
+  .spec-color-group {
+    margin-bottom: 3.5rem;
+  }
+
+  .group-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .group-title {
+    margin: 0 0 0.35rem;
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .group-subtitle {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .swatches-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.25rem;
   }
 
   .swatch-card {
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-2);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    transition: border-color 180ms ease, transform 180ms ease;
+    transition: transform 180ms ease, border-color 180ms ease;
+  }
+
+  :global([data-theme="light"]) .swatch-card {
+    background: #fbf9f4;
   }
 
   .swatch-card:hover {
-    border-color: var(--hc-gold);
+    border-color: var(--hc-gold-dim);
     transform: translateY(-2px);
   }
 
-  .swatch-card__sample {
+  .swatch-card__color {
+    height: 100px;
+    width: 100%;
     position: relative;
-    height: 90px;
-    border-bottom: 1px solid var(--hc-rule);
-    padding: 0.65rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .swatch-copy-overlay {
+    position: absolute;
+    inset: 0;
     display: flex;
-    justify-content: flex-end;
-    align-items: flex-start;
-  }
-
-  .swatch-card__badge {
-    display: inline-block;
-    padding: 0.2rem 0.55rem;
-    background: rgba(15, 15, 16, 0.82);
-    border: 1px solid rgba(216, 177, 102, 0.35);
-    border-radius: 2px;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-  }
-
-  .swatch-card__body {
-    padding: 1.15rem;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 0.65rem;
-  }
-
-  .swatch-card__header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .swatch-card h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .swatch-card code {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.08);
-    padding: 0.15rem 0.4rem;
-    border-radius: 2px;
-  }
-
-  .swatch-card__values {
-    display: flex;
-    gap: 1.25rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .swatch-card__values strong {
-    color: var(--hc-text-primary);
-    font-weight: 600;
-  }
-
-  .swatch-card p {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.55;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION III: TOKEN PANELS
-     ═══════════════════════════════════════════ */
-  .token-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-  }
-
-  .token-panel {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-1);
-    padding: 1.4rem;
-  }
-
-  .token-panel__head h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .token-panel__head p {
-    margin: 0.35rem 0 1.15rem;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    color: var(--hc-text-secondary);
-    line-height: 1.5;
-  }
-
-  .token-list {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .token-row {
-    display: grid;
-    grid-template-columns: 180px minmax(0, 1fr);
-    align-items: baseline;
-    gap: 1rem;
-    padding-block: 0.45rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .token-row dt code {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .token-row dd {
-    margin: 0;
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    flex-wrap: wrap;
-  }
-
-  .token-val {
-    color: var(--hc-text-primary);
-    font-weight: 600;
-  }
-
-  .token-role {
-    color: var(--hc-text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION IV: TYPOGRAPHY SPECIMEN
-     ═══════════════════════════════════════════ */
-  .type-specimen {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  .type-row {
-    display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
-    gap: 2rem;
-    padding: 1.75rem;
-    border-bottom: 1px solid var(--hc-rule);
     align-items: center;
+    justify-content: center;
+    background: rgba(15, 15, 16, 0.65);
+    backdrop-filter: blur(4px);
+    border: none;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 180ms ease;
   }
 
-  .type-row:last-child {
-    border-bottom: none;
+  .swatch-card:hover .swatch-copy-overlay {
+    opacity: 1;
   }
 
-  .type-row__info {
+  .copy-text {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #fff;
+    padding: 0.3rem 0.75rem;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .swatch-card__details {
+    padding: 1rem;
+  }
+
+  .swatch-card__head {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
   }
 
-  .type-row__label {
+  .swatch-name {
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .swatch-badge {
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .type-row__info h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .type-row__meta {
-    display: flex;
-    flex-direction: column;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-    gap: 0.15rem;
-  }
-
-  .type-row__meta strong {
-    color: var(--hc-text-primary);
-  }
-
-  .type-row__info code {
-    align-self: flex-start;
-    margin-top: 0.25rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
     color: var(--hc-gold);
     background: rgba(216, 177, 102, 0.08);
     padding: 0.15rem 0.45rem;
     border-radius: 2px;
   }
 
-  .type-row__role {
-    margin: 0.35rem 0 0;
+  .swatch-token {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--hc-gold-soft);
+    margin-bottom: 0.45rem;
+  }
+
+  .swatch-hex-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    font-size: 0.8rem;
+    color: var(--hc-text-tertiary);
+    margin-bottom: 0.65rem;
+  }
+
+  .swatch-role {
+    margin: 0;
     font-family: var(--font-body);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     line-height: 1.5;
     color: var(--hc-text-secondary);
   }
 
-  .type-row__preview {
-    min-width: 0;
-    padding: 1rem 1.25rem;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs, 2px);
-  }
-
-  .type-row__sample {
-    margin: 0;
-    color: var(--hc-text-primary);
-  }
-
-  .type-display {
-    font-family: var(--font-display);
-    font-size: clamp(1.6rem, 2.5vw, 2.25rem);
-    font-weight: 500;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-  }
-
-  .type-body {
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.72;
-    max-width: 65ch;
-  }
-
-  .type-ui {
-    font-family: var(--font-ui);
-    font-size: 0.8125rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--hc-gold);
-    line-height: 1.5;
-  }
-
-  .type-arabic {
-    font-family: var(--font-arabic);
-    font-size: 1.65rem;
-    line-height: 2.05;
-    color: var(--hc-text-primary);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION V: DIMENSIONS GRID
-     ═══════════════════════════════════════════ */
-  .dimensions-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1px;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    overflow: hidden;
-  }
-
-  .dimension-card {
-    padding: 1.4rem;
-    background: var(--hc-surface-1);
+  /* ── Tab 2: Typography Layout ── */
+  .spec-type-list {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 1.75rem;
   }
 
-  .dimension-card__token code {
+  .spec-type-row {
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    padding: 1.5rem;
+  }
+
+  :global([data-theme="light"]) .spec-type-row {
+    background: #fbf9f4;
+  }
+
+  .type-row__meta {
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .type-row__tag {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .token-name {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .dimension-card__val {
-    font-family: var(--font-display);
-    font-size: 1.55rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-    line-height: 1.2;
-    margin-top: 0.2rem;
-  }
-
-  .dimension-card h3 {
-    margin: 0.25rem 0 0;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--hc-text-secondary);
   }
 
-  .dimension-card p {
-    margin: 0.25rem 0 0;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.5;
+  .token-font {
+    font-size: 0.85rem;
     color: var(--hc-text-tertiary);
   }
 
-  /* ═══════════════════════════════════════════
-     SECTION VI: EMBLEM GRID
-     ═══════════════════════════════════════════ */
-  .logo-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr minmax(280px, 0.95fr);
-    gap: 1.25rem;
+  .type-row__spec {
+    font-size: 0.82rem;
+    color: var(--hc-text-tertiary);
+    margin-bottom: 0.35rem;
   }
 
-  .logo-panel,
-  .logo-rules {
+  .type-row__role {
+    font-size: 0.88rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .type-specimen {
+    color: var(--hc-text-primary);
+  }
+
+  .spec-h2 {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    font-weight: 600;
+  }
+
+  .spec-h3 {
+    font-family: var(--font-display);
+    font-size: 1.18rem;
+    font-weight: 600;
+  }
+
+  .spec-body {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    max-width: 70ch;
+  }
+
+  .spec-lead {
+    font-family: var(--font-body);
+    font-size: 1.08rem;
+    line-height: 1.68;
+    max-width: 65ch;
+  }
+
+  .spec-small {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--hc-text-secondary);
+  }
+
+  .spec-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hc-gold);
+  }
+
+  .spec-btn-label {
+    font-family: var(--font-ui);
+    font-size: 0.95rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--hc-gold);
+  }
+
+  .spec-quran {
+    font-family: var(--font-quran);
+    font-size: clamp(1.3rem, 2.5vw, 1.65rem);
+    line-height: 2.1;
+    color: var(--hc-text-primary);
+    text-align: right;
+  }
+
+  /* ── Tab 3: Layout Specs ── */
+  .layout-grid-section {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+
+  @media (min-width: 900px) {
+    .layout-grid-section {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .layout-card {
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
     padding: 1.75rem;
   }
 
-  .logo-panel {
+  :global([data-theme="light"]) .layout-card {
+    background: #fbf9f4;
+  }
+
+  .layout-card--full {
+    grid-column: 1 / -1;
+  }
+
+  .layout-card__title {
+    margin: 0 0 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .layout-card__desc {
+    margin: 0 0 1.5rem;
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .radii-stage {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .radius-specimen {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .logo-panel__canvas {
-    height: 160px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    margin-bottom: 1.25rem;
-    border-radius: var(--radius-xs, 2px);
+  .radius-box {
+    width: 64px;
+    height: 64px;
+    background: var(--hc-surface-2);
+    border: 2px solid var(--hc-gold);
+    margin-bottom: 0.75rem;
   }
 
-  .logo-panel--dark .logo-panel__canvas {
-    background: var(--hc-surface-0);
-    border: 1px solid var(--hc-rule-soft);
+  :global([data-theme="light"]) .radius-box {
+    background: #e8e2d5;
   }
 
-  .logo-panel--light .logo-panel__canvas {
-    background: var(--hc-fixed-parchment);
-    border: 1px solid rgba(157, 122, 60, 0.35);
-  }
-
-  .logo-panel h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 500;
+  .radius-name {
+    font-family: var(--font-ui);
+    font-size: 0.81rem;
+    font-weight: 700;
     color: var(--hc-text-primary);
+    text-transform: uppercase;
   }
 
-  .logo-panel p {
-    margin: 0.45rem 0 0;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  .logo-rules {
-    background: var(--hc-surface-1);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .logo-rules h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
+  .radius-val {
+    font-size: 0.8rem;
     color: var(--hc-gold);
-    font-weight: 500;
+    margin-bottom: 0.35rem;
   }
 
-  .logo-rules > p {
-    margin: 0.5rem 0 1.25rem;
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
+  .radius-desc {
+    font-size: 0.78rem;
+    color: var(--hc-text-tertiary);
+    line-height: 1.4;
   }
 
-  .logo-prohibitions {
-    padding-top: 1rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .logo-prohibitions h4 {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-primary);
-  }
-
-  .logo-prohibitions ul {
-    margin: 0;
-    padding-left: 1.15rem;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.85rem;
-    line-height: 1.6;
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION VII: COMPONENT CARDS
-     ═══════════════════════════════════════════ */
-  .component-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-  }
-
-  .demo-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    padding: 1.4rem;
+  .spacing-list {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    min-height: 260px;
+    gap: 0.75rem;
   }
 
-  .demo-card__header {
+  .spacing-row {
     display: flex;
     align-items: center;
+    gap: 1.5rem;
+  }
+
+  .spacing-meta {
+    flex: 0 0 120px;
+    display: flex;
     justify-content: space-between;
-    margin-bottom: 0.85rem;
+    font-size: 0.82rem;
   }
 
-  .demo-card__kicker {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
+  .spacing-token {
+    color: var(--hc-text-secondary);
   }
 
-  .demo-card__badge {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    padding: 0.15rem 0.45rem;
+  .spacing-px {
+    color: var(--hc-gold);
+    font-weight: 600;
+  }
+
+  .spacing-bar-wrap {
+    flex: 1;
+    background: rgba(216, 177, 102, 0.05);
+    height: 14px;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+  }
+
+  .spacing-bar {
+    height: 100%;
+    background: var(--hc-gold);
     border-radius: 2px;
   }
 
-  /* Demo 1: Parchment */
-  .demo-card--parchment {
-    background: var(--hc-fixed-parchment);
-    color: var(--hc-fixed-parchment-ink);
-    border-color: rgba(157, 122, 60, 0.4);
-  }
-
-  .demo-card--parchment .demo-card__kicker {
-    color: #8c6422;
-  }
-
-  .demo-card--parchment .demo-card__badge {
-    background: rgba(140, 100, 34, 0.15);
-    color: #8c6422;
-  }
-
-  .demo-card--parchment .demo-card__title {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 500;
-    color: var(--hc-fixed-parchment-ink);
-    line-height: 1.25;
-  }
-
-  .demo-card--parchment .demo-card__summary {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.55;
-    color: #4a4237;
-  }
-
-  .demo-card__stats {
+  .container-specs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.75rem;
-    margin: 1.25rem 0 0;
-    padding-top: 0.85rem;
-    border-top: 1px solid rgba(140, 100, 34, 0.25);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
   }
 
-  .demo-card__stats dt {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: #7d6b56;
-    text-transform: uppercase;
+  .container-spec-item {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: 3px;
+    padding: 1.25rem;
+    background: var(--hc-surface-2);
   }
 
-  .demo-card__stats dd {
-    margin: 0.2rem 0 0;
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    font-weight: 500;
-    color: var(--hc-fixed-parchment-ink);
+  :global([data-theme="light"]) .container-spec-item {
+    background: #f2ece0;
   }
 
-  /* Demo 2: Umber */
-  .demo-card--umber {
-    background: linear-gradient(135deg, rgba(164, 106, 63, 0.22), rgba(164, 106, 63, 0.08));
-    border-color: rgba(164, 106, 63, 0.45);
-  }
-
-  .demo-card--umber .demo-card__kicker {
-    color: var(--hc-copper, #c48b68);
-  }
-
-  .demo-card--umber .demo-card__text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.65;
-    color: var(--hc-text-primary);
-  }
-
-  .demo-card--umber .demo-card__footer {
+  .spec-head {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    margin-top: 1.25rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(164, 106, 63, 0.35);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-  }
-
-  .demo-card--umber .demo-card__footer span {
-    color: var(--hc-text-tertiary);
-    text-transform: uppercase;
-  }
-
-  .demo-card--umber .demo-card__footer strong {
-    color: var(--hc-copper, #c48b68);
-  }
-
-  /* Demo 3: Apparatus */
-  .demo-card--apparatus {
-    background: var(--hc-surface-1);
-  }
-
-  .demo-card--apparatus .demo-card__kicker {
-    color: var(--hc-gold);
-  }
-
-  .apparatus-nodes {
-    list-style: none;
-    margin: 0.5rem 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .apparatus-nodes li {
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    gap: 0.65rem;
     align-items: center;
-    padding-block: 0.35rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
+    margin-bottom: 0.45rem;
   }
 
-  .node-idx {
+  .spec-label {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--hc-gold);
+    text-transform: uppercase;
   }
 
-  .node-name {
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    color: var(--hc-text-primary);
-  }
-
-  .node-tag {
-    font-family: var(--font-ui);
+  .spec-code {
     font-size: 0.75rem;
     color: var(--hc-text-tertiary);
   }
 
-  .demo-card__meta-bar {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.85rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .demo-card__meta-bar strong {
-    color: var(--hc-gold);
-  }
-
-  /* Demo 4: Chips */
-  .demo-card--chips {
-    background: var(--hc-surface-1);
-  }
-
-  .demo-card--chips .demo-card__kicker {
-    color: var(--hc-gold);
-  }
-
-  .chips-desc {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .chips-cloud {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-  }
-
-  .hc-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.3rem 0.65rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-pill, 9999px);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
+  .spec-val {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--hc-text-secondary);
-    background: var(--hc-surface-2);
-    transition: all 160ms ease;
-  }
-
-  .hc-badge:hover {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION VIII: CONTENT NON-NEGOTIABLES
-     ═══════════════════════════════════════════ */
-  .rules-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-  }
-
-  .rule-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-2);
-    padding: 1.4rem;
-  }
-
-  .rule-card h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-    line-height: 1.2;
-  }
-
-  .rule-card p {
-    margin: 0.65rem 0 0;
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION IX: VOICE & ADAB
-     ═══════════════════════════════════════════ */
-  .voice-list {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 1px;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    overflow: hidden;
-  }
-
-  .voice-card {
-    padding: 1.4rem;
-    background: var(--hc-surface-1);
-  }
-
-  .voice-card h3 {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 500;
-    color: var(--hc-gold);
-  }
-
-  .voice-card p {
-    margin: 0.5rem 0 0;
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION X: YOUTUBE THUMBNAIL SYSTEM
-     ═══════════════════════════════════════════ */
-  .youtube-principles {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1px;
-    margin-bottom: 1.5rem;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    overflow: hidden;
-  }
-
-  .youtube-principle {
-    padding: 1.4rem;
-    background: var(--hc-surface-0);
-  }
-
-  .youtube-principle__num {
-    display: inline-block;
-    margin-bottom: 0.85rem;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
-
-  .youtube-principle h3 {
-    margin: 0;
     color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 500;
-    line-height: 1.2;
+    margin-bottom: 0.35rem;
   }
 
-  .youtube-principle p {
-    margin: 0.55rem 0 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  .youtube-showcase {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-  }
-
-  .youtube-thumb-card {
-    overflow: hidden;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-1);
-    transition: border-color 0.2s ease, transform 0.2s ease;
-  }
-
-  .youtube-thumb-card:hover {
-    border-color: var(--hc-gold);
-    transform: translateY(-2px);
-  }
-
-  .youtube-thumb {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    isolation: isolate;
-    background:
-      radial-gradient(circle at 75% 25%, rgba(216, 177, 102, 0.08), transparent 45%),
-      linear-gradient(135deg, #0e0e0f 0%, #151413 55%, #1e1b17 100%);
-  }
-
-  .youtube-thumb::before {
-    content: '';
-    position: absolute;
-    inset: 10px;
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    pointer-events: none;
-    z-index: 2;
-  }
-
-  .youtube-thumb__top-rule {
-    position: absolute;
-    inset: 0 0 auto;
-    z-index: 4;
-    height: 3px;
-    background: var(--hc-gold);
-  }
-
-  .youtube-thumb__inner {
-    position: absolute;
-    inset: 16px;
-    z-index: 3;
-    display: grid;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-    gap: 1.25rem;
-    align-items: center;
-  }
-
-  .youtube-thumb__copy {
-    position: relative;
-    z-index: 3;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    min-width: 0;
-    gap: 0.35rem;
-  }
-
-  .youtube-thumb__brand {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .youtube-thumb__kicker {
-    margin-top: 0.15rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    line-height: 1.35;
-  }
-
-  .youtube-thumb__copy h3 {
-    margin: 0.25rem 0 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.25rem, 1.9vw, 1.75rem);
-    font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.12;
-    color: var(--hc-text-primary);
-  }
-
-  .youtube-thumb__copy h3 span.is-accent {
-    color: var(--hc-gold);
-  }
-
-  .youtube-thumb__meta {
-    margin-top: 0.4rem;
-    padding-top: 0.4rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-secondary);
-  }
-
-  .youtube-thumb__evidence {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 150px;
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    border-radius: var(--radius-xs, 2px);
-    background: rgba(15, 15, 16, 0.65);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-    overflow: hidden;
-  }
-
-  .evidence-svg {
-    width: 100%;
-    height: 100%;
-    max-height: 180px;
-    display: block;
-  }
-
-  .youtube-thumb__emblem {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    z-index: 4;
-    color: var(--hc-gold);
-    opacity: 0.85;
-  }
-
-  .youtube-thumb__footer {
-    position: absolute;
-    right: 18px;
-    bottom: 12px;
-    z-index: 4;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.10em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .youtube-thumb-card__body {
-    padding: 1.15rem 1.35rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    border-top: 1px solid var(--hc-rule);
-    background: var(--hc-surface-1);
-  }
-
-  .youtube-thumb-card__family {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .youtube-thumb-card__body p {
+  .spec-desc {
     margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.55;
-    color: var(--hc-text-secondary);
-  }
-
-  .youtube-spec-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-    margin-top: 1.5rem;
-  }
-
-  .youtube-spec-panel {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-1);
-    padding: 1.5rem;
-  }
-
-  .youtube-spec-panel h3 {
-    margin: 0.35rem 0 0;
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-  }
-
-  .youtube-anatomy {
-    list-style: none;
-    margin: 1.15rem 0 0;
-    padding: 0;
-  }
-
-  .youtube-anatomy li {
-    display: grid;
-    grid-template-columns: 28px minmax(130px, 0.45fr) minmax(0, 1fr);
-    gap: 0.75rem;
-    align-items: baseline;
-    padding: 0.65rem 0;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .youtube-anatomy li:first-child {
-    border-top: none;
-  }
-
-  .youtube-anatomy li > span {
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-  }
-
-  .youtube-anatomy strong {
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .youtube-anatomy em {
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    font-style: normal;
+    font-size: 0.85rem;
     line-height: 1.5;
-  }
-
-  .youtube-donts {
-    margin: 1.15rem 0 0;
-    padding-left: 1.15rem;
     color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.65;
   }
 
-  .youtube-donts li + li {
-    margin-top: 0.45rem;
+  /* ── Tab 4: Components (21 Cards Grid) ── */
+  .components-stage-header {
+    margin-bottom: 1.5rem;
   }
 
-  .youtube-formula {
-    display: grid;
-    grid-template-columns: minmax(240px, 0.65fr) minmax(0, 1fr);
-    gap: 1.5rem;
-    align-items: center;
-    margin-top: 1.5rem;
-    padding: 1.35rem 1.5rem;
-    border: 1px solid var(--hc-rule);
-    border-left: 4px solid var(--hc-gold);
-    border-radius: var(--radius-sm, 3px);
-    background: var(--hc-surface-0);
-  }
-
-  .youtube-formula h3 {
-    margin: 0.3rem 0 0;
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    font-weight: 500;
-  }
-
-  .youtube-formula p {
+  .components-stage-desc {
     margin: 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    line-height: 1.6;
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION X: IMPLEMENTATION DO & DON'T
-     ═══════════════════════════════════════════ */
-  .brand-section--final {
-    border-top: 1px solid var(--hc-rule);
-    background:
-      linear-gradient(90deg, rgba(78, 38, 18, 0.95), rgba(78, 38, 18, 0.65) 42%, rgba(15, 15, 16, 0.84) 82%),
-      url('/images/asset2.webp') right center / cover no-repeat;
-  }
-
-  :global([data-theme="light"]) .brand-section--final {
-    background:
-      linear-gradient(90deg, rgba(251, 249, 244, 0.98), rgba(242, 236, 224, 0.94) 42%, rgba(251, 249, 244, 0.4) 75%, rgba(251, 249, 244, 0.15) 100%),
-      url('/images/asset2-light.webp') right center / cover no-repeat;
-  }
-
-  .implementation-grid {
-    display: grid;
-    grid-template-columns: minmax(280px, 0.75fr) minmax(360px, 1.25fr);
-    gap: clamp(2rem, 5vw, 4.5rem);
-    align-items: start;
-  }
-
-  .implementation-grid h2 {
-    margin: 0.35rem 0 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.75rem, 3vw, 2.45rem);
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .implementation-grid p {
-    margin: 0.75rem 0 0;
     font-family: var(--font-body);
     font-size: 0.95rem;
-    line-height: 1.65;
     color: var(--hc-text-secondary);
   }
 
-  .do-dont-grid {
+  .components-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.25rem;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
-  .do-card,
-  .dont-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 3px);
-    padding: 1.4rem;
-    background: var(--hc-surface-1);
-  }
-
-  .do-card h3 {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    color: var(--hc-gold);
-  }
-
-  .dont-card h3 {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    color: var(--hc-danger, #e2907a);
-  }
-
-  .do-card ul,
-  .dont-card ul {
-    margin: 0;
-    padding-left: 1.15rem;
-    font-family: var(--font-body);
-    font-size: 0.88rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-  }
-
-  .do-card li + li,
-  .dont-card li + li {
-    margin-top: 0.4rem;
-  }
-
-  /* ═══════════════════════════════════════════
-     RESPONSIVE BREAKPOINTS
-     ═══════════════════════════════════════════ */
-  @media (max-width: 1080px) {
-    .brand-hero__inner {
-      grid-template-columns: 1fr;
-    }
-
-    .brand-section__head--split,
-    .implementation-grid {
-      grid-template-columns: 1fr;
-      gap: 1.25rem;
-    }
-
-    .dimensions-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .youtube-showcase,
-    .youtube-spec-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .youtube-formula {
-      grid-template-columns: 1fr;
-    }
-
-    .type-row {
-      grid-template-columns: 1fr;
-      gap: 1.25rem;
-    }
-
-    .token-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .logo-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .voice-list {
+  @media (min-width: 860px) {
+    .components-grid {
       grid-template-columns: repeat(2, 1fr);
     }
   }
 
-  @media (max-width: 720px) {
-    .brand-frame {
-      inset: 8px;
-    }
-
-    .brand-hero {
-      min-height: auto;
-      background:
-        linear-gradient(180deg, rgba(15, 15, 16, 0.94) 0%, rgba(15, 15, 16, 0.98) 100%),
-        url('/images/asset1.webp') center top / cover no-repeat;
-    }
-
-    .brand-hero__inner {
-      padding-block: 4rem 2.5rem;
-    }
-
-    .brand-hero__actions .hc-btn {
-      width: 100%;
-      justify-content: center;
-    }
-
-    .brand-principles,
-    .dimensions-grid,
-    .component-grid,
-    .rules-grid,
-    .do-dont-grid,
-    .voice-list,
-    .youtube-principles {
-      grid-template-columns: 1fr;
-    }
-
-    .youtube-thumb__inner {
-      inset: 14px;
-      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-      gap: 0.7rem;
-    }
-
-    .youtube-thumb__copy h3 {
-      font-size: clamp(1.18rem, 5vw, 1.6rem);
-    }
-
-    .youtube-thumb-card__body {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.45rem;
-    }
-
-    .youtube-anatomy li {
-      grid-template-columns: 28px minmax(0, 1fr);
-    }
-
-    .youtube-anatomy em {
-      grid-column: 2;
-    }
-
-    .token-row {
-      grid-template-columns: 1fr;
-      gap: 0.25rem;
+  @media (min-width: 1200px) {
+    .components-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 
-  /* ═══════════════════════════════════════════
-     PREFERS REDUCED MOTION
-     ═══════════════════════════════════════════ */
-  @media (prefers-reduced-motion: reduce) {
-    .brand-page *,
-    .brand-page *::before,
-    .brand-page *::after {
-      transition: none !important;
-      animation: none !important;
-    }
+  .component-card {
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  :global([data-theme="light"]) .component-card {
+    background: #fbf9f4;
+  }
+
+  .component-card--wide {
+    grid-column: 1 / -1;
+  }
+
+  .component-card__stage {
+    padding: 2rem 1.5rem;
+    background: 
+      radial-gradient(rgba(216, 177, 102, 0.04) 1px, transparent 1px) 0 0 / 16px 16px,
+      var(--hc-surface-0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 140px;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  :global([data-theme="light"]) .component-card__stage {
+    background: 
+      radial-gradient(rgba(111, 80, 25, 0.05) 1px, transparent 1px) 0 0 / 16px 16px,
+      #f6f3eb;
+  }
+
+  .component-card__info {
+    padding: 0.85rem 1.15rem;
+    background: var(--hc-surface-1);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  :global([data-theme="light"]) .component-card__info {
+    background: #fbf9f4;
+  }
+
+  .comp-token {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--hc-gold);
+  }
+
+  .comp-name {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    color: var(--hc-text-secondary);
+  }
+
+  /* ── Tab 5: Live Preview ── */
+  .preview-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+  }
+
+  :global([data-theme="light"]) .preview-toolbar {
+    background: #fbf9f4;
+  }
+
+  .preview-toolbar__label {
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--hc-gold);
+  }
+
+  .preview-toolbar__actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .preview-mode-btn {
+    padding: 0.35rem 0.85rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 160ms ease;
+  }
+
+  .preview-mode-btn.is-active {
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+    border-color: var(--hc-gold);
+  }
+
+  .preview-stage {
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    padding: clamp(1.5rem, 3.5vw, 3.5rem);
+    background: var(--hc-surface-0);
+    transition: background 200ms ease;
+  }
+
+  .preview-stage[data-preview-theme="light"] {
+    background: #fbf9f4;
+    color: #2b2824;
+  }
+
+  .preview-sheet {
+    max-width: 780px;
+    margin: 0 auto;
+  }
+
+  .preview-header {
+    border-bottom: 1px solid var(--hc-rule-soft);
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .preview-title {
+    margin: 0.5rem 0 0.85rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.65rem, 2.5vw, 2.1rem);
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--hc-text-primary);
+  }
+
+  .preview-stage[data-preview-theme="light"] .preview-title {
+    color: #2b2824;
+  }
+
+  .preview-standfirst {
+    margin: 0 0 1.15rem;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--hc-text-secondary);
+  }
+
+  .preview-stage[data-preview-theme="light"] .preview-standfirst {
+    color: #6b635a;
+  }
+
+  .preview-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--hc-text-tertiary);
+  }
+
+  .preview-body p {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--hc-text-primary);
+    margin: 0 0 1.25rem;
+  }
+
+  .preview-stage[data-preview-theme="light"] .preview-body p {
+    color: #2b2824;
+  }
+
+  .preview-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    margin-top: 2rem;
+  }
+
+  /* ── FAQ Section ── */
+  .spec-faq {
+    margin-top: 5rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .spec-faq__title {
+    margin: 0 0 2rem;
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
+    font-weight: 600;
+    color: var(--hc-text-primary);
+  }
+
+  .spec-faq__list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 900px;
+  }
+
+  .spec-faq__item {
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    overflow: hidden;
+  }
+
+  :global([data-theme="light"]) .spec-faq__item {
+    background: #fbf9f4;
+  }
+
+  .spec-faq__question {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.15rem 1.4rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+
+  .spec-faq__question::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-icon {
+    font-family: var(--font-body);
+    font-size: 1.2rem;
+    font-weight: 300;
+    color: var(--hc-gold);
+    transition: transform 200ms ease;
+  }
+
+  .spec-faq__item[open] .faq-icon {
+    transform: rotate(45deg);
+  }
+
+  .spec-faq__answer {
+    padding: 0 1.4rem 1.4rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.68;
+    color: var(--hc-text-secondary);
+  }
+
+  .spec-faq__answer p {
+    margin: 0;
   }
 </style>
