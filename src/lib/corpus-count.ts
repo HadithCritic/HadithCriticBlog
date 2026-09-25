@@ -60,7 +60,7 @@ export const boundedCountSql = (from: string, clause: string) =>
  * `hadith` and `hadith_book` in behind the FTS scan: 30,002 rows touched where
  * the index alone answers in 10,000. Over range requests that ratio is the
  * difference between reading the posting list and reading the narration text
- * of every match. Measured, not assumed; see scripts/measure-reads.mjs.
+ * of every match. Historical measurements are in docs/corpus-performance.md.
  *
  * Only valid when the query is the single filter. With a book or narrator
  * clause as well, this would count matches the reader is not being shown.

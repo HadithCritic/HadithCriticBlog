@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addContactToSegment, sendArticleBroadcast } from '../resend.mjs';
+import { addContactToSegment } from '../resend.mjs';
 
 function mockFetchOnce(status, body) {
   const originalFetch = globalThis.fetch;
@@ -47,31 +47,3 @@ test('addContactToSegment throws on an unexpected error', async () => {
   }
 });
 
-test('sendArticleBroadcast returns the broadcast id on success', async () => {
-  const restore = mockFetchOnce(200, { object: 'broadcast', id: 'broadcast-1' });
-  try {
-    const result = await sendArticleBroadcast(
-      { subject: 'New post', html: '<p>hi</p>', text: 'hi' },
-      { apiKey: 'key', segmentId: 'seg1' }
-    );
-    assert.deepEqual(result, { broadcastId: 'broadcast-1' });
-  } finally {
-    restore();
-  }
-});
-
-test('sendArticleBroadcast throws on failure', async () => {
-  const restore = mockFetchOnce(400, { message: 'Invalid segment' });
-  try {
-    await assert.rejects(
-      () =>
-        sendArticleBroadcast(
-          { subject: 'New post', html: '<p>hi</p>', text: 'hi' },
-          { apiKey: 'key', segmentId: 'seg1' }
-        ),
-      /Resend broadcast send failed: Invalid segment/
-    );
-  } finally {
-    restore();
-  }
-});

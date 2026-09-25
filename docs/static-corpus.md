@@ -324,10 +324,9 @@ article remain fully server-rendered.
 saying so and pointing at what still works. The written research does not depend
 on it.
 
-**Turso still exists**, for one thing: the `article_notifications` ledger behind
-the admin notification route. It is a handful of rows written by hand a few
-times a month and is not the corpus. `src/lib/db.ts` says so at the top, and
-nothing under `/hadith` or `/narrators` imports it.
+The old admin article-notification route and its Turso ledger have been
+removed. The public subscriber signup remains active; article announcements
+will be redesigned separately. No Turso client is used by the current site.
 
 ## Research distribution
 

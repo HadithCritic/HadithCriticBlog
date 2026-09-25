@@ -34,7 +34,7 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 | :---------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- |
 | **[docs/static-corpus.md](docs/static-corpus.md)**           | How the corpus is built, chunked, published and read. Required before editing anything under`/hadith` or `/narrators`. |
 | **[docs/corpus-performance.md](docs/corpus-performance.md)** | Why corpus pages are slow, measured against production, and the ranked fixes.                                              |
-| **[DATABASE.md](DATABASE.md)**                               | Why the corpus left D1 and then Turso, what the measurements were, and what Turso is still used for.                       |
+| **[DATABASE.md](DATABASE.md)**                               | Current corpus publishing, runtime data flows, and historical database resources.                                      |
 | **[DESIGN.md](DESIGN.md)**                                   | The authority on anything visual. Enforced at build time by`npm run test:design`.                                        |
 | **[CLAUDE.md](CLAUDE.md)**, **[AGENTS.md](AGENTS.md)**  | Working notes and the traps that have cost real time.                                                                      |
 | **[docs/COMPONENT-GUIDE.md](docs/COMPONENT-GUIDE.md)**       | The MDX components available inside an article.                                                                            |
@@ -48,8 +48,7 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 ├── data/generated/        # Build inputs for the register seed. Never served.
 ├── dist-db/               # Master and built corpus databases. Not in git.
 ├── docs/                  # Project notes, taxonomy, and source material
-├── migrations/            # SQL schema history for the Turso-era corpus and the
-│                          # notification ledger. Applied with scripts/migrate-turso.mjs.
+├── migrations/            # Historical SQL schemas; not applied by current builds.
 ├── public/                # Static assets (favicons, fonts, raw files)
 │   └── images/            # Optimized blog images and media assets
 ├── scripts/               # Data pipelines, database tooling, and audits
@@ -96,13 +95,12 @@ npm install
 
 ### Environment and secrets
 
-Nothing is required to run the articles side of the site. The variables below matter for the corpus and for the one remaining database.
+Nothing is required to run the article pages locally. These variables are for building or publishing the separate hadith corpus.
 
 | Variable                                             | Read from                                                    | Needed for                                                                                                                                                                                                                                                                                                    |
 | :--------------------------------------------------- | :----------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PUBLIC_CORPUS_BASE_URL`                           | build environment                                            | Any**built** site. Vite inlines it into the client bundle, so a Worker runtime variable has no effect on it. A production build without it fails on purpose, because Cloudflare static assets cannot serve byte ranges. Leave it unset for `npm run dev`, where the dev server answers ranges itself. |
+| `PUBLIC_CORPUS_BASE_URL`                           | Cloudflare Worker build environment                          | Inlined into the client bundle. Production is explicitly set to `https://data.hadithcriticblog.com/`; local development uses the range-capable dev server. |
 | `PUBLIC_CORPUS_VERSION`                            | build environment                                            | Pinning or rolling back to a corpus version other than the one in`src/data/corpus-meta.json`.                                                                                                                                                                                                               |
-| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`         | `.dev.vars` locally, `wrangler secret put` in production | The admin notification pages only. No public page reads a database.                                                                                                                                                                                                                                           |
 | `CLOUDFLARE_*` (API token, account id, R2 S3 keys) | `../.env.local`, outside the repo                          | `npm run publish:corpus`, which uploads to R2.                                                                                                                                                                                                                                                              |
 | `CORPUS_MASTER_DB`                                 | shell                                                        | Pointing the corpus build at a master database outside`dist-db/`.                                                                                                                                                                                                                                           |
 | `CORPUS_VERSION`                                   | shell                                                        | Republishing under an existing version name instead of minting a new one.                                                                                                                                                                                                                                     |
@@ -174,7 +172,7 @@ To exercise a **built** site against the real corpus, use `npm run build:e2e`. S
 | `npm run validate`                                        | Full suite: footnote lint, unit tests, Arabic normalization parity, type check, design audit, build      |
 | `npm run lint:footnotes`                                  | Footnote structure lint across the articles                                                              |
 | `npm run test:design`                                     | Enforce the conventions in DESIGN.md                                                                     |
-| `npm run test:notifications`                              | Unit tests for the notification lib and the email templates                                              |
+| `npm run test:subscribe`                                  | Unit tests for the subscriber signup integration                                                          |
 | `npm run test:normalize`                                  | Arabic normalization and formatting parity, JS against SQL                                               |
 | `npm run test:e2e`                                        | The full Playwright suite                                                                                |
 | `npm run test:e2e:corpus`                                 | Both corpus suites, including the assertions about what the real corpus contains                         |
@@ -187,7 +185,7 @@ To exercise a **built** site against the real corpus, use `npm run build:e2e`. S
 | `npm run publish:corpus`                                  | Upload a built corpus release to R2, with CORS, where production reads it                                |
 | `npm run publish:corpus:dist`                             | Copy a release into`dist/client` instead, for a host that serves byte ranges                           |
 | `npm run use:corpus-fixture`, `npm run use:corpus-real` | Swap the committed corpus metadata for the fixture's, and back                                           |
-| `npm run build:narrators`                                 | Rebuild the register seed inputs under`data/generated/`                                                |
+| `npm run build:narrators`                                 | Rebuild generated narrator research files under `data/generated/`                                      |
 | `npm run build:og`                                        | Regenerate the Open Graph card images                                                                    |
 
 *Search Note*: The Pagefind index is only generated during the build process. To test the full search feature locally, run `npm run build` followed by `npm run preview`.
@@ -196,9 +194,7 @@ To exercise a **built** site against the real corpus, use `npm run build:e2e`. S
 
 ## Databases
 
-There are two, and they are not the same kind of thing.
-
-**The corpus** is a versioned SQLite file, served as immutable static chunks from R2 and queried in the reader's browser over HTTP range requests. It has no server, no credentials and no quota: a read is a cached range request. A release is named `YYYY-MM-DD-<short commit>`, is never rewritten in place, and is tied to a deployment through `src/data/corpus-meta.json`. Read **[docs/static-corpus.md](docs/static-corpus.md)** before changing a query; the traps recorded there are all ones that shipped.
+The hadith corpus is a versioned SQLite file, served as immutable static chunks from the `hadithcritic-corpus` R2 bucket and queried in the reader's browser over HTTP range requests. The public reading path has no database server. A release is named `YYYY-MM-DD-<short commit>`, is never rewritten in place, and is tied to a site deployment through `src/data/corpus-meta.json`. Read **[docs/static-corpus.md](docs/static-corpus.md)** before changing a corpus query.
 
 Publishing a corpus release and deploying the site are separate events:
 
@@ -207,9 +203,9 @@ npm run build:corpus     # from the master database, local only
 npm run publish:corpus   # upload that version to R2
 ```
 
-**Turso** holds one table, `article_notifications`, behind the admin notification route. `src/lib/db.ts` reaches it over HTTPS with `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`, and nothing under `/hadith` or `/narrators` imports it. `migrations/` is the schema history from the era when the corpus lived there. It is applied with `node scripts/migrate-turso.mjs`, never by a build step.
+The article-announcement admin page has been removed. Public subscription signup remains available and adds contacts to Resend; it does not use a database. Historical SQL files under `migrations/` document earlier versions and are not part of deployment.
 
-**[DATABASE.md](DATABASE.md)** records why the corpus left D1 and then Turso, with the measured read costs that made the argument. The query shapes those measurements produced are still live in `src/lib/corpus-count.ts`, because the cost only changed units, from billed rows to network round trips.
+The master corpus database is not stored in Git. Keep an identified, backed-up master copy separate from the published R2 releases. **[DATABASE.md](DATABASE.md)** describes the current data flow and the historical D1/Turso resources.
 
 ---
 
@@ -231,8 +227,7 @@ The `scripts/` directory holds the data pipelines and audits.
 | `corpus-file-server.mjs`                                                                                                                                     | Serves corpus chunks with real byte ranges, which`astro preview` cannot. Used by the e2e run.                                                                               |
 | `build-for-e2e.mjs`                                                                                                                                          | Builds the site pointed at that server, optionally against the fixture.                                                                                                       |
 | `lib/corpus-range.mjs`                                                                                                                                       | The byte-serving implementation, shared by the dev middleware and that server.                                                                                                |
-| `build-narrators.mjs`                                                                                                                                        | Builds the register seed inputs in`data/generated/` from the al-Kashif source.                                                                                              |
-| `seed-narrators-d1.mjs`                                                                                                                                      | Turns`data/generated/` into SQL batches for the register.                                                                                                                   |
+| `build-narrators.mjs`                                                                                                                                        | Builds generated narrator research files in `data/generated/` from the al-Kashif source.                                                                                     |
 | `build-og-images.mjs`                                                                                                                                        | Generates the Open Graph card images with Satori.                                                                                                                             |
 | `build-quran-data.cjs`                                                                                                                                       | Generates Quranic verse JSON data for quick citations within blog articles.                                                                                                   |
 | `optimize-images.cjs`                                                                                                                                        | Converts heavy PNG/JPG files in`public/` to optimized WebP.                                                                                                                 |
@@ -240,17 +235,16 @@ The `scripts/` directory holds the data pipelines and audits.
 | `test-search.mjs`                                                                                                                                            | Runs end-to-end queries against the compiled Pagefind search index.                                                                                                           |
 | `design-audit.mjs`, `check-contrast.mjs`                                                                                                                   | Enforce DESIGN.md and WCAG AA at build time.                                                                                                                                  |
 | `lint-footnotes.mjs`                                                                                                                                         | Footnote structure lint across the articles.                                                                                                                                  |
-| `migrate-turso.mjs`, `refresh-stats.mjs`, `verify-corpus.mjs`, `fill-hadith-fts.mjs`, `d1-to-turso.mjs`, `upload-turso.mjs`, `measure-reads.mjs` | The hosted-corpus era. Kept as the record of how the corpus moved. None is part of a current workflow, and each is run as`node scripts/<name>.mjs` rather than through npm. |
 
 ---
 
 ## Deployment
 
-The platform deploys to **Cloudflare Workers**.
+The site deploys to the Cloudflare Worker named **`hcb`**.
 
 1. Push changes to the main branch.
-2. Cloudflare builds the project (`npm run build`) via the `@astrojs/cloudflare` adapter and the settings in `wrangler.jsonc`. `PUBLIC_CORPUS_BASE_URL` has to be set in the build environment, or the build fails rather than shipping a site that asks its own origin for the corpus.
+2. The single production Workers Build for `main` runs `npm run build`, then `npx wrangler deploy`. It uses the Astro Cloudflare adapter and `wrangler.jsonc`; `PUBLIC_CORPUS_BASE_URL` is configured on the production build trigger.
 3. Prerendered pages are served as static assets. `/hadith/[id]` and `/narrators/[id]` run on demand and perform no I/O.
-4. The corpus is published separately from the site: `npm run publish:corpus` uploads a release to R2, which is where production reads it from. Publish the corpus before deploying a site built against it.
+4. Corpus releases are published separately from article changes: `npm run publish:corpus` uploads a built release to R2. Update and commit `src/data/corpus-meta.json` when the site should use a new release.
 
-The corpus needs no credentials: it is public static files. `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` remain as secrets for the article notification ledger alone, which is not the corpus.
+The published corpus is public static data. Runtime secrets `RESEND_API_KEY` and `RESEND_SEGMENT_ID` are used only for subscription signup; the signup endpoint is rate limited by the Worker binding in `wrangler.jsonc`.
