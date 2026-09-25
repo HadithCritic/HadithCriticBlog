@@ -55,8 +55,8 @@ const arabicSegments = found
   .filter((f) => f.ar)
   .map((f) => ({ text: f.ar, num: f.ref.split(":")[1] ?? "" }));
 
-// Plain-text Arabic string (still separated by the real ayah-end glyph)
-// kept only for the "Copy" button, where a font fallback glyph doesn't
+// Plain-text Arabic string (still separated by the real ayah-end marker)
+// kept for the share action, where a font fallback glyph doesn't
 // matter -- it's just going onto the user's clipboard as text.
 const arabicPlain = arabicSegments.map((s) => s.text).join(" \u06DD ");
 
@@ -70,7 +70,6 @@ const hasData = Boolean(arabicSegments.length || english.length);
 <div class="hc-article-panel quran-verse" data-quran-verse>
   <div class="quran-verse__header">
     <div class="quran-verse__badge">
-      <span class="quran-verse__badge-icon" aria-hidden="true">✦</span>
       <span class="quran-verse__badge-label">Quran</span>
     </div>
 
@@ -78,41 +77,12 @@ const hasData = Boolean(arabicSegments.length || english.length);
       hasData && (
         <button
           type="button"
-          class="quran-verse__copy"
-          data-quran-copy
-          title="Copy verse"
-          aria-label="Copy verse to clipboard"
+          class="quran-verse__share"
+          data-quran-share
+          title="Share citation"
+          aria-label="Share citation"
         >
-          <span class="quran-verse__copy-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              width="13"
-              height="13"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          </span>
-          <span class="quran-verse__copy-check" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              width="13"
-              height="13"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </span>
-          <span class="quran-verse__copy-text">Copy</span>
+          <span class="quran-verse__share-text">Share</span>
         </button>
       )
     }
@@ -128,7 +98,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
               dir="rtl"
               lang="ar"
               data-arabic-text
-              data-copy-text={arabicPlain}
+              data-share-text={arabicPlain}
             >
               {arabicSegments.map((seg) => (
                 <span class="qv-ayah">
@@ -143,7 +113,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
             </div>
           )}
           {english.length > 0 && (
-            <p class="quran-verse__english" data-english-text data-copy-text={englishPlain}>
+            <p class="quran-verse__english" data-english-text data-share-text={englishPlain}>
               {verseEntries.map((f, index) => (
                 <>
                   <span class="qv-verse">{f.en}</span>
@@ -158,9 +128,6 @@ const hasData = Boolean(arabicSegments.length || english.length);
             </p>
           )}
           <div class="quran-verse__ref" data-ref-text={ref}>
-            <span class="quran-verse__ref-icon" aria-hidden="true">
-              ✦
-            </span>
             <span>{ref}</span>
           </div>
         </>
@@ -172,43 +139,43 @@ const hasData = Boolean(arabicSegments.length || english.length);
 </div>
 
 <script>
-  import { copyText, flashCopied, buildCitation } from "../../lib/clipboard";
-  function initQuranCopy() {
+  import { shareText, flashCopied, buildCitation } from "../../lib/clipboard";
+  function initQuranShare() {
     for (const card of document.querySelectorAll<HTMLElement>(
       "[data-quran-verse]",
     )) {
-      if (card.dataset.copyInitialized) continue;
-      card.dataset.copyInitialized = "true";
+      if (card.dataset.shareInitialized) continue;
+      card.dataset.shareInitialized = "true";
 
-      const copyBtn =
-        card.querySelector<HTMLButtonElement>("[data-quran-copy]");
-      if (!copyBtn) continue;
+      const shareBtn =
+        card.querySelector<HTMLButtonElement>("[data-quran-share]");
+      if (!shareBtn) continue;
 
-      copyBtn.addEventListener("click", async () => {
+      shareBtn.addEventListener("click", async () => {
         const arabicEl = card.querySelector("[data-arabic-text]");
         const englishEl = card.querySelector("[data-english-text]");
         const refVal = card
           .querySelector("[data-ref-text]")
           ?.getAttribute("data-ref-text");
 
-        const textToCopy = buildCitation({
-          primary: arabicEl?.getAttribute("data-copy-text") || arabicEl?.textContent,
-          quoted: englishEl?.getAttribute("data-copy-text") || englishEl?.textContent,
+        const citation = buildCitation({
+          primary: arabicEl?.getAttribute("data-share-text") || arabicEl?.textContent,
+          quoted: englishEl?.getAttribute("data-share-text") || englishEl?.textContent,
           reference: refVal
         });
-        if (!textToCopy) return;
-        if (!(await copyText(textToCopy, "verse"))) return;
-        flashCopied(copyBtn, { labelSelector: ".quran-verse__copy-text" });
+        if (!citation) return;
+        if (!(await shareText(citation, "Quran citation"))) return;
+        flashCopied(shareBtn, { labelSelector: ".quran-verse__share-text", copiedLabel: "Ready to share", idleLabel: "Share", className: "is-shared" });
       });
     }
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initQuranCopy);
+    document.addEventListener("DOMContentLoaded", initQuranShare);
   } else {
-    initQuranCopy();
+    initQuranShare();
   }
-  document.addEventListener("astro:page-load", initQuranCopy);
+  document.addEventListener("astro:page-load", initQuranShare);
 </script>
 
 <style>
@@ -251,8 +218,8 @@ const hasData = Boolean(arabicSegments.length || english.length);
     font-size: 0.95rem;
   }
 
-  /* Copy Button */
-  .quran-verse__copy {
+  /* Share Button */
+  .quran-verse__share {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -276,30 +243,17 @@ const hasData = Boolean(arabicSegments.length || english.length);
       transform 180ms ease;
   }
 
-  .quran-verse__copy:hover {
+  .quran-verse__share:hover {
     color: var(--hc-gold);
     border-color: var(--hc-gold-dim);
     background: rgba(216, 177, 102, 0.1);
     transform: translateY(-1px);
   }
 
-  .quran-verse__copy-check {
-    display: none;
-    color: #4ade80;
-  }
-
-  .quran-verse__copy.is-copied {
-    border-color: #4ade80;
-    color: #4ade80;
-    background: rgba(74, 222, 128, 0.1);
-  }
-
-  .quran-verse__copy.is-copied .quran-verse__copy-icon {
-    display: none;
-  }
-
-  .quran-verse__copy.is-copied .quran-verse__copy-check {
-    display: inline-flex;
+  .quran-verse__share.is-shared {
+    border-color: var(--hc-gold-dim);
+    color: var(--hc-text-primary);
+    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
   }
 
   .quran-verse__content {
@@ -425,7 +379,7 @@ const hasData = Boolean(arabicSegments.length || english.length);
     color: var(--hc-text-secondary);
   }
 
-  :global([data-theme="light"]) .quran-verse__copy {
+  :global([data-theme="light"]) .quran-verse__share {
     background: rgba(251, 249, 244, 0.9);
     border-color: var(--hc-rule);
     color: var(--hc-text-primary);

@@ -336,28 +336,33 @@ where this material needs it.
 
 ### Article reading
 
-- The article body defaults to Poppins at 17px on phones and up to 18px on wide
-  screens, with 1.72–1.74 leading. All normal prose paragraphs have a first
-  line indent, including openings and paragraphs directly after headings.
-  Reader size settings also scale English text in source quotations. Keep the
-  small setting at least 16px.
-- The standard measure is 48rem and the wide measure is 53rem. The article
-  title, standfirst, metadata, thumbnail, and prose share that measure and are
-  centered in the reading column. Section headings are centered as well.
-- Every post uses `EditorialHeader`: a centered category, balanced title and
-  standfirst, followed by a neutral metadata band with explicit author,
-  publication date and reading-time labels. The toolbar follows the same
-  reading measure. Metadata wraps into two columns plus a reading-time row on
-  phones; absent fields leave no empty cells. Topics show three labels and a
-  native disclosure for the rest. Cover images retain the full artwork, with
-  a soft border and restrained shadow. All surfaces use the shared theme tokens.
-- Qurʾānic Arabic uses Amiri Quran with generous Arabic leading. English
+- Article prose uses Poppins at 17px on phones and scales to 19px on wide
+  screens, with 1.78 leading. Keep paragraphs left aligned, without first-line
+  indents, with approximately 1.1em between paragraphs. Reader size settings
+  also scale English text in source quotations. Keep the small setting at least
+  16px.
+- The standard reading measure is 66ch; callouts and wide tables can extend to
+  72ch. The article title and standfirst align to the prose edge. Section
+  headings are left aligned and clearly separated from the preceding paragraph.
+- Every post uses `EditorialHeader`: a left-aligned category, prominent title
+  and standfirst, followed by a ruled metadata row with explicit author,
+  publication date and reading-time labels. Topics are plain text, not pills.
+  Cover images use a consistent 16:9 frame up to 48rem wide. Preserve the full
+  artwork and add descriptive alternative text. All surfaces use shared theme
+  tokens.
+- Qur'anic Arabic uses Amiri Quran with generous Arabic leading. English
   translations, Bible excerpts, and hadith translations use the body face and
   share its reading scale. Distinguish source types through their labels and
   references, not thick gold borders or decorative shadows. English verses in
-  a multi-verse Qurʾān citation flow as one passage, with subtle verse markers
+  a multi-verse Qur'an citation flow as one passage, with subtle verse markers
   between them and the full reference at the end. Bible excerpt text is
   justified within its citation component.
+- Interface components use words for actions and state. Do not add emoji,
+  ornamental Unicode glyphs, icon-only controls, or the word "Copy" to visible
+  controls. Share actions say "Share" and explain their subject to assistive
+  technology. Logos and marks that identify a cited third-party service remain
+  where they carry attribution; transmission diagrams retain connectors only
+  when they encode the evidence being shown.
 - Footnote references remain real anchors to the notes. The dialog is a
   progressive enhancement for short citation reading, especially on phones.
   Its citation link scrolls to and focuses the matching note. Notes and

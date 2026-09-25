@@ -61,6 +61,25 @@ for (const file of files) {
   // quote a tag is documentation, and counting it reported a duplicate
   // landmark on a file that had exactly one.
   const code = stripComments(content);
+  if (file.includes(`${join('src', 'components')}`)) {
+    // These brand rules concern reader-visible component markup, not
+    // implementation identifiers, comments, CSS, or JavaScript behavior.
+    const markup = code
+      .replace(/<script\b[\s\S]*?<\/script>/gi, '')
+      .replace(/<style\b[\s\S]*?<\/style>/gi, '');
+    const visibleCopy = />[^<>]*\bcopy\b[^<>]*</i;
+    const visibleGlyph = />[^<>]*[\u2600-\u27bf\u2190-\u21ff\u2300-\u23ff\u25a0-\u25ff][^<>]*</;
+    const copyMatch = markup.match(visibleCopy);
+    const glyphMatch = markup.match(visibleGlyph);
+    if (copyMatch) {
+      const line = markup.slice(0, copyMatch.index).split(/\r?\n/).length;
+      report(failures, file, line, 'reader-visible “Copy” label (use a clear Share action)');
+    }
+    if (glyphMatch) {
+      const line = markup.slice(0, glyphMatch.index).split(/\r?\n/).length;
+      report(failures, file, line, 'reader-visible ornamental Unicode glyph (use a word label)');
+    }
+  }
   const mainCount = (code.match(/<main\b/g) || []).length;
   if (mainCount > 1) report(failures, file, 1, 'nested or duplicate <main> landmarks');
   for (const tag of content.matchAll(/<a\b[\s\S]*?>/g)) {

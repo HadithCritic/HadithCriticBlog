@@ -1,6 +1,5 @@
 ---
-// Renders a single-transmitter bottleneck fanning out into variant matn forms:
-// one root, one companion node, then branches with a quoted variant + sources.
+// A compact transmission map: shared report, common transmitter, then variants.
 export interface VariantBranch {
   name: string;
   from?: string;
@@ -19,220 +18,184 @@ export interface Props {
 const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
 ---
 
-<div class="variant-tree" aria-label={ariaLabel || title}>
-  <div class="variant-tree__header">
-    <span class="variant-tree__badge">
-      <span class="variant-tree__badge-icon" aria-hidden="true">⑂</span>
-      <span>{title}</span>
+<figure class="variant-tree" aria-label={ariaLabel || title}>
+  <figcaption class="variant-tree__heading">
+    <span class="variant-tree__eyebrow">Transmission variants</span>
+    <span class="variant-tree__title">{title}</span>
+  </figcaption>
+
+  <div class="variant-tree__trunk">
+    <span class="variant-tree__root">{root}</span>
+    <span class="variant-tree__connector" aria-hidden="true"></span>
+    <span class="variant-tree__bottleneck">
+      <span class="variant-tree__bottleneck-tag">Common transmitter</span>
+      <span class="variant-tree__bottleneck-name">{bottleneck}</span>
     </span>
   </div>
 
-  <div class="variant-tree__trunk">
-    <div class="variant-tree__node variant-tree__root">{root}</div>
-    <div class="variant-tree__stem" aria-hidden="true">
-      <svg width="2" height="28" viewBox="0 0 2 28">
-        <line x1="1" y1="0" x2="1" y2="28" stroke="var(--hc-gold-dim)" stroke-width="2" stroke-dasharray="3 3"></line>
-      </svg>
-    </div>
-    <div class="variant-tree__node variant-tree__bottleneck">
-      <span class="variant-tree__bottleneck-tag">Bottleneck</span>
-      <span class="variant-tree__bottleneck-name">{bottleneck}</span>
-    </div>
-    <div class="variant-tree__stem" aria-hidden="true">
-      <svg width="2" height="24" viewBox="0 0 2 24">
-        <line x1="1" y1="0" x2="1" y2="24" stroke="var(--hc-gold)" stroke-width="2"></line>
-      </svg>
-    </div>
-  </div>
-
-  <div class="variant-tree__branches">
-    {branches.map((branch) => (
-      <div class="variant-tree__branch">
-        <div class="variant-tree__branch-head">
-          <p class="variant-tree__name">
-            {branch.name}
-            {branch.from && <span class="variant-tree__from">via {branch.from}</span>}
-          </p>
+  <ol class="variant-tree__branches">
+    {branches.map((branch, index) => (
+      <li class="variant-tree__branch">
+        <div class="variant-tree__branch-heading">
+          <span class="variant-tree__branch-index">{String(index + 1).padStart(2, '0')}</span>
+          <span class="variant-tree__name">{branch.name}</span>
+          {branch.from && <span class="variant-tree__from">via {branch.from}</span>}
         </div>
-        <p class="variant-tree__quote">&ldquo;{branch.quote}&rdquo;</p>
+        <blockquote class="variant-tree__quote">{branch.quote}</blockquote>
         <p class="variant-tree__sources">{branch.sources}</p>
-      </div>
+      </li>
     ))}
-  </div>
-</div>
+  </ol>
+</figure>
 
 <style>
   .variant-tree {
-    margin: 2.75rem 0;
-    padding: clamp(1.4rem, 3vw, 2.2rem);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm);
-    background:
-      radial-gradient(circle at 50% 0%, rgba(216, 177, 102, 0.05), transparent 50%),
-      linear-gradient(
-        140deg,
-        color-mix(in srgb, var(--hc-surface-2) 90%, transparent),
-        color-mix(in srgb, var(--hc-surface-1) 96%, transparent)
-      );
-    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.16);
-    text-align: center;
+    margin: clamp(2rem, 4vw, 3rem) 0;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--hc-rule-soft);
+    color: var(--hc-text-primary);
   }
 
-  .variant-tree__header {
-    margin-bottom: 1.5rem;
+  .variant-tree__heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.75rem;
   }
 
-  .variant-tree__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.1);
-    border: 1px solid rgba(216, 177, 102, 0.25);
-    color: var(--hc-gold);
+  .variant-tree__eyebrow,
+  .variant-tree__bottleneck-tag {
+    color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  .variant-tree__badge-icon {
-    font-size: 0.95rem;
+  .variant-tree__title {
+    color: var(--hc-text-secondary);
+    font-size: 0.9rem;
   }
 
   .variant-tree__trunk {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .variant-tree__node {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0.45rem 1.25rem;
-    border-radius: var(--radius-xs);
-    font-family: var(--font-body);
-    font-size: 1.01rem;
+    gap: 0.75rem;
+    min-height: 2.2rem;
+    padding: 0 0 0.75rem;
   }
 
   .variant-tree__root {
-    border: 1px solid var(--hc-rule-strong);
-    background: color-mix(in srgb, var(--hc-surface-3) 75%, transparent);
     color: var(--hc-text-primary);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .variant-tree__connector {
+    flex: 0 1 3rem;
+    min-width: 1rem;
+    border-top: 1px solid var(--hc-rule-strong);
   }
 
   .variant-tree__bottleneck {
-    border: 1px solid var(--hc-gold);
-    background: rgba(216, 177, 102, 0.12);
-    box-shadow: 0 0 16px rgba(216, 177, 102, 0.15);
-  }
-
-  .variant-tree__bottleneck-tag {
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-gold-dim);
-    margin-bottom: 0.1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.6rem;
+    padding-inline-start: 0.75rem;
+    border-inline-start: 2px solid var(--hc-gold-dim);
   }
 
   .variant-tree__bottleneck-name {
-    color: var(--hc-gold);
-    font-weight: 700;
-    font-size: 1.06rem;
-  }
-
-  .variant-tree__stem {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 1.5rem;
+    color: var(--hc-gold-soft);
+    font-size: 0.94rem;
+    font-weight: 600;
   }
 
   .variant-tree__branches {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.25rem;
-    margin-top: 0.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--hc-rule);
-    text-align: left;
-    position: relative;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hc-rule-soft);
   }
 
   .variant-tree__branch {
-    padding: 1.1rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-top: 2px solid var(--hc-gold-dim);
-    border-radius: var(--radius-xs);
-    background: color-mix(in srgb, var(--hc-surface-0) 70%, transparent);
+    min-width: 0;
+    padding: 0.8rem 1rem 0.25rem 0;
+  }
+
+  .variant-tree__branch + .variant-tree__branch {
+    padding-inline: 1rem 0;
+    border-inline-start: 1px solid var(--hc-rule-soft);
+  }
+
+  .variant-tree__branch-heading {
     display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: transform 180ms ease, border-color 180ms ease;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.55rem;
+    margin-bottom: 0.4rem;
   }
 
-  .variant-tree__branch:hover {
-    transform: translateY(-2px);
-    border-color: var(--hc-gold-dim);
-  }
-
-  .variant-tree__branch-head {
-    margin-bottom: 0.75rem;
+  .variant-tree__branch-index {
+    color: var(--hc-gold-dim);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .variant-tree__name {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.96rem;
-    font-weight: 700;
     color: var(--hc-text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .variant-tree__from {
-    display: block;
-    margin-top: 0.2rem;
-    font-weight: 400;
-    font-size: 0.85rem;
-    color: var(--hc-gold-dim);
+    color: var(--hc-text-tertiary);
+    font-size: 0.8rem;
   }
 
   .variant-tree__quote {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-body);
-    font-size: 1.1rem;
-    line-height: 1.65;
-    font-style: italic;
+    margin: 0 0 0.45rem;
     color: var(--hc-text-secondary);
+    font-size: 0.91rem;
+    line-height: 1.5;
   }
 
   .variant-tree__sources {
     margin: 0;
-    padding-top: 0.65rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-    color: var(--hc-text-secondary);
+    color: var(--hc-text-tertiary);
+    font-size: 0.78rem;
+    line-height: 1.45;
   }
 
-  :global([data-theme="light"]) .variant-tree {
-    background:
-      radial-gradient(circle at 50% 0%, rgba(176, 126, 44, 0.08), transparent 50%),
-      linear-gradient(140deg, rgba(251, 249, 244, 0.98), rgba(244, 239, 229, 0.96));
-    border-color: var(--hc-rule);
-    box-shadow: 0 10px 35px rgba(43, 40, 36, 0.08);
-  }
+  @media (max-width: 640px) {
+    .variant-tree__trunk {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
 
-  :global([data-theme="light"]) .variant-tree__branch {
-    background: rgba(251, 249, 244, 0.9);
-    border-color: var(--hc-rule);
-  }
+    .variant-tree__connector {
+      flex: 0 0 0.9rem;
+      min-width: 0;
+      margin-inline-start: 0.25rem;
+      border-top: 0;
+      border-inline-start: 1px solid var(--hc-rule-strong);
+    }
 
-  :global([data-theme="light"]) .variant-tree__root {
-    background: rgba(240, 234, 220, 0.7);
+    .variant-tree__branch,
+    .variant-tree__branch + .variant-tree__branch {
+      padding: 0.75rem 0 0.4rem;
+      border-inline-start: 0;
+    }
+
+    .variant-tree__branch + .variant-tree__branch {
+      border-top: 1px solid var(--hc-rule-soft);
+    }
   }
 </style>

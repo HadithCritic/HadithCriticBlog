@@ -32,6 +32,20 @@ export async function copyText(text: string, context = 'text'): Promise<boolean>
   }
 }
 
+/** Offer the native share sheet where the browser supports it, with clipboard as a desktop fallback. */
+export async function shareText(text: string, title: string): Promise<boolean> {
+  if (!text) return false;
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title, text });
+      return true;
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return false;
+    }
+  }
+  return copyText(text, title);
+}
+
 export interface CopiedFeedbackOptions {
   /** Selector for the label element inside the button, if it has one. */
   labelSelector?: string;
@@ -52,8 +66,8 @@ export interface CopiedFeedbackOptions {
 export function flashCopied(button: HTMLElement, options: CopiedFeedbackOptions = {}): void {
   const {
     labelSelector,
-    copiedLabel = 'Copied!',
-    idleLabel = 'Copy',
+    copiedLabel = 'Ready to share',
+    idleLabel = 'Share',
     duration = 2200,
     className = 'is-copied'
   } = options;

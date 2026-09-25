@@ -30,23 +30,12 @@ const hasSlot = Astro.slots.has('default');
 
     <button
       type="button"
-      class="hadith-block__copy"
-      data-hadith-copy
-      title="Copy report text"
-      aria-label="Copy report text to clipboard"
+      class="hadith-block__share"
+      data-hadith-share
+      title="Share report"
+      aria-label="Share report"
     >
-      <span class="hadith-block__copy-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-      </span>
-      <span class="hadith-block__copy-check" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      </span>
-      <span class="hadith-block__copy-text">Copy</span>
+      <span class="hadith-block__share-text">Share</span>
     </button>
   </div>
 
@@ -71,38 +60,38 @@ const hasSlot = Astro.slots.has('default');
 </div>
 
 <script>
-  import { copyText, flashCopied, buildCitation } from '../../lib/clipboard';
-  function initHadithCopy() {
+  import { shareText, flashCopied, buildCitation } from '../../lib/clipboard';
+  function initHadithShare() {
     for (const block of document.querySelectorAll<HTMLElement>('[data-hadith-block]')) {
-      if (block.dataset.copyInitialized) continue;
-      block.dataset.copyInitialized = 'true';
+      if (block.dataset.shareInitialized) continue;
+      block.dataset.shareInitialized = 'true';
 
-      const copyBtn = block.querySelector<HTMLButtonElement>('[data-hadith-copy]');
-      if (!copyBtn) continue;
+      const shareBtn = block.querySelector<HTMLButtonElement>('[data-hadith-share]');
+      if (!shareBtn) continue;
 
-      copyBtn.addEventListener('click', async () => {
+      shareBtn.addEventListener('click', async () => {
         const arabicEl = block.querySelector('[data-arabic-text]');
         const englishEl = block.querySelector('[data-english-text]');
         const sourceVal = block.querySelector('[data-source-text]')?.getAttribute('data-source-text');
 
-        const textToCopy = buildCitation({
+        const citation = buildCitation({
           primary: arabicEl?.textContent,
           quoted: englishEl?.textContent,
           reference: sourceVal
         });
-        if (!textToCopy) return;
-        if (!(await copyText(textToCopy, 'hadith text'))) return;
-        flashCopied(copyBtn, { labelSelector: '.hadith-block__copy-text' });
+        if (!citation) return;
+        if (!(await shareText(citation, 'Hadith report'))) return;
+        flashCopied(shareBtn, { labelSelector: '.hadith-block__share-text', copiedLabel: 'Ready to share', idleLabel: 'Share', className: 'is-shared' });
       });
     }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initHadithCopy);
+    document.addEventListener('DOMContentLoaded', initHadithShare);
   } else {
-    initHadithCopy();
+    initHadithShare();
   }
-  document.addEventListener('astro:page-load', initHadithCopy);
+  document.addEventListener('astro:page-load', initHadithShare);
 </script>
 
 <style>
@@ -186,8 +175,8 @@ const hasSlot = Astro.slots.has('default');
     box-shadow: 0 0 6px var(--hc-umber);
   }
 
-  /* Copy Button */
-  .hadith-block__copy {
+  /* Share Button */
+  .hadith-block__share {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -207,30 +196,17 @@ const hasSlot = Astro.slots.has('default');
     transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
   }
 
-  .hadith-block__copy:hover {
+  .hadith-block__share:hover {
     color: var(--hc-gold);
     border-color: var(--hc-gold-dim);
     background: rgba(216, 177, 102, 0.1);
     transform: translateY(-1px);
   }
 
-  .hadith-block__copy-check {
-    display: none;
-    color: #4ade80;
-  }
-
-  .hadith-block__copy.is-copied {
-    border-color: #4ade80;
-    color: #4ade80;
-    background: rgba(74, 222, 128, 0.1);
-  }
-
-  .hadith-block__copy.is-copied .hadith-block__copy-icon {
-    display: none;
-  }
-
-  .hadith-block__copy.is-copied .hadith-block__copy-check {
-    display: inline-flex;
+  .hadith-block__share.is-shared {
+    border-color: var(--hc-gold-dim);
+    color: var(--hc-text-primary);
+    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
   }
 
   .hadith-block__content {
@@ -340,7 +316,7 @@ const hasSlot = Astro.slots.has('default');
     color: var(--hc-text-secondary);
   }
 
-  :global([data-theme="light"]) .hadith-block__copy {
+  :global([data-theme="light"]) .hadith-block__share {
     background: rgba(251, 249, 244, 0.9);
     border-color: var(--hc-rule);
     color: var(--hc-text-primary);

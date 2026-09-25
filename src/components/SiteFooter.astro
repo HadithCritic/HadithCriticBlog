@@ -43,7 +43,7 @@ const year = new Date().getFullYear();
       <div class="hc-footer__col hc-footer__col--dispatch">
         <h3 class="hc-footer__label">Stay Informed</h3>
         <p class="hc-footer__dispatch-desc">
-          Occasional updates on new publications, datasets, and research releases.
+          Get an email when a new blog post is published. Each update includes a direct link, and you can unsubscribe anytime.
         </p>
 
         <div class="hc-footer__dispatch" data-subscribe-form>
@@ -60,6 +60,7 @@ const year = new Date().getFullYear();
                 inputmode="email"
                 class="hc-footer__input"
               />
+              <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" hidden />
               <button type="submit" class="hc-footer__submit" aria-label="Subscribe">
                 Subscribe
               </button>
@@ -79,7 +80,7 @@ const year = new Date().getFullYear();
     <!-- Legal / Utility Row -->
     <div class="hc-footer__bottom">
       <div class="hc-footer__legal">
-        <span class="hc-footer__copyright">© {year} HadithCritic</span>
+        <span class="hc-footer__copyright">Copyright {year} HadithCritic</span>
         <nav class="hc-footer__legal-links" aria-label="Legal">
           <a href="/legal/">Privacy &amp; Terms</a>
           <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer">Source</a>
@@ -94,7 +95,7 @@ const year = new Date().getFullYear();
           <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer" aria-label="GitHub">GitHub</a>
         </nav>
         <button type="button" class="hc-footer__top" id="footer-back-to-top" aria-label="Back to top">
-          Top ↑
+          Back to top
         </button>
       </div>
     </div>
@@ -110,7 +111,9 @@ const year = new Date().getFullYear();
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const email = new FormData(form).get('email');
+      const data = new FormData(form);
+      const email = data.get('email');
+      const website = data.get('website');
       if (typeof email !== 'string' || !email) return;
 
       const submitButton = form.querySelector<HTMLButtonElement>('button[type="submit"]');
@@ -122,12 +125,12 @@ const year = new Date().getFullYear();
         const response = await fetch('/api/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email })
+          body: JSON.stringify({ email, website })
         });
         const result = (await response.json()) as { success: boolean; error?: string };
 
         if (result.success) {
-          status.textContent = 'Subscription confirmed.';
+          status.textContent = "You're on the blog update list. We'll email you when a new post is published.";
           status.classList.add('is-success');
           form.reset();
         } else {

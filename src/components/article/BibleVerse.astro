@@ -12,29 +12,17 @@ const { reference, eyebrow = "Bible" } = Astro.props;
 <div class="hc-article-panel bible-verse" data-bible-verse>
   <div class="bible-verse__header">
     <div class="bible-verse__badge">
-      <span class="bible-verse__badge-icon" aria-hidden="true">✦</span>
       <span class="bible-verse__badge-label">{eyebrow}</span>
     </div>
 
     <button
       type="button"
-      class="bible-verse__copy"
-      data-bible-copy
-      title="Copy verse"
-      aria-label="Copy verse to clipboard"
+      class="bible-verse__share"
+      data-bible-share
+      title="Share citation"
+      aria-label="Share citation"
     >
-      <span class="bible-verse__copy-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-      </span>
-      <span class="bible-verse__copy-check" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      </span>
-      <span class="bible-verse__copy-text">Copy</span>
+      <span class="bible-verse__share-text">Share</span>
     </button>
   </div>
 
@@ -43,42 +31,41 @@ const { reference, eyebrow = "Bible" } = Astro.props;
   </div>
 
   <div class="bible-verse__ref" data-ref-text={reference}>
-    <span class="bible-verse__ref-icon" aria-hidden="true">✦</span>
     <span>{reference}</span>
   </div>
 </div>
 
 <script>
-  import { copyText, flashCopied, buildCitation } from '../../lib/clipboard';
-  function initBibleCopy() {
+  import { shareText, flashCopied, buildCitation } from '../../lib/clipboard';
+  function initBibleShare() {
     for (const card of document.querySelectorAll<HTMLElement>('[data-bible-verse]')) {
-      if (card.dataset.copyInitialized) continue;
-      card.dataset.copyInitialized = 'true';
+      if (card.dataset.shareInitialized) continue;
+      card.dataset.shareInitialized = 'true';
 
-      const copyBtn = card.querySelector<HTMLButtonElement>('[data-bible-copy]');
-      if (!copyBtn) continue;
+      const shareBtn = card.querySelector<HTMLButtonElement>('[data-bible-share]');
+      if (!shareBtn) continue;
 
-      copyBtn.addEventListener('click', async () => {
+      shareBtn.addEventListener('click', async () => {
         const textEl = card.querySelector('[data-bible-text]');
         const refVal = card.querySelector('[data-ref-text]')?.getAttribute('data-ref-text');
 
-        const textToCopy = buildCitation({
+        const citation = buildCitation({
           quoted: textEl?.textContent,
           reference: refVal
         });
-        if (!textToCopy) return;
-        if (!(await copyText(textToCopy, 'Bible verse'))) return;
-        flashCopied(copyBtn, { labelSelector: '.bible-verse__copy-text' });
+        if (!citation) return;
+        if (!(await shareText(citation, 'Bible citation'))) return;
+        flashCopied(shareBtn, { labelSelector: '.bible-verse__share-text', copiedLabel: 'Ready to share', idleLabel: 'Share', className: 'is-shared' });
       });
     }
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBibleCopy);
+    document.addEventListener('DOMContentLoaded', initBibleShare);
   } else {
-    initBibleCopy();
+    initBibleShare();
   }
-  document.addEventListener('astro:page-load', initBibleCopy);
+  document.addEventListener('astro:page-load', initBibleShare);
 </script>
 
 <style>
@@ -121,8 +108,8 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     font-size: 0.95rem;
   }
 
-  /* Copy Button */
-  .bible-verse__copy {
+  /* Share Button */
+  .bible-verse__share {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -142,30 +129,17 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 180ms ease;
   }
 
-  .bible-verse__copy:hover {
+  .bible-verse__share:hover {
     color: var(--hc-gold);
     border-color: var(--hc-gold-dim);
     background: rgba(216, 177, 102, 0.1);
     transform: translateY(-1px);
   }
 
-  .bible-verse__copy-check {
-    display: none;
-    color: #4ade80;
-  }
-
-  .bible-verse__copy.is-copied {
-    border-color: #4ade80;
-    color: #4ade80;
-    background: rgba(74, 222, 128, 0.1);
-  }
-
-  .bible-verse__copy.is-copied .bible-verse__copy-icon {
-    display: none;
-  }
-
-  .bible-verse__copy.is-copied .bible-verse__copy-check {
-    display: inline-flex;
+  .bible-verse__share.is-shared {
+    border-color: var(--hc-gold-dim);
+    color: var(--hc-text-primary);
+    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
   }
 
   .bible-verse__content {
@@ -232,7 +206,7 @@ const { reference, eyebrow = "Bible" } = Astro.props;
     color: var(--hc-text-secondary);
   }
 
-  :global([data-theme="light"]) .bible-verse__copy {
+  :global([data-theme="light"]) .bible-verse__share {
     background: rgba(251, 249, 244, 0.9);
     border-color: var(--hc-rule);
     color: var(--hc-text-primary);

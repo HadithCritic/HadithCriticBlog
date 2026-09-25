@@ -83,15 +83,17 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 
 ### Installation
 
-Clone the repository and install the dependencies:
+Use **npm** for this repository. `package-lock.json` is the lockfile used by local setup, GitHub Actions, and Cloudflare builds. Do not switch package managers or generate a second lockfile; the deployment uses `npm ci` and expects the npm lockfile to stay in sync with `package.json`.
+
+Clone the repository, then move into the repository folder (the folder that contains `package.json`) before running npm commands:
 
 ```bash
 git clone https://github.com/HadithCritic/hadithcriticblog.git
 cd hadithcriticblog
-npm install
+npm ci
 ```
 
-*(Note: If you encounter peer dependency conflicts, use `npm install --legacy-peer-deps`)*
+If you already have a checkout, open a terminal in `HadithCriticBlog` itself. Do not run these commands from its parent folder, such as `C:\Users\Jonathan\Desktop\blogs`; `npm` must be able to find this repository's `package.json` and `package-lock.json` in the current folder.
 
 ### Environment and secrets
 
@@ -111,27 +113,35 @@ Nothing is required to run the article pages locally. These variables are for bu
 
 ### Local Development
 
-#### Starting the Development Server
+#### Start the site on Windows
 
-To start the Astro development server locally with Hot Module Replacement (HMR):
+Open PowerShell in the repository folder, `HadithCriticBlog` (the folder containing `package.json`). If starting from the parent folder shown in some IDEs, run:
 
-```bash
+```powershell
+Set-Location .\HadithCriticBlog
+```
+
+Then start the site:
+
+```powershell
 npm run dev
 ```
 
-Or run Astro directly:
+Keep that terminal open. On a first run, Astro may take a minute or more to optimize dependencies; wait for the `Local` address and the `ready` message before opening the site. Visit **http://localhost:4321/**. The npm `dev` script already binds to `127.0.0.1`, so there is no need to add another host option.
 
-```bash
-npx astro dev --host 127.0.0.1
-```
+To stop the server, focus its terminal and press **Ctrl+C**. Run only one dev server at a time; if port 4321 is already occupied by another copy, stop that copy first. After stopping, start it again from the repository folder with `npm run dev`.
 
-Once the development server is running, open your browser and navigate to:
+#### Common startup problems
 
-- **`http://localhost:4321`** or **`http://127.0.0.1:4321`**
+- **`ENOENT` or “package.json not found”**: the terminal is in the wrong folder. Change into `HadithCriticBlog` and try again.
+- **`npm` is not recognized**: install Node.js `>=24.0.0` (which includes npm), then close and reopen the terminal.
+- **Missing modules or a broken install**: from the repository folder, run `npm ci`, wait for it to finish, then run `npm run dev` again. `npm ci` restores the exact dependencies recorded in `package-lock.json`.
+- **Port 4321 is already in use**: stop the other Astro server with Ctrl+C in its terminal, then retry. Do not start a second copy in a different terminal.
+- **The browser says it cannot connect**: check that the terminal is still running and has printed the `Local` address; open `http://localhost:4321/` after the ready message.
 
-> **Note on Localhost Connection**: The dev server binds explicitly to `127.0.0.1:4321`. If your browser has trouble resolving `localhost`, navigate directly to `http://127.0.0.1:4321`.
+Do not run `npm install --legacy-peer-deps` as a routine fix. If npm reports a dependency or lockfile error, first run `npm ci` from this repository and keep `package.json` and `package-lock.json` together.
 
-Corpus pages take a few seconds on first compile. If a page seems to hang for minutes after an edit, that is usually dev-server recompilation backlog rather than your code: re-request before investigating.
+The first visit to a route can take longer while Astro compiles it. Give the terminal time to finish before treating a slow first page load as a site error.
 
 #### Working on the corpus locally
 
