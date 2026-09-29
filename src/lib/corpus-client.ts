@@ -57,6 +57,8 @@ import type {
   ChainNode,
   Criticism,
   HadithDetail,
+  HadithNarratorSurface,
+  HadithReference,
   HadithRecord,
   HadithSearchResponse,
   HadithSearchRow,
@@ -147,6 +149,7 @@ export function onCorpusStatus(listener: StatusListener): () => void {
 type Worker = Awaited<ReturnType<typeof createDbWorker>>;
 
 let workerPromise: Promise<Worker> | null = null;
+let structuredSchemaPromise: Promise<boolean> | null = null;
 
 /**
  * Prove the host answers range requests before trusting a byte of it.
@@ -518,13 +521,34 @@ function toSearchRow(row: Record<string, unknown>, rawQuery: string): HadithSear
 export async function getHadithDetail(id: number): Promise<HadithDetail | null> {
   if (!Number.isFinite(id) || id <= 0) return null;
 
-  const hadith = await queryOne<HadithRecord>(
-    `SELECT ${HADITH_COLUMNS} FROM hadith h JOIN hadith_book b ON b.id = h.book_id WHERE h.id = ?`,
-    [id]
-  );
+  // A deployment can still point at a pre-v2 immutable corpus release. Check
+  // its schema once, then read additive fields only when that release has them.
+  if (!structuredSchemaPromise) {
+    structuredSchemaPromise = queryOne<{ n: number }>(
+      `SELECT count(*) AS n FROM sqlite_master
+        WHERE type = 'table' AND name = 'hadith_structure'`
+    ).then((row) => Number(row?.n ?? 0) > 0);
+  }
+  const supportsStructure = await structuredSchemaPromise;
+  const detailSql = supportsStructure
+    ? `SELECT ${HADITH_COLUMNS},
+              h.text_ar_diac, h.matn_ar_diac,
+              hs.kitab_id, k.ordinal AS kitab_ordinal, k.title_ar AS kitab_ar, k.title_en AS kitab_en,
+              hs.bab_id, bab.ordinal AS bab_ordinal, bab.title_ar AS bab_ar, bab.title_en AS bab_en,
+              hs.assignment_basis
+         FROM hadith h
+         JOIN hadith_book b ON b.id = h.book_id
+         LEFT JOIN hadith_structure hs ON hs.hadith_id = h.id
+         LEFT JOIN hadith_kitab k ON k.id = hs.kitab_id
+         LEFT JOIN hadith_bab bab ON bab.id = hs.bab_id
+        WHERE h.id = ?`
+    : `SELECT ${HADITH_COLUMNS}
+         FROM hadith h JOIN hadith_book b ON b.id = h.book_id
+        WHERE h.id = ?`;
+  const hadith = await queryOne<HadithRecord>(detailSql, [id]);
   if (!hadith) return null;
 
-  const [chain, rawSubjects, glosses] = await Promise.all([
+  const [chain, rawSubjects, glosses, sourceNarrators, references] = await Promise.all([
     query<ChainNode>(
       `SELECT c.path_idx, c.pos, c.narrator_id, c.name, n.name_en, n.death_hijri
          FROM hadith_chain c
@@ -539,12 +563,34 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
     query<{ word_ar: string; word_en: string }>(
       'SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?',
       [id]
-    )
+    ),
+    supportsStructure
+      ? query<HadithNarratorSurface>(
+          `SELECT hn.pos, hn.narrator_id, hn.surface, hn.surface_diac, n.name_en, n.name_ar
+             FROM hadith_narrator hn
+             LEFT JOIN narrator n ON n.id = hn.narrator_id
+            WHERE hn.hadith_id = ? ORDER BY hn.pos`,
+          [id]
+        )
+      : Promise.resolve([] as HadithNarratorSurface[]),
+    supportsStructure
+      ? query<HadithReference>(
+          `SELECT r.reference_ordinal, r.edition_id, r.volume, r.page, r.source_marker,
+                  e.work_title_ar, e.publisher_ar, e.publication_place_ar,
+                  e.edition_statement_ar, e.year_hijri, e.year_gregorian, e.volume_count
+             FROM hadith_reference r
+             JOIN hadith_edition e ON e.id = r.edition_id
+            WHERE r.hadith_id = ? ORDER BY r.reference_ordinal`,
+          [id]
+        )
+      : Promise.resolve([] as HadithReference[])
   ]);
 
   return {
     hadith,
     chain,
+    sourceNarrators,
+    references,
     // The taxonomy repeats a label per matching path; the reader wants the set.
     subjects: [...new Map(rawSubjects.map((s) => [String(s.label_en).trim(), s])).values()],
     glosses

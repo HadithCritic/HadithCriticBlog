@@ -586,6 +586,66 @@ Bordered blocks with a second inset hairline (`::before` at 10px / `::after` at
 The pill. 32px min-height, `--radius-pill`, coloured by the `--cat-*` custom
 properties inherited from a `[data-category]` ancestor.
 
+### `.hc-masthead` / `.hc-instrument`
+
+The split page hero, taken from `/resources`. `.hc-masthead__inner` is a
+1.08fr / 0.92fr grid, `align-items: end`, that stacks below 1000px; title and
+lede sit left, an **instrument** sits right. Padding is bottom-heavy.
+
+The instrument is a tray (`.hc-instrument`, surface-2), a well
+(`.hc-instrument__well`, surface-1) and a fixed-parchment plate
+(`.hc-instrument__plate`, with a double inset hairline so it holds against the
+paper ground in the light theme). `.hc-instrument__cap` is the gold-dim
+apparatus caption, `.hc-instrument__figure` the plate numeral, `.hc-hatch` the
+gold hatch fill. **The shell is shared; the contents are not.** Each page sets
+its own data out as a working apparatus in the well: `/youtube` a runtime reel
+(ticks sized by film length, true to scale against an hour ruler), `/contact` a
+review docket with topic rows that preselect the form, `/projects` a register
+with jump links. Never fill a well with icon tiles or generic stat cards.
+
+`/resources` still carries its own page-local copy (`.hero`, `.ledger*`); repoint
+it and delete the local rules together if it is ever touched.
+
+### `/resources` modules
+
+Three sections on `/resources` use their own shapes, not the shared card.
+**GitBooks** is a two-column numbered index of hairline rows (the numeral is a CSS
+counter, so it renumbers under a filter). **Channels and blogs** are `.tile`
+modules that carry the source's own colors: `--tile-bg`, `--tile-ink` and
+`--tile-accent` are sampled from its logo and set inline, and they are fixed
+rather than themed, like the parchment plate. This is the one place the site
+uses colors outside its tokens, because the point is recognition of the source.
+Each ink/background and accent/background pair is checked at 4.5:1; adjust the
+ground, never the ink, when a new brand fails. A source with no logo we can
+fetch carries initials. **Tools and documentaries** are `.feat` cards: the same fixed
+colors, plus art built into the card on its own masked layer (the WikiSubmission
+background painting, three of the app's own App Store screenshots staggered off the card
+edge, the Discord server's banner). Never repeat the logo as art when the card head
+already carries it. Each tool card also carries its own CSS texture under the
+text (cross-hatching, a dot grid, brickwork), faded out before the art. The three
+tools share one fixed height so they read as a set; each takes its own look from its
+source. Documentary grounds and accents are sampled from each video's thumbnail.
+**Publications** are `.book` cards (cover left at 2:3, author eyebrow, title, format
+and page count) after the Submission Archives written display. Like the tools, each
+takes its colors from its cover and its own texture from that book's world: ruled
+lines, a blueprint grid, green-bar printer paper, a silver lattice. The cover carries
+a spine hinge and a cast shadow so it reads as a bound book.
+
+Polish rules for these cards: tile rows share one height only on wide screens (a
+stretched row on a phone is dead space); titles use `text-wrap: balance`; the featured
+channel tile carries its real numbers from `youtube-meta.json` along the foot; every
+link that opens a new tab says so to screen readers; and a texture never runs behind
+body text at a strength that cuts through a line (the printer-paper card puts its bars
+in a perforated margin for that reason). The rail and section labels use the section's
+own name (Channels, Publications, Tools, Documentaries), not the old format names.
+
+The `/resources` search dock: the format chips follow the order of the sections on
+the page, and a chip is named for what it holds (Tool covers a website, an app and a
+server). A field that carries focus with its own border must set `--hc-focus-width: 0px`
+on the inner input so focus is not drawn twice. The native search clear button is
+re-drawn in a themed color. An empty result names the query. Old `?format=App` links
+still resolve to Tool. Card grids use a 10px gap.
+
 ### Row hover
 
 `.book-row__link`, `.corpus-result__link`, `.edition-report__link`,

@@ -1,11 +1,30 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import youtubeMeta from '../data/youtube-meta.json';
+
+/* A channel's own colors, sampled from its logo. Every ink/background and
+   ink/accent pair clears WCAG AA, so the tiles are fixed-color and read the same
+   in both themes. A blog with no fetchable logo carries initials instead. */
+type Brand = { bg: string; ink: string; accent: string; logo?: string; initials?: string; shape?: 'app' };
+
+/* Art built into a feature card: a wide image on its own layer, faded into the card's ground. */
+type Art = { src: string; type: 'banner' };
+
+type Stat = { value: string; label: string };
 
 type Resource = {
   title: string;
   description: string;
   href: string;
   tag: string;
+  brand?: Brand;
+  cover?: string;
+  pages?: number;
+  art?: Art;
+  stats?: Stat[];
+  texture?: 'engraving' | 'dots' | 'brick' | 'rules' | 'grid' | 'greenbar' | 'lattice';
+  meta?: string;
+  cta?: string;
 };
 
 type Category = {
@@ -14,6 +33,56 @@ type Category = {
   title: string;
   items: Resource[];
 };
+
+/* The channel's own numbers come from the YouTube snapshot (npm run sync:youtube). */
+const formatCount = (value: number, decimals = 1): string => {
+  if (value < 1000) return String(value);
+  const scaled = value / 1000;
+  const text = scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(decimals);
+  return `${text.includes('.') ? text.replace(/\.?0+$/, '') : text}K`;
+};
+const channelStats: Stat[] = [
+  { value: formatCount(youtubeMeta.channel.subscribers, 2), label: 'subscribers' },
+  { value: String(youtubeMeta.channel.videos), label: 'videos' },
+  { value: formatCount(youtubeMeta.channel.views), label: 'views' }
+];
+
+const logo = (name: string) => `/images/resources/logos/${name}.webp`;
+const cover = (name: string) => `/images/resources/covers/${name}.webp`;
+const art = (name: string) => `/images/resources/art/${name}.webp`;
+const doc = (name: string) => `/images/resources/docs/${name}.webp`;
+
+const BRANDS = {
+  hadithcritic: { bg: '#0e0f11', ink: '#f2ebdc', accent: '#e2c38a', logo: logo('hadithcritic') },
+  qurantalk: { bg: '#151515', ink: '#f5f0e0', accent: '#d1b345', logo: logo('qurantalk') },
+  submissionArchives: { bg: '#000000', ink: '#ffffff', accent: '#b4b4b4', logo: logo('submission-archives') },
+  submittersCollective: { bg: '#335cc0', ink: '#ffffff', accent: '#e8efff', logo: logo('submitters-collective') },
+  godAlone: { bg: '#ffffff', ink: '#000000', accent: '#4a4a4a', logo: logo('god-alone') },
+  quranStudy: { bg: '#23444d', ink: '#f4ede4', accent: '#e0b48c', logo: logo('quran-study-archive') },
+  quranicLabs: { bg: '#180a29', ink: '#f3ecfa', accent: '#b57cf0', logo: logo('quranic-labs') },
+  submissionToGod: { bg: '#1f1106', ink: '#fbf1dc', accent: '#fdbd29', logo: logo('submission-to-god') },
+  qurantalkBlog: { bg: '#0a0a0a', ink: '#f5f0e0', accent: '#d6c26f', logo: logo('qurantalk-blog') },
+  medium: { bg: '#f5f4f0', ink: '#191919', accent: '#4d4d4d' },
+  // WikiSubmission's front page: warm near-black with a tan accent, sampled from the live page.
+  // The app is set on the black of its icon, and the Discord server takes its indigo and
+  // neon violet from its banner.
+  wikisubmission: { bg: '#14110e', ink: '#eee4d0', accent: '#d4a373', logo: logo('wikisubmission') },
+  wikisubmissionApp: { bg: '#070606', ink: '#f1ece2', accent: '#d4a373', logo: logo('wikisubmission-app'), shape: 'app' },
+  discord19: { bg: '#0f0630', ink: '#f6f1ff', accent: '#c9a2ff', logo: logo('discord-19') },
+  // Publication cards take their grounds from the cover: the teal-blue of the Final Testament,
+  // the navy of Visual Presentation, the paper gray of a line-printer sheet, the deep green of
+  // Quran, Hadith and Islam.
+  finalTestament: { bg: '#075e80', ink: '#f2fafd', accent: '#bfe6f5' },
+  visualPresentation: { bg: '#061a35', ink: '#eaf0fb', accent: '#a7c0f2' },
+  computerSpeaks: { bg: '#dfe2e0', ink: '#15171a', accent: '#2f5d3a' },
+  quranHadithIslam: { bg: '#0f1f1e', ink: '#ecf1ee', accent: '#c5d0cc' },
+  // Documentary cards take their grounds and accents from each video's thumbnail.
+  codeFirstLook: { bg: '#060b16', ink: '#eef3fb', accent: '#8db3e3' },
+  basmala: { bg: '#141311', ink: '#f3efe4', accent: '#f2d31b' },
+  haMim: { bg: '#17130c', ink: '#f6f0df', accent: '#f0cf16' },
+  firewall: { bg: '#0a0f0d', ink: '#f1eee2', accent: '#e2a94a' },
+  proof: { bg: '#0d0d0d', ink: '#f5f5ee', accent: '#fff33e' }
+} satisfies Record<string, Brand>;
 
 const categories: Category[] = [
   {
@@ -37,16 +106,16 @@ const categories: Category[] = [
   },
   {
     id: 'youtube',
-    name: 'YouTube',
+    name: 'Channels',
     title: 'Channels and lectures.',
     items: [
-      { title: 'HadithCritic', description: 'Primary channel for critical analysis of hadith sciences and Islamic methodology.', href: 'https://www.youtube.com/@HadithCritic/videos', tag: 'Channel' },
-      { title: 'QuranTalk', description: 'Discussions and lectures focused on Quranic interpretation and practice.', href: 'https://www.youtube.com/@QuranTalk/videos', tag: 'Channel' },
-      { title: 'Submission Archives', description: 'Historical lectures and archived content on Quranic submission.', href: 'https://www.youtube.com/@SubmissionArchives/videos', tag: 'Channel' },
-      { title: 'Submitters Collective', description: 'Community-driven content exploring Quran-alone perspectives.', href: 'https://www.youtube.com/@SubmittersCollective', tag: 'Channel' },
-      { title: 'God Alone', description: 'Educational videos emphasizing strict Quranic monotheism.', href: 'https://www.youtube.com/@godalone7427', tag: 'Channel' },
-      { title: 'Quran Study Archive', description: 'Systematic Quranic study sessions and verse-by-verse analysis.', href: 'https://www.youtube.com/@QuranStudyArchive/videos', tag: 'Channel' },
-      { title: 'QuranicLabs', description: 'Research-focused content on Quranic numerical patterns and structure.', href: 'https://www.youtube.com/@QuranicLabs19', tag: 'Channel' }
+      { title: 'HadithCritic', description: 'Primary channel for critical analysis of hadith sciences and Islamic methodology.', href: 'https://www.youtube.com/@HadithCritic/videos', tag: 'Channel', brand: BRANDS.hadithcritic, stats: channelStats },
+      { title: 'QuranTalk', description: 'Discussions and lectures focused on Quranic interpretation and practice.', href: 'https://www.youtube.com/@QuranTalk/videos', tag: 'Channel', brand: BRANDS.qurantalk },
+      { title: 'Submission Archives', description: 'Historical lectures and archived content on Quranic submission.', href: 'https://www.youtube.com/@SubmissionArchives/videos', tag: 'Channel', brand: BRANDS.submissionArchives },
+      { title: 'Submitters Collective', description: 'Community-driven content exploring Quran-alone perspectives.', href: 'https://www.youtube.com/@SubmittersCollective', tag: 'Channel', brand: BRANDS.submittersCollective },
+      { title: 'God Alone', description: 'Educational videos emphasizing strict Quranic monotheism.', href: 'https://www.youtube.com/@godalone7427', tag: 'Channel', brand: BRANDS.godAlone },
+      { title: 'Quran Study Archive', description: 'Systematic Quranic study sessions and verse-by-verse analysis.', href: 'https://www.youtube.com/@QuranStudyArchive/videos', tag: 'Channel', brand: BRANDS.quranStudy },
+      { title: 'QuranicLabs', description: 'Research-focused content on Quranic numerical patterns and structure.', href: 'https://www.youtube.com/@QuranicLabs19', tag: 'Channel', brand: BRANDS.quranicLabs }
     ]
   },
   {
@@ -54,49 +123,59 @@ const categories: Category[] = [
     name: 'Blogs',
     title: 'Essays and reflections.',
     items: [
-      { title: 'HadithCritic Blog', description: 'Primary blog for detailed analysis and research articles on hadith methodology.', href: 'https://hadithcriticblog.com/', tag: 'Blog' },
-      { title: 'Submission to God', description: 'Theological essays and practical guidance for Quran-centered living.', href: 'https://submissiontogod.wordpress.com/', tag: 'Blog' },
-      { title: 'QuranTalk Blog', description: 'Regular posts on Quranic interpretation and contemporary issues.', href: 'https://qurantalkblog.com/', tag: 'Blog' },
-      { title: 'EJ The Submitter', description: 'Personal reflections and analysis from a Quran-alone perspective.', href: 'https://medium.com/@dutchkickboxing1on1', tag: 'Blog' },
-      { title: 'Team Asset', description: 'Collaborative research on Quranic numerology and mathematical patterns.', href: 'https://medium.com/@team.19.asset', tag: 'Blog' }
+      { title: 'HadithCritic Blog', description: 'Primary blog for detailed analysis and research articles on hadith methodology.', href: 'https://hadithcriticblog.com/', tag: 'Blog', brand: BRANDS.hadithcritic },
+      { title: 'Submission to God', description: 'Theological essays and practical guidance for Quran-centered living.', href: 'https://submissiontogod.wordpress.com/', tag: 'Blog', brand: BRANDS.submissionToGod },
+      { title: 'QuranTalk Blog', description: 'Regular posts on Quranic interpretation and contemporary issues.', href: 'https://qurantalkblog.com/', tag: 'Blog', brand: BRANDS.qurantalkBlog },
+      { title: 'EJ The Submitter', description: 'Personal reflections and analysis from a Quran-alone perspective.', href: 'https://medium.com/@dutchkickboxing1on1', tag: 'Blog', brand: { ...BRANDS.medium, logo: logo('ej-the-submitter') } },
+      { title: 'Team Asset', description: 'Collaborative research on Quranic numerology and mathematical patterns.', href: 'https://medium.com/@team.19.asset', tag: 'Blog', brand: { ...BRANDS.medium, initials: 'TA' } }
     ]
   },
   {
     id: 'pdfs',
-    name: 'PDFs',
+    name: 'Publications',
     title: 'Publications and editions.',
     items: [
-      { title: 'Quran: The Final Testament', description: 'Complete Quran translation with appendices on mathematical structure.', href: 'https://library.wikisubmission.org/file/books/quran-the-final-testament', tag: 'PDF' },
-      { title: 'Visual Presentation of the Miracle', description: 'Illustrated guide to the mathematical patterns in the Quran.', href: 'https://library.wikisubmission.org/file/books/visual-presentation-of-the-miracle', tag: 'PDF' },
-      { title: 'The Computer Speaks', description: 'Computer-assisted analysis revealing Quranic mathematical structure.', href: 'https://library.wikisubmission.org/file/books/the-computer-speaks', tag: 'PDF' },
-      { title: 'Quran, Hadith and Islam', description: 'Foundational critique of hadith authority from a Quranic perspective.', href: 'https://library.wikisubmission.org/file/books/quran-hadith-and-islam-original', tag: 'PDF' }
+      { title: 'Quran: The Final Testament', description: 'Complete Quran translation with appendices on mathematical structure.', href: 'https://library.wikisubmission.org/file/books/quran-the-final-testament', tag: 'PDF', cover: cover('final-testament'), pages: 560, brand: BRANDS.finalTestament, texture: 'rules' },
+      { title: 'Visual Presentation of the Miracle', description: 'Illustrated guide to the mathematical patterns in the Quran.', href: 'https://library.wikisubmission.org/file/books/visual-presentation-of-the-miracle', tag: 'PDF', cover: cover('visual-presentation'), pages: 252, brand: BRANDS.visualPresentation, texture: 'grid' },
+      { title: 'The Computer Speaks', description: 'Computer-assisted analysis revealing Quranic mathematical structure.', href: 'https://library.wikisubmission.org/file/books/the-computer-speaks', tag: 'PDF', cover: cover('computer-speaks'), pages: 280, brand: BRANDS.computerSpeaks, texture: 'greenbar' },
+      { title: 'Quran, Hadith and Islam', description: 'Foundational critique of hadith authority from a Quranic perspective.', href: 'https://library.wikisubmission.org/file/books/quran-hadith-and-islam-original', tag: 'PDF', cover: cover('quran-hadith-islam'), pages: 92, brand: BRANDS.quranHadithIslam, texture: 'lattice' }
     ]
   },
   {
     id: 'apps',
-    name: 'Applications',
+    name: 'Tools',
     title: 'Tools and software.',
     items: [
-      { title: 'WikiSubmission Quran', description: 'Web-based Quran reader with multiple translations and study tools.', href: 'https://reader.wikisubmission.org/', tag: 'App' },
-      { title: 'Quran Study App', description: 'Interactive study application with grid view and analysis features.', href: 'https://www.quranstudyapp.com/grid', tag: 'App' },
-      { title: 'Submission: Religion of God', description: 'iOS app for Quranic study and submission-focused practice.', href: 'https://apps.apple.com/us/app/submission-religion-of-god/id6444260632', tag: 'App' }
+      { title: 'WikiSubmission', description: 'Read, search and study Quran: The Final Testament online, from the WikiSubmission nonprofit.', href: 'https://wikisubmission.org/', tag: 'Tool', brand: BRANDS.wikisubmission, art: { src: art('wikisubmission-bg'), type: 'banner' }, texture: 'engraving', meta: 'wikisubmission.org', cta: 'Open the website' },
+      { title: 'WikiSubmission App', description: 'Quran: The Final Testament on iOS in more than ten languages, with bookmarks, notes, audio recitations and search.', href: 'https://apps.apple.com/us/app/wikisubmission/id6444260632', tag: 'Tool', brand: BRANDS.wikisubmissionApp, art: { src: art('wikisubmission-app'), type: 'banner' }, texture: 'dots', meta: 'App Store, iOS', cta: 'View on the App Store' },
+      { title: '19 - Submission Server', description: 'The Discord community for studying and discussing the Quran and Submission.', href: 'https://discord.gg/SubmissionServer', tag: 'Tool', brand: BRANDS.discord19, art: { src: art('discord-19'), type: 'banner' }, texture: 'brick', meta: 'Discord', cta: 'Join the server' }
     ]
   },
   {
     id: 'featured',
-    name: 'Featured',
+    name: 'Documentaries',
     title: 'Documentary and evidence.',
     items: [
-      { title: 'Proof of Rashad Khalifa', description: "Documentary evidence supporting Rashad Khalifa's messengership.", href: 'https://www.youtube.com/watch?v=BPDkEZoUyXE', tag: 'Video' },
-      { title: 'Code 19: A First Look', description: 'Introduction to the mathematical miracle of the Quran.', href: 'https://www.youtube.com/watch?v=4TUYIuxkAmQ', tag: 'Video' },
-      { title: 'The Divine Firewall', description: 'Explanation of Code 19 as protection against textual corruption.', href: 'https://www.youtube.com/watch?v=nO5ikXuDRV8', tag: 'Video' },
-      { title: 'The Ha Mim Pattern', description: 'Analysis of numerical patterns in Ha Mim chapters.', href: 'https://www.youtube.com/watch?v=upWxuDwXB3Y&t=1s', tag: 'Video' },
-      { title: 'The Basmala Evidence', description: 'Mathematical structure of Bismillah in Quranic composition.', href: 'https://www.youtube.com/watch?v=c-DepvPR-CI', tag: 'Video' }
+      { title: 'Code 19: A First Look', description: 'Introduction to the mathematical miracle of the Quran.', href: 'https://www.youtube.com/watch?v=4TUYIuxkAmQ', tag: 'Video', brand: BRANDS.codeFirstLook, art: { src: doc('code-19-first-look'), type: 'banner' }, meta: '44:25 · Submission Archives', cta: 'Watch on YouTube' },
+      { title: 'The Basmala Evidence', description: 'Mathematical structure of Bismillah in Quranic composition.', href: 'https://www.youtube.com/watch?v=c-DepvPR-CI', tag: 'Video', brand: BRANDS.basmala, art: { src: doc('basmala'), type: 'banner' }, meta: '17:17 · Submission Archives', cta: 'Watch on YouTube' },
+      { title: 'The Ha Mim Pattern', description: 'Analysis of numerical patterns in Ha Mim chapters.', href: 'https://www.youtube.com/watch?v=upWxuDwXB3Y&t=1s', tag: 'Video', brand: BRANDS.haMim, art: { src: doc('ha-mim'), type: 'banner' }, meta: '17:13 · Submission Archives', cta: 'Watch on YouTube' },
+      { title: 'The Divine Firewall', description: 'Explanation of Code 19 as protection against textual corruption.', href: 'https://www.youtube.com/watch?v=nO5ikXuDRV8', tag: 'Video', brand: BRANDS.firewall, art: { src: doc('divine-firewall'), type: 'banner' }, meta: '23:04 · Submission Archives', cta: 'Watch on YouTube' },
+      { title: 'Proof of Rashad Khalifa', description: "Documentary evidence supporting Rashad Khalifa's messengership.", href: 'https://www.youtube.com/watch?v=BPDkEZoUyXE', tag: 'Video', brand: BRANDS.proof, art: { src: doc('proof-of-rashad-khalifa'), type: 'banner' }, meta: '1:32:46 · Submission Archives', cta: 'Watch on YouTube' }
     ]
   }
 ];
 
-const totalItems = categories.reduce((sum, category) => sum + category.items.length, 0);
+const hostOf = (href: string): string => new URL(href).hostname.replace(/^www\./, '');
+const handleOf = (href: string): string | undefined => new URL(href).pathname.match(/^\/(@[^/]+)/)?.[1];
+const metaOf = (item: Resource): string => handleOf(item.href) ?? hostOf(item.href);
+/* A host with no natural break (submissiontogod.wordpress.com) may wrap after a dot, not mid-word. */
+const breakable = (text: string): string => text.replace(/\./g, '.\u200b');
+
+const allItems = categories.flatMap((category) => category.items);
+const totalItems = allItems.length;
+/* Chips follow the order the sections appear on the page. */
+const formats = [...new Set(allItems.map((item) => item.tag))];
+const formatCounts = formats.map((name) => ({ name, count: allItems.filter((item) => item.tag === name).length }));
 ---
 
 <BaseLayout
@@ -104,110 +183,208 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
   description="Curated bibliographies, open-source datasets, study materials, and digital tools for Quranic research."
 >
   <div class="resources-page">
-    <header class="resources-hero" aria-labelledby="resources-hero-title" data-motion="hero">
-      <div class="hc-container">
-        <div class="resources-hero__inner">
-          <div class="resources-hero__content">
-            <div class="resources-hero__eyebrow">
-              <span class="resources-hero__kicker-dot" aria-hidden="true"></span>
-              <span class="resources-hero__kicker">Curated Repository</span>
-              <span class="resources-hero__kicker-sep" aria-hidden="true">/</span>
-              <span class="resources-hero__kicker-tag">Bibliographies &amp; Tools</span>
-            </div>
-
-            <h1 id="resources-hero-title" class="resources-hero__title">
-              Working <span class="resources-hero__title-accent">Catalogue</span>
-            </h1>
-
-            <p class="resources-hero__lead">
-              Curated bibliographies, open-source datasets, primary study materials, and digital applications for Quranic research and hadith criticism.
-            </p>
-          </div>
+    <header class="hero" aria-labelledby="resources-title" data-motion="hero">
+      <div class="hc-container hero__inner">
+        <div>
+          <p class="hc-eyebrow">Curated repository</p>
+          <h1 id="resources-title" class="hero__title">Working Catalogue</h1>
+          <p class="hero__lead">
+            Curated bibliographies, open-source datasets, primary study materials, and digital applications for Quranic research and hadith criticism.
+          </p>
         </div>
+
+        <aside class="ledger" aria-label="Catalogue at a glance">
+          <div class="ledger__well">
+            <div class="ledger__total">
+              <span class="ledger__num">{totalItems}</span>
+              <span class="ledger__note">entries across<br />{categories.length} collections</span>
+            </div>
+            <div class="ledger__bar" aria-hidden="true">
+              {categories.map((category, i) => (
+                <span class="ledger__seg" style={`--n:${category.items.length};--o:${(1 - i * 0.14).toFixed(2)}`}></span>
+              ))}
+            </div>
+            <ul class="ledger__rows">
+              {categories.map((category, i) => (
+                <li style={`--o:${(1 - i * 0.14).toFixed(2)}`}>
+                  <span class="ledger__dot" aria-hidden="true"></span>
+                  <span class="ledger__name">{category.name}</span>
+                  <span class="ledger__count">{category.items.length}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
       </div>
     </header>
 
-    <div class="catalog hc-container">
-      <nav class="catalog-index" aria-label="Catalogue sections">
-        <p class="catalog-index__label">Index</p>
-        <ol class="catalog-index__list">
-          {categories.map((category) => (
-            <li>
-              <a href={`#${category.id}`} class="catalog-index__link" data-spy={category.id}>
-                <span class="catalog-index__marker" aria-hidden="true"></span>
-                <span class="catalog-index__name">{category.name}</span>
-                <span class="catalog-index__count">{category.items.length}</span>
-              </a>
-            </li>
+    <div class="hc-container dockwrap">
+      <div class="dock" role="search">
+        <label class="dock__field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="resource-query" class="dock__input" type="search" placeholder="Search the catalogue" autocomplete="off" aria-label="Search the catalogue" />
+          <kbd class="dock__kbd" aria-hidden="true">/</kbd>
+        </label>
+        <div class="dock__chips" role="group" aria-label="Filter by format">
+          <button type="button" class="chip" data-format="" data-all aria-pressed="true">All <span class="chip__n">{totalItems}</span></button>
+          {formatCounts.map((format) => (
+            <button type="button" class="chip" data-format={format.name} aria-pressed="false">
+              {format.name} <span class="chip__n">{format.count}</span>
+              <svg class="chip__x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
           ))}
-        </ol>
-        <p class="catalog-index__total">{totalItems} entries on record</p>
+        </div>
+        <span id="resource-count" class="dock__count" aria-live="polite">{totalItems} of {totalItems} entries</span>
+      </div>
+    </div>
+
+    <div class="catalog hc-container">
+      <nav class="rail" aria-label="Catalogue sections">
+        <ul class="rail__list">
+          {categories.map((category) => (
+            <li><a href={`#${category.id}`} class="rail__link" data-spy={category.id}>{category.name}</a></li>
+          ))}
+        </ul>
       </nav>
 
-      <div class="catalog-sections">
-        <!-- Minimalist In-Page Search Toolbar -->
-        <div class="resource-filter-toolbar">
-          <div class="resource-search-pill">
-            <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              id="resource-query"
-              type="search"
-              placeholder="Search holdings by title, description, topic..."
-              autocomplete="off"
-              class="resource-search-input"
-            />
-          </div>
-          <select id="resource-format" class="resource-format-select" aria-label="Filter by format">
-            <option value="">All Formats</option>
-            {[...new Set(categories.flatMap((category) => category.items.map((item) => item.tag)))].sort().map((tag) => <option value={tag}>{tag}</option>)}
-          </select>
-          <span id="resource-count" class="resource-count-tag">{totalItems} Holdings</span>
-        </div>
+      <div class="sections">
         {categories.map((category) => (
-          <section id={category.id} class="catalog-section" aria-labelledby={`heading-${category.id}`} data-motion="reveal">
-            <header class="catalog-section__head">
-              <h2 id={`heading-${category.id}`} class="catalog-section__title">{category.title}</h2>
-              <span class="catalog-section__rule" aria-hidden="true"></span>
-              <span class="catalog-section__name">{category.name}</span>
+          <section id={category.id} class={`sec sec--${category.id}`} aria-labelledby={`heading-${category.id}`}>
+            <header class="sec__head">
+              <h2 id={`heading-${category.id}`} class="sec__title">{category.title}</h2>
+              <span class="sec__rule" aria-hidden="true"></span>
+              <span class="sec__name">{category.name}</span>
+              <span class="sec__count">{category.items.length}</span>
             </header>
-
-            <ul class="catalog-list">
+            <ul class="list">
               {category.items.map((item) => (
-                <li class="catalog-entry" data-resource data-format={item.tag} data-search={`${item.title} ${item.description} ${category.name} ${item.tag}`.toLowerCase()}>
-                  <a href={item.href} target="_blank" rel="noopener noreferrer" class="catalog-entry__link">
-                    <span class="catalog-entry__tag">{item.tag}</span>
-                    <span class="catalog-entry__body">
-                      <span class="catalog-entry__title">{item.title}</span>
-                      <span class="catalog-entry__desc">{item.description}</span>
-                    </span>
-                    <span class="catalog-entry__arrow" aria-hidden="true">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M7 17 17 7" />
-                        <path d="M8 7h9v9" />
-                      </svg>
-                    </span>
-                  </a>
+                <li
+                  class={`entry${item.brand && !item.art && !item.cover ? ' entry--tile' : ''}${item.art ? ' entry--feat' : ''}${item.cover ? ' entry--book' : ''}`}
+                  data-resource
+                  data-format={item.tag}
+                  data-search={`${item.title} ${item.description} ${category.name} ${item.tag}${item.cover ? ' Rashad Khalifa' : ''}`.toLowerCase()}
+                >
+                  {item.brand && item.art ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class={`feat${item.texture ? ` feat--${item.texture}` : ''}`}
+                      style={`--f-bg:${item.brand.bg};--f-ink:${item.brand.ink};--f-accent:${item.brand.accent}`}
+                    >
+                      <span class={`feat__art feat__art--${item.art.type}`} aria-hidden="true">
+                        <img src={item.art.src} alt="" width="720" height="405" loading="lazy" decoding="async" />
+                      </span>
+                      <span class="feat__body">
+                        <span class="feat__head">
+                          {item.brand.logo && (
+                            <span class={`feat__mark${item.brand.shape === 'app' ? ' feat__mark--app' : ''}`} aria-hidden="true">
+                              <img src={item.brand.logo} alt="" width="64" height="64" loading="lazy" decoding="async" />
+                            </span>
+                          )}
+                          <span class="feat__id">
+                            <span class="feat__name">{item.title}</span>
+                            <span class="feat__meta">{item.meta}</span>
+                          </span>
+                        </span>
+                        <span class="feat__desc">{item.description}</span>
+                        <span class="feat__cta">
+                          {item.cta}<span class="sr-only"> (opens in a new tab)</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                        </span>
+                      </span>
+                    </a>
+                  ) : item.brand && !item.cover ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class={`tile${item.stats ? ' tile--stats' : ''}`}
+                      style={`--tile-bg:${item.brand.bg};--tile-ink:${item.brand.ink};--tile-accent:${item.brand.accent}`}
+                    >
+                      <span class="tile__mark" aria-hidden="true">
+                        {item.brand.logo ? (
+                          <img src={item.brand.logo} alt="" width="64" height="64" loading="lazy" decoding="async" />
+                        ) : (
+                          <span class="tile__initials">{item.brand.initials}</span>
+                        )}
+                      </span>
+                      <span class="tile__head">
+                        <span class="tile__name">{item.title}</span>
+                        <span class="tile__handle">{breakable(metaOf(item))}</span>
+                      </span>
+                      <span class="tile__go" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                      </span>
+                      <span class="tile__desc">{item.description}<span class="sr-only"> (opens in a new tab)</span></span>
+                      {item.stats && (
+                        <span class="tile__stats">
+                          {item.stats.map((stat) => (
+                            <span class="tile__stat">
+                              <span class="tile__stat-value">{stat.value}</span>
+                              <span class="tile__stat-label">{stat.label}</span>
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </a>
+                  ) : item.cover ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class={`book${item.texture ? ` book--${item.texture}` : ''}`}
+                      style={item.brand ? `--b-bg:${item.brand.bg};--b-ink:${item.brand.ink};--b-accent:${item.brand.accent}` : undefined}
+                    >
+                      <span class="book__cover" aria-hidden="true">
+                        <img src={item.cover} alt="" width="180" height="270" loading="lazy" decoding="async" />
+                      </span>
+                      <span class="book__body">
+                        <span class="book__author">Rashad Khalifa<span class="book__format"> · PDF</span></span>
+                        <span class="book__title">{item.title}</span>
+                        <span class="book__desc">{item.description}</span>
+                        <span class="book__foot">
+                          <span class="book__pages">{item.pages} pages</span>
+                          <span class="book__read">
+                            Read the book<span class="sr-only"> (opens in a new tab)</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                          </span>
+                        </span>
+                      </span>
+                    </a>
+                  ) : (
+                    <a href={item.href} target="_blank" rel="noopener noreferrer" class="entry__link">
+                      <span class="entry__body">
+                        <span class="entry__title">{item.title}</span>
+                        <span class="entry__desc">{item.description}<span class="sr-only"> (opens in a new tab)</span></span>
+                      </span>
+                      <span class="entry__go" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
+                      </span>
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
           </section>
         ))}
+
+        <div id="resource-empty" class="empty" hidden>
+          <p>No entries match these filters.</p>
+          <button type="button" id="resource-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
+        </div>
       </div>
     </div>
 
-    <section class="resources-cta hc-container" aria-labelledby="resources-cta-title" data-motion="reveal">
-      <div class="cta-panel">
-        <div class="cta-panel__content">
-          <p class="hc-eyebrow">Acquisitions</p>
-          <h2 id="resources-cta-title" class="cta-panel__title">Suggest a holding.</h2>
-          <p class="cta-panel__copy">
-            If you know of a GitBook, dataset, or tool that belongs in this catalogue,
-            submit it for review.
-          </p>
-          <div class="cta-panel__actions">
+    <section class="cta hc-container" aria-labelledby="resources-cta-title">
+      <div class="cta__tray">
+        <div class="cta__well">
+          <div class="cta__copy">
+            <p class="hc-eyebrow">Acquisitions</p>
+            <h2 id="resources-cta-title" class="cta__title">Suggest a holding.</h2>
+            <p class="cta__text">If you know of a GitBook, dataset, or tool that belongs in this catalogue, submit it for review.</p>
+          </div>
+          <div class="cta__side">
             <a href="/contact/" class="hc-btn">Submit a resource</a>
           </div>
         </div>
@@ -220,677 +397,348 @@ const totalItems = categories.reduce((sum, category) => sum + category.items.len
   const page = document.querySelector('.resources-page');
 
   if (page) {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    const queryInput = page.querySelector<HTMLInputElement>('#resource-query');
-    const formatSelect = page.querySelector('#resource-format') as HTMLSelectElement | null;
+    const input = page.querySelector<HTMLInputElement>('#resource-query');
     const count = page.querySelector<HTMLElement>('#resource-count');
-    const catalogueEntries = [...page.querySelectorAll<HTMLElement>('[data-resource]')];
-    const catalogueSections = [...page.querySelectorAll<HTMLElement>('.catalog-section')];
-    const filter = () => {
-      const query = queryInput?.value.trim().toLowerCase() ?? '';
-      const format = formatSelect?.value ?? '';
+    const empty = page.querySelector<HTMLElement>('#resource-empty');
+    const reset = page.querySelector<HTMLButtonElement>('#resource-reset');
+    const chips = [...page.querySelectorAll<HTMLButtonElement>('.chip')];
+    const entries = [...page.querySelectorAll<HTMLElement>('[data-resource]')];
+    const sections = [...page.querySelectorAll<HTMLElement>('.sec')];
+    const links = [...page.querySelectorAll<HTMLAnchorElement>('.rail__link')];
+    let format = '';
+
+    const apply = () => {
+      const query = input?.value.trim().toLowerCase() ?? '';
       let visible = 0;
-      catalogueEntries.forEach((entry) => {
-        const matches = (!query || entry.dataset.search?.includes(query)) && (!format || entry.dataset.format === format);
-        entry.hidden = !matches;
-        if (matches) visible += 1;
-      });
-      catalogueSections.forEach((section) => section.hidden = !section.querySelector('[data-resource]:not([hidden])'));
-      if (count) count.textContent = `${visible} ${visible === 1 ? 'holding' : 'holdings'} shown`;
-      const url = new URL(window.location.href);
-      query ? url.searchParams.set('q', query) : url.searchParams.delete('q');
-      format ? url.searchParams.set('format', format) : url.searchParams.delete('format');
+
+      for (const entry of entries) {
+        const matchesQuery = query === '' || (entry.dataset.search ?? '').includes(query);
+        const matchesFormat = format === '' || entry.dataset.format === format;
+        entry.hidden = !(matchesQuery && matchesFormat);
+        if (!entry.hidden) visible += 1;
+      }
+      for (const section of sections) {
+        section.hidden = section.querySelector('[data-resource]:not([hidden])') === null;
+      }
+      for (const chip of chips) {
+        chip.setAttribute('aria-pressed', String((chip.dataset.format ?? '') === format));
+      }
+      if (count) count.textContent = `${visible} of ${entries.length} entries`;
+      if (empty) {
+        empty.hidden = visible > 0;
+        const message = empty.querySelector('p');
+        const typed = input?.value.trim() ?? '';
+        if (message) message.textContent = typed ? `No entries match "${typed}".` : 'No entries match these filters.';
+      }
+
+      const url = new URL(location.href);
+      if (query) url.searchParams.set('q', query);
+      else url.searchParams.delete('q');
+      if (format) url.searchParams.set('format', format);
+      else url.searchParams.delete('format');
       history.replaceState(null, '', url);
     };
+
     const params = new URLSearchParams(location.search);
-    if (queryInput) queryInput.value = params.get('q') ?? '';
-    if (formatSelect) formatSelect.value = params.get('format') ?? '';
-    queryInput?.addEventListener('input', filter);
-    formatSelect?.addEventListener('change', filter);
-    filter();
+    const requested = params.get('format') ?? '';
+    if (input) input.value = params.get('q') ?? '';
+    /* Links made before the App chip became Tool keep working. */
+    const alias = requested === 'App' ? 'Tool' : requested;
+    if (chips.some((chip) => chip.dataset.format === alias)) format = alias;
 
-    /* Legacy scroll reveal support for routes without the shared runtime. */
-    const items = [...page.querySelectorAll<HTMLElement>('[data-reveal]')];
-
-    if (!reduced && 'IntersectionObserver' in window) {
-      items.forEach((el) => el.classList.add('will-reveal'));
-
-      const revealObserver = new IntersectionObserver(
-        (observed) => {
-          for (const entry of observed) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('is-revealed');
-              revealObserver.unobserve(entry.target);
-            }
-          }
-        },
-        { threshold: 0.06, rootMargin: '0px 0px -30px 0px' }
-      );
-
-      items.forEach((el) => revealObserver.observe(el));
-    } else {
-      items.forEach((el) => el.classList.add('is-revealed'));
+    input?.addEventListener('input', apply);
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        const next = chip.dataset.format ?? '';
+        format = format === next ? '' : next;
+        apply();
+      });
     }
+    reset?.addEventListener('click', () => {
+      if (input) input.value = '';
+      format = '';
+      apply();
+      input?.focus();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target;
+      const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+      if (typing) return;
+      event.preventDefault();
+      input?.focus();
+    });
+    apply();
 
-    /* Scrollspy for the index rail */
-    const sections = [...page.querySelectorAll<HTMLElement>('.catalog-section')];
-    const links = [...page.querySelectorAll<HTMLAnchorElement>('.catalog-index__link')];
-
+    /* Scrollspy for the section rail */
     if ('IntersectionObserver' in window && sections.length) {
       const setActive = (id: string) => {
-        links.forEach((link) => link.classList.toggle('is-active', link.dataset.spy === id));
+        for (const link of links) link.classList.toggle('is-active', link.dataset.spy === id);
       };
-
-      const spyObserver = new IntersectionObserver(
+      const spy = new IntersectionObserver(
         (observed) => {
-          const visible = observed
+          const best = observed
             .filter((entry) => entry.isIntersecting)
-            .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-          if (visible[0]) setActive(visible[0].target.id);
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (best) setActive(best.target.id);
         },
         { rootMargin: '-25% 0px -55% 0px', threshold: [0, 0.2, 0.5] }
       );
-
-      sections.forEach((section) => spyObserver.observe(section));
-      setActive(sections[0].id);
+      for (const section of sections) spy.observe(section);
+      setActive(sections[0]?.id ?? '');
     }
   }
 </script>
 
 <style>
-  .resources-page {
-    min-height: 100vh;
-    background:
-      radial-gradient(circle at 80% 5%, rgba(216, 177, 102, 0.05), transparent 28%),
-      radial-gradient(circle at 10% 35%, rgba(164, 106, 63, 0.06), transparent 26%),
-      linear-gradient(180deg, var(--hc-surface-2) 0%, var(--hc-surface-0) 50%);
-  }
+  .resources-page { min-height: 100vh; background: var(--hc-surface-0); }
+  .resources-page [hidden] { display: none !important; }
 
-  /* Reveal machinery */
-
-  .will-reveal {
-    opacity: 0;
-    transform: translateY(26px);
-    transition:
-      opacity 0.75s var(--ease),
-      transform 0.75s var(--ease);
-  }
-
-  .will-reveal.is-revealed {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* Elevated Archival Hero */
-  .resources-hero {
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule);
-    background:
-      radial-gradient(ellipse 850px 420px at 15% 25%, rgba(216, 177, 102, 0.05) 0%, transparent 65%),
-      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
-    padding: clamp(3rem, 5.5vw, 4.5rem) 0 clamp(2.25rem, 4vw, 3.25rem);
-    overflow: hidden;
-  }
-
-  .resources-hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 90% 10%, rgba(216, 177, 102, 0.03), transparent 45%);
-    pointer-events: none;
-  }
-
-  .resources-hero__inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 2.5rem;
-    flex-wrap: wrap;
-  }
-
-  .resources-hero__content {
-    flex: 1;
-    min-width: min(100%, 480px);
-    max-width: 680px;
-  }
-
-  .resources-hero__eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .resources-hero__kicker-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    flex-shrink: 0;
-  }
-
-  .resources-hero__kicker {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .resources-hero__kicker-sep {
-    color: var(--hc-rule-strong);
-    font-size: 0.75rem;
-  }
-
-  .resources-hero__kicker-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .resources-hero__title {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display);
-    font-size: clamp(2.35rem, 5.2vw, 3.75rem);
-    font-weight: 500;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-  }
-
-  .resources-hero__title-accent {
-    font-style: normal;
-    color: var(--hc-gold);
-  }
-
-  .resources-hero__lead {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: clamp(1.02rem, 1.25vw, 1.15rem);
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-    max-width: 58ch;
-  }
-
-  /* In-Page Minimalist Filter Toolbar */
-  .resource-filter-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 2.25rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.08));
-  }
-
-  .resource-search-pill {
-    flex: 1;
-    min-width: 240px;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-    transition: border-color 0.2s ease;
-  }
-
-  .resource-search-pill:focus-within {
-    border-color: var(--hc-gold, #c8a755);
-  }
-
-  .search-icon {
-    color: var(--hc-text-tertiary, #858077);
-    flex-shrink: 0;
-  }
-
-  .resource-search-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-body, sans-serif);
-    font-size: 0.92rem;
-    min-width: 0;
-  }
-
-  .resource-search-input::placeholder {
-    color: var(--hc-text-tertiary, #858077);
-  }
-
-  .resource-format-select {
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 6px;
-    color: var(--hc-text-secondary, #b5b0a5);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.87rem;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .resource-format-select:hover, .resource-format-select:focus {
-    border-color: var(--hc-gold, #c8a755);
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  .resource-count-tag {
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.81rem;
-    font-weight: 600;
-    color: var(--hc-gold, #c8a755);
-    background: rgba(200, 167, 85, 0.08);
-    border: 1px solid rgba(200, 167, 85, 0.2);
-    padding: 0.35rem 0.65rem;
-    border-radius: 4px;
-    white-space: nowrap;
-  }
-
-  /* Catalog layout */
-
-  .catalog {
-    display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: clamp(2rem, 5vw, 4.5rem);
-    padding-block: clamp(2.5rem, 5vw, 4rem);
-  }
-
-  /* Index rail */
-
-  .catalog-index {
-    position: sticky;
-    top: clamp(1.5rem, 4vw, 3rem);
-    align-self: start;
-  }
-
-  .catalog-index__label {
-    margin: 0 0 1rem;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-
-  .catalog-index__list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .catalog-index__link {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    padding: 0.72rem 0.2rem;
+  /* Hero */
+  .hero {
+    padding: clamp(3rem, 6vw, 5rem) 0 clamp(2.5rem, 4vw, 3.5rem);
     border-bottom: 1px solid var(--hc-rule-soft);
-    color: var(--hc-muted);
-    font-family: var(--font-ui);
-    font-size: 0.94rem;
-    text-decoration: none;
-    transition: color 220ms ease, padding-left 280ms var(--ease);
+    background:
+      radial-gradient(60rem 26rem at 90% -10%, rgba(216, 177, 102, 0.09), transparent 70%),
+      radial-gradient(40rem 22rem at 0% 100%, rgba(164, 106, 63, 0.08), transparent 70%);
   }
+  .hero__inner { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(2rem, 5vw, 4.5rem); align-items: end; }
+  .hero__title { margin: 0.9rem 0 1rem; font-family: var(--font-display); font-size: clamp(2.98rem, 7vw, 5.1rem); font-weight: 500; line-height: 1.1; letter-spacing: -0.035em; color: var(--hc-text-primary); }
+  .hero__lead { margin: 0; max-width: 52ch; font-size: 1.08rem; line-height: 1.68; color: var(--hc-text-secondary); }
 
-  .catalog-index__marker {
-    width: 6px;
-    height: 6px;
-    border: 1px solid var(--hc-gold-dim);
-    transform: rotate(45deg) scale(0);
-    transition: transform 280ms var(--ease), background 220ms ease;
-  }
+  /* Ledger widget: outer tray, inner well, parchment total */
+  .ledger { padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); }
+  .ledger__well { padding: 6px; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
+  .ledger__total { box-shadow: inset 0 0 0 1px rgba(26, 23, 21, 0.16); display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-radius: 2px; background: var(--hc-fixed-parchment); color: var(--hc-fixed-parchment-ink); }
+  .ledger__num { font-family: var(--font-display); font-size: clamp(2.6rem, 5vw, 3.4rem); font-weight: 500; line-height: 1; letter-spacing: -0.04em; }
+  .ledger__note { font-size: 0.95rem; line-height: 1.4; text-align: right; }
+  .ledger__bar { display: flex; gap: 3px; margin: 1rem 0.4rem 0.9rem; }
+  .ledger__seg { flex: var(--n) 1 0; height: 10px; opacity: var(--o); background: repeating-linear-gradient(135deg, var(--hc-gold) 0 2px, rgba(216, 177, 102, 0.4) 2px 4px); }
+  .ledger__rows { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; margin: 0; padding: 0 0.4rem 0.4rem; list-style: none; }
+  .ledger__rows li { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-bottom: 1px solid var(--hc-rule-soft); font-size: 0.95rem; }
+  .ledger__dot { width: 8px; height: 8px; background: var(--hc-gold); opacity: var(--o); }
+  .ledger__name { flex: 1; color: var(--hc-text-secondary); }
+  .ledger__count { color: var(--hc-text-primary); font-variant-numeric: tabular-nums; }
 
-  .catalog-index__link:hover {
-    color: var(--hc-gold-soft);
-  }
+  /* Dock: search and format filters */
+  .dockwrap { padding-top: 1.5rem; }
+  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
+  .dock__field { flex: 1 1 260px; display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.8rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-0); color: var(--hc-text-tertiary); }
+  .dock__field:focus-within { border-color: var(--hc-gold); box-shadow: 0 0 0 1px var(--hc-gold); }
+  .dock__input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--hc-text-primary); font: 400 0.95rem var(--font-body); }
+  /* The field's own border carries focus, so the input inside gives up its ring instead of doubling it. */
+  .dock__input { --hc-focus-width: 0px; }
+  .dock__input::placeholder { color: var(--hc-text-tertiary); }
+  .dock__input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0 0.5rem 0 0.4rem; cursor: pointer; background: var(--hc-text-tertiary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .dock__input::-webkit-search-cancel-button:hover { background: var(--hc-text-primary); }
+  .dock__kbd { padding: 0.1rem 0.45rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; font: 700 0.78rem var(--font-ui); }
+  .dock__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease; }
+  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
+  .chip__n { color: var(--hc-text-tertiary); font-variant-numeric: tabular-nums; }
+  .chip__x { display: none; width: 12px; height: 12px; }
+  .chip[aria-pressed='true'] { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
+  .chip[aria-pressed='true']:not([data-all]) .chip__x { display: block; }
+  .dock__count { margin-left: auto; padding: 0 0.6rem; color: var(--hc-text-tertiary); font: 500 0.88rem var(--font-ui); font-variant-numeric: tabular-nums; }
+  @media (min-width: 1001px) { .dock { position: sticky; top: 4.75rem; z-index: 20; } }
 
-  .catalog-index__link.is-active {
-    color: var(--hc-gold);
-    padding-left: 0.45rem;
-  }
+  /* Catalogue layout */
+  .catalog { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); padding-block: clamp(2rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem); }
+  .rail { position: sticky; top: 9rem; align-self: start; }
+  .rail__list { margin: 0; padding: 0; list-style: none; border-left: 1px solid var(--hc-rule-soft); }
+  .rail__link { display: block; margin-left: -1px; padding: 0.55rem 0 0.55rem 1rem; border-left: 2px solid transparent; color: var(--hc-text-tertiary); font: 500 0.95rem var(--font-ui); text-decoration: none; transition: color 0.2s ease, border-color 0.2s ease; }
+  .rail__link:hover { color: var(--hc-text-primary); }
+  .rail__link.is-active { border-left-color: var(--hc-gold); color: var(--hc-gold); }
 
-  .catalog-index__link.is-active .catalog-index__marker {
-    background: var(--hc-gold);
-    border-color: var(--hc-gold);
-    transform: rotate(45deg) scale(1);
-  }
+  .sections { display: grid; gap: clamp(3rem, 6vw, 4.5rem); min-width: 0; }
+  .sec { scroll-margin-top: 9rem; }
+  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .sec__title { margin: 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
+  .sec__name { color: var(--hc-gold-dim); font: 700 0.81rem var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
 
-  .catalog-index__name {
-    flex: 1;
-  }
+  /* Entries */
+  .list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .entry__go { grid-area: go; color: var(--hc-gold-dim); transition: color 0.2s ease, transform 0.25s var(--ease); }
+  .entry__link:hover .entry__go { color: var(--hc-gold); transform: translate(2px, -2px); }
+  .entry__body { grid-area: body; align-self: start; }
+  .entry__title { display: block; text-wrap: balance; color: var(--hc-text-primary); font: 600 1.05rem/1.35 var(--font-display); letter-spacing: -0.015em; transition: color 0.2s ease; }
+  .entry__link:hover .entry__title { color: var(--hc-gold-bright); }
+  .entry__desc { display: block; text-wrap: pretty; margin-top: 0.35rem; color: var(--hc-text-secondary); font-size: 0.95rem; line-height: 1.6; }
 
-  .catalog-index__count {
-    color: var(--hc-text-secondary);
-    font-size: 0.81rem;
-  }
+  /* GitBooks: a compact numbered index, hairline rows instead of a card each */
+  .sec--gitbooks .list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 clamp(1.5rem, 4vw, 3rem); border-top: 1px solid var(--hc-rule-soft); counter-reset: index; }
+  .sec--gitbooks .entry { counter-increment: index; }
+  .sec--gitbooks .entry__link { position: relative; display: grid; grid-template-columns: 1.9rem minmax(0, 1fr) auto; grid-template-areas: 'no body go'; align-items: start; align-content: start; gap: 0 0.6rem; height: 100%; padding: 0.68rem 0.6rem 0.72rem 0; border-bottom: 1px solid var(--hc-rule-soft); color: inherit; text-decoration: none; transition: background 0.2s ease, box-shadow 0.2s ease; }
+  .sec--gitbooks .entry__link::before { content: counter(index, decimal-leading-zero); grid-area: no; padding-top: 0.12rem; color: var(--hc-gold-dim); font: 500 0.88rem var(--font-display); font-variant-numeric: lining-nums tabular-nums; }
+  .sec--gitbooks .entry__link:hover { background: rgba(216, 177, 102, 0.06); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
+  .sec--gitbooks .entry__go { padding-top: 0.15rem; }
+  .sec--gitbooks .entry__title { font-size: 0.98rem; line-height: 1.3; }
+  .sec--gitbooks .entry__desc { margin-top: 0.1rem; font-size: 0.875rem; line-height: 1.45; }
 
-  .catalog-index__total {
-    margin: 1.1rem 0 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    letter-spacing: 0.06em;
-  }
+  /* Channels and blogs: modules in each channel's own colors */
+  .sec--youtube .list, .sec--blogs .list, .sec--pdfs .list, .sec--apps .list, .sec--featured .list { gap: 10px; }
+  .sec--youtube .list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sec--blogs .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  @media (min-width: 1001px) { .sec--youtube .list, .sec--blogs .list { grid-auto-rows: 1fr; } }
+  .entry--tile:first-child { grid-column: span 2; }
+  .tile { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'mark head go' 'desc desc desc'; align-content: start; align-items: center; gap: 0.85rem 0.9rem; height: 100%; min-height: 9.25rem; padding: 1.05rem 1.1rem 1.15rem; border-radius: 2px; background: var(--tile-bg); color: var(--tile-ink); text-decoration: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
+  .tile:hover { box-shadow: inset 0 0 0 2px var(--tile-accent); }
+  .tile__mark { grid-area: mark; display: grid; place-items: center; width: 46px; height: 46px; overflow: hidden; border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--tile-accent) 60%, transparent); }
+  .tile__mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .tile__initials { display: grid; place-items: center; width: 100%; height: 100%; background: var(--tile-ink); color: var(--tile-bg); font: 600 0.95rem var(--font-display); letter-spacing: 0.02em; }
+  .tile__head { grid-area: head; display: grid; gap: 0.1rem; min-width: 0; }
+  .tile__name { overflow-wrap: anywhere; font: 600 1.08rem/1.25 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+  .tile__handle { overflow-wrap: break-word; color: var(--tile-accent); font: 500 0.88rem/1.3 var(--font-body); }
+  .tile__go { grid-area: go; align-self: start; color: var(--tile-accent); transition: transform 0.25s var(--ease); }
+  .tile:hover .tile__go { transform: translate(2px, -2px); }
+  .tile__desc { grid-area: desc; text-wrap: pretty; color: color-mix(in srgb, var(--tile-ink) 86%, var(--tile-bg)); font-size: 0.92rem; line-height: 1.55; }
+  /* The featured channel shows its own numbers along the foot, ruled like a ledger */
+  .tile--stats { grid-template-areas: 'mark head go' 'desc desc desc' 'stats stats stats'; grid-template-rows: auto auto 1fr; }
+  .tile__stats { grid-area: stats; align-self: end; display: flex; margin-top: 0.4rem; border-top: 1px solid color-mix(in srgb, var(--tile-ink) 16%, transparent); }
+  .tile__stat { display: flex; flex-direction: column-reverse; gap: 0.15rem; padding: 0.75rem clamp(0.75rem, 3vw, 1.4rem) 0 0; }
+  .tile__stat + .tile__stat { margin-left: clamp(0.75rem, 3vw, 1.4rem); padding-left: clamp(0.75rem, 3vw, 1.4rem); border-left: 1px solid color-mix(in srgb, var(--tile-ink) 16%, transparent); }
+  .tile__stat-value { font: 500 1.35rem/1.1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums; }
+  .tile__stat-label { color: color-mix(in srgb, var(--tile-ink) 72%, var(--tile-bg)); font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .sec--youtube .entry--tile:not(:first-child) .tile { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'mark go' 'head head' 'desc desc'; align-items: start; gap: 0.7rem 0.9rem; }
+  .entry--tile:first-child .tile { min-height: 9.25rem; padding: 1.3rem 1.4rem 1.4rem; gap: 1rem 1.1rem; }
+  .entry--tile:first-child .tile__mark { width: 60px; height: 60px; }
+  .entry--tile:first-child .tile__name { font-size: 1.35rem; }
+  .entry--tile:first-child .tile__desc { font-size: 1rem; max-width: 46ch; }
 
-  /* Sections */
+  /* Publications: book cards, cover left, after the Submission Archives written display.
+     Each takes its colors from its cover and a texture from that book's world. */
+  .sec--pdfs .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .book { position: relative; display: flex; height: 100%; min-height: 13.1rem; overflow: hidden; border-radius: 2px; background: var(--b-bg); color: var(--b-ink); text-decoration: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
+  .book:hover { box-shadow: inset 0 0 0 2px var(--b-accent); }
+  .book::before { content: ''; position: absolute; inset: 0; pointer-events: none; -webkit-mask-image: radial-gradient(120% 130% at 100% 0%, #000 8%, transparent 72%); mask-image: radial-gradient(120% 130% at 100% 0%, #000 8%, transparent 72%); }
+  /* Final Testament: ruled lines, after the stepped bars on its cover */
+  .book--rules::before { background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--b-ink) 16%, transparent) 0 1px, transparent 1px 9px); }
+  /* Visual Presentation: a blueprint grid, fine lines with a heavier line every fifth */
+  .book--grid::before { background: linear-gradient(color-mix(in srgb, var(--b-accent) 20%, transparent) 1px, transparent 1px) 0 0 / 100% 100px, linear-gradient(90deg, color-mix(in srgb, var(--b-accent) 20%, transparent) 1px, transparent 1px) 0 0 / 100px 100%, linear-gradient(color-mix(in srgb, var(--b-accent) 10%, transparent) 1px, transparent 1px) 0 0 / 100% 20px, linear-gradient(90deg, color-mix(in srgb, var(--b-accent) 10%, transparent) 1px, transparent 1px) 0 0 / 20px 100%; }
+  /* The Computer Speaks: green-bar line-printer paper */
+  .book--greenbar { --b-shadow: rgba(30, 50, 38, 0.2); }
+  .book--greenbar::before { background: repeating-linear-gradient(0deg, rgba(88, 148, 104, 0.09) 0 22px, transparent 22px 44px); -webkit-mask-image: none; mask-image: none; }
+  .book--greenbar::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 1.7rem; pointer-events: none; border-left: 1px dashed rgba(21, 23, 26, 0.28); background: radial-gradient(circle at 50% 11px, rgba(21, 23, 26, 0.34) 3px, transparent 3.6px) 0 0 / 100% 22px, rgba(88, 148, 104, 0.16); }
+  .book--greenbar .book__body { padding-right: 2.8rem; }
+  /* Quran, Hadith and Islam: a silver lattice, after the arabesque strip on its cover */
+  .book--lattice::before { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M22 2 42 22 22 42 2 22Z' stroke='%23c5d0cc' stroke-opacity='.2' fill='none'/%3E%3Ccircle cx='22' cy='22' r='2.4' fill='%23c5d0cc' fill-opacity='.22'/%3E%3C/svg%3E"); }
+  .book__cover { position: relative; z-index: 1; flex: 0 0 8.7rem; overflow: hidden; background: var(--b-bg); box-shadow: 6px 0 16px var(--b-shadow, rgba(0, 0, 0, 0.3)); }
+  .book__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* the book's spine: a bright hinge edge, then a soft crease */
+  .book__cover::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0, rgba(255, 255, 255, 0.22) 1px, rgba(0, 0, 0, 0.2) 2.5%, transparent 7%, transparent 95%, rgba(0, 0, 0, 0.14)); }
+  .book__body { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; padding: 1.05rem 1.15rem 1rem 1.4rem; }
+  .book__author { color: var(--b-accent); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .book__title { margin: 0.45rem 0 0.5rem; font: 600 1.15rem/1.3 var(--font-display); letter-spacing: -0.015em; }
+  .book__format { color: color-mix(in srgb, var(--b-ink) 84%, var(--b-bg)); font-weight: 500; }
+  .book__title { text-wrap: balance; }
+  .book__desc { text-wrap: pretty; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: color-mix(in srgb, var(--b-ink) 86%, var(--b-bg)); font-size: 0.92rem; line-height: 1.55; }
+  .book__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 1rem; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--b-ink) 18%, transparent); }
+  .book__pages, .book__read { white-space: nowrap; }
+  .book__pages { color: color-mix(in srgb, var(--b-ink) 78%, var(--b-bg)); font: 500 0.88rem var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .book__read { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--b-accent); font: 500 0.9rem var(--font-ui); transition: gap 0.2s ease; }
+  .book:hover .book__read { gap: 0.55rem; }
 
-  .catalog-sections {
-    display: grid;
-    gap: clamp(3rem, 6vw, 4.5rem);
-    min-width: 0;
-  }
+  /* Tools and documentaries: feature cards in the source's own colors, with the
+     art built into the card. Art gets its own layer, masked on every edge it meets. */
+  .feat { position: relative; display: flex; height: 100%; overflow: hidden; border-radius: 2px; color: var(--f-ink); text-decoration: none; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--f-accent) 16%, transparent), transparent 62%), var(--f-bg); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--f-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
+  .feat:hover { box-shadow: inset 0 0 0 2px var(--f-accent); }
+  .feat__art { position: relative; flex: none; overflow: hidden; }
+  .feat__art img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
+  .feat__body { position: relative; display: flex; flex: 1; flex-direction: column; gap: 0.6rem; min-width: 0; padding: 1.1rem 1.25rem 1.2rem; }
+  .feat__head { display: flex; align-items: center; gap: 0.85rem; }
+  .feat__mark { flex: none; width: 46px; height: 46px; overflow: hidden; border-radius: 50%; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--f-accent) 60%, transparent); }
+  .feat__mark--app { border-radius: 22%; }
+  .feat__mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .feat__id { display: grid; gap: 0.1rem; min-width: 0; }
+  .feat__name { overflow-wrap: anywhere; font: 600 1.15rem/1.25 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+  .feat__meta { color: var(--f-accent); font: 500 0.88rem/1.3 var(--font-body); }
+  .feat__desc { text-wrap: pretty; color: color-mix(in srgb, var(--f-ink) 86%, var(--f-bg)); font-size: 0.92rem; line-height: 1.55; }
+  .feat__cta { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: auto; padding-top: 0.5rem; color: var(--f-accent); font: 500 0.9rem var(--font-ui); transition: gap 0.2s ease; }
+  .feat:hover .feat__cta { gap: 0.55rem; }
 
-  .catalog-section {
-    scroll-margin-top: 5rem;
-  }
+  /* Tools: a texture per card, drawn from that tool's own world. It sits under the text and
+     fades out before the art, so it never competes with the image or costs contrast. */
+  .feat--engraving::before, .feat--dots::before, .feat--brick::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
+  /* WikiSubmission: pen-and-ink cross-hatching, after its engraved crescent-and-tree mark */
+  .feat--engraving::before { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--f-ink) 6%, transparent) 0 1px, transparent 1px 6px), repeating-linear-gradient(45deg, color-mix(in srgb, var(--f-ink) 3.5%, transparent) 0 1px, transparent 1px 10px); -webkit-mask-image: linear-gradient(90deg, #000 30%, transparent 62%); mask-image: linear-gradient(90deg, #000 30%, transparent 62%); }
+  /* The app: a dot grid, the graph paper of an interface, pooled at the lower left */
+  .feat--dots::before { background: radial-gradient(circle, color-mix(in srgb, var(--f-accent) 34%, transparent) 1px, transparent 1.5px) 0 0 / 15px 15px; -webkit-mask-image: radial-gradient(90% 140% at 0% 100%, #000 10%, transparent 68%); mask-image: radial-gradient(90% 140% at 0% 100%, #000 10%, transparent 68%); }
+  /* The Discord server: mortar-line brickwork under a violet glow, like the wall in its banner */
+  .feat--brick::before { background: radial-gradient(70% 120% at 0% 100%, color-mix(in srgb, var(--f-accent) 16%, transparent), transparent 70%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='40'%3E%3Cpath d='M0 .5h72M0 20.5h72M.5 0v20M36.5 20v20' stroke='%23c9a2ff' stroke-opacity='.2' fill='none'/%3E%3C/svg%3E"); -webkit-mask-image: linear-gradient(90deg, #000 28%, transparent 64%); mask-image: linear-gradient(90deg, #000 28%, transparent 64%); }
 
-  .catalog-section__head {
-    display: flex;
-    align-items: baseline;
-    gap: 1.25rem;
-    margin-bottom: clamp(1.1rem, 2vw, 1.6rem);
-  }
+  /* Tools: one wide row each, art on the right */
+  .sec--apps .list { grid-template-columns: minmax(0, 1fr); }
+  .sec--apps .feat { height: 13rem; }
+  .sec--apps .feat__body { justify-content: center; padding-block: 1.3rem; }
+  .sec--apps .feat__art { order: 2; flex-basis: 42%; }
+  .sec--apps .feat__art--banner { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40%); mask-image: linear-gradient(90deg, transparent, #000 40%); }
+  .sec--apps .feat__art img { object-position: right bottom; }
 
-  .catalog-section__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.53rem, 3vw, 2.29rem);
-    letter-spacing: -0.025em;
-    line-height: 1;
-    color: var(--hc-text-primary);
-  }
+  /* Documentaries: the thumbnail fades into the card's own ground */
+  .sec--featured .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sec--featured .entry:first-child { grid-column: span 2; }
+  .sec--featured .feat { flex-direction: column; }
+  .sec--featured .feat__art { aspect-ratio: 16 / 9; -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent); mask-image: linear-gradient(180deg, #000 62%, transparent); }
+  .sec--featured .entry:first-child .feat { flex-direction: row; }
+  .sec--featured .entry:first-child .feat__art { flex: 0 0 52%; aspect-ratio: auto; -webkit-mask-image: linear-gradient(90deg, #000 62%, transparent); mask-image: linear-gradient(90deg, #000 62%, transparent); }
+  .sec--featured .entry:first-child .feat__body { justify-content: center; }
+  .sec--featured .entry:first-child .feat__name { font-size: 1.4rem; }
+  .sec--featured .feat__body { margin-top: -0.4rem; }
+  .sec--featured .entry:first-child .feat__body { margin-top: 0; }
 
-  .catalog-section__rule {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, var(--hc-rule), transparent);
-  }
+  .empty { padding: 2.5rem 1.5rem; border: 1px dashed var(--hc-rule); border-radius: 2px; color: var(--hc-text-secondary); text-align: center; }
+  .empty p { margin: 0 0 1rem; }
 
-  .catalog-section__name {
-    color: var(--hc-gold-dim);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  /* Catalog entries */
-
-  .catalog-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-rule-soft);
-  }
-
-  .catalog-entry {
-    background: var(--hc-surface-1);
-  }
-
-  .catalog-entry__link {
-    position: relative;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 1rem;
-    height: 100%;
-    padding: clamp(1rem, 2vw, 1.35rem);
-    text-decoration: none;
-    transition: background 250ms ease;
-  }
-
-  .catalog-entry__link::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 2px;
-    background: var(--hc-gold);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 320ms var(--ease);
-  }
-
-  .catalog-entry__link:hover {
-    background: rgba(216, 177, 102, 0.05);
-  }
-
-  .catalog-entry__link:hover::after {
-    transform: scaleX(1);
-  }
-
-  .catalog-entry__tag {
-    display: inline-flex;
-    align-items: center;
-    margin-top: 0.2rem;
-    padding: 0.16rem 0.55rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-pill);
-    color: var(--hc-gold-soft);
-    background: rgba(216, 177, 102, 0.06);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .catalog-entry__body {
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .catalog-entry__title {
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.25rem, 1.6vw, 1.32rem);
-    letter-spacing: -0.015em;
-    line-height: 1.05;
-    color: var(--hc-text-primary);
-    transition: color 220ms ease;
-  }
-
-  .catalog-entry__link:hover .catalog-entry__title {
-    color: var(--hc-gold);
-  }
-
-  .catalog-entry__desc {
-    color: var(--hc-text-secondary);
-    font-size: 0.99rem;
-    line-height: 1.55;
-  }
-
-  .catalog-entry__arrow {
-    display: grid;
-    place-items: center;
-    margin-top: 0.2rem;
-    color: var(--hc-gold-dim);
-    transition: color 220ms ease, transform 250ms var(--ease);
-  }
-
-  .catalog-entry__link:hover .catalog-entry__arrow {
-    color: var(--hc-gold);
-    transform: translate(2px, -2px);
-  }
-
-  /* CTA */
-
-  .resources-cta {
-    padding-bottom: clamp(5rem, 10vw, 8rem);
-  }
-
-  .cta-panel {
-    position: relative;
-    padding: clamp(2rem, 4vw, 3.5rem);
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: var(--radius-xs);
-    color: var(--hc-text-primary);
-    background: linear-gradient(135deg, var(--hc-surface-1), var(--hc-surface-0));
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
-  }
-
-  .cta-panel::before {
-    content: "";
-    position: absolute;
-    inset: 8px;
-    border: 1px solid var(--hc-rule-soft);
-    pointer-events: none;
-  }
-
-  .cta-panel__content {
-    position: relative;
-    z-index: 1;
-    max-width: 680px;
-  }
-
-  .cta-panel .hc-eyebrow {
-    color: var(--hc-gold-dim);
-  }
-
-  .cta-panel__title {
-    margin: 0.45rem 0 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.61rem, 3vw, 2.34rem);
-    letter-spacing: -0.025em;
-    line-height: 1.02;
-    color: var(--hc-text-primary);
-  }
-
-  .cta-panel__copy {
-    margin: 0.85rem 0 0;
-    color: var(--hc-text-secondary);
-    line-height: 1.7;
-  }
-
-  .cta-panel__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.9rem;
-    margin-top: 1.55rem;
-  }
-
-  /* Responsive */
+  /* Submit a resource */
+  .cta { padding-bottom: clamp(4rem, 8vw, 7rem); }
+  .cta__tray { padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); }
+  .cta__well { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
+  .cta__copy { padding: clamp(1.5rem, 3vw, 2.4rem); }
+  .cta__title { margin: 0.45rem 0 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .cta__text { max-width: 52ch; margin: 0.7rem 0 0; color: var(--hc-text-secondary); line-height: 1.7; }
+  .cta__side { display: grid; align-content: center; padding: clamp(1.5rem, 3vw, 2.4rem); border-left: 1px dashed var(--hc-rule-strong); }
 
   @media (max-width: 1000px) {
-    .catalog {
-      grid-template-columns: 1fr;
-    }
-
-    .catalog-index {
-      position: static;
-    }
-
-    .catalog-index__list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      border-top: 0;
-    }
-
-    .catalog-index__link {
-      gap: 0.5rem;
-      padding: 0.35rem 0.85rem;
-      border: 1px solid var(--hc-rule);
-      border-radius: var(--radius-pill);
-    }
-
-    .catalog-index__link.is-active {
-      padding-left: 0.85rem;
-      border-color: var(--hc-gold-dim);
-    }
-
-    .catalog-index__marker {
-      display: none;
-    }
-
-    .catalog-index__total {
-      display: none;
-    }
+    .hero__inner, .catalog { grid-template-columns: 1fr; }
+    .rail { position: static; }
+    .rail__list { display: flex; flex-wrap: wrap; gap: 0.4rem; border: 0; }
+    .rail__link { margin: 0; padding: 0.35rem 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); }
+    .rail__link.is-active { border-color: var(--hc-gold); }
+    .sec { scroll-margin-top: 5rem; }
+    .sec--gitbooks .list, .sec--featured .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sec--youtube .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sec--blogs .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sec--pdfs .list { grid-template-columns: minmax(0, 1fr); }
+    .sec--featured .entry:first-child { grid-column: 1 / -1; }
   }
 
   @media (max-width: 700px) {
-    .resources-hero {
-      padding: 4rem 0 2.4rem;
-    }
+    .ledger__rows { grid-template-columns: 1fr; }
+    .dock__count { margin-left: 0; }
+    .sec__rule { display: none; }
+    .sec__head { flex-wrap: wrap; gap: 0.6rem 1rem; }
+    .sec--gitbooks .list, .sec--pdfs .list, .sec--featured .list { grid-template-columns: 1fr; }
+    .sec--youtube .list, .sec--blogs .list { grid-template-columns: minmax(0, 1fr); }
+    .entry--tile:first-child { grid-column: auto; }
+    .tile, .entry--tile:first-child .tile { min-height: 0; padding: 1rem 1.05rem 1.1rem; }
+    .entry--tile:first-child .tile__mark { width: 46px; height: 46px; }
+    .entry--tile:first-child .tile__name { font-size: 1.08rem; }
+    .entry--tile:first-child .tile__desc { font-size: 0.92rem; }
+    .book { min-height: 0; }
+    .book__cover { flex: 0 0 6.4rem; align-self: flex-start; aspect-ratio: 2 / 3; margin: 1rem 0 1rem 1rem; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+    .sec--apps .feat, .sec--featured .entry:first-child .feat { flex-direction: column; height: auto; min-height: 0; }
+    .sec--apps .feat__art { order: 0; flex-basis: auto; height: 9rem; }
+    .sec--apps .feat__art--banner { -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent); mask-image: linear-gradient(180deg, #000 62%, transparent); }
+    .sec--featured .entry:first-child .feat__art { flex: none; aspect-ratio: 16 / 9; -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent); mask-image: linear-gradient(180deg, #000 62%, transparent); }
+    .sec--featured .entry:first-child .feat__body { margin-top: -0.4rem; }
+    .cta__well { grid-template-columns: 1fr; }
+    .cta__side { border-left: 0; border-top: 1px dashed var(--hc-rule-strong); }
+    .cta__side .hc-btn { width: 100%; }
+  }
 
-    .resources-hero::before {
-      inset: 10px;
-    }
-
-    .resources-hero__title {
-      max-width: 100%;
-      font-size: clamp(2.21rem, 12.5vw, 2.93rem);
-      line-height: 1.03;
-      letter-spacing: -0.02em;
-    }
-
-    .resources-hero__lead {
-      font-size: 1.12rem;
-      line-height: 1.65;
-    }
-
-    .resources-hero__meta {
-      gap: 0.55rem 0.7rem;
-      font-size: 0.8rem;
-      letter-spacing: 0.08em;
-    }
-
-    .catalog-list {
-      grid-template-columns: 1fr;
-    }
-
-    .catalog-section__head {
-      flex-wrap: wrap;
-      gap: 0.6rem 1rem;
-    }
-
-    .catalog-section__rule {
-      display: none;
-    }
-
-    .catalog-section__name {
-      width: 100%;
-      white-space: normal;
-      line-height: 1.35;
-    }
-
-    .catalog-entry__link {
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 0.75rem;
-    }
-
-    .catalog-entry__tag {
-      grid-column: 1 / -1;
-      width: fit-content;
-      white-space: normal;
-    }
-
-    .cta-panel {
-      padding: 1.35rem;
-    }
-
-    .cta-panel__actions .hc-btn {
-      width: 100%;
-    }
+  @media (prefers-reduced-motion: reduce) {
+    .resources-page * { transition: none !important; }
   }
 </style>

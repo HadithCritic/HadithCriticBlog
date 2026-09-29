@@ -1,9 +1,9 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
-import { isNewPost } from '../../lib/new-badge';
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { getCollection } from "astro:content";
+import { isNewPost } from "../../lib/new-badge";
 
-const allPosts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
+const allPosts = await getCollection("articles", ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 
 const categoryCounts = new Map<string, number>();
@@ -16,156 +16,212 @@ const categories = [...categoryCounts.entries()]
   .map(([name, count]) => ({ name, count }));
 
 const formatDate = (date: Date) =>
-  date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
 const calcReadingMinutes = (post?: (typeof posts)[number]) => {
   if (!post) return 1;
-  const rawBody = post.body || '';
-  const words = rawBody.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
+  const rawBody = post.body || "";
+  const words = rawBody.replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 };
 
 const entries = posts.map((post, index) => ({
   post,
-  folio: String(posts.length - index).padStart(3, '0'),
+  folio: String(posts.length - index).padStart(3, "0"),
   dateLabel: formatDate(post.data.date),
   dateISO: post.data.date.toISOString().slice(0, 10),
   isNew: isNewPost(post.data.date),
   readingMinutes: calcReadingMinutes(post),
-  tags: post.data.tags ?? []
+  tags: post.data.tags ?? [],
 }));
+
+/* Ledger stat band — real figures only */
+const latestLabel = posts[0] ? formatDate(posts[0].data.date) : "—";
+const ledgerStats = [
+  { value: String(posts.length), label: "Critical Studies" },
+  { value: String(categories.length), label: "Fields of Inquiry" },
+  { value: latestLabel, label: "Latest Folio" },
+];
 ---
 
 <BaseLayout
   title="Blogs & Analysis | HadithCritic"
   description="Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts."
 >
-  <div class="archive-page">
-    <header class="archive-hero" aria-labelledby="archive-title" data-motion="hero">
-      <div class="hc-container">
-        <div class="archive-hero__inner">
-          <div class="archive-hero__content">
-            <div class="archive-hero__eyebrow">
-              <span class="archive-hero__kicker-dot" aria-hidden="true"></span>
-              <span class="archive-hero__kicker">Research Archive</span>
-              <span class="archive-hero__kicker-sep" aria-hidden="true">/</span>
-              <span class="archive-hero__kicker-tag">Critical Editions &amp; Forensics</span>
-            </div>
+  <div class="bi-page">
+    <!-- ═══════════════════════════════════════════
+         HERO — editorial masthead with archive ledger
+         ═══════════════════════════════════════════ -->
+    <header class="bi-hero" id="hero" aria-labelledby="bi-hero-title">
+      <div class="bi-hero__emblem" aria-hidden="true">
+        <svg viewBox="0 0 120 120" width="120" height="120" fill="none">
+          <circle cx="60" cy="60" r="56" stroke="currentColor" stroke-width="1" opacity="0.5" />
+          <circle cx="60" cy="60" r="47" stroke="currentColor" stroke-width="0.6" opacity="0.35" />
+          <path d="M60 18v84M18 60h84" stroke="currentColor" stroke-width="0.6" opacity="0.3" />
+          <circle cx="60" cy="60" r="6" fill="currentColor" opacity="0.7" />
+        </svg>
+      </div>
 
-            <h1 id="archive-title" class="archive-hero__title">
-              Studies <span class="archive-hero__title-accent">&amp; Analysis</span>
-            </h1>
-
-            <p class="archive-hero__lead">
-              Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts.
-            </p>
+      <div class="hc-container bi-hero__inner">
+        <div class="bi-hero__content">
+          <div class="bi-hero__eyebrow">
+            <span class="bi-hero__kicker-dot" aria-hidden="true"></span>
+            <span class="bi-hero__kicker">Research Archive</span>
+            <span class="bi-hero__kicker-sep" aria-hidden="true">/</span>
+            <span class="bi-hero__kicker-tag">Critical Editions &amp; Forensics</span>
           </div>
+
+          <h1 id="bi-hero-title" class="bi-hero__title">
+            Studies <em class="bi-hero__title-accent">&amp; Analysis</em>
+          </h1>
+
+          <p class="bi-hero__lede">
+            Critical studies, transmission forensics, and historical analyses of prophetic
+            reports and early Islamic source texts.
+          </p>
         </div>
+
+        <dl class="bi-hero__stats" aria-label="Archive statistics">
+          {ledgerStats.map((stat) => (
+            <div class="bi-hero__stat">
+              <dt class="bi-hero__stat-label">{stat.label}</dt>
+              <dd class="bi-hero__stat-value">{stat.value}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
     </header>
 
-    <div class="archive-tools" role="region" aria-label="Filter the index">
-      <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress__bar" id="scroll-bar"></div></div>
-      <div class="hc-container archive-tools__inner">
-        <!-- Search Row -->
-        <div class="archive-search-row">
-          <div class="archive-search-wrap">
-            <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <!-- ═══════════════════════════════════════════
+         SECTION DIVIDER
+         ═══════════════════════════════════════════ -->
+    <div class="bi-divider" aria-hidden="true">
+      <span class="bi-divider__rule"></span>
+      <svg class="bi-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 6v12M6 12h12"></path>
+      </svg>
+      <span class="bi-divider__rule"></span>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         STICKY TOOLBAR — search + field filters
+         ═══════════════════════════════════════════ -->
+    <div class="bi-tools" role="region" aria-label="Filter the index">
+      <div class="bi-tools__progress" aria-hidden="true">
+        <div class="bi-tools__progress-bar" id="scroll-bar"></div>
+      </div>
+
+      <div class="hc-container bi-tools__inner">
+        <div class="bi-search-row">
+          <div class="bi-search-box">
+            <svg class="bi-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input
               type="search"
               id="archive-search-input"
-              class="archive-search-input"
-              placeholder="Search studies by title, narrator, thesis, tag..."
+              class="bi-search-input"
+              placeholder="Search studies by title, narrator, thesis, tag, or passage…"
               autocomplete="off"
+              spellcheck="false"
               aria-label="Search studies"
             />
-            <button type="button" id="archive-search-clear" class="archive-search-clear" aria-label="Clear search" hidden>
-              ✕
+            <button type="button" id="archive-search-clear" class="bi-search-clear" aria-label="Clear search" hidden>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12"></path>
+              </svg>
             </button>
           </div>
-          <kbd class="search-kbd" aria-hidden="true">⌘K</kbd>
+          <kbd class="bi-search-kbd" aria-hidden="true">⌘K</kbd>
         </div>
 
-        <!-- Filter Chips Row -->
-        <div class="archive-filters-row">
-          <div class="archive-filters" role="group" aria-label="Filter by category">
-            <div class="archive-filter-magnet-pill" aria-hidden="true"></div>
-            <button type="button" class="filter-tab is-active" data-filter="all">
-              <span class="filter-tab__dot" aria-hidden="true"></span>
-              <span class="filter-tab__label">All Studies</span>
-              <span class="filter-tab__count">{posts.length}</span>
+        <div class="bi-filters-row">
+          <div class="bi-filters" id="bi-filters" role="group" aria-label="Filter by field of inquiry">
+            <div class="bi-filters__magnet" aria-hidden="true"></div>
+            <button type="button" class="bi-chip is-active" data-filter="all">
+              <span class="bi-chip__dot" aria-hidden="true"></span>
+              <span class="bi-chip__label">Complete Archive</span>
+              <span class="bi-chip__count">{posts.length}</span>
             </button>
             {categories.map((category) => (
-              <button type="button" class="filter-tab" data-filter={category.name} data-category={category.name}>
-                <span class="filter-tab__dot" aria-hidden="true"></span>
-                <span class="filter-tab__label">{category.name}</span>
-                <span class="filter-tab__count">{category.count}</span>
+              <button type="button" class="bi-chip" data-filter={category.name} data-category={category.name}>
+                <span class="bi-chip__dot" aria-hidden="true"></span>
+                <span class="bi-chip__label">{category.name}</span>
+                <span class="bi-chip__count">{category.count}</span>
               </button>
             ))}
           </div>
 
-          <button type="button" id="archive-reset-btn" class="archive-reset-btn" hidden aria-label="Reset all filters">
+          <button type="button" id="archive-reset-btn" class="bi-reset" hidden>
             <span>Reset Filters</span>
-            <span aria-hidden="true">✕</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+              <path d="M18 6 6 18M6 6l12 12"></path>
+            </svg>
           </button>
         </div>
       </div>
     </div>
 
-    <section class="archive-ledger hc-container" aria-label="All entries">
-      <div class="archive-status-bar">
-        <p class="archive-result-count" id="archive-result-count" role="status" aria-live="polite">
-          Showing <strong>{posts.length}</strong> of {posts.length} studies
-        </p>
+    <!-- ═══════════════════════════════════════════
+         THE LEDGER — all entries
+         ═══════════════════════════════════════════ -->
+    <section class="bi-ledger-section hc-container" aria-label="All entries">
+      <div class="bi-status">
+        <div class="bi-status-chip" id="archive-result-count" role="status" aria-live="polite">
+          <span class="bi-status-dot" aria-hidden="true"></span>
+          <span class="bi-status-text">Filing <strong>{posts.length}</strong> folios under complete archive</span>
+        </div>
       </div>
 
-      <ol class="ledger" id="ledger" data-motion="ledger">
+      <ol class="bi-ledger" id="ledger">
         {entries.map(({ post, folio, dateLabel, dateISO, isNew, readingMinutes, tags }) => (
           <li
-            class="ledger-row"
+            class="bi-row"
             data-id={post.id}
             data-category={post.data.category}
-            data-search={`${post.data.title} ${post.data.description ?? ''} ${post.data.category} ${tags.join(' ')} ${post.data.author}`.toLowerCase()}
+            data-search={`${post.data.title} ${post.data.description ?? ""} ${post.data.category} ${tags.join(" ")} ${post.data.author}`.toLowerCase()}
           >
-            <a href={`/blogs/${post.id}/`} class="ledger-row__link">
-              <div class="ledger-row__meta">
-                <span class="ledger-row__folio">
-                  <span class="folio-glyph" aria-hidden="true">◈</span>
+            <a href={`/blogs/${post.id}/`} class="bi-row__link">
+              <div class="bi-row__meta">
+                <span class="bi-row__folio">
+                  <span class="bi-row__folio-glyph" aria-hidden="true">◈</span>
                   <span>No. {folio}</span>
                 </span>
-                <time class="ledger-row__date" datetime={dateISO}>{dateLabel}</time>
-                <span class="ledger-row__readtime">
-                  <svg class="readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                <time class="bi-row__date" datetime={dateISO}>{dateLabel}</time>
+                <span class="bi-row__readtime">
+                  <svg class="bi-row__readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
                   <span>{readingMinutes} min read</span>
                 </span>
-                {isNew && <span class="new-badge">New</span>}
+                {isNew && <span class="bi-row__badge-new">New</span>}
               </div>
 
-              <div class="ledger-row__body">
-                <div class="ledger-row__header">
-                  <span class="ledger-row__cat" data-category={post.data.category}>
-                    <span class="ledger-row__cat-dot" aria-hidden="true"></span>
+              <div class="bi-row__body">
+                <div class="bi-row__header">
+                  <span class="bi-row__cat" data-category={post.data.category}>
+                    <span class="bi-row__cat-dot" aria-hidden="true"></span>
                     {post.data.category}
                   </span>
-                  <h2 class="ledger-row__title">{post.data.title}</h2>
+                  <h2 class="bi-row__title">{post.data.title}</h2>
                 </div>
 
                 {post.data.description && (
-                  <p class="ledger-row__desc">{post.data.description}</p>
+                  <p class="bi-row__desc">{post.data.description}</p>
                 )}
 
-                <div class="ledger-row__match" hidden></div>
+                <div class="bi-row__match" hidden></div>
               </div>
 
-              <div class="ledger-row__action" aria-hidden="true">
-                <span class="ledger-row__action-label">Read folio</span>
-                <div class="ledger-row__arrow">
+              <div class="bi-row__action" aria-hidden="true">
+                <span class="bi-row__action-label">Read folio</span>
+                <div class="bi-row__arrow">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                    <polyline points="12 5 19 12 12 19" />
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
                   </svg>
                 </div>
               </div>
@@ -174,198 +230,239 @@ const entries = posts.map((post, index) => ({
         ))}
       </ol>
 
-      <div class="ledger-empty" id="ledger-empty" hidden>
-        <div class="ledger-empty__icon" aria-hidden="true">◈</div>
+      <div class="bi-empty" id="ledger-empty" hidden>
+        <div class="bi-empty__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 6v12M6 12h12"></path>
+          </svg>
+        </div>
         <h3>No Studies Found</h3>
-        <p>No research entries match your active search or category filters.</p>
-        <button type="button" class="hc-btn hc-btn--ghost" id="ledger-empty-reset">
-          Clear Filters &amp; View All
+        <p>No research entries match the current query or field filter.</p>
+        <button type="button" class="hc-btn bi-empty__reset" id="ledger-empty-reset">
+          Reset Filters &amp; View Complete Archive
         </button>
       </div>
     </section>
-  </div>
 
-  <style>
-  </style>
+    <!-- ═══════════════════════════════════════════
+         SECTION DIVIDER
+         ═══════════════════════════════════════════ -->
+    <div class="bi-divider" aria-hidden="true">
+      <span class="bi-divider__rule"></span>
+      <svg class="bi-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 6v12M6 12h12"></path>
+      </svg>
+      <span class="bi-divider__rule"></span>
+    </div>
+  </div>
 </BaseLayout>
 
 <script>
+  interface SearchSection {
+    heading: string;
+    slug: string;
+    text: string;
+  }
+
+  interface SearchDoc {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    tags: string[];
+    sections: SearchSection[];
+    fullText: string;
+  }
+
   function initArchive() {
-    const page = document.querySelector('.archive-page');
-    if (!page) return;
+    const page = document.querySelector<HTMLElement>(".bi-page");
+    /* Guard: DOMContentLoaded and astro:page-load can both fire under
+       View Transitions — bind every listener exactly once. */
+    if (!page || page.dataset.hcInit === "true") return;
+    page.dataset.hcInit = "true";
 
-    const filterContainer = page.querySelector<HTMLElement>('.archive-filters');
-    const filterMagnetPill = filterContainer?.querySelector<HTMLElement>('.archive-filter-magnet-pill');
-    const chips = [...page.querySelectorAll<HTMLButtonElement>('.filter-tab')];
-    const rows = [...page.querySelectorAll<HTMLLIElement>('.ledger-row')];
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    rows.forEach((row) => {
-      row.addEventListener('mousemove', (e) => {
-        const rect = row.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        row.style.setProperty('--mouse-x', `${x.toFixed(1)}%`);
-        row.style.setProperty('--mouse-y', `${y.toFixed(1)}%`);
-      });
-    });
-    const searchInput = page.querySelector<HTMLInputElement>('#archive-search-input');
-    const searchClear = page.querySelector<HTMLButtonElement>('#archive-search-clear');
-    const resetBtn = page.querySelector<HTMLButtonElement>('#archive-reset-btn');
-    const emptyState = page.querySelector<HTMLElement>('#ledger-empty');
-    const emptyReset = page.querySelector<HTMLButtonElement>('#ledger-empty-reset');
-    const resultCount = page.querySelector<HTMLElement>('#archive-result-count');
+    const filterContainer = page.querySelector<HTMLElement>("#bi-filters");
+    const magnetPill = filterContainer?.querySelector<HTMLElement>(".bi-filters__magnet");
+    const chips = Array.from(page.querySelectorAll<HTMLButtonElement>(".bi-chip"));
+    const rows = Array.from(page.querySelectorAll<HTMLLIElement>(".bi-row"));
+
+    const searchInput = page.querySelector<HTMLInputElement>("#archive-search-input");
+    const searchClear = page.querySelector<HTMLButtonElement>("#archive-search-clear");
+    const resetBtn = page.querySelector<HTMLButtonElement>("#archive-reset-btn");
+    const emptyState = page.querySelector<HTMLElement>("#ledger-empty");
+    const emptyReset = page.querySelector<HTMLButtonElement>("#ledger-empty-reset");
+    const statusChip = page.querySelector<HTMLElement>("#archive-result-count");
     const totalEntries = rows.length;
 
-    const updateMagnetPill = (tab: HTMLElement) => {
-      if (!filterMagnetPill || !filterContainer || !tab) return;
-      const cRect = filterContainer.getBoundingClientRect();
-      const tRect = tab.getBoundingClientRect();
-      const left = tRect.left - cRect.left;
-      const top = tRect.top - cRect.top;
-      filterMagnetPill.style.transform = `translate(${left}px, ${top}px)`;
-      filterMagnetPill.style.width = `${tRect.width}px`;
-      filterMagnetPill.style.height = `${tRect.height}px`;
-      filterMagnetPill.style.opacity = '1';
-      const activeBg = getComputedStyle(tab).getPropertyValue('--tab-active-bg').trim() || 'var(--hc-gold)';
-      filterMagnetPill.style.backgroundColor = activeBg;
-      filterMagnetPill.style.boxShadow = `0 2px 12px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+    let activeCategory = "all";
+    let query = "";
+
+    /* ── Cursor spotlight tracking per ledger row ── */
+    if (!prefersReduced) {
+      rows.forEach((row) => {
+        row.addEventListener("mousemove", (e) => {
+          const rect = row.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * 100;
+          const y = ((e.clientY - rect.top) / rect.height) * 100;
+          row.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
+          row.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
+        });
+      });
+    }
+
+    /* ── Sliding magnet pill tracking the active field chip ── */
+    const updateMagnetPill = (chip: HTMLElement) => {
+      if (!magnetPill || !filterContainer || !chip) return;
+
+      const containerRect = filterContainer.getBoundingClientRect();
+      const chipRect = chip.getBoundingClientRect();
+      const activeBg =
+        getComputedStyle(chip).getPropertyValue("--chip-active-bg").trim() || "var(--hc-gold)";
+
+      magnetPill.style.transform = `translate(${chipRect.left - containerRect.left}px, ${chipRect.top - containerRect.top}px)`;
+      magnetPill.style.width = `${chipRect.width}px`;
+      magnetPill.style.height = `${chipRect.height}px`;
+      magnetPill.style.backgroundColor = activeBg;
+      magnetPill.style.boxShadow = `0 2px 12px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+      magnetPill.style.opacity = "1";
     };
 
-    if (filterContainer && filterMagnetPill) {
-      filterContainer.setAttribute('data-magnet-ready', 'true');
-      const initialActive = filterContainer.querySelector<HTMLButtonElement>('.filter-tab.is-active');
-      if (initialActive) updateMagnetPill(initialActive);
-      window.addEventListener('resize', () => {
-        const active = filterContainer.querySelector<HTMLButtonElement>('.filter-tab.is-active');
-        if (active) updateMagnetPill(active);
-      }, { passive: true });
+    if (filterContainer && magnetPill) {
+      filterContainer.setAttribute("data-magnet-ready", "true");
+
+      const initialChip = filterContainer.querySelector<HTMLButtonElement>(".bi-chip.is-active");
+      if (initialChip) updateMagnetPill(initialChip);
+
+      window.addEventListener(
+        "resize",
+        () => {
+          const active = filterContainer.querySelector<HTMLButtonElement>(".bi-chip.is-active");
+          if (active) updateMagnetPill(active);
+        },
+        { passive: true },
+      );
     }
 
-    // Scroll progress handler
-    const ledgerList = document.getElementById('ledger');
-    const scrollBar = document.getElementById('scroll-bar');
+    /* ── Reading progress through the ledger ── */
+    const ledgerList = document.getElementById("ledger");
+    const scrollBar = document.getElementById("scroll-bar");
+
     if (ledgerList && scrollBar) {
-      window.addEventListener('scroll', () => {
+      let ticking = false;
+
+      const updateProgress = () => {
         const rect = ledgerList.getBoundingClientRect();
         const total = ledgerList.scrollHeight - window.innerHeight + 200;
-        let current = -rect.top;
-        if (current < 0) current = 0;
-        let progress = (current / total) * 100;
-        if (progress > 100) progress = 100;
-        if (progress < 0) progress = 0;
+        const current = Math.max(0, -rect.top);
+        const progress = Math.min(100, Math.max(0, (current / total) * 100));
         scrollBar.style.width = `${progress}%`;
-      }, { passive: true });
+        ticking = false;
+      };
+
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(updateProgress);
+        },
+        { passive: true },
+      );
     }
 
-    interface SearchSection {
-      heading: string;
-      slug: string;
-      text: string;
-    }
-    interface SearchDoc {
-      id: string;
-      title: string;
-      description: string;
-      category: string;
-      tags: string[];
-      sections: SearchSection[];
-      fullText: string;
-    }
-
+    /* ── Deep search index (lazy, fetched on first keystroke) ── */
     const searchMap = new Map<string, SearchDoc>();
-
-    /**
-     * 480 KB over the wire, and it only deepens a query that has been typed.
-     * Fetched on the first keystroke, or immediately when the page was opened
-     * with ?q=, rather than on every visit to the archive.
-     */
     let searchIndexRequest: Promise<void> | null = null;
 
     const loadSearchIndex = () => {
       if (searchIndexRequest) return searchIndexRequest;
-      searchIndexRequest = fetch('/search-index.json')
+
+      searchIndexRequest = fetch("/search-index.json")
         .then((res) => res.json() as Promise<SearchDoc[]>)
         .then((docs) => {
           docs.forEach((doc) => searchMap.set(doc.id, doc));
           if (query) applyFilters();
         })
         .catch(() => {});
+
       return searchIndexRequest;
     };
 
-    function escapeHtml(str: string): string {
-      return str
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
+    const escapeHtml = (str: string): string =>
+      str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
-    function createSnippet(text: string, term: string): string {
-      const lower = text.toLowerCase();
-      const idx = lower.indexOf(term.toLowerCase());
-      if (idx === -1) return '';
+    const createSnippet = (text: string, term: string): string => {
+      const idx = text.toLowerCase().indexOf(term.toLowerCase());
+      if (idx === -1) return "";
 
       const start = Math.max(0, idx - 65);
       const end = Math.min(text.length, idx + term.length + 85);
       let snippet = text.slice(start, end);
-      if (start > 0) snippet = '...' + snippet;
-      if (end < text.length) snippet = snippet + '...';
+      if (start > 0) snippet = "..." + snippet;
+      if (end < text.length) snippet = snippet + "...";
 
       const escapedSnippet = escapeHtml(snippet);
       const escapedTerm = escapeHtml(term);
-      const regex = new RegExp(`(${escapedTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      const regex = new RegExp(`(${escapedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
       return escapedSnippet.replace(regex, '<mark class="search-match-mark">$1</mark>');
-    }
-
-    let activeCategory = 'all';
-    let query = '';
+    };
 
     const updateControls = () => {
-      const isFiltered = activeCategory !== 'all' || query.length > 0;
+      const isFiltered = activeCategory !== "all" || query.length > 0;
       if (resetBtn) resetBtn.hidden = !isFiltered;
       if (searchClear) searchClear.hidden = query.length === 0;
     };
 
     const setActiveChip = (category: string) => {
       const normalized = category.trim().toLowerCase();
-      const chip = chips.find((c) => (c.dataset.filter ?? '').trim().toLowerCase() === normalized) || chips[0];
-      activeCategory = chip.dataset.filter ?? 'all';
-      chips.forEach((c) => c.classList.toggle('is-active', c === chip));
+      const chip =
+        chips.find((c) => (c.dataset.filter ?? "").trim().toLowerCase() === normalized) || chips[0];
+
+      activeCategory = chip.dataset.filter ?? "all";
+      chips.forEach((c) => {
+        const isTarget = c === chip;
+        c.classList.toggle("is-active", isTarget);
+        c.setAttribute("aria-selected", isTarget ? "true" : "false");
+      });
       updateMagnetPill(chip);
       updateControls();
-      return true;
     };
 
     const syncUrl = () => {
       const url = new URL(location.href);
-      if (activeCategory === 'all') {
-        url.searchParams.delete('category');
+      if (activeCategory === "all") {
+        url.searchParams.delete("category");
       } else {
-        url.searchParams.set('category', activeCategory);
+        url.searchParams.set("category", activeCategory);
       }
-      query ? url.searchParams.set('q', query) : url.searchParams.delete('q');
-      history.replaceState(null, '', url);
+      query ? url.searchParams.set("q", query) : url.searchParams.delete("q");
+      history.replaceState(null, "", url);
     };
 
     const applyFilters = () => {
       let visible = 0;
 
       for (const row of rows) {
-        const id = row.dataset.id ?? '';
+        const id = row.dataset.id ?? "";
         const doc = searchMap.get(id);
-        const matchesCategory = activeCategory === 'all' || row.dataset.category === activeCategory;
+        const matchesCategory = activeCategory === "all" || row.dataset.category === activeCategory;
 
         let matchesQuery = !query;
         let matchSection: SearchSection | null = null;
-        let matchSnippetHtml = '';
+        let matchSnippetHtml = "";
 
         if (query) {
-          const titleDescMatch = (row.dataset.search ?? '').includes(query);
-          if (titleDescMatch) {
-            matchesQuery = true;
-          }
+          const titleDescMatch = (row.dataset.search ?? "").includes(query);
+          if (titleDescMatch) matchesQuery = true;
 
           if (doc) {
             for (const sec of doc.sections) {
@@ -389,20 +486,17 @@ const entries = posts.map((post, index) => ({
 
         const show = matchesCategory && matchesQuery;
         row.hidden = !show;
-        if (show) {
-          visible += 1;
-        }
+        if (show) visible += 1;
 
-        // Update direct section link, description visibility, and citation box
-        const link = row.querySelector<HTMLAnchorElement>('.ledger-row__link');
-        const matchBox = row.querySelector<HTMLElement>('.ledger-row__match');
-        const descEl = row.querySelector<HTMLElement>('.ledger-row__desc');
+        const link = row.querySelector<HTMLAnchorElement>(".bi-row__link");
+        const matchBox = row.querySelector<HTMLElement>(".bi-row__match");
+        const descEl = row.querySelector<HTMLElement>(".bi-row__desc");
 
         if (link) {
           if (matchSection && matchSection.slug) {
-            link.setAttribute('href', `/blogs/${id}/#${matchSection.slug}`);
+            link.setAttribute("href", `/blogs/${id}/#${matchSection.slug}`);
           } else {
-            link.setAttribute('href', `/blogs/${id}/`);
+            link.setAttribute("href", `/blogs/${id}/`);
           }
         }
 
@@ -410,7 +504,7 @@ const entries = posts.map((post, index) => ({
           if (show && matchSnippetHtml) {
             if (descEl) descEl.hidden = true;
             matchBox.hidden = false;
-            const headingLabel = matchSection ? matchSection.heading : 'Article Content';
+            const headingLabel = matchSection ? matchSection.heading : "Article Content";
             matchBox.innerHTML = `
               <div class="search-citation">
                 <div class="search-citation__header">
@@ -433,7 +527,7 @@ const entries = posts.map((post, index) => ({
                   </span>
                 </div>
                 <div class="search-citation__body">
-                  <span class="search-citation__quote-mark" aria-hidden="true">“</span>
+                  <span class="search-citation__quote-mark" aria-hidden="true">"</span>
                   <p class="search-citation__text">${matchSnippetHtml}</p>
                 </div>
               </div>
@@ -441,144 +535,191 @@ const entries = posts.map((post, index) => ({
           } else {
             if (descEl) descEl.hidden = false;
             matchBox.hidden = true;
-            matchBox.innerHTML = '';
+            matchBox.innerHTML = "";
           }
         }
       }
 
       if (emptyState) emptyState.hidden = visible > 0;
-      if (resultCount) {
-        if (query) {
-          const catLabel = activeCategory === 'all' ? '' : ` in <span class="search-feedback-cat">${escapeHtml(activeCategory)}</span>`;
-          resultCount.innerHTML = `
-            <span class="search-status-chip">
-              <span class="search-status-dot" aria-hidden="true"></span>
-              <span>Found <strong>${visible}</strong> ${visible === 1 ? 'study' : 'studies'} matching <span class="search-query-highlight">"${escapeHtml(query)}"</span>${catLabel}</span>
-            </span>
-          `;
-        } else {
-          const catLabel = activeCategory === 'all' ? '' : ` in ${activeCategory}`;
-          resultCount.innerHTML = `Showing <strong>${visible}</strong> of ${totalEntries} studies${catLabel}`;
+
+      if (statusChip) {
+        const textEl = statusChip.querySelector(".bi-status-text");
+        if (textEl) {
+          const noun = visible === 1 ? "folio" : "folios";
+
+          if (query) {
+            const fieldStr =
+              activeCategory === "all" ? "" : ` under <strong>${escapeHtml(activeCategory)}</strong>`;
+            textEl.innerHTML =
+              `Filing <strong>${visible}</strong> ${noun} matching "${escapeHtml(query)}"${fieldStr}`;
+          } else if (activeCategory !== "all") {
+            textEl.innerHTML =
+              `Filing <strong>${visible}</strong> ${noun} under <strong>${escapeHtml(activeCategory)}</strong>`;
+          } else {
+            textEl.innerHTML = `Filing <strong>${visible}</strong> folios under complete archive`;
+          }
         }
       }
+
       updateControls();
     };
 
     const resetAll = () => {
-      activeCategory = 'all';
-      query = '';
-      if (searchInput) searchInput.value = '';
-      setActiveChip('all');
+      activeCategory = "all";
+      query = "";
+      if (searchInput) searchInput.value = "";
+      setActiveChip("all");
       syncUrl();
       applyFilters();
     };
 
-    for (const chip of chips) {
-      chip.addEventListener('click', () => {
-        setActiveChip(chip.dataset.filter ?? 'all');
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        setActiveChip(chip.dataset.filter ?? "all");
         syncUrl();
         applyFilters();
       });
-    }
+    });
 
-    searchInput?.addEventListener('input', () => {
+    searchInput?.addEventListener("input", () => {
       query = searchInput.value.trim().toLowerCase();
       if (query) loadSearchIndex();
       syncUrl();
       applyFilters();
     });
 
-    searchClear?.addEventListener('click', () => {
+    searchClear?.addEventListener("click", () => {
       if (searchInput) {
-        searchInput.value = '';
+        searchInput.value = "";
         searchInput.focus();
       }
-      query = '';
+      query = "";
       syncUrl();
       applyFilters();
     });
 
-    resetBtn?.addEventListener('click', resetAll);
-    emptyReset?.addEventListener('click', resetAll);
+    resetBtn?.addEventListener("click", resetAll);
+    emptyReset?.addEventListener("click", resetAll);
 
-    // Keyboard shortcut (Cmd/Ctrl + K) to focus search
-    window.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    /* ⌘K / Ctrl+K focuses search; Escape clears and blurs. */
+    window.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         searchInput?.focus();
+        searchInput?.select();
+        return;
+      }
+
+      if (e.key === "Escape" && document.activeElement === searchInput && searchInput) {
+        searchInput.value = "";
+        query = "";
+        syncUrl();
+        applyFilters();
+        searchInput.blur();
       }
     });
 
-    const requested = new URLSearchParams(location.search).get('category');
-    if (requested) {
-      setActiveChip(requested);
-    }
-    const requestedQuery = new URLSearchParams(location.search).get('q');
+    /* Deep links: ?category= and ?q= */
+    const requestedCategory = new URLSearchParams(location.search).get("category");
+    if (requestedCategory) setActiveChip(requestedCategory);
+
+    const requestedQuery = new URLSearchParams(location.search).get("q");
     if (requestedQuery && searchInput) {
       searchInput.value = requestedQuery;
       query = requestedQuery.toLowerCase();
       loadSearchIndex();
     }
+
     applyFilters();
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initArchive);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initArchive, { once: true });
   } else {
     initArchive();
   }
-  document.addEventListener('astro:page-load', initArchive);
+  document.addEventListener("astro:page-load", initArchive);
 </script>
 
 <style>
-  .archive-page {
-    min-height: 100vh;
-    background:
-      radial-gradient(circle at 85% 0%, rgba(216, 177, 102, 0.06), transparent 32%),
-      linear-gradient(180deg, var(--hc-surface-2) 0%, var(--hc-surface-0) 42%);
-  }
+  /* ─────────────────────────────────────────────
+     BLOG INDEX · Design System V2.4
+     Dark manuscript ground · ledger folios · deep-search citations
+     ───────────────────────────────────────────── */
 
-  /* Elevated Archival Hero */
-  .archive-hero {
+  .bi-page {
     position: relative;
-    border-bottom: 1px solid var(--hc-rule);
-    background:
-      radial-gradient(ellipse 850px 420px at 15% 25%, rgba(216, 177, 102, 0.05) 0%, transparent 65%),
-      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
-    padding: clamp(3rem, 5.5vw, 4.5rem) 0 clamp(2.25rem, 4vw, 3.25rem);
-    overflow: hidden;
+    min-height: 100vh;
+    color: var(--hc-text-primary);
+    background-color: var(--hc-surface-0);
   }
 
-  .archive-hero::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 90% 10%, rgba(216, 177, 102, 0.03), transparent 45%);
-    pointer-events: none;
-  }
-
-  .archive-hero__inner {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 2.5rem;
-    flex-wrap: wrap;
-  }
-
-  .archive-hero__content {
-    flex: 1;
-    min-width: min(100%, 480px);
-    max-width: 680px;
-  }
-
-  .archive-hero__eyebrow {
+  /* ═══════════════════════════════════════════
+     SECTION DIVIDER WITH EMBLEM
+     ═══════════════════════════════════════════ */
+  .bi-divider {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.85rem;
+    gap: 1.25rem;
+    max-width: var(--wrap, 1240px);
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 2rem);
+    color: var(--hc-gold-dim);
   }
 
-  .archive-hero__kicker-dot {
+  .bi-divider__rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--hc-rule) 20%, var(--hc-rule) 80%, transparent);
+  }
+
+  .bi-divider__emblem {
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  /* ═══════════════════════════════════════════
+     HERO — editorial masthead
+     ═══════════════════════════════════════════ */
+  .bi-hero {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--hc-rule);
+    background:
+      radial-gradient(ellipse 850px 420px at 12% 20%, rgba(216, 177, 102, 0.055) 0%, transparent 65%),
+      radial-gradient(circle at 88% 8%, rgba(216, 177, 102, 0.035), transparent 42%),
+      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
+    padding: clamp(3.5rem, 6vw, 5.5rem) 0 clamp(2.5rem, 4.5vw, 4rem);
+  }
+
+  .bi-hero__emblem {
+    position: absolute;
+    top: clamp(1.5rem, 4vw, 3rem);
+    right: clamp(-2rem, 2vw, 3rem);
+    color: var(--hc-gold);
+    opacity: 0.07;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media (max-width: 720px) {
+    .bi-hero__emblem {
+      display: none;
+    }
+  }
+
+  .bi-hero__inner {
+    position: relative;
+  }
+
+  .bi-hero__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 1.15rem;
+  }
+
+  .bi-hero__kicker-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -587,21 +728,21 @@ const entries = posts.map((post, index) => ({
     flex-shrink: 0;
   }
 
-  .archive-hero__kicker {
+  .bi-hero__kicker {
     font-family: var(--font-ui);
     font-size: 0.76rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--hc-gold);
   }
 
-  .archive-hero__kicker-sep {
+  .bi-hero__kicker-sep {
     color: var(--hc-rule-strong);
     font-size: 0.75rem;
   }
 
-  .archive-hero__kicker-tag {
+  .bi-hero__kicker-tag {
     font-family: var(--font-ui);
     font-size: 0.75rem;
     font-weight: 500;
@@ -610,110 +751,96 @@ const entries = posts.map((post, index) => ({
     color: var(--hc-text-tertiary);
   }
 
-  .archive-hero__title {
-    margin: 0 0 0.85rem;
+  .bi-hero__title {
+    margin: 0 0 1.1rem;
     font-family: var(--font-display);
-    font-size: clamp(2.35rem, 5.2vw, 3.75rem);
+    font-size: clamp(2.4rem, 5.4vw, 3.9rem);
     font-weight: 500;
-    line-height: 1.05;
+    line-height: 1.04;
     letter-spacing: -0.03em;
     color: var(--hc-text-primary);
   }
 
-  .archive-hero__title-accent {
-    font-style: normal;
+  .bi-hero__title-accent {
+    font-style: italic;
     color: var(--hc-gold);
   }
 
-  .archive-hero__lead {
+  .bi-hero__lede {
     margin: 0;
     font-family: var(--font-body);
-    font-size: clamp(1.02rem, 1.25vw, 1.15rem);
-    line-height: 1.65;
+    font-size: clamp(1.02rem, 1.25vw, 1.16rem);
+    line-height: 1.68;
     color: var(--hc-text-secondary);
     max-width: 58ch;
   }
 
-
-
-  /* Toolbar Search Row */
-  .archive-search-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem 0 0.5rem;
+  /* Ledger stat band */
+  .bi-hero__stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: clamp(2.25rem, 4vw, 3.25rem) 0 0;
+    border: 1px solid var(--hc-rule);
+    background: var(--hc-surface-1);
   }
 
-  .archive-search-wrap {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--hc-surface-1, #141416);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 6px;
-    padding: 0.5rem 0.75rem;
-    transition: border-color 0.2s ease;
+  .bi-hero__stat {
+    padding: 1.15rem 1.35rem;
+    border-left: 1px solid var(--hc-rule-soft);
   }
 
-  .archive-search-wrap:focus-within {
-    border-color: var(--hc-gold, #c8a755);
+  .bi-hero__stat:first-child {
+    border-left: none;
   }
 
-  .archive-search-input {
-    flex: 1;
-    background: transparent;
-    border: none;
-    color: var(--hc-text-primary, #f5f2eb);
-    font-family: var(--font-ui, sans-serif);
-    font-size: 0.92rem;
-    min-width: 0;
+  .bi-hero__stat-label {
+    margin: 0 0 0.4rem;
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--hc-text-tertiary);
   }
 
-  .archive-search-input::placeholder {
-    color: var(--hc-text-tertiary, #858077);
+  .bi-hero__stat-value {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--hc-gold);
   }
 
-  .archive-search-clear {
-    background: transparent;
-    border: none;
-    color: var(--hc-text-tertiary, #858077);
-    cursor: pointer;
-    font-size: 0.84rem;
-    padding: 0.1rem 0.3rem;
+  @media (max-width: 640px) {
+    .bi-hero__stats {
+      grid-template-columns: 1fr;
+    }
+
+    .bi-hero__stat {
+      border-left: none;
+      border-top: 1px solid var(--hc-rule-soft);
+    }
+
+    .bi-hero__stat:first-child {
+      border-top: none;
+    }
   }
 
-  .archive-search-clear:hover {
-    color: var(--hc-text-primary, #f5f2eb);
-  }
-
-  .search-kbd {
-    font-family: var(--font-ui, monospace);
-    font-size: 0.8rem;
-    color: var(--hc-text-tertiary, #858077);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--hc-rule, rgba(255, 255, 255, 0.1));
-    border-radius: 4px;
-    padding: 0.2rem 0.45rem;
-    flex-shrink: 0;
-  }
-
-  /* Filter toolbar */
-  .archive-tools {
+  /* ═══════════════════════════════════════════
+     STICKY TOOLBAR
+     ═══════════════════════════════════════════ */
+  .bi-tools {
     position: sticky;
     top: var(--site-header-height, 72px);
     z-index: 40;
     border-bottom: 1px solid var(--hc-rule);
-    background: rgba(20, 19, 18, 0.92);
+    background: color-mix(in srgb, var(--hc-surface-1) 92%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
-  :global([data-theme="light"]) .archive-tools {
-    background: rgba(251, 249, 244, 0.94);
-  }
-
-  .scroll-progress {
+  .bi-tools__progress {
     position: absolute;
     top: 0;
     left: 0;
@@ -722,124 +849,140 @@ const entries = posts.map((post, index) => ({
     background: transparent;
   }
 
-  .scroll-progress__bar {
+  .bi-tools__progress-bar {
     height: 100%;
     width: 0%;
     background: var(--hc-gold);
     transition: width 100ms ease;
   }
 
-  .archive-tools__inner {
+  .bi-tools__inner {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.9rem;
     padding-block: 1rem;
   }
 
-  /* Search Row */
-  .archive-search-row {
+  /* Search row */
+  .bi-search-row {
     display: flex;
     align-items: center;
     gap: 0.75rem;
     width: 100%;
   }
 
-  .archive-search-wrap {
+  .bi-search-box {
     position: relative;
     display: flex;
     align-items: center;
     flex: 1;
-    min-height: 46px;
+    min-height: 48px;
     padding: 0 1rem;
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm, 8px);
-    background: var(--hc-surface-1);
-    transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
-  }
-
-  .archive-search-wrap:focus-within {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.18);
+    border-radius: var(--radius-xs, 2px);
     background: var(--hc-surface-2);
+    transition: border-color 200ms ease, box-shadow 200ms ease;
   }
 
-  .search-icon {
+  .bi-search-box:focus-within {
+    border-color: var(--hc-gold);
+    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.16);
+  }
+
+  .bi-search-icon {
     color: var(--hc-gold-dim);
     margin-right: 0.75rem;
     flex-shrink: 0;
   }
 
-  .archive-search-input {
+  .bi-search-input {
     width: 100%;
     border: 0;
     background: transparent;
     color: var(--hc-text-primary);
     font-family: var(--font-body);
-    font-size: 1.03rem;
+    font-size: 1rem;
   }
 
-  .archive-search-input::placeholder {
+  .bi-search-input:focus {
+    outline: none;
+  }
+
+  .bi-search-input::-webkit-search-cancel-button,
+  .bi-search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+
+  .bi-search-input::placeholder {
     color: var(--hc-text-tertiary);
   }
 
-  .archive-search-clear {
+  .bi-search-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     color: var(--hc-text-tertiary);
-    font-size: 1.01rem;
     cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    transition: color 180ms ease;
+    padding: 0.3rem;
+    border-radius: var(--radius-xs, 2px);
+    transition: color 160ms ease;
   }
 
-  .archive-search-clear:hover {
+  .bi-search-clear:hover {
     color: var(--hc-text-primary);
   }
 
-  .search-kbd {
+  .bi-search-kbd {
     display: inline-flex;
     align-items: center;
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 6px;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs, 2px);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-1);
+    user-select: none;
+    flex-shrink: 0;
   }
 
-  /* Filters Row */
-  .archive-filters-row {
+  /* Filter chips with sliding magnet pill */
+  .bi-filters-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.85rem;
+    gap: 1rem;
     overflow-x: auto;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
     padding-bottom: 2px;
   }
 
-  .archive-filters-row::-webkit-scrollbar {
+  .bi-filters-row::-webkit-scrollbar {
     display: none;
   }
 
-  .archive-filters {
+  .bi-filters {
     position: relative;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-wrap: nowrap;
+    width: max-content;
   }
 
-  .archive-filter-magnet-pill {
+  .bi-filters__magnet {
     position: absolute;
     top: 0;
     left: 0;
     width: 0;
     height: 0;
-    border-radius: var(--radius-pill);
+    border-radius: 999px;
     pointer-events: none;
     z-index: 1;
     opacity: 0;
@@ -852,195 +995,174 @@ const entries = posts.map((post, index) => ({
       opacity 120ms ease;
   }
 
-  /* Unique Category Color System for Filters .
-     The --tab-active-bg fills stay theme-fixed: the active tab prints a fixed
-     near-black label on them, so a fill that inverted with the theme would put
-     dark text on dark ground on paper. Only the unfilled --tab-color follows
-     the palette. */
-  .filter-tab[data-filter="all"] {
-    --tab-color: var(--hc-gold);
-    --tab-bg: rgba(200, 155, 75, 0.12);
-    --tab-border: rgba(200, 155, 75, 0.35);
-    --tab-active-bg: #c89b4b;
-    --tab-active-text: #141312;
+  /* Field-of-inquiry hues — brand apparatus tokens.
+     Active fills stay theme-fixed: they carry a fixed near-black
+     or parchment label, so an inverting fill would break contrast. */
+  .bi-chip[data-filter="all"] {
+    --chip-color: var(--hc-gold);
+    --chip-bg: rgba(216, 177, 102, 0.1);
+    --chip-border: rgba(216, 177, 102, 0.32);
+    --chip-active-bg: #c89b4b;
+    --chip-active-text: #141312;
   }
 
-  .filter-tab[data-category="Origins & Early History"],
-  .filter-tab[data-filter="Origins & Early History"] {
-    --tab-color: var(--cat-history-text);
-    --tab-bg: rgba(212, 139, 82, 0.12);
-    --tab-border: rgba(212, 139, 82, 0.35);
-    --tab-active-bg: #c4783d;
-    --tab-active-text: #ffffff;
+  .bi-chip[data-category="Origins & Early History"],
+  .bi-chip[data-filter="Origins & Early History"] {
+    --chip-color: var(--cat-history-text, #c99a72);
+    --chip-bg: rgba(201, 154, 114, 0.1);
+    --chip-border: rgba(201, 154, 114, 0.32);
+    --chip-active-bg: #a5714a;
+    --chip-active-text: #fbf9f4;
   }
 
-  .filter-tab[data-category="Prophecies & Eschatology"],
-  .filter-tab[data-filter="Prophecies & Eschatology"] {
-    --tab-color: var(--cat-prophecies-text);
-    --tab-bg: rgba(224, 90, 71, 0.12);
-    --tab-border: rgba(224, 90, 71, 0.35);
-    --tab-active-bg: #c94532;
-    --tab-active-text: #ffffff;
+  .bi-chip[data-category="Prophecies & Eschatology"],
+  .bi-chip[data-filter="Prophecies & Eschatology"] {
+    --chip-color: var(--cat-prophecies-text, #c8705f);
+    --chip-bg: rgba(200, 112, 95, 0.1);
+    --chip-border: rgba(200, 112, 95, 0.32);
+    --chip-active-bg: #a44a3a;
+    --chip-active-text: #fbf9f4;
   }
 
-  .filter-tab[data-category="Theology & Epistemology"],
-  .filter-tab[data-filter="Theology & Epistemology"] {
-    --tab-color: var(--cat-theology-text);
-    --tab-bg: rgba(79, 168, 108, 0.12);
-    --tab-border: rgba(79, 168, 108, 0.35);
-    --tab-active-bg: #3f8e58;
-    --tab-active-text: #ffffff;
+  .bi-chip[data-category="Theology & Epistemology"],
+  .bi-chip[data-filter="Theology & Epistemology"] {
+    --chip-color: var(--cat-theology-text, #7fa389);
+    --chip-bg: rgba(127, 163, 137, 0.1);
+    --chip-border: rgba(127, 163, 137, 0.32);
+    --chip-active-bg: #4d7a5c;
+    --chip-active-text: #fbf9f4;
   }
 
-  .filter-tab[data-category="Transmission & Narrators"],
-  .filter-tab[data-filter="Transmission & Narrators"] {
-    --tab-color: var(--cat-philosophy-text);
-    --tab-bg: rgba(96, 143, 214, 0.12);
-    --tab-border: rgba(96, 143, 214, 0.35);
-    --tab-active-bg: #4f78b8;
-    --tab-active-text: #ffffff;
+  .bi-chip[data-category="Transmission & Narrators"],
+  .bi-chip[data-filter="Transmission & Narrators"] {
+    --chip-color: var(--cat-philosophy-text, #8595b5);
+    --chip-bg: rgba(133, 149, 181, 0.1);
+    --chip-border: rgba(133, 149, 181, 0.32);
+    --chip-active-bg: #55648a;
+    --chip-active-text: #fbf9f4;
   }
 
-  .filter-tab {
+  .bi-chip {
     position: relative;
     z-index: 2;
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    padding: 0.42rem 0.9rem;
-    border: 1px solid var(--tab-border, var(--hc-rule));
-    border-radius: var(--radius-pill);
+    gap: 0.5rem;
+    padding: 0.44rem 1rem;
+    border: 1px solid var(--chip-border, var(--hc-rule));
+    border-radius: 999px;
     background: var(--hc-surface-1);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: all 200ms ease;
+    transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease;
   }
 
-  .filter-tab__dot {
+  .bi-chip__dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: var(--tab-color, var(--hc-gold));
-    display: inline-block;
+    background: var(--chip-color, var(--hc-gold));
     flex-shrink: 0;
-    transition: transform 200ms ease, background 200ms ease;
+    transition: transform 180ms ease;
   }
 
-  .filter-tab:hover {
-    color: var(--tab-color, var(--hc-text-primary));
-    border-color: var(--tab-color, var(--hc-rule-strong));
-    background: var(--tab-bg, var(--hc-surface-2));
+  .bi-chip:hover {
+    color: var(--chip-color, var(--hc-text-primary));
+    border-color: var(--chip-color, var(--hc-rule-strong));
+    background: var(--chip-bg, var(--hc-surface-2));
   }
 
-  .filter-tab:hover .filter-tab__dot {
-    transform: scale(1.25);
+  .bi-chip:hover .bi-chip__dot {
+    transform: scale(1.3);
   }
 
-  .filter-tab.is-active {
-    color: var(--tab-active-text, #ffffff);
-    background: var(--tab-active-bg, var(--hc-gold));
-    border-color: var(--tab-active-bg, var(--hc-gold));
+  .bi-chip.is-active {
+    color: var(--chip-active-text, #ffffff);
     font-weight: 700;
-    box-shadow: 0 2px 12px color-mix(in srgb, var(--tab-active-bg) 40%, transparent);
   }
 
-  .archive-filters[data-magnet-ready="true"] .filter-tab.is-active {
+  .bi-filters[data-magnet-ready="true"] .bi-chip.is-active {
     background: transparent;
     border-color: transparent;
-    box-shadow: none;
   }
 
-  .filter-tab.is-active .filter-tab__dot {
+  .bi-chip.is-active .bi-chip__dot {
     background: currentColor;
   }
 
-  .filter-tab__count {
-    font-size: 0.8rem;
-    padding: 0.1rem 0.4rem;
-    border-radius: var(--radius-pill);
+  .bi-chip__count {
+    font-size: 0.78rem;
+    padding: 0.08rem 0.45rem;
+    border-radius: 999px;
     background: rgba(0, 0, 0, 0.18);
-    /* The tint darkens the ground under what is already the dimmest text
-       token, so the count takes the primary colour rather than inheriting. */
     color: var(--hc-text-primary);
+    font-variant-numeric: tabular-nums;
   }
 
-  .filter-tab.is-active .filter-tab__count {
-    /* Lightens rather than darkens: the active tab already sits on a mid-tone
-       gold, and darkening it dropped the dark label below 4.5:1. */
-    background: rgba(255, 255, 255, 0.32);
+  .bi-chip.is-active .bi-chip__count {
+    background: rgba(255, 255, 255, 0.28);
     color: currentColor;
   }
 
-  .archive-reset-btn {
+  .bi-reset {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.8rem;
-    border-radius: var(--radius-pill);
+    gap: 0.4rem;
+    padding: 0.42rem 0.9rem;
+    border-radius: 999px;
     border: 1px dashed var(--hc-rule-strong);
     background: transparent;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
     transition: all 180ms ease;
   }
 
-  .archive-reset-btn:hover {
+  .bi-reset:hover {
     border-color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.1);
+    border-style: solid;
+    background: rgba(216, 177, 102, 0.08);
   }
 
-  /* Ledger Section */
-  .archive-ledger {
-    padding-block: 2rem 6rem;
+  /* ═══════════════════════════════════════════
+     STATUS CHIP
+     ═══════════════════════════════════════════ */
+  .bi-ledger-section {
+    padding-block: 2rem 5rem;
   }
 
-  .archive-status-bar {
+  .bi-status {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     margin-bottom: 1.25rem;
-    min-height: 2.2rem;
+    min-height: 2.1rem;
   }
 
-  .archive-result-count {
-    margin: 0;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    letter-spacing: 0.03em;
-  }
-
-  .archive-result-count strong {
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  :global(.search-status-chip) {
+  .bi-status-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
-    padding: 0.35rem 0.85rem;
-    border-radius: 9999px;
-    background: rgba(216, 177, 102, 0.08);
+    padding: 0.36rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.07);
     border: 1px solid rgba(216, 177, 102, 0.22);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.84rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    font-size: 0.83rem;
   }
 
-  :global(.search-status-dot) {
+  .bi-status-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
@@ -1049,316 +1171,268 @@ const entries = posts.map((post, index) => ({
     flex-shrink: 0;
   }
 
-  :global(.search-query-highlight) {
+  .bi-status-text strong {
     color: var(--hc-gold);
-    font-weight: 600;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }
 
-  :global(.search-feedback-cat) {
-    color: var(--hc-text);
-    font-weight: 600;
-  }
-
-  .ledger {
+  /* ═══════════════════════════════════════════
+     LEDGER ROWS
+     ═══════════════════════════════════════════ */
+  .bi-ledger {
     margin: 0;
     padding: 0;
     list-style: none;
     border-top: 1px solid var(--hc-rule);
   }
 
-  .ledger-row {
+  .bi-row {
     position: relative;
     border-bottom: 1px solid var(--hc-rule-soft);
-    transition:
-      background 280ms ease,
-      border-bottom-color 240ms ease,
-      box-shadow 240ms ease;
+    transition: background 240ms ease, border-bottom-color 200ms ease, box-shadow 240ms ease;
   }
 
-  .ledger-row[data-category="Origins & Early History"] {
-    --cat-color: var(--cat-history-text);
+  .bi-row[data-category="Origins & Early History"] {
+    --cat-color: var(--cat-history-text, #c99a72);
   }
 
-  .ledger-row[data-category="Prophecies & Eschatology"] {
-    --cat-color: var(--cat-prophecies-text);
+  .bi-row[data-category="Prophecies & Eschatology"] {
+    --cat-color: var(--cat-prophecies-text, #c8705f);
   }
 
-  .ledger-row[data-category="Theology & Epistemology"] {
-    --cat-color: var(--cat-theology-text);
+  .bi-row[data-category="Theology & Epistemology"] {
+    --cat-color: var(--cat-theology-text, #7fa389);
   }
 
-  .ledger-row[data-category="Transmission & Narrators"] {
-    --cat-color: var(--cat-philosophy-text);
+  .bi-row[data-category="Transmission & Narrators"] {
+    --cat-color: var(--cat-philosophy-text, #8595b5);
   }
 
-  .ledger-row:hover {
+  .bi-row:hover {
     background: radial-gradient(
       700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 10%, rgba(20, 19, 18, 0.65)) 0%,
-      rgba(15, 14, 13, 0.4) 55%,
-      transparent 85%
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 9%, transparent) 0%,
+      transparent 75%
     );
     border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 35%, var(--hc-rule));
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
-      0 10px 28px -10px rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 22%, transparent);
   }
 
-  :global([data-theme="light"]) .ledger-row:hover {
-    background: radial-gradient(
-      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 14%, rgba(245, 240, 230, 0.8)) 0%,
-      rgba(240, 234, 222, 0.45) 55%,
-      transparent 85%
-    );
-    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
-      0 6px 20px -6px rgba(0, 0, 0, 0.08);
-  }
-
-  .ledger-row__link {
+  .bi-row__link {
     display: grid;
-    grid-template-columns: 155px minmax(0, 1fr) auto;
+    grid-template-columns: 150px minmax(0, 1fr) auto;
     align-items: center;
     gap: clamp(1.2rem, 2.5vw, 2.4rem);
-    padding: clamp(1.25rem, 1.8vw, 1.65rem) clamp(0.75rem, 1.2vw, 1.35rem);
+    padding: clamp(1.3rem, 1.8vw, 1.7rem) clamp(0.75rem, 1.2vw, 1.35rem);
     text-decoration: none;
-    border-radius: var(--radius-sm);
   }
 
-  .ledger-row__meta {
+  /* Meta column */
+  .bi-row__meta {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.4rem;
     font-family: var(--font-ui);
   }
 
-  .ledger-row__folio {
+  .bi-row__folio {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.18rem 0.55rem;
-    border-radius: 4px;
-    background: rgba(216, 177, 102, 0.05);
+    padding: 0.2rem 0.55rem;
     border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs, 2px);
+    background: rgba(216, 177, 102, 0.05);
     color: var(--hc-gold);
-    font-size: 0.76rem;
+    font-size: 0.74rem;
     font-weight: 700;
     letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-family: var(--font-mono, monospace);
+    font-variant-numeric: tabular-nums;
     width: fit-content;
-    transition: all 220ms ease;
+    transition: border-color 200ms ease, background-color 200ms ease;
   }
 
-  .folio-glyph {
-    font-size: 0.75rem;
+  .bi-row__folio-glyph {
+    font-size: 0.72rem;
     color: var(--cat-color, var(--hc-gold));
-    opacity: 0.45;
-    transform: scale(0.9);
-    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease, color 200ms ease;
+    opacity: 0.5;
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
   }
 
-  .ledger-row:hover .ledger-row__folio {
-    background: rgba(216, 177, 102, 0.12);
+  .bi-row:hover .bi-row__folio {
+    background: rgba(216, 177, 102, 0.1);
     border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
-    color: var(--hc-gold-bright, #ffffff);
-    box-shadow: 0 0 12px rgba(216, 177, 102, 0.2);
   }
 
-  .ledger-row:hover .folio-glyph {
+  .bi-row:hover .bi-row__folio-glyph {
     opacity: 1;
-    transform: scale(1.15) rotate(45deg);
-    color: var(--cat-color, var(--hc-gold));
+    transform: scale(1.2) rotate(45deg);
   }
 
-  .ledger-row__date {
+  .bi-row__date {
     color: var(--hc-text-tertiary);
     font-size: 0.82rem;
   }
 
-  .ledger-row__readtime {
+  .bi-row__readtime {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.32rem;
     font-size: 0.75rem;
     color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
   }
 
-  .new-badge {
+  .bi-row__readtime-icon {
+    color: var(--hc-gold-dim);
+    flex-shrink: 0;
+  }
+
+  /* Neutral gold "New" mark — no traffic-light semantics */
+  .bi-row__badge-new {
     display: inline-flex;
     align-items: center;
     width: fit-content;
     padding: 0.14rem 0.5rem;
-    border-radius: var(--radius-pill);
-    background: rgba(224, 90, 71, 0.14);
-    border: 1px solid rgba(224, 90, 71, 0.4);
-    color: var(--cat-prophecies-text);
-    font-size: 0.75rem;
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.1);
+    border: 1px solid rgba(216, 177, 102, 0.4);
+    color: var(--hc-gold);
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
-  .ledger-row__body {
+  /* Body column */
+  .bi-row__body {
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 0.5rem;
     min-width: 0;
   }
 
-  .ledger-row__header {
+  .bi-row__header {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.45rem;
   }
 
-  .ledger-row__cat {
+  .bi-row__cat {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
+    gap: 0.45rem;
     width: fit-content;
-    padding: 0.18rem 0.65rem;
+    padding: 0.2rem 0.65rem;
     border: 1px solid var(--badge-border, rgba(216, 177, 102, 0.3));
-    border-radius: var(--radius-pill);
+    border-radius: 999px;
     color: var(--badge-color, var(--hc-gold-soft));
     background: var(--badge-bg, rgba(216, 177, 102, 0.08));
-    box-shadow: 0 1px 6px var(--badge-glow, rgba(0, 0, 0, 0.15)), inset 0 0 6px var(--badge-glow-inner, transparent);
     font-family: var(--font-ui);
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    transition:
-      transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 220ms ease,
-      box-shadow 220ms ease,
-      background 220ms ease;
+    transition: border-color 200ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .ledger-row__cat-dot {
+  .bi-row__cat-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: currentColor;
-    box-shadow: 0 0 6px currentColor, 0 0 10px currentColor;
     flex-shrink: 0;
-    display: inline-block;
-    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms ease;
+    transition: transform 200ms ease;
   }
 
-  .ledger-row:hover .ledger-row__cat {
+  .bi-row:hover .bi-row__cat {
     transform: translateY(-1px);
-    border-color: var(--badge-border-hover, var(--badge-color));
-    box-shadow: 0 2px 14px var(--badge-glow-strong, rgba(216, 177, 102, 0.3)), inset 0 0 8px var(--badge-glow-inner, transparent);
+    border-color: var(--badge-color);
   }
 
-  .ledger-row:hover .ledger-row__cat-dot {
+  .bi-row:hover .bi-row__cat-dot {
     transform: scale(1.3);
-    box-shadow: 0 0 8px currentColor, 0 0 14px currentColor;
   }
 
-  .ledger-row__cat[data-category="Origins & Early History"] {
-    --badge-color: var(--cat-history-text);
-    --badge-bg: rgba(212, 139, 82, 0.12);
-    --badge-border: rgba(212, 139, 82, 0.35);
-    --badge-border-hover: rgba(212, 139, 82, 0.65);
-    --badge-glow: rgba(212, 139, 82, 0.16);
-    --badge-glow-inner: rgba(212, 139, 82, 0.08);
-    --badge-glow-strong: rgba(212, 139, 82, 0.35);
+  .bi-row__cat[data-category="Origins & Early History"] {
+    --badge-color: var(--cat-history-text, #c99a72);
+    --badge-bg: rgba(201, 154, 114, 0.1);
+    --badge-border: rgba(201, 154, 114, 0.35);
   }
 
-  .ledger-row__cat[data-category="Prophecies & Eschatology"] {
-    --badge-color: var(--cat-prophecies-text);
-    --badge-bg: rgba(224, 90, 71, 0.12);
-    --badge-border: rgba(224, 90, 71, 0.35);
-    --badge-border-hover: rgba(224, 90, 71, 0.65);
-    --badge-glow: rgba(224, 90, 71, 0.16);
-    --badge-glow-inner: rgba(224, 90, 71, 0.08);
-    --badge-glow-strong: rgba(224, 90, 71, 0.35);
+  .bi-row__cat[data-category="Prophecies & Eschatology"] {
+    --badge-color: var(--cat-prophecies-text, #c8705f);
+    --badge-bg: rgba(200, 112, 95, 0.1);
+    --badge-border: rgba(200, 112, 95, 0.35);
   }
 
-  .ledger-row__cat[data-category="Theology & Epistemology"] {
-    --badge-color: var(--cat-theology-text);
-    --badge-bg: rgba(79, 168, 108, 0.12);
-    --badge-border: rgba(79, 168, 108, 0.35);
-    --badge-border-hover: rgba(79, 168, 108, 0.65);
-    --badge-glow: rgba(79, 168, 108, 0.16);
-    --badge-glow-inner: rgba(79, 168, 108, 0.08);
-    --badge-glow-strong: rgba(79, 168, 108, 0.35);
+  .bi-row__cat[data-category="Theology & Epistemology"] {
+    --badge-color: var(--cat-theology-text, #7fa389);
+    --badge-bg: rgba(127, 163, 137, 0.1);
+    --badge-border: rgba(127, 163, 137, 0.35);
   }
 
-  .ledger-row__cat[data-category="Transmission & Narrators"] {
-    --badge-color: var(--cat-philosophy-text);
-    --badge-bg: rgba(96, 143, 214, 0.12);
-    --badge-border: rgba(96, 143, 214, 0.35);
-    --badge-border-hover: rgba(96, 143, 214, 0.65);
-    --badge-glow: rgba(96, 143, 214, 0.16);
-    --badge-glow-inner: rgba(96, 143, 214, 0.08);
-    --badge-glow-strong: rgba(96, 143, 214, 0.35);
+  .bi-row__cat[data-category="Transmission & Narrators"] {
+    --badge-color: var(--cat-philosophy-text, #8595b5);
+    --badge-bg: rgba(133, 149, 181, 0.1);
+    --badge-border: rgba(133, 149, 181, 0.35);
   }
 
-  .ledger-row__title {
+  .bi-row__title {
     margin: 0;
     font-family: var(--font-display);
     font-weight: 500;
-    font-size: clamp(1.35rem, 2vw, 1.58rem);
-    line-height: 1.22;
+    font-size: clamp(1.3rem, 2vw, 1.55rem);
+    line-height: 1.24;
     letter-spacing: -0.015em;
     color: var(--hc-text-primary);
     text-decoration: underline;
     text-decoration-color: transparent;
     text-underline-offset: 6px;
     text-decoration-thickness: 1.5px;
-    transition: color 200ms ease, text-decoration-color 260ms ease;
+    transition: color 200ms ease, text-decoration-color 240ms ease;
   }
 
-  .ledger-row:hover .ledger-row__title {
+  .bi-row:hover .bi-row__title {
     color: var(--hc-gold-soft);
     text-decoration-color: var(--cat-color, var(--hc-gold));
   }
 
-  /* Multi-line rich description preview */
-  .ledger-row__desc {
+  .bi-row__desc {
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     color: var(--hc-text-secondary);
-    font-size: 0.98rem;
+    font-size: 0.95rem;
     line-height: 1.58;
   }
 
-  .ledger-row__desc[hidden] {
+  .bi-row__desc[hidden] {
     display: none !important;
   }
 
-  /* Deep Content Search Match Citation Plaque */
-  .ledger-row__match {
-    margin-top: 0.75rem;
+  .bi-row__match {
+    margin-top: 0.35rem;
   }
 
+  /* ── Deep-search citation plaque (injected via JS, hence :global) ── */
   :global(.search-citation) {
-    position: relative;
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-sm);
-    background: rgba(18, 18, 22, 0.85);
-    border: 1px solid rgba(216, 177, 102, 0.24);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-xs, 2px);
+    background: var(--hc-surface-2);
+    border: 1px solid var(--hc-rule);
+    outline: 1px solid var(--hc-rule-soft);
+    outline-offset: -5px;
     overflow: hidden;
-    transition: border-color 220ms ease, background 220ms ease, box-shadow 220ms ease;
+    transition: border-color 200ms ease;
   }
 
-  .ledger-row:hover :global(.search-citation) {
-    border-color: rgba(216, 177, 102, 0.5);
-    background: rgba(24, 24, 30, 0.95);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 24px rgba(216, 177, 102, 0.09);
+  .bi-row:hover :global(.search-citation) {
+    border-color: var(--hc-gold-dim);
   }
 
   :global(.search-citation__header) {
@@ -1366,9 +1440,9 @@ const entries = posts.map((post, index) => ({
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.55rem 0.85rem;
-    background: rgba(216, 177, 102, 0.07);
-    border-bottom: 1px solid rgba(216, 177, 102, 0.14);
+    padding: 0.55rem 0.9rem;
+    background: rgba(216, 177, 102, 0.06);
+    border-bottom: 1px solid var(--hc-rule-soft);
     flex-wrap: wrap;
   }
 
@@ -1384,11 +1458,11 @@ const entries = posts.map((post, index) => ({
     align-items: center;
     gap: 0.35rem;
     padding: 0.2rem 0.5rem;
-    border-radius: 9999px;
-    background: rgba(216, 177, 102, 0.14);
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.12);
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1400,7 +1474,7 @@ const entries = posts.map((post, index) => ({
     font-family: var(--font-ui);
     font-size: 0.84rem;
     font-weight: 600;
-    color: var(--hc-text);
+    color: var(--hc-text-primary);
     letter-spacing: 0.02em;
     white-space: nowrap;
     overflow: hidden;
@@ -1412,36 +1486,35 @@ const entries = posts.map((post, index) => ({
     align-items: center;
     gap: 0.35rem;
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--hc-gold);
-    padding: 0.22rem 0.6rem;
-    border-radius: var(--radius-xs);
+    padding: 0.24rem 0.65rem;
+    border-radius: 999px;
     background: rgba(216, 177, 102, 0.08);
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    transition: all 180ms ease;
+    border: 1px solid rgba(216, 177, 102, 0.25);
     white-space: nowrap;
     line-height: 1.2;
+    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
   }
 
   :global(.search-citation__jump) svg {
     transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .ledger-row:hover :global(.search-citation__jump) {
+  .bi-row:hover :global(.search-citation__jump) {
     background: var(--hc-gold);
-    color: #0b0b0d;
+    color: var(--hc-text-inverse, #0f0f10);
     border-color: var(--hc-gold);
   }
 
-  .ledger-row:hover :global(.search-citation__jump) svg {
+  .bi-row:hover :global(.search-citation__jump) svg {
     transform: translateX(3px);
   }
 
   :global(.search-citation__body) {
-    position: relative;
     display: flex;
     align-items: flex-start;
     gap: 0.65rem;
@@ -1449,11 +1522,11 @@ const entries = posts.map((post, index) => ({
   }
 
   :global(.search-citation__quote-mark) {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: Georgia, "Times New Roman", serif;
     font-size: 1.6rem;
     line-height: 0.8;
     color: var(--hc-gold);
-    opacity: 0.5;
+    opacity: 0.55;
     user-select: none;
     flex-shrink: 0;
     margin-top: 0.15rem;
@@ -1468,37 +1541,38 @@ const entries = posts.map((post, index) => ({
   }
 
   :global(.search-match-mark) {
-    background: rgba(216, 177, 102, 0.24);
+    background: rgba(216, 177, 102, 0.26);
     color: #fcebc7;
     border-bottom: 2px solid var(--hc-gold);
     font-weight: 700;
     font-style: normal;
     padding: 0.08em 0.3em;
-    border-radius: 2px;
+    border-radius: var(--radius-xs, 2px);
   }
 
-  .ledger-row__action {
+  /* Action column */
+  .bi-row__action {
     display: inline-flex;
     align-items: center;
     gap: 0.65rem;
     flex-shrink: 0;
   }
 
-  .ledger-row__action-label {
+  .bi-row__action-label {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--cat-color, var(--hc-gold));
     opacity: 0;
     transform: translateX(6px);
-    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: opacity 200ms ease, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
     white-space: nowrap;
     pointer-events: none;
   }
 
-  .ledger-row__arrow {
+  .bi-row__arrow {
     display: grid;
     place-items: center;
     width: 38px;
@@ -1507,164 +1581,169 @@ const entries = posts.map((post, index) => ({
     border-radius: 50%;
     color: var(--hc-gold);
     background: var(--hc-surface-1);
-    transition: all 220ms ease;
+    transition: all 200ms ease;
   }
 
-  .ledger-row:hover .ledger-row__action-label {
+  .bi-row:hover .bi-row__action-label {
     opacity: 1;
     transform: translateX(0);
   }
 
-  .ledger-row:hover .ledger-row__arrow {
-    color: var(--hc-fixed-black, #141312);
+  .bi-row:hover .bi-row__arrow {
+    color: var(--hc-text-inverse, #141312);
     border-color: var(--cat-color, var(--hc-gold));
     background: var(--cat-color, var(--hc-gold));
     transform: translateX(3px);
-    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 50%, transparent);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 45%, transparent);
   }
 
-  /* Empty state */
-  .ledger-empty {
-    margin: 3rem auto;
+  /* ═══════════════════════════════════════════
+     EMPTY STATE
+     ═══════════════════════════════════════════ */
+  .bi-empty {
+    margin: 3rem auto 0;
     max-width: 520px;
-    padding: 3rem 2rem;
+    padding: 3.5rem 2rem;
     border: 1px dashed var(--hc-rule-strong);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs, 2px);
     text-align: center;
     background: var(--hc-surface-1);
   }
 
-  .ledger-empty__icon {
-    font-size: 1.7rem;
-    color: var(--hc-gold);
-    margin-bottom: 0.75rem;
+  .bi-empty__icon {
+    display: inline-flex;
+    color: var(--hc-gold-dim);
+    margin-bottom: 0.85rem;
   }
 
-  .ledger-empty h3 {
+  .bi-empty h3 {
     margin: 0 0 0.5rem;
     font-family: var(--font-display);
-    font-size: 1.27rem;
+    font-size: 1.35rem;
     color: var(--hc-text-primary);
   }
 
-  .ledger-empty p {
+  .bi-empty p {
     margin: 0 0 1.5rem;
     color: var(--hc-text-secondary);
-    font-size: 1.03rem;
+    font-size: 0.95rem;
     line-height: 1.55;
   }
 
-  /* Light Theme */
-  :global([data-theme="light"]) .ledger-row:hover {
-    background: linear-gradient(90deg, rgba(176, 126, 44, 0.06) 0%, transparent 80%);
+  .bi-empty__reset {
+    background: transparent;
+    color: var(--hc-gold);
+    border: 1px solid var(--hc-rule);
+    font-family: var(--font-ui);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 0.6rem 1.3rem;
+    border-radius: var(--radius-sm, 4px);
+    cursor: pointer;
+    transition: all 180ms ease;
   }
 
-  :global([data-theme="light"]) .ledger-tag {
-    background: #f4efdf;
-    border-color: var(--hc-rule);
-    color: var(--hc-text-secondary);
+  .bi-empty__reset:hover {
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse, #0f0b0d);
+    border-color: var(--hc-gold);
   }
 
-  /* Responsive Adjustments */
+  /* ═══════════════════════════════════════════
+     LIGHT THEME ADAPTATION
+     ═══════════════════════════════════════════ */
+  :global([data-theme="light"]) .bi-hero {
+    background:
+      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(176, 126, 44, 0.08), transparent 70%),
+      var(--hc-surface-0);
+  }
+
+  :global([data-theme="light"]) .bi-chip__count {
+    background: rgba(43, 40, 36, 0.08);
+  }
+
+  :global([data-theme="light"]) .bi-row:hover {
+    background: radial-gradient(
+      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
+      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 12%, transparent) 0%,
+      transparent 75%
+    );
+  }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════ */
   @media (max-width: 900px) {
-    .ledger-row__link {
-      grid-template-columns: 140px minmax(0, 1fr) auto;
+    .bi-row__link {
+      grid-template-columns: 130px minmax(0, 1fr) auto;
       gap: 1.2rem;
-      padding: 1.15rem 0.6rem;
-      align-items: center;
+      padding: 1.2rem 0.6rem;
     }
 
-    .ledger-row__action-label {
+    .bi-row__action-label {
       display: none;
-    }
-
-    .ledger-row__desc {
-      -webkit-line-clamp: 2;
     }
   }
 
   @media (max-width: 760px) {
-    .archive-hero {
-      padding: 3rem 0 2rem;
+    .bi-hero {
+      padding: 3rem 0 2.25rem;
     }
 
-    .archive-hero__inner {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 1.5rem;
-    }
-
-    .archive-hero__stats {
-      width: 100%;
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      margin-bottom: 0;
-    }
-
-    .archive-hero__stat {
-      padding: 0.65rem 0.5rem;
-      min-width: 0;
-      text-align: center;
-      align-items: center;
-    }
-
-    .archive-hero__stat-num {
-      font-size: 1.15rem;
-    }
-
-    .archive-hero__stat-label {
-      font-size: 0.75rem;
-    }
-
-    .archive-search-row {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .search-kbd {
+    .bi-search-kbd {
       display: none;
     }
 
-    .ledger-row__link {
+    .bi-row__link {
       display: flex;
       flex-direction: column;
-      gap: 0.65rem;
-      padding: 1.1rem 0.6rem;
+      gap: 0.75rem;
+      padding: 1.15rem 0.6rem;
       align-items: stretch;
-      min-width: 0;
     }
 
-    .ledger-row__meta {
-      display: flex;
+    .bi-row__meta {
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      padding-bottom: 0.4rem;
+      padding-bottom: 0.45rem;
       border-bottom: 1px dashed var(--hc-rule-soft);
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
-    .ledger-row__folio {
-      font-size: 0.75rem;
+    .bi-row__date {
+      font-size: 0.78rem;
     }
 
-    .ledger-row__date {
-      font-size: 0.75rem;
-      color: var(--hc-text-tertiary);
+    .bi-row__title {
+      font-size: 1.24rem;
     }
 
-    .ledger-row__readtime {
-      font-size: 0.75rem;
-    }
-
-    .ledger-row__title {
-      font-size: 1.28rem;
-      line-height: 1.22;
-    }
-
-    .ledger-row__action {
+    .bi-row__action {
       display: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     REDUCED MOTION
+     ═══════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    .bi-row,
+    .bi-row__cat,
+    .bi-row__folio-glyph,
+    .bi-row__title,
+    .bi-row__arrow,
+    .bi-row__action-label,
+    .bi-chip,
+    .bi-chip__dot {
+      transition: none;
+    }
+
+    .bi-row:hover .bi-row__arrow {
+      transform: none;
     }
   }
 </style>

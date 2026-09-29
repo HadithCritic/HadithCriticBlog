@@ -16,7 +16,13 @@
  * articles, so they are emitted whether or not this module wrote them.
  */
 
-import { CorpusUnavailableError, getHadithDetail, type ChainNode, type HadithDetail } from './corpus-client';
+import {
+  CorpusUnavailableError,
+  getHadithDetail,
+  type ChainNode,
+  type HadithDetail,
+  type HadithNarratorSurface
+} from './corpus-client';
 import { escapeHtml } from './snippet';
 import { renderArabic, renderRich, toPlainText } from './format-text';
 
@@ -59,57 +65,46 @@ function heroMarkup(detail: HadithDetail, id: number, pathCount: number, totalPa
               : ''
           }
           <span class="edition-ref-tag">Record ID #${id}</span>
-          <span class="edition-ref-tag edition-ref-tag--status">Critical Edition</span>
         </div>
       </div>
 
       <div class="edition-hero__titles">
-        ${
-          hadith.book_ar
-            ? `<p class="edition-hero__title-ar" lang="ar" dir="rtl">${escapeHtml(hadith.book_ar)}</p>`
-            : ''
-        }
         <h1 class="edition-hero__title-en">${escapeHtml(heroTitle(detail))}</h1>
       </div>
 
+      ${structureMarkup(detail)}
+
       <div class="edition-ledger-grid">
         <div class="ledger-block">
-          <span class="ledger-block__label">Bibliographic Citation</span>
+          <span class="ledger-block__label">Source</span>
           <div class="ledger-block__value">
             <a href="/hadith/collection/${escapeHtml(hadith.book_slug)}/" class="ledger-link">
               ${escapeHtml(hadith.book_en)}
             </a>
             ${
-              hadith.hadith_num
-                ? `<span class="ledger-meta">· Report № ${escapeHtml(hadith.hadith_num)}</span>`
+              hadith.book_ar
+                ? `<span class="ledger-book-ar" lang="ar" dir="rtl">${escapeHtml(hadith.book_ar)}</span>`
                 : ''
             }
           </div>
         </div>
 
         <div class="ledger-block">
-          <span class="ledger-block__label">Transmission Topology</span>
+          <span class="ledger-block__label">Transmission</span>
           <div class="ledger-block__value">
-            <span>${pathCount} Lineage ${pathCount === 1 ? 'Path' : 'Paths'}</span>
-            <span class="ledger-meta">· ${hadith.narrator_count} Transmitters</span>
-          </div>
-        </div>
-
-        <div class="ledger-block">
-          <span class="ledger-block__label">Apparatus Circulation</span>
-          <div class="ledger-block__value">
-            <span>${totalParallels.toLocaleString()} Cross-Attestations</span>
-            <span class="ledger-meta">· ${hadith.parallel_count || 0} Parallels</span>
+            <span>${pathCount} ${pathCount === 1 ? 'lineage path' : 'lineage paths'} · ${hadith.narrator_count} transmitters</span>
+            <span class="ledger-meta">${totalParallels.toLocaleString()} cross-attestations</span>
           </div>
         </div>
 
         <div class="ledger-block ledger-block--action">
-          <span class="ledger-block__label">Permanent Reference</span>
+          <span class="ledger-block__label">Print reference</span>
+          ${referenceSummaryMarkup(detail)}
           <button
             type="button"
             class="edition-cite-btn"
             id="edition-cite-btn"
-            data-citation="${escapeHtml(`${referenceLabel(detail)} (HadithCritic Corpus Record #${id})`)}"
+            data-citation="${escapeHtml(citationText(detail, id))}"
             hidden
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -127,7 +122,6 @@ function dockMarkup(matnIsDistinct: boolean, pathCount: number, hasApparatus: bo
   return `
     <nav class="edition-nav-dock" aria-label="Record Sections" id="edition-jump-bar">
       <div class="edition-nav-dock__inner">
-        <span class="edition-nav-dock__label">Sections:</span>
         <div class="edition-nav-dock__links">
           ${
             matnIsDistinct
@@ -166,6 +160,7 @@ function dockMarkup(matnIsDistinct: boolean, pathCount: number, hasApparatus: bo
  */
 function spread(options: {
   modifier: string;
+  englishLabel?: string;
   englishCaveat: string;
   english: string | null;
   englishEmpty: string;
@@ -179,7 +174,7 @@ function spread(options: {
         <div class="critical-col__header">
           <div class="critical-col__tag">
             <span class="critical-col__dot critical-col__dot--en" aria-hidden="true"></span>
-            <span>English Translation</span>
+            <span>${escapeHtml(options.englishLabel || 'English Translation')}</span>
           </div>
           <span class="critical-col__caveat">${escapeHtml(options.englishCaveat)}</span>
         </div>
@@ -251,7 +246,6 @@ function ladderNode(node: ChainNode, index: number, total: number): string {
             ? ''
             : `<div class="ladder-spine__connector" aria-hidden="true">
                  <span class="ladder-spine__line"></span>
-                 <span class="ladder-verb" lang="ar" title="Transmission connection formula">عن</span>
                </div>`
         }
       </div>
@@ -277,7 +271,7 @@ function ladderNode(node: ChainNode, index: number, total: number): string {
     </li>`;
 }
 
-function isnadSection(paths: Map<number, ChainNode[]>): string {
+function isnadSection(paths: Map<number, ChainNode[]>, detail: HadithDetail): string {
   const cards = [...paths.entries()]
     .map(
       ([idx, nodes]) => `
@@ -288,13 +282,6 @@ function isnadSection(paths: Map<number, ChainNode[]>): string {
             <span class="isnad-path-count">${nodes.length} Transmitters in Direct Succession</span>
           </div>
 
-          <div class="isnad-flow-legend">
-            <span class="legend-step legend-step--source">Earliest Authority</span>
-            <span class="legend-sep">↓</span>
-            <span class="legend-step">Intermediate Links</span>
-            <span class="legend-sep">↓</span>
-            <span class="legend-step legend-step--compiler">Final Collector</span>
-          </div>
         </div>
 
         <ol class="isnad-chain-ladder">
@@ -310,15 +297,34 @@ function isnadSection(paths: Map<number, ChainNode[]>): string {
         'Transmitter Lineage',
         'isnad-heading',
         'Transmission Graph &amp; Rijal Register (الإسناد)',
-        'Ordered chronologically from earliest authority outward to compiler. Click any transmitter to examine their biographical dossier, teacher/student associations, and historical evaluations.'
+        'Normalized transmitter paths indexed for navigation. These paths are not a diplomatic transcription of the source isnād; consult the source narrator forms below for names recorded with this report.'
       )}
       <div class="isnad-graph-stack">${cards}</div>
+      ${sourceNarratorMarkup(detail.sourceNarrators)}
     </section>`;
+}
+
+function sourceNarratorMarkup(surfaces: HadithNarratorSurface[]): string {
+  if (!surfaces.length) return '';
+  return `
+    <details class="source-narrators">
+      <summary>Source narrator name forms <span>${surfaces.length} indexed forms</span></summary>
+      <p class="source-narrators__note">Arabic forms are transcribed from the source dataset. English names are register cross-references; they are not a translation of the Arabic forms.</p>
+      <ol>
+        ${surfaces.map((entry) => `
+          <li>
+            <span class="source-narrators__position">${entry.pos + 1}</span>
+            <span class="source-narrators__en">${entry.narrator_id ? `<a href="/narrators/${entry.narrator_id}/">${escapeHtml(entry.name_en || 'Open Rijāl dossier')}</a>` : escapeHtml(entry.name_en || 'No register match')}</span>
+            <span class="source-narrators__ar" lang="ar" dir="rtl">${renderArabic(entry.surface_diac || entry.surface)}</span>
+          </li>`).join('')}
+      </ol>
+    </details>`;
 }
 
 function apparatusSection(detail: HadithDetail, totalParallels: number): string {
   const { hadith, glosses, subjects } = detail;
   const cards: string[] = [];
+  const detailCardCount = Number(glosses.length > 0) + Number(subjects.length > 0);
 
   if (totalParallels > 0) {
     const circulation = [
@@ -340,7 +346,7 @@ function apparatusSection(detail: HadithDetail, totalParallels: number): string 
     ] as const;
 
     cards.push(`
-      <div class="apparatus-card hc-reveal" style="--reveal-delay:0">
+      <div class="apparatus-card apparatus-card--circulation hc-reveal" style="--reveal-delay:0">
         <div class="apparatus-card__header">
           <h3 class="apparatus-card__title">Cross-Attestation Network</h3>
           <span class="apparatus-card__count">${totalParallels.toLocaleString()} Occurrences</span>
@@ -367,7 +373,7 @@ function apparatusSection(detail: HadithDetail, totalParallels: number): string 
 
   if (glosses.length > 0) {
     cards.push(`
-      <div class="apparatus-card hc-reveal" style="--reveal-delay:1">
+      <div class="apparatus-card apparatus-card--lexicon hc-reveal" style="--reveal-delay:1">
         <div class="apparatus-card__header">
           <h3 class="apparatus-card__title">Gharīb Vocabulary (غريب الحديث)</h3>
           <span class="apparatus-card__count">${glosses.length} Terms</span>
@@ -389,7 +395,7 @@ function apparatusSection(detail: HadithDetail, totalParallels: number): string 
 
   if (subjects.length > 0) {
     cards.push(`
-      <div class="apparatus-card hc-reveal" style="--reveal-delay:2">
+      <div class="apparatus-card apparatus-card--subjects hc-reveal" style="--reveal-delay:2">
         <div class="apparatus-card__header">
           <h3 class="apparatus-card__title">Controlled Subject Taxonomy</h3>
           <span class="apparatus-card__count">${subjects.length} Categories</span>
@@ -417,7 +423,7 @@ function apparatusSection(detail: HadithDetail, totalParallels: number): string 
         'Apparatus, Lexicon &amp; Taxonomy',
         'Cross-attestation statistics indicate circulation across canonical compilations. Vocabulary notes isolate archaic terminology.'
       )}
-      <div class="apparatus-grid">${cards.join('')}</div>
+      <div class="apparatus-grid${detailCardCount === 1 ? ' apparatus-grid--single-detail' : ''}">${cards.join('')}</div>
     </section>`;
 }
 
@@ -433,6 +439,10 @@ export function renderHadithRecord(detail: HadithDetail, id: number): string {
     Boolean(hadith.matn_ar) && String(hadith.matn_ar).trim() !== String(hadith.text_ar).trim();
   const hasApparatus =
     totalParallels > 0 || detail.glosses.length > 0 || detail.subjects.length > 0;
+  const supportingSections = [
+    paths.size > 0 ? isnadSection(paths, detail) : '',
+    hasApparatus ? apparatusSection(detail, totalParallels) : ''
+  ].filter(Boolean);
 
   const matnSection = matnIsDistinct
     ? `<section class="record-section" aria-labelledby="matn-heading">
@@ -448,8 +458,8 @@ export function renderHadithRecord(detail: HadithDetail, id: number): string {
            english: hadith.matn_en,
            englishEmpty: 'No distinct translation recorded for this matn isolation.',
            arabicTag: 'نص المتن المجرد',
-           arabicFolio: 'النص المعتمد',
-           arabic: hadith.matn_ar || ''
+           arabicFolio: 'المتن العربي',
+           arabic: hadith.matn_ar_diac || hadith.matn_ar || ''
          })}
        </section>`
     : '';
@@ -460,24 +470,68 @@ export function renderHadithRecord(detail: HadithDetail, id: number): string {
     matnSection,
     `<section class="record-section" aria-labelledby="report-heading">
        ${sectionHeader(
-         'Manuscript Formulation',
+         'Source Text · Full Report',
          'report-heading',
-         'Full Formulation &amp; Opening Formulas',
-         'The narration as committed to manuscript: includes compiler opening verbs, transmission preambles (حدثنا / أخبرنا), transmitter chains, and substantive text.'
+         'Full Arabic Report',
+         'Source dataset transcription including compiler opening, transmission wording, chain, and matn. The English rendering is supplied separately and is not line-aligned.'
        )}
        ${spread({
          modifier: '',
-         englishCaveat: 'Complete manuscript text',
+         englishLabel: 'English report rendering',
+         englishCaveat: 'Coverage may differ from source Arabic',
          english: hadith.text_en,
          englishEmpty: 'Translation not registered for this manuscript formulation.',
          arabicTag: 'الرواية المسندة في المصنف',
          arabicFolio: 'الأصل العربي',
-         arabic: hadith.text_ar
+         arabic: hadith.text_ar_diac || hadith.text_ar
        })}
-     </section>`,
-    paths.size > 0 ? isnadSection(paths) : '',
-    hasApparatus ? apparatusSection(detail, totalParallels) : ''
+    </section>`,
+    supportingSections.length > 0
+      ? `<div class="record-support-grid">${supportingSections.join('')}</div>`
+      : ''
   ].join('');
+}
+
+function structureMarkup(detail: HadithDetail): string {
+  const { hadith } = detail;
+  if (!hadith.kitab_id) return '';
+  return `
+    <nav class="edition-source-path" aria-label="Compilation structure">
+      <span class="edition-source-path__item">Kitāb ${hadith.kitab_ordinal}</span>
+      <span class="edition-source-path__title" lang="ar" dir="rtl">${renderArabic(hadith.kitab_ar || '')}</span>
+      ${
+        hadith.bab_id
+          ? `<span class="edition-source-path__separator" aria-hidden="true">/</span>
+             <span class="edition-source-path__item">Bāb ${hadith.bab_ordinal}</span>
+             <span class="edition-source-path__title" lang="ar" dir="rtl">${renderArabic(hadith.bab_ar || '')}</span>`
+          : `<span class="edition-source-path__note">No separate Bāb label recorded for this report</span>`
+      }
+    </nav>`;
+}
+
+function referenceSummaryMarkup(detail: HadithDetail): string {
+  const reference = detail.references[0];
+  if (!reference) return '<span class="ledger-meta">No printed page marker recorded</span>';
+  const markers = detail.references.map((item) => escapeHtml(item.source_marker)).join(' ');
+  return `
+    <div class="edition-reference-summary">
+      <span>${escapeHtml(detail.hadith.book_en)} · First edition · ${reference.volume_count} volumes · ${reference.year_hijri} AH / ${reference.year_gregorian} CE</span>
+      <span class="edition-reference-summary__pages">${markers}</span>
+      <span class="edition-reference-summary__ar" lang="ar" dir="rtl">${escapeHtml(reference.work_title_ar)} · ${escapeHtml(reference.publisher_ar)} · ${escapeHtml(reference.publication_place_ar)} · ${escapeHtml(reference.edition_statement_ar)}</span>
+    </div>`;
+}
+
+function citationText(detail: HadithDetail, id: number): string {
+  const { hadith } = detail;
+  const edition = detail.references[0];
+  const pages = detail.references
+    .map((reference) => `vol. ${reference.volume}, p. ${reference.page}`)
+    .join('; ');
+  const pageCitation = pages ? `; ${pages}` : '';
+  const editionCitation = edition
+    ? `; ${edition.publisher_ar}, ${edition.edition_statement_ar}, ${edition.publication_place_ar}`
+    : '';
+  return `${hadith.book_en}${hadith.hadith_num ? ` no. ${hadith.hadith_num}` : ''}${pageCitation}${editionCitation} (HadithCritic corpus record #${id})`;
 }
 
 /** A record that cannot be shown. The badge says why, because they differ. */
@@ -568,10 +622,14 @@ function bindRecordBehaviour(): void {
  * Deep links land on a fragment that does not exist until this has run, so the
  * browser's own scroll-to-anchor has already failed by now. Repeat it.
  */
-function honourFragment(): void {
+async function honourFragment(): Promise<void> {
   const id = location.hash.slice(1);
   if (!id) return;
-  document.getElementById(id)?.scrollIntoView({ block: 'start' });
+  await document.fonts.ready;
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  );
+  document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 
 export async function initHadithRecord(): Promise<void> {

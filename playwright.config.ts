@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const appPort = Number(process.env.PLAYWRIGHT_PORT) || 4321;
+const corpusPort = Number(process.env.CORPUS_PORT) || 4322;
+
 export default defineConfig({
   testDir: './tests',
 
@@ -12,7 +15,7 @@ export default defineConfig({
    */
   timeout: 90_000,
 
-  use: { baseURL: 'http://127.0.0.1:4321', trace: 'retain-on-failure' },
+  use: { baseURL: `http://127.0.0.1:${appPort}`, trace: 'retain-on-failure' },
 
   /**
    * The HTML report is what the CI job uploads on failure. Without naming it
@@ -33,8 +36,9 @@ export default defineConfig({
     // it and then stays alive for the run. See the header of that file.
     {
       command: 'node scripts/preview-foreground.mjs',
-      url: 'http://127.0.0.1:4321',
+      url: `http://127.0.0.1:${appPort}`,
       reuseExistingServer: true,
+      env: { PREVIEW_PORT: String(appPort) },
       timeout: 90_000
     },
     // The corpus, on its own origin, because `astro preview` is wrangler and
@@ -45,8 +49,9 @@ export default defineConfig({
     // scripts/build-for-e2e.mjs.
     {
       command: 'node scripts/corpus-file-server.mjs',
-      url: 'http://127.0.0.1:4322/health',
+      url: `http://127.0.0.1:${corpusPort}/health`,
       reuseExistingServer: true,
+      env: { CORPUS_PORT: String(corpusPort) },
       timeout: 30_000
     }
   ],

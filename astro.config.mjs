@@ -22,6 +22,10 @@ const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 // picking up the shared config.
 export default defineConfig({
   site: 'https://hadithcriticblog.com',
+  // Production builds use a manifest-filtered public asset staging tree so
+  // unlisted files in immutable Quran releases cannot leak into the deploy.
+  // Dev remains pointed at the normal public/ directory.
+  publicDir: process.env.ASTRO_PUBLIC_DIR || './public',
   server: {
     host: true
   },

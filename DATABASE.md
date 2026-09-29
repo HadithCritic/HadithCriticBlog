@@ -12,7 +12,9 @@ The deployed version is selected by `src/data/corpus-meta.json`. Publishing a ne
 
 Published versions are immutable so an existing deployment or reader can continue using its version while a newer one is released. Keep prior R2 versions for rollback.
 
-The master database is deliberately excluded from Git. The build scripts expect it at `dist-db/silsilah.db` unless `CORPUS_MASTER_DB` overrides that path. That file was not present in the current checkout during this cleanup. Locate and back up the canonical master before attempting a corpus rebuild; the R2 releases are published artifacts, not a substitute for the editable source database.
+The master database is deliberately excluded from Git. The build scripts expect it at `dist-db/silsilah.db` unless `CORPUS_MASTER_DB` overrides that path. A local master was available during the 2026-09 Musannaf Ibn Abī Shaybah alignment pilot; that does not guarantee it is present in another checkout. Locate and back up the canonical master before attempting a corpus rebuild; the R2 releases are published artifacts, not a substitute for the editable source database.
+
+Migration `0008_create_structured_hadith.sql` adds source vocalization, exact narrator forms, explicit compilation hierarchy, edition metadata, and printed-page references. Source-specific population is performed on a new staged database by `scripts/enrich-ibn-abi-shaybah-corpus.py`; it verifies the source and master hashes against the reviewed boundary register and refuses to overwrite its output. The pilot’s database is local and ignored by Git. It has not been published, and the committed corpus version remains unchanged until a complete release is reviewed and deliberately published.
 
 ## Other site data
 

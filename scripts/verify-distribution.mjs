@@ -37,6 +37,11 @@ import {
 
 const COUNTED_TABLES = [
   'hadith',
+  'hadith_edition',
+  'hadith_kitab',
+  'hadith_bab',
+  'hadith_structure',
+  'hadith_reference',
   'hadith_book',
   'hadith_chain',
   'hadith_gloss',
@@ -150,6 +155,20 @@ const PROBES = [
            WHERE c.hadith_id = ? ORDER BY c.path_idx, c.pos`,
     args: [20614],
     expect: (rows) => rows.length > 0
+  },
+  {
+    name: 'structured source record: hierarchy, vocalization, and page evidence',
+    sql: `SELECT h.id, h.text_ar_diac, h.matn_ar_diac, k.ordinal AS kitab_ordinal,
+                 b.ordinal AS bab_ordinal, r.source_marker, e.year_hijri
+            FROM hadith h
+            JOIN hadith_structure s ON s.hadith_id = h.id
+            JOIN hadith_kitab k ON k.id = s.kitab_id
+            LEFT JOIN hadith_bab b ON b.id = s.bab_id
+            LEFT JOIN hadith_reference r ON r.hadith_id = h.id AND r.reference_ordinal = 1
+            LEFT JOIN hadith_edition e ON e.id = r.edition_id
+           WHERE h.id = ?`,
+    args: [237072],
+    expect: (rows) => rows.length === 1 && rows[0].kitab_ordinal === 1 && rows[0].source_marker === '[1/217]'
   },
   {
     name: 'narrator filter over hadith',

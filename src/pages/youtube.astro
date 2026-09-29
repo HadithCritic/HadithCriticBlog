@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import youtubeMeta from "../data/youtube-meta.json";
 
 /* ───────────────────────────────────────────────
    DATA: Channel metadata + video catalogue
@@ -9,477 +10,396 @@ interface Video {
   id: string;
   title: string;
   thumbnail: string;
+  category: CategoryKey;
+  description: string;
   duration?: string;
   views?: string;
   date?: string;
-  category: "epistemology" | "prophecy" | "history" | "theology" | "philosophy";
-  description?: string;
 }
+
+/* Every subject shares the one gold accent. The site's colored category hues
+   belong to the article taxonomy, and seven hues would carry no meaning here. */
+const CATEGORY_COLOR = "var(--hc-gold)";
+
+/* Subjects come from reading the transcripts of all 38 films, not from titles.
+   Each film sits under the subject it spends most of its time on. */
+const categories = [
+  { key: "end-times", label: "Prophecy and End Times", color: CATEGORY_COLOR },
+  { key: "prophet-life", label: "Life of the Prophet", color: CATEGORY_COLOR },
+  { key: "law-power", label: "Law, Gender and Power", color: CATEGORY_COLOR },
+  { key: "narrators", label: "Narrators and Grading", color: CATEGORY_COLOR },
+  { key: "certainty", label: "Certainty and Evidence", color: CATEGORY_COLOR },
+  { key: "jurists", label: "Jurists and Legal Authority", color: CATEGORY_COLOR },
+  { key: "quran-creed", label: "Quran and Creed", color: CATEGORY_COLOR },
+] as const;
+
+type CategoryKey = (typeof categories)[number]["key"];
+
+const FEATURED_ID = "HWHjCfaPn_0";
+
+const catalogue: Omit<Video, "duration" | "views" | "date">[] = [
+  {
+    id: "6bpJBji3E0M",
+    title: "What Does the Quran Say Happened to Jesus?",
+    thumbnail: "https://i.ytimg.com/vi/6bpJBji3E0M/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "Reads Quran 4:157 through the difference between wafā (the taking of the self) and mawt (bodily death), and compares Psalm 91, Gethsemane and the ending of Mark.",
+  },
+  {
+    id: "HWHjCfaPn_0",
+    title: "Hadith Can Never Reach Epistemological Certainty.",
+    thumbnail: "https://i.ytimg.com/vi/HWHjCfaPn_0/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "Argues that the Quran's ban on conjecture (zann) in religious law cannot be met by hadith methodology, which stacks human judgments on narrators, meaning and memory.",
+  },
+  {
+    id: "xhDQSpYjqQ8",
+    title: "Refuting OrthodoxMuslim & His Failed Baghdad Argument",
+    thumbnail: "https://i.ytimg.com/vi/xhDQSpYjqQ8/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Answers a critic's defense of the Banū Qanṭūrā report, arguing that Saʿīd ibn Jumhān shaped it from the Khārijite attacks on Basra and that it was applied to Baghdad only after 1258.",
+  },
+  {
+    id: "2sgC2CaJxqk",
+    title: "Did a Hadith Really Predict the Mongol Siege of Baghdad?",
+    thumbnail: "https://i.ytimg.com/vi/2sgC2CaJxqk/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Diagrams every chain of the Basra and Banū Qanṭūrā report back to Saʿīd ibn Jumhān and follows how later readers applied it to the Zanj, the Turks and the Mongols.",
+  },
+  {
+    id: "MLaRB6uGhAk",
+    title: "How One Quranic Story Refutes All Sunni Jurisprudence",
+    thumbnail: "https://i.ytimg.com/vi/MLaRB6uGhAk/maxresdefault.jpg",
+    category: "jurists",
+    description:
+      "Reads the heifer story (Quran 2:67-71) as a warning against multiplying legal questions, then applies it to jurists' conditions on ablution and theft.",
+  },
+  {
+    id: "YTMWY2wsmNA",
+    title: "Your Imam Can’t Outrule God’s Words (Refutation of Imām al-Shāfiʿī)",
+    thumbnail: "https://i.ytimg.com/vi/YTMWY2wsmNA/maxresdefault.jpg",
+    category: "jurists",
+    description:
+      "Works through al-Shāfiʿī's legal theory, including Sunnah as revelation, ḥikma, abrogation, consensus and analogy, and tests each step against the Quran.",
+  },
+  {
+    id: "O79Y4X4tcyM",
+    title: "The Anatomy of Hypocrisy",
+    thumbnail: "https://i.ytimg.com/vi/O79Y4X4tcyM/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "Sets out the Quran's description of hypocrisy (nifāq) and applies it to recorded disputes inside an online Submission community.",
+  },
+  {
+    id: "boG5JTD5yXU",
+    title: "Your Sheikh Can't Save You from God",
+    thumbnail: "https://i.ytimg.com/vi/boG5JTD5yXU/maxresdefault.jpg",
+    category: "jurists",
+    description:
+      "Replies to a defense of taqlīd, restoring the context of Quran 16:43 and 9:122 and arguing that majority and consensus are not proof.",
+  },
+  {
+    id: "3B0rnPGWgKU",
+    title: "The Scholars Contradict In Gradings of Hadith (Sahih/Da'if)",
+    thumbnail: "https://i.ytimg.com/vi/3B0rnPGWgKU/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "Sets the claim that hadith are revelation beside the documented disagreements between graders, with al-Albānī's self-contradictions as the test case.",
+  },
+  {
+    id: "viBQWnMRLfU",
+    title: "The Slave of Ibn ʿAbbās FOOLED Imām al-Bukhārī",
+    thumbnail: "https://i.ytimg.com/vi/viBQWnMRLfU/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "Collects the rijāl reports on ʿIkrima, the freed slave of Ibn ʿAbbās, and asks why Mālik excluded him while al-Bukhārī relied on him.",
+  },
+  {
+    id: "CG5i14GAZTQ",
+    title: "The Sciences of Hadīth are a Joke.",
+    thumbnail: "https://i.ytimg.com/vi/CG5i14GAZTQ/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "A survey of the hadith sciences: contradictory narrator judgments, circular authentication, state influence on compilation, and the case for Quranic sufficiency.",
+  },
+  {
+    id: "vqaXqm_sRPE",
+    title: "Were Shiʿi Narrators Included in Sahih al-Bukhari?",
+    thumbnail: "https://i.ytimg.com/vi/vqaXqm_sRPE/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "Answers a challenge to name Shiʿi narrators in Sahih al-Bukhari by citing narrators whom Sunni rijāl sources call Shiʿi or Rāfiḍī.",
+  },
+  {
+    id: "5nJCg3j9SG4",
+    title: "Imam Al Ghazali Annihilating Hadith Scholars For Over 8 Minutes Straight",
+    thumbnail: "https://i.ytimg.com/vi/5nJCg3j9SG4/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "A reading of a passage attributed to al-Ghazālī that criticizes hadith students who collect chains and attend audition sessions without understanding.",
+  },
+  {
+    id: "w0RPjI0mr-E",
+    title: "Examining the Report That Allegeed Muhammad Was \"Affected by Magic\"",
+    thumbnail: "https://i.ytimg.com/vi/w0RPjI0mr-E/maxresdefault.jpg",
+    category: "prophet-life",
+    description:
+      "Examines the report that the Prophet was bewitched, traces it to Hishām ibn ʿUrwa, and tests it against Quran 17:47 and 25:8 in reply to a defender.",
+  },
+  {
+    id: "McqWF6Kzjpk",
+    title: "The Prophesied Mahdi Hadith & Muhammad al-Nafs al-Zakiyya",
+    thumbnail: "https://i.ytimg.com/vi/McqWF6Kzjpk/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Traces the Mahdi report to ʿĀṣim ibn Abī al-Najūd and to the 145 AH revolt of Muḥammad al-Nafs al-Zakiyya against the Abbasids.",
+  },
+  {
+    id: "y-_RBOAF47c",
+    title: "How Do Scholars Reconcile Conflicting Hadith Timelines?",
+    thumbnail: "https://i.ytimg.com/vi/y-_RBOAF47c/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "A live debate on the reports giving ten, thirteen and fifteen years for the Prophet's stay in Mecca, and on whether scholarly harmonizations are legitimate.",
+  },
+  {
+    id: "2LQS8gUXsO4",
+    title: "Aisha, the Battle of the Camel, & a Contested Hadith",
+    thumbnail: "https://i.ytimg.com/vi/2LQS8gUXsO4/maxresdefault.jpg",
+    category: "law-power",
+    description:
+      "Traces the report that a people ruled by a woman will not prosper to Abū Bakra and the Basran transmitters, at the time of the Battle of the Camel.",
+  },
+  {
+    id: "dgm5LIxdLR4",
+    title: "The Prophecy of Constantinople & The Campaigns That Failed",
+    thumbnail: "https://i.ytimg.com/vi/dgm5LIxdLR4/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Compares the Constantinople conquest report with the Umayyad campaigns, arguing it was made for Maslama before the failed siege of 717 and not for Mehmed II.",
+  },
+  {
+    id: "eNBjCFQ1IV0",
+    title: "Do Angels Really 'Curse' Them For Refusal?",
+    thumbnail: "https://i.ytimg.com/vi/eNBjCFQ1IV0/maxresdefault.jpg",
+    category: "law-power",
+    description:
+      "Follows the report that angels curse a wife who refuses her husband through Abū Ḥāzim, Qatāda and Shuʿba, using Juynboll's account of spread chains.",
+  },
+  {
+    id: "EzyCSdCehXQ",
+    title: "How Did the Moon-Splitting Story Enter the Hadith Corpus?",
+    thumbnail: "https://i.ytimg.com/vi/EzyCSdCehXQ/maxresdefault.jpg",
+    category: "prophet-life",
+    description:
+      "Argues that Quran 54:1 was an end-time verse and that the moon-splitting miracle grew out of exegesis, carried by Kufan transmitters with false chains.",
+  },
+  {
+    id: "T73hFVA9ND0",
+    title: "The End Time Dajjal Narrations Are False.",
+    thumbnail: "https://i.ytimg.com/vi/T73hFVA9ND0/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Sets the Dajjal reports beside each other and beside the Apocalypse of Pseudo-John, arguing that they contradict one another and borrow earlier apocalyptic motifs.",
+  },
+  {
+    id: "L5Rh1atEgBo",
+    title: "Does the Quran Permit Offensive Warfare? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/L5Rh1atEgBo/maxresdefault.jpg",
+    category: "jurists",
+    description:
+      "A debate on whether the Quran permits offensive warfare (Quran 9 and 2:190-193), with the competing versions of the Farewell Sermon raised against hadith reliability.",
+  },
+  {
+    id: "y9p3g0DM7tc",
+    title: "Muhammad vs Cademon - The Story of The First Revelation",
+    thumbnail: "https://i.ytimg.com/vi/y9p3g0DM7tc/maxresdefault.jpg",
+    category: "prophet-life",
+    description:
+      "Compares the two versions of the first revelation with the story of Cædmon in Bede, and weighs a shared biblical source against borrowing at the Zubayrid court.",
+  },
+  {
+    id: "n1s7SGMrRhM",
+    title: "Can Archaeology Verify Hadith Reports? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/n1s7SGMrRhM/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "A debate on whether archaeology and manuscript evidence can verify individual hadith, or only confirm that events took place.",
+  },
+  {
+    id: "pFz9enPywrk",
+    title: "Ten, Thirteen, or Fifteen Years? Testing Hadith Grading",
+    thumbnail: "https://i.ytimg.com/vi/pFz9enPywrk/maxresdefault.jpg",
+    category: "narrators",
+    description:
+      "Tests hadith grading against the ten, thirteen and fifteen year reports of the Meccan period, all given on chains graded sound.",
+  },
+  {
+    id: "3vdO5CSCu88",
+    title: "What Did the Early Muslim Shahada Include? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/3vdO5CSCu88/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "A debate on whether the earliest Muslims used a shahada that names Muḥammad, weighing coins, inscriptions, letters and hadith.",
+  },
+  {
+    id: "sIAJ_5rbCOU",
+    title: "Q. 9:128–129 & The Hadith Reports About Them.",
+    thumbnail: "https://i.ytimg.com/vi/sIAJ_5rbCOU/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "Argues that Quran 9:128-129 are a later addition, from vocabulary and rhyme, and traces the collection reports about them to al-Zuhrī.",
+  },
+  {
+    id: "1p2S5dm09eU",
+    title: "Examining the Hadith Sources for the Satanic Verses Story",
+    thumbnail: "https://i.ytimg.com/vi/1p2S5dm09eU/maxresdefault.jpg",
+    category: "prophet-life",
+    description:
+      "Grades the chains of the Satanic Verses reports one by one, following Shahab Ahmed, and finds several sound by the graders' own standards.",
+  },
+  {
+    id: "PCjq1nJCvRk",
+    title: "Who Bears Witness in Q. 3:18? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/PCjq1nJCvRk/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "A debate on Quran 3:18 and 47:19, on whether the shahada is a single statement, and on the place of hadith beside the Quran.",
+  },
+  {
+    id: "-wAazn82zTg",
+    title: "Does Reverence for Muhammad Become Idolization? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/-wAazn82zTg/maxresdefault.jpg",
+    category: "quran-creed",
+    description:
+      "A debate on whether reverence for Muḥammad and the dual shahada amount to idolization or intermediation, argued from Quran 17:57 and 39:3.",
+  },
+  {
+    id: "Lp-r5xcZEu4",
+    title: "Did Early Political Conflict Shape Apostasy Narrations?",
+    thumbnail: "https://i.ytimg.com/vi/Lp-r5xcZEu4/maxresdefault.jpg",
+    category: "law-power",
+    description:
+      "Traces the apostasy report through ʿIkrima and the Muwaṭṭaʾ to the aftermath of the Ridda wars, and tests it against Quran 2:256.",
+  },
+  {
+    id: "CACgVlRtEB0",
+    title: "What Can Hadith Chains Prove About the Prophet’s Speech? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/CACgVlRtEB0/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "A debate on whether stylometry and chains show that hadith preserve one speaker's words, with four wordings of the tashahhud as a test.",
+  },
+  {
+    id: "eaF0HN9gEJE",
+    title: "The Prophesied Mahdi From The House of Ibn Zubayr",
+    thumbnail: "https://i.ytimg.com/vi/eaF0HN9gEJE/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Traces the report of an army swallowed at al-Bayḍāʾ to Ibn al-Zubayr's circle and the Second Fitna, and follows the Mahdi belief from it.",
+  },
+  {
+    id: "kqa4L76ykCY",
+    title: "Can Hadith Add Dietary Prohibitions to the Quran? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/kqa4L76ykCY/maxresdefault.jpg",
+    category: "jurists",
+    description:
+      "A debate on whether hadith can add food prohibitions to the four listed in Quran 6:145, taking the domestic donkey ban as the test case.",
+  },
+  {
+    id: "8uuFjNrQZBo",
+    title: "Does the Quran Require Hadith for Interpretation? (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/8uuFjNrQZBo/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "A short debate excerpt on whether the Quran needs asbāb al-nuzūl and hadith for interpretation, and how consistent that material is.",
+  },
+  {
+    id: "j59Da8uGsck",
+    title: "Jerusalem and the Early Islamic Hadith Corpus",
+    thumbnail: "https://i.ytimg.com/vi/j59Da8uGsck/maxresdefault.jpg",
+    category: "law-power",
+    description:
+      "Traces the three mosques report to al-Zuhrī and Qazaʿa under ʿAbd al-Malik and the building of the Dome of the Rock, using common-link diagrams.",
+  },
+  {
+    id: "6EWsciMiXg8",
+    title: "Will Jesus Return at the Umayyad Mosque in Damascus?",
+    thumbnail: "https://i.ytimg.com/vi/6EWsciMiXg8/maxresdefault.jpg",
+    category: "end-times",
+    description:
+      "Traces the report of Jesus descending at the white minaret of Damascus to Syrian transmitters and to al-Walīd's building of the Umayyad Mosque.",
+  },
+  {
+    id: "lBK70hjlMg0",
+    title: "A Debate on Hadith, Quranic Preservation, and Salawat (Debate)",
+    thumbnail: "https://i.ytimg.com/vi/lBK70hjlMg0/maxresdefault.jpg",
+    category: "certainty",
+    description:
+      "A debate on contradictory sound reports, such as the Meccan years and the final sermon, and on what follows for salawat and the Prophet's intercession.",
+  },
+];
+
+/* Subscribers, views, dates and durations come from the YouTube Data API
+   snapshot. Refresh it with `npm run sync:youtube`. */
+const liveById = new Map(youtubeMeta.videos.map((video) => [video.id, video]));
+
+const formatCount = (value: number, decimals = 1): string => {
+  if (value < 1000) return String(value);
+  const scaled = value / 1000;
+  const text = scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(decimals);
+  return `${text.includes(".") ? text.replace(/\.?0+$/, "") : text}K`;
+};
+
+const formatClock = (totalSeconds: number): string => {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
+};
+
+const formatMonth = (iso: string): string =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+
+const videos: Video[] = catalogue.map((entry) => {
+  const live = liveById.get(entry.id);
+  return live
+    ? {
+        ...entry,
+        duration: formatClock(live.durationSeconds),
+        views: formatCount(live.views),
+        date: formatMonth(live.publishedAt),
+      }
+    : entry;
+});
+
+const featuredVideo = videos.find((video) => video.id === FEATURED_ID) ?? videos[0];
 
 const channelMeta = {
   name: "HadithCritic",
-  handle: "@HadithCritic",
+  handle: youtubeMeta.channel.handle,
   tagline: "Where evidence dismantles dogma.",
-  subscribers: "2.95K",
-  videosCount: "38",
+  subscribers: formatCount(youtubeMeta.channel.subscribers, 2),
+  views: formatCount(youtubeMeta.channel.views),
   description:
     "Rigorous video essays dismantling hadith methodology, exposing fabricated prophecies, and recovering the Quran's epistemological framework through historical source criticism.",
   avatar: "/images/brand/hc-logo-transparent-512.png",
   banner: "/images/YTbanner.png",
 };
 
-const featuredVideo: Video = {
-  id: "HWHjCfaPn_0",
-  title: "Hadith Can Never Reach Epistemological Certainty.",
-  thumbnail: "/images/yt tn/yt-HWHjCfaPn_0.webp",
-  duration: "48:32",
-  views: "2.6K",
-  date: "2024",
-  category: "epistemology",
-  description:
-    "A systematic demolition of the claim that hadith sciences produce certainty. We examine the probabilistic nature of isnād criticism, the problem of common links, and why chains of narration are fundamentally inductive leaps.",
-};
-
-const videos: Video[] = [
-  {
-    id: "6bpJBji3E0M",
-    title: "The Truth About 'The Crucifixion of Jesus'",
-    thumbnail: "/images/yt tn/yt-6bpJBji3E0M.webp",
-    duration: "28:11",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "A source-critical reading of prophecy claims, retrospective fulfillment, and narrative manufacture.",
-  },
-  {
-    id: "HWHjCfaPn_0",
-    title: "Hadith Can Never Reach Epistemological Certainty.",
-    thumbnail: "/images/yt tn/yt-HWHjCfaPn_0.webp",
-    duration: "8:58",
-    views: "2.6K",
-    date: "2024",
-    category: "epistemology",
-    description: "An argument about certainty, transmission, and the limits of inherited religious knowledge.",
-  },
-  {
-    id: "xhDQSpYjqQ8",
-    title: "Refuting OrthodoxMuslim & His Baghdad Failures",
-    thumbnail: "/images/yt tn/yt-xhDQSpYjqQ8.webp",
-    duration: "10:58",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "A historical reconstruction through geography, politics, manuscripts, and transmission layers.",
-  },
-  {
-    id: "2sgC2CaJxqk",
-    title: "The FAILED Baghdad Hadith Prophecy That Never Was",
-    thumbnail: "/images/yt tn/yt-2sgC2CaJxqk.webp",
-    duration: "21:21",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Source criticism of the apocalyptic Baghdad reports and post-facto textual retrofitting.",
-  },
-  {
-    id: "MLaRB6uGhAk",
-    title: "How One Quranic Story Refutes All Sunni Jurisprudence",
-    thumbnail: "/images/yt tn/yt-MLaRB6uGhAk.webp",
-    duration: "6:20",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "A Quranic-theological critique of legal claims built from later reports and inherited authority.",
-  },
-  {
-    id: "YTMWY2wsmNA",
-    title: "Your Imam Can't Outrule God's Words (Refutation of Imām al-Shāfiʿī)",
-    thumbnail: "/images/yt tn/yt-YTMWY2wsmNA.webp",
-    duration: "37:52",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "Deconstructing al-Risāla and the foundational epistemological pivot in early Islamic jurisprudence.",
-  },
-  {
-    id: "O79Y4X4tcyM",
-    title: "The Anatomy of Hypocrisy",
-    thumbnail: "/images/yt tn/yt-O79Y4X4tcyM.webp",
-    duration: "21:53",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Historical analysis of factional rivalries and early Umayyad narrative production.",
-  },
-  {
-    id: "boG5JTD5yXU",
-    title: "Your Sheikh Can't Save You from God",
-    thumbnail: "/images/yt tn/yt-boG5JTD5yXU.webp",
-    duration: "26:05",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "Critique of intercession doctrines constructed via late sectarian isnads.",
-  },
-  {
-    id: "3B0rnPGWgKU",
-    title: "The Scholars Contradict In Gradings of Hadith (Sahih/Da'if)",
-    thumbnail: "/images/yt tn/yt-3B0rnPGWgKU.webp",
-    duration: "16:55",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Forensic breakdown of mutual contradictions among classical rijāl authorities.",
-  },
-  {
-    id: "viBQWnMRLfU",
-    title: "The Slave of Ibn ʿAbbās FOOLED Imām al-Bukhārī",
-    thumbnail: "/images/yt tn/yt-viBQWnMRLfU.webp",
-    duration: "15:32",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Detailed investigation into ʿIkrima's narrations and how early critics viewed his reliability.",
-  },
-  {
-    id: "CG5i14GAZTQ",
-    title: "The Sciences of Hadīth are a Joke.",
-    thumbnail: "/images/yt tn/yt-CG5i14GAZTQ.webp",
-    duration: "35:19",
-    views: "N/A",
-    date: "2024",
-    category: "epistemology",
-    description: "A comprehensive epistemological examination of circularity in isnād authentication.",
-  },
-  {
-    id: "vqaXqm_sRPE",
-    title: "Bukhari Collected Hadith From Shia",
-    thumbnail: "/images/yt tn/yt-vqaXqm_sRPE.webp",
-    duration: "7:06",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Transmitter analysis showing non-Sunni common links in canonical Sunni collections.",
-  },
-  {
-    id: "5nJCg3j9SG4",
-    title: "Imam Al Ghazali Annihilating Hadith Scholars For Over 8 Minutes Straight",
-    thumbnail: "/images/yt tn/yt-5nJCg3j9SG4.webp",
-    duration: "8:21",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Al-Ghazali's internal classical critique of hadith literalism from al-Mustasfa.",
-  },
-  {
-    id: "w0RPjI0mr-E",
-    title: "The Prophet Was NOT Bewitched",
-    thumbnail: "/images/yt tn/yt-w0RPjI0mr-E.webp",
-    duration: "30:12",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Historical and theological deconstruction of the magic reports in the Ṣaḥīḥayn.",
-  },
-  {
-    id: "McqWF6Kzjpk",
-    title: "The Prophesied Hasanid Mahdi",
-    thumbnail: "/images/yt tn/yt-McqWF6Kzjpk.webp",
-    duration: "19:01",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Traces the Mahdi narrative fabrication to the political revolt of Muhammad al-Nafs al-Zakiyya.",
-  },
-  {
-    id: "y-_RBOAF47c",
-    title: "Contradicting Hadith & Nawawi's Authentic Cope.",
-    thumbnail: "/images/yt tn/yt-y-_RBOAF47c.webp",
-    duration: "28:42",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Examination of hermeneutic acrobatics used to harmonize mutually irreconcilable reports.",
-  },
-  {
-    id: "2LQS8gUXsO4",
-    title: "Fabrication: If a Woman Rules, That Nation Will Not Prosper.",
-    thumbnail: "/images/yt tn/yt-2LQS8gUXsO4.webp",
-    duration: "13:25",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Analysis of the Abu Bakra narration during the Battle of the Camel and political retrospective framing.",
-  },
-  {
-    id: "dgm5LIxdLR4",
-    title: "The Fabricated Prophecy: You Shall Conquer Constantinople",
-    thumbnail: "/images/yt tn/yt-dgm5LIxdLR4.webp",
-    duration: "15:42",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Source criticism of Umayyad siege propaganda retrofitted as prophetic prediction.",
-  },
-  {
-    id: "eNBjCFQ1IV0",
-    title: "Fabrication: Angels Curse Women Who Don't Sleep With Their Husbands.",
-    thumbnail: "/images/yt tn/yt-eNBjCFQ1IV0.webp",
-    duration: "11:31",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Examining isnad anomalies and cultural transmission biases in matrimonial narrations.",
-  },
-  {
-    id: "EzyCSdCehXQ",
-    title: "Did Muhammad Split the Moon?",
-    thumbnail: "/images/yt tn/yt-EzyCSdCehXQ.webp",
-    duration: "38:12",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Detailed exegesis of Surah al-Qamar in context of 7th-century apocalyptic idiom vs literal myth.",
-  },
-  {
-    id: "T73hFVA9ND0",
-    title: "The End Time Dajjal Narrations Are False.",
-    thumbnail: "/images/yt tn/yt-T73hFVA9ND0.webp",
-    duration: "6:20",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Tracing Dajjal eschatological tropes to Second Temple and Christian apocrypha.",
-  },
-  {
-    id: "L5Rh1atEgBo",
-    title: "Offensive Jihad? Abrogation in the Quran? - Debate",
-    thumbnail: "https://i.ytimg.com/vi/L5Rh1atEgBo/maxresdefault.jpg",
-    duration: "17:34",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "Debate on naskh (abrogation) theory and how late jurists canceled hundreds of peace verses.",
-  },
-  {
-    id: "y9p3g0DM7tc",
-    title: "Muhammad vs Cademon - The Story of The First Revelation",
-    thumbnail: "https://i.ytimg.com/vi/y9p3g0DM7tc/maxresdefault.jpg",
-    duration: "16:22",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Comparative literary analysis of early call narratives and folkloric motifs.",
-  },
-  {
-    id: "n1s7SGMrRhM",
-    title: "Can Hadith Really Compete with Archaeology? A Sunni Faces the Harsh Truth - Debate",
-    thumbnail: "https://i.ytimg.com/vi/n1s7SGMrRhM/maxresdefault.jpg",
-    duration: "17:40",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Inscriptions, epigraphy, and material culture contrasted with 9th-century memory literature.",
-  },
-  {
-    id: "pFz9enPywrk",
-    title: "Did Bukhari Authenticate Falsehood? - Testing the Sciences of Hadith",
-    thumbnail: "https://i.ytimg.com/vi/pFz9enPywrk/maxresdefault.jpg",
-    duration: "14:17",
-    views: "N/A",
-    date: "2024",
-    category: "epistemology",
-    description: "Testing Bukhari's selection criteria against demonstrable historical errors.",
-  },
-  {
-    id: "3vdO5CSCu88",
-    title: "Hadith & Shahada - Debate",
-    thumbnail: "https://i.ytimg.com/vi/3vdO5CSCu88/maxresdefault.jpg",
-    duration: "19:13",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Debate examining textual transmission and evolution of the creedal confession.",
-  },
-  {
-    id: "sIAJ_5rbCOU",
-    title: "The Historical Argument Against 9:128 & 129 - An Analysis of the Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/sIAJ_5rbCOU/maxresdefault.jpg",
-    duration: "20:56",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Source-critical analysis of the collection narratives surrounding Surah al-Tawba.",
-  },
-  {
-    id: "1p2S5dm09eU",
-    title: "The Satanic Verses - An Analysis of The Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/1p2S5dm09eU/maxresdefault.jpg",
-    duration: "22:09",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "Forensic study of the gharaniq reports across early tafsir compilations and isnads.",
-  },
-  {
-    id: "PCjq1nJCvRk",
-    title: "Debate: The Testimony of God, His angels, and the Owners of Knowledge (3:18) pt.1",
-    thumbnail: "https://i.ytimg.com/vi/PCjq1nJCvRk/maxresdefault.jpg",
-    duration: "38:09",
-    views: "N/A",
-    date: "2024",
-    category: "theology",
-    description: "Philosophical debate on knowledge, epistemology, and divine testimony.",
-  },
-  {
-    id: "-wAazn82zTg",
-    title: "Is The Prophet Muhammad An Idol? (Sunni-Traditionalist vs Submitters)",
-    thumbnail: "https://i.ytimg.com/vi/-wAazn82zTg/maxresdefault.jpg",
-    duration: "18:28",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Theological critique of personality cult development in late medieval devotional literature.",
-  },
-  {
-    id: "Lp-r5xcZEu4",
-    title: "Apostasy - An Analysis of The Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/Lp-r5xcZEu4/maxresdefault.jpg",
-    duration: "18:37",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Tracing capital apostasy rulings to the Ridda wars and early political statecraft.",
-  },
-  {
-    id: "CACgVlRtEB0",
-    title: "Are Hadith the Words of The Prophet? RefutingOrientalist Rage Quits.",
-    thumbnail: "https://i.ytimg.com/vi/CACgVlRtEB0/maxresdefault.jpg",
-    duration: "22:57",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Debate breakdown demonstrating linguistic anachronisms in 2nd-century hadith wording.",
-  },
-  {
-    id: "eaF0HN9gEJE",
-    title: "The Zubayrid Mahdi - An Analysis of The Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/eaF0HN9gEJE/maxresdefault.jpg",
-    duration: "13:50",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Isnād-cum-matn analysis tracing anti-Syrian sanctuary prophecies to Ibn al-Zubayr's caliphate.",
-  },
-  {
-    id: "kqa4L76ykCY",
-    title: "Dietary Prohibitions Debate (Submitters vs Hanafis)",
-    thumbnail: "https://i.ytimg.com/vi/kqa4L76ykCY/maxresdefault.jpg",
-    duration: "27:28",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Examination of how regional dietary taboos in Kufa were retrojected into prophetic speech.",
-  },
-  {
-    id: "8uuFjNrQZBo",
-    title: "RefutingOrientalists Gets Refuted...By an Orientalist",
-    thumbnail: "https://i.ytimg.com/vi/8uuFjNrQZBo/maxresdefault.jpg",
-    duration: "10:24",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Critique of apologetic misreadings of academic Western hadith scholarship.",
-  },
-  {
-    id: "j59Da8uGsck",
-    title: "Jerusalem in The Islamic Tradition - An Analysis of The Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/j59Da8uGsck/maxresdefault.jpg",
-    duration: "12:57",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Historical context of fadā'il al-Quds literature during Marwanid architectural programs.",
-  },
-  {
-    id: "6EWsciMiXg8",
-    title: "The Second Coming of Jesus in Syria - An Analysis of the Hadith Corpus",
-    thumbnail: "https://i.ytimg.com/vi/6EWsciMiXg8/maxresdefault.jpg",
-    duration: "6:54",
-    views: "N/A",
-    date: "2024",
-    category: "prophecy",
-    description: "Geography of Damascus eschatological traditions linked to Umayyad garrison centers.",
-  },
-  {
-    id: "lBK70hjlMg0",
-    title: "Hadith Reliability and Salawat Upon the Prophet Muhammad (Navid, Dude, Jonathan)",
-    thumbnail: "https://i.ytimg.com/vi/lBK70hjlMg0/maxresdefault.jpg",
-    duration: "27:23",
-    views: "N/A",
-    date: "2024",
-    category: "history",
-    description: "Panel discussion on transmission reliability, liturgical formulas, and sectarian memory.",
-  },
-];
-
-const categories = [
-  {
-    key: "epistemology",
-    label: "Epistemology",
-    color: "#d8b166",
-    desc: "How we know what we know",
-  },
-  {
-    key: "prophecy",
-    label: "Prophecies",
-    color: "#d47565",
-    desc: "Debunked ex eventu fabrications",
-  },
-  {
-    key: "history",
-    label: "History",
-    color: "#b88a64",
-    desc: "Critical historiography",
-  },
-  {
-    key: "theology",
-    label: "Theology",
-    color: "#6a8c74",
-    desc: "Quranic theology",
-  },
-  {
-    key: "philosophy",
-    label: "Philosophy",
-    color: "#6e7e9e",
-    desc: "Analytical philosophy",
-  },
-] as const;
-
 const categoryByKey = Object.fromEntries(
   categories.map((category) => [category.key, category]),
-) as Record<Video["category"], (typeof categories)[number]>;
-
-const categoryNarratives: Record<Video["category"], string> = {
-  epistemology:
-    "An argument about certainty, transmission, and the limits of inherited religious knowledge.",
-  prophecy:
-    "A source-critical reading of prophecy claims, retrospective fulfillment, and narrative manufacture.",
-  history:
-    "A historical reconstruction through geography, politics, manuscripts, and transmission layers.",
-  theology:
-    "A Quranic-theological critique of claims built from later reports and inherited authority.",
-  philosophy:
-    "A conceptual analysis of authority, language, proof, obligation, and interpretive method.",
-};
+) as Record<CategoryKey, (typeof categories)[number]>;
 
 function getVideoDescription(video: Video) {
-  return video.description && video.description.trim().length > 0
-    ? video.description
-    : categoryNarratives[video.category];
+  return video.description;
 }
 
-function getCategory(category: Video["category"]) {
+function getCategory(category: CategoryKey) {
   return categoryByKey[category] ?? categories[0];
 }
 
@@ -490,6 +410,41 @@ const categoryCounts = categories.reduce(
   },
   {} as Record<string, number>,
 );
+
+const minutesOf = (video: Video): number =>
+  (video.duration ?? "0:0").split(":").reduce((total, part) => total * 60 + Number(part), 0) / 60;
+
+const formatRuntime = (minutes: number): string => {
+  const rounded = Math.round(minutes);
+  const hours = Math.floor(rounded / 60);
+  const rest = rounded % 60;
+  return hours > 0 ? `${hours}h ${String(rest).padStart(2, "0")}m` : `${rest}m`;
+};
+
+const totalRuntimeMinutes = videos.reduce((acc, video) => acc + minutesOf(video), 0);
+const runtimeLabel = formatRuntime(totalRuntimeMinutes);
+
+/* The whole catalogue as one strip: a tick per film, sized by runtime,
+   grouped by field of inquiry. Widths stay exactly proportional, so the
+   hour ruler beneath it is true to scale. */
+let tickIndex = 0;
+const reel = categories.map((category, index) => {
+  const items = videos.filter((video) => video.category === category.key);
+  const minutes = items.reduce((acc, video) => acc + minutesOf(video), 0);
+  return {
+    key: category.key,
+    label: category.label,
+    count: items.length,
+    minutes,
+    runtime: formatRuntime(minutes),
+    opacity: Math.max(0.4, 1 - index * 0.1).toFixed(2),
+    ticks: items.map((video) => ({ minutes: minutesOf(video), index: tickIndex++ })),
+  };
+});
+const rulerHours = Array.from({ length: Math.floor(totalRuntimeMinutes / 60) + 1 }, (_, hour) => hour).filter(
+  (hour) => hour % 3 === 0,
+);
+const hourStep = (60 / totalRuntimeMinutes) * 100;
 ---
 
 <BaseLayout
@@ -505,44 +460,69 @@ const categoryCounts = categories.reduce(
   <div class="yt-page" id="yt-page">
     <div class="yt-progress" id="yt-progress" aria-hidden="true"></div>
 
-    <!-- ═══════════════════════════════════════════
-         HERO SECTION: Channel Identity & Showcase
-         ═══════════════════════════════════════════ -->
-    <header class="yt-hero" id="hero" aria-label="HadithCritic YouTube channel introduction" data-motion="hero">
-      <div class="hc-container yt-hero__inner">
-        <div class="yt-hero__copy">
-          <div class="yt-hero__eyebrow">
-            <span class="yt-hero__kicker-dot" aria-hidden="true"></span>
-            <span class="yt-hero__kicker">Broadcast Channel</span>
-            <span class="yt-hero__kicker-sep" aria-hidden="true">/</span>
-            <span class="yt-hero__kicker-tag">Video Essays &amp; Debates</span>
-          </div>
+    <header class="hc-masthead" id="hero" aria-labelledby="yt-hero-title">
+      <div class="hc-container hc-masthead__inner">
+        <div>
+          <p class="hc-eyebrow">Broadcast archive</p>
+          <h1 id="yt-hero-title" class="hc-masthead__title">Evidence-led forensics for hadith literature</h1>
+          <p class="hc-masthead__lead">{channelMeta.description}</p>
 
-          <h1 class="yt-hero__title">
-            Evidence-Led <span class="yt-hero__title-accent">Forensics</span> for Hadith Literature
-          </h1>
-
-          <p class="yt-hero__lead">
-            {channelMeta.description}
-          </p>
-
-          <div class="yt-hero__actions">
+          <div class="hc-masthead__actions">
             <a
               href="https://www.youtube.com/@HadithCritic?sub_confirmation=1"
               target="_blank"
               rel="noopener noreferrer"
               class="hc-btn yt-btn yt-btn--primary"
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
                 <path d="M23.5 6.19a3 3 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3 3 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3 3 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3 3 0 0 0 2.12-2.14c.5-1.88.5-5.81.5-5.81s0-3.93-.5-5.81ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z"></path>
               </svg>
               <span>Subscribe on YouTube</span>
             </a>
-            <a href="#featured" class="hc-btn hc-btn--ghost yt-btn">
-              <span>Enter Screening Room ↓</span>
-            </a>
+            <a href="#featured" class="hc-btn hc-btn--ghost yt-btn">Enter the screening room</a>
           </div>
         </div>
+
+        <aside class="hc-instrument yt-reel" aria-label="Video catalogue at a glance">
+          <div class="hc-instrument__well">
+            <div class="hc-instrument__plate yt-reel__plate">
+              <span class="hc-instrument__figure">{runtimeLabel}</span>
+              <span class="hc-instrument__note yt-reel__note">of recorded argument<br />across {videos.length} films</span>
+            </div>
+
+            <p class="hc-instrument__cap">Runtime by subject</p>
+            <div class="yt-reel__strip" aria-hidden="true">
+              {reel.map((group) => (
+                <span class="yt-reel__group" style={`--n:${group.minutes.toFixed(2)};--o:${group.opacity}`}>
+                  {group.ticks.map((tick) => (
+                    <i class="yt-reel__tick hc-hatch" style={`--n:${tick.minutes.toFixed(2)};--i:${tick.index}`}></i>
+                  ))}
+                </span>
+              ))}
+            </div>
+            <div class="yt-reel__ruler" style={`--hour:${hourStep.toFixed(4)}%`} aria-hidden="true">
+              {rulerHours.map((hour) => (
+                <span class="yt-reel__mark" style={`left:${(hour * hourStep).toFixed(3)}%`}>{hour}h</span>
+              ))}
+            </div>
+
+            <ul class="yt-reel__rows">
+              {reel.map((group) => (
+                <li style={`--o:${group.opacity}`}>
+                  <span class="yt-reel__dot" aria-hidden="true"></span>
+                  <span class="yt-reel__name">{group.label}</span>
+                  <span class="yt-reel__count">{group.count} {group.count === 1 ? 'film' : 'films'}</span>
+                  <span class="yt-reel__run">{group.count === 0 ? 'none' : group.runtime}</span>
+                </li>
+              ))}
+            </ul>
+
+            <p class="yt-reel__channel">
+              <span class="yt-reel__handle">{channelMeta.handle}</span>
+              <span class="yt-reel__subs">{channelMeta.subscribers} subscribers, {channelMeta.views} views</span>
+            </p>
+          </div>
+        </aside>
       </div>
     </header>
 
@@ -552,20 +532,17 @@ const categoryCounts = categories.reduce(
     <section class="yt-featured" id="featured" aria-label="Featured video theater">
       <div class="hc-container">
         <div class="yt-section-head">
-          <p class="hc-eyebrow">Screening Room</p>
+          <p class="hc-eyebrow">§ I — Screening Room</p>
           <h2>Now Playing in the Theater</h2>
           <p>
-            Stream the featured monograph directly below, or select any investigation from the archive to load it instantly into the player.
+            Stream the featured monograph below, or select any record from the archive ledger to load it instantly into the player.
           </p>
         </div>
 
         <div class="yt-theater">
           <!-- Theater Player -->
-          <div
-            class="yt-player"
-            id="yt-player"
-            data-video-id={featuredVideo.id}
-          >
+          <div class="yt-player" id="yt-player" data-video-id={featuredVideo.id}>
+            <div class="yt-player__frame" aria-hidden="true"></div>
             <div class="yt-player__poster" id="yt-poster">
               <img
                 id="yt-poster-img"
@@ -584,7 +561,7 @@ const categoryCounts = categories.reduce(
               >
                 <span class="yt-player__pulse" aria-hidden="true"></span>
                 <span class="yt-player__icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26" aria-hidden="true">
                     <path d="M8 5v14l11-7z"></path>
                   </svg>
                 </span>
@@ -594,8 +571,10 @@ const categoryCounts = categories.reduce(
             <div class="yt-player__embed" id="yt-embed" aria-live="polite"></div>
           </div>
 
-          <!-- Theater Dossier / Metadata Panel -->
-          <div class="yt-theater__meta">
+          <!-- Theater Dossier -->
+          <aside class="yt-theater__meta" aria-label="Featured video dossier">
+            <p class="yt-dossier-label">Featured Dossier</p>
+
             <div class="yt-theater__badge-row">
               <span
                 class="yt-cat-badge"
@@ -619,63 +598,78 @@ const categoryCounts = categories.reduce(
               {getVideoDescription(featuredVideo)}
             </p>
 
-            <div class="yt-theater__footer">
-              <div class="yt-theater__meta-items">
-                <span class="yt-meta-item">
-                  <span class="yt-meta-label">Year</span>
-                  <strong id="featured-date">{featuredVideo.date}</strong>
-                </span>
-                <span class="yt-meta-divider" aria-hidden="true">&bull;</span>
-                <span class="yt-meta-item">
-                  <span class="yt-meta-label">Format</span>
-                  <strong>Video Essay</strong>
-                </span>
+            <div class="yt-theater__ledger">
+              <div class="yt-ledger-row">
+                <span class="yt-ledger-key">Published</span>
+                <strong class="yt-ledger-val" id="featured-date">{featuredVideo.date}</strong>
               </div>
-
-              <div class="yt-theater__actions">
-                <button type="button" class="hc-btn yt-theater__play-btn" id="featured-theater-play">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                    <path d="M8 5v14l11-7z"></path>
-                  </svg>
-                  <span>Play In Theater</span>
-                </button>
-                <a
-                  id="featured-link"
-                  href={`https://www.youtube.com/watch?v=${featuredVideo.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="hc-btn hc-btn--ghost yt-theater__external-link"
-                >
-                  <span>Open on YouTube</span>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M7 17 17 7"></path>
-                    <path d="M8 7h9v9"></path>
-                  </svg>
-                </a>
+              <div class="yt-ledger-row">
+                <span class="yt-ledger-key">Format</span>
+                <strong class="yt-ledger-val">Video Monograph</strong>
+              </div>
+              <div class="yt-ledger-row">
+                <span class="yt-ledger-key">Witnesses</span>
+                <strong class="yt-ledger-val" id="featured-views">{featuredVideo.views}</strong>
               </div>
             </div>
-          </div>
+
+            <div class="yt-theater__actions">
+              <button type="button" class="hc-btn yt-theater__play-btn" id="featured-theater-play">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
+                  <path d="M8 5v14l11-7z"></path>
+                </svg>
+                <span>Play in Theater</span>
+              </button>
+              <a
+                id="featured-link"
+                href={`https://www.youtube.com/watch?v=${featuredVideo.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hc-btn hc-btn--ghost yt-theater__external-link"
+              >
+                <span>Open on YouTube</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M7 17 17 7"></path>
+                  <path d="M8 7h9v9"></path>
+                </svg>
+              </a>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
 
     <!-- ═══════════════════════════════════════════
-         ARCHIVE & SEARCH SECTION
+         SECTION DIVIDER
+         ═══════════════════════════════════════════ -->
+    <div class="yt-divider" aria-hidden="true">
+      <span class="yt-divider__rule"></span>
+      <svg class="yt-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <path d="M12 6v12M6 12h12"></path>
+      </svg>
+      <span class="yt-divider__rule"></span>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         ARCHIVE & SEARCH — the catalogue ledger
          ═══════════════════════════════════════════ -->
     <section class="yt-archive" id="archive" aria-label="Video archive">
       <div class="hc-container">
         <div class="yt-section-head">
-          <p class="hc-eyebrow">Catalogue &amp; Forensics</p>
+          <p class="hc-eyebrow">§ II — Catalogue &amp; Forensics</p>
           <h2>The Video Archive</h2>
-          <p>Explore all 38 documentary investigations, critical lectures, and debate analyses.</p>
+          <p>
+            Thirty-eight documentary investigations, critical lectures, and debate analyses — indexed,
+            searchable, and filed under their field of inquiry.
+          </p>
         </div>
 
-        <!-- SEARCH AND FILTER CONTROLS -->
+        <!-- Search & filter controls -->
         <div class="yt-controls">
-          <!-- Search Bar -->
           <div class="yt-search-wrap">
             <div class="yt-search-box">
-              <svg class="yt-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <svg class="yt-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
@@ -683,20 +677,21 @@ const categoryCounts = categories.reduce(
                 type="search"
                 id="yt-search-input"
                 class="yt-search-input"
-                placeholder="Search video titles, debates, topics, or figures (e.g. Baghdad, Bukhari, Crucifixion)..."
+                placeholder="Search the catalogue — titles, figures, debates, cities (e.g. Baghdad, Bukhārī, Crucifixion)…"
                 autocomplete="off"
                 spellcheck="false"
               />
               <button type="button" id="yt-search-clear" class="yt-search-clear" aria-label="Clear search query" hidden>
-                ✕
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12"></path>
+                </svg>
               </button>
               <kbd class="yt-search-kbd">⌘K</kbd>
             </div>
           </div>
 
-          <!-- Category Filter Tabs -->
-          <div class="yt-filter-bar" role="tablist" aria-label="Filter videos by category">
-            <div class="yt-filter-tabs" id="yt-filter-tabs">
+          <div class="yt-filter-bar">
+            <div class="yt-filter-tabs" id="yt-filter-tabs" role="tablist" aria-label="Filter videos by subject">
               <div class="yt-filter-magnet-pill" aria-hidden="true"></div>
               <button
                 class="yt-filter-tab is-active"
@@ -706,7 +701,7 @@ const categoryCounts = categories.reduce(
                 data-filter="all"
               >
                 <span class="yt-filter-tab__dot" aria-hidden="true"></span>
-                <span class="yt-filter-tab__label">All Investigations</span>
+                <span class="yt-filter-tab__label">Complete Catalogue</span>
                 <span class="yt-filter-tab__count">{videos.length}</span>
               </button>
               {categories.map((category) => (
@@ -725,26 +720,29 @@ const categoryCounts = categories.reduce(
               ))}
             </div>
 
-            <button type="button" id="yt-reset-btn" class="yt-reset-btn" hidden aria-label="Reset all filters">
+            <button type="button" id="yt-reset-btn" class="yt-reset-btn" hidden>
               <span>Reset Filters</span>
-              <span aria-hidden="true">✕</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12"></path>
+              </svg>
             </button>
           </div>
         </div>
 
-        <!-- Feedback status bar -->
+        <!-- Status ledger line -->
         <div class="yt-status-bar">
           <div class="yt-status-chip" id="yt-status-chip">
             <span class="yt-status-dot" aria-hidden="true"></span>
-            <span id="yt-status-text">Showing all <strong>{videos.length}</strong> video monographs</span>
+            <span id="yt-status-text">Filing <strong>{videos.length}</strong> records under complete catalogue</span>
           </div>
         </div>
 
-        <!-- Video Cards Grid -->
+        <!-- Archive grid -->
         <div class="yt-grid" id="video-grid">
-          {videos.map((video) => {
+          {videos.map((video, index) => {
             const category = getCategory(video.category);
             const description = getVideoDescription(video);
+            const recordNumber = String(index + 1).padStart(2, "0");
             return (
               <article
                 class="yt-card"
@@ -755,12 +753,12 @@ const categoryCounts = categories.reduce(
                 data-thumbnail={video.thumbnail}
                 data-duration={video.duration}
                 data-date={video.date}
+                data-views={video.views}
                 data-category-label={category.label}
                 data-category-color={category.color}
                 data-search={`${video.title} ${description} ${category.label} ${video.date}`.toLowerCase()}
                 style={`--cat-color: ${category.color};`}
               >
-                <!-- Thumbnail & Media Layer -->
                 <div class="yt-card__media">
                   <img
                     src={video.thumbnail}
@@ -770,9 +768,9 @@ const categoryCounts = categories.reduce(
                     loading="lazy"
                     class="yt-card__img"
                   />
+                  <span class="yt-card__rec" aria-hidden="true">№ {recordNumber}</span>
                 </div>
 
-                <!-- Card Body -->
                 <div class="yt-card__body">
                   <div class="yt-card__header">
                     <span class="yt-card__cat-pill">
@@ -781,13 +779,13 @@ const categoryCounts = categories.reduce(
                     </span>
                     <div class="yt-card__record-meta">
                       <span class="yt-card__duration">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                      </svg>
-                      <span>{video.duration}</span>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>{video.duration}</span>
                       </span>
-                      <time class="yt-card__year">{video.date || '2024'}</time>
+                      <time class="yt-card__year">{video.date}</time>
                     </div>
                   </div>
 
@@ -796,7 +794,7 @@ const categoryCounts = categories.reduce(
 
                   <div class="yt-card__footer">
                     <span class="yt-card__action">
-                      <span>Watch in theater</span>
+                      <span>Screen in theater</span>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M5 12h14"></path>
                         <path d="m12 5 7 7-7 7"></path>
@@ -808,36 +806,42 @@ const categoryCounts = categories.reduce(
                 <button
                   type="button"
                   class="yt-card__hit-button"
-                  aria-label={`Stream "${video.title}" in screening room`}
+                  aria-label={`Stream "${video.title}" in the screening room`}
                 ></button>
               </article>
             );
           })}
         </div>
 
-        <!-- Empty State -->
+        <!-- Empty state -->
         <div class="yt-empty" id="yt-empty" hidden>
-          <div class="yt-empty__icon" aria-hidden="true">◈</div>
-          <h3>No Investigations Found</h3>
-          <p>No video monographs match your current search query or category filter.</p>
+          <div class="yt-empty__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M12 6v12M6 12h12"></path>
+            </svg>
+          </div>
+          <h3>No Records Found</h3>
+          <p>Nothing in the ledger matches the current query or field filter.</p>
           <button type="button" class="hc-btn yt-empty__reset" id="yt-empty-reset">
-            Reset Filters &amp; View All
+            Reset Filters &amp; View Complete Catalogue
           </button>
         </div>
       </div>
     </section>
 
     <!-- ═══════════════════════════════════════════
-         CALL TO ACTION: Discourse & Subscription
+         CTA — umber apparatus panel
          ═══════════════════════════════════════════ -->
     <section class="yt-cta" id="cta" aria-label="Community discourse call to action">
       <div class="hc-container">
         <div class="yt-cta__card">
           <div class="yt-cta__content">
-            <p class="hc-eyebrow">Direct Research Stream</p>
+            <p class="hc-eyebrow">§ III — Direct Research Stream</p>
             <h2>Subscribe before the next chain collapses.</h2>
             <p>
-              Receive new video monographs, debate reviews, and isnad diagrams turning complex manuscript transmission into transparent visual proofs.
+              Receive new video monographs, debate reviews, and isnād diagrams that render complex
+              manuscript transmission into transparent visual proofs.
             </p>
           </div>
           <div class="yt-cta__buttons">
@@ -871,16 +875,19 @@ const categoryCounts = categories.reduce(
   (() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    /* ── Scroll progress bar ── */
+    /* ── Scroll progress hairline ── */
     const setupProgress = () => {
       const progress = document.getElementById("yt-progress");
       if (!progress) return;
+
       let ticking = false;
+
       const update = () => {
         const max = document.documentElement.scrollHeight - window.innerHeight || 1;
         progress.style.transform = `scaleX(${Math.min(window.scrollY / max, 1)})`;
         ticking = false;
       };
+
       window.addEventListener(
         "scroll",
         () => {
@@ -890,10 +897,11 @@ const categoryCounts = categories.reduce(
         },
         { passive: true },
       );
+
       update();
     };
 
-    /* ── Featured Video Player & Theater Logic ── */
+    /* ── Theater player ── */
     const setupPlayer = () => {
       const player = document.getElementById("yt-player");
       const poster = document.getElementById("yt-poster");
@@ -901,14 +909,19 @@ const categoryCounts = categories.reduce(
       const playBtn = document.getElementById("yt-play");
       const theaterPlayBtn = document.getElementById("featured-theater-play");
       const embed = document.getElementById("yt-embed");
-      const titleEl = document.getElementById("featured-title");
-      const descEl = document.getElementById("featured-description");
-      const chipEl = document.getElementById("featured-chip");
-      const chipLabelEl = document.getElementById("featured-chip-label");
-      const durationText = document.getElementById("featured-duration-text");
-      const playerDuration = document.getElementById("yt-player-duration");
-      const dateEl = document.getElementById("featured-date");
-      const linkEl = document.getElementById("featured-link");
+
+      const dossier = {
+        title: document.getElementById("featured-title"),
+        desc: document.getElementById("featured-description"),
+        chip: document.getElementById("featured-chip"),
+        chipLabel: document.getElementById("featured-chip-label"),
+        durationText: document.getElementById("featured-duration-text"),
+        playerDuration: document.getElementById("yt-player-duration"),
+        date: document.getElementById("featured-date"),
+        views: document.getElementById("featured-views"),
+        views: document.getElementById("featured-views"),
+        link: document.getElementById("featured-link"),
+      };
 
       const stopVideo = () => {
         if (embed) embed.innerHTML = "";
@@ -922,8 +935,15 @@ const categoryCounts = categories.reduce(
       const playVideo = () => {
         const id = player?.dataset.videoId;
         if (!id || !embed) return;
-        embed.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1" title="YouTube video player" style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
-        player?.classList.add("is-playing");
+
+        embed.innerHTML =
+          `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1"` +
+          ` title="YouTube video player"` +
+          ` style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;"` +
+          ` allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"` +
+          ` referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
+
+        player.classList.add("is-playing");
         if (poster) {
           poster.style.opacity = "0";
           window.setTimeout(() => {
@@ -932,9 +952,10 @@ const categoryCounts = categories.reduce(
         }
       };
 
-      const loadFeatured = (card, autoplay = false) => {
+      const loadFeatured = (card, autoplay) => {
         if (!card || !player) return;
         const data = card.dataset;
+
         player.dataset.videoId = data.videoId;
         stopVideo();
 
@@ -942,16 +963,17 @@ const categoryCounts = categories.reduce(
           posterImg.src = data.thumbnail || "";
           posterImg.alt = `Thumbnail: ${data.title}`;
         }
-        if (playerDuration) playerDuration.textContent = data.duration || "";
-        if (durationText) durationText.textContent = data.duration || "";
-        if (titleEl) titleEl.textContent = data.title || "";
-        if (descEl) descEl.textContent = data.description || "";
-        if (chipLabelEl) chipLabelEl.textContent = data.categoryLabel || "";
-        if (chipEl) {
-          chipEl.style.setProperty("--chip-color", data.categoryColor || "var(--hc-gold)");
+        if (dossier.playerDuration) dossier.playerDuration.textContent = data.duration || "";
+        if (dossier.durationText) dossier.durationText.textContent = data.duration || "";
+        if (dossier.title) dossier.title.textContent = data.title || "";
+        if (dossier.desc) dossier.desc.textContent = data.description || "";
+        if (dossier.chipLabel) dossier.chipLabel.textContent = data.categoryLabel || "";
+        if (dossier.chip) {
+          dossier.chip.style.setProperty("--chip-color", data.categoryColor || "var(--hc-gold)");
         }
-        if (dateEl) dateEl.textContent = data.date || "2024";
-        if (linkEl) linkEl.setAttribute("href", `https://www.youtube.com/watch?v=${data.videoId}`);
+        if (dossier.date) dossier.date.textContent = data.date || "";
+        if (dossier.views) dossier.views.textContent = data.views || "N/A";
+        if (dossier.link) dossier.link.setAttribute("href", `https://www.youtube.com/watch?v=${data.videoId}`);
 
         document.getElementById("featured")?.scrollIntoView({
           behavior: prefersReduced ? "auto" : "smooth",
@@ -973,15 +995,15 @@ const categoryCounts = categories.reduce(
       });
     };
 
-    /* ── Live Search & Category Filtering with Magnetic Pill ── */
+    /* ── Catalogue search & field filtering ── */
     const setupFilterAndSearch = () => {
       const searchInput = document.getElementById("yt-search-input");
       const searchClear = document.getElementById("yt-search-clear");
-      const filterTabsContainer = document.getElementById("yt-filter-tabs");
-      const magnetPill = filterTabsContainer?.querySelector(".yt-filter-magnet-pill");
+      const filterTabs = document.getElementById("yt-filter-tabs");
+      const magnetPill = filterTabs?.querySelector(".yt-filter-magnet-pill");
       const resetBtn = document.getElementById("yt-reset-btn");
-      const tabs = [...document.querySelectorAll(".yt-filter-tab")];
-      const cards = [...document.querySelectorAll(".yt-card")];
+      const tabs = Array.from(document.querySelectorAll(".yt-filter-tab"));
+      const cards = Array.from(document.querySelectorAll(".yt-card"));
       const emptyState = document.getElementById("yt-empty");
       const emptyReset = document.getElementById("yt-empty-reset");
       const statusText = document.getElementById("yt-status-text");
@@ -989,7 +1011,14 @@ const categoryCounts = categories.reduce(
       let activeCategory = "all";
       let activeQuery = "";
 
-      // Dynamic mouse coordinates for card hover spotlight
+      const escapeHtml = (str) =>
+        str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+
+      /* Pointer spotlight that follows the cursor across each record card. */
       cards.forEach((card) => {
         card.addEventListener("mousemove", (e) => {
           const rect = card.getBoundingClientRect();
@@ -1000,42 +1029,44 @@ const categoryCounts = categories.reduce(
         });
       });
 
-      // Update magnet sliding pill
+      /* Sliding magnet pill tracking the active field tab. */
       const updateMagnetPill = (tab) => {
-        if (!magnetPill || !filterTabsContainer || !tab) return;
-        const cRect = filterTabsContainer.getBoundingClientRect();
-        const tRect = tab.getBoundingClientRect();
-        const left = tRect.left - cRect.left;
-        const top = tRect.top - cRect.top;
-        magnetPill.style.transform = `translate(${left}px, ${top}px)`;
-        magnetPill.style.width = `${tRect.width}px`;
-        magnetPill.style.height = `${tRect.height}px`;
-        magnetPill.style.opacity = "1";
+        if (!magnetPill || !filterTabs || !tab) return;
+
+        const containerRect = filterTabs.getBoundingClientRect();
+        const tabRect = tab.getBoundingClientRect();
         const activeBg = getComputedStyle(tab).getPropertyValue("--tab-active-bg").trim() || "var(--hc-gold)";
+
+        magnetPill.style.transform = `translate(${tabRect.left - containerRect.left}px, ${tabRect.top - containerRect.top}px)`;
+        magnetPill.style.width = `${tabRect.width}px`;
+        magnetPill.style.height = `${tabRect.height}px`;
         magnetPill.style.backgroundColor = activeBg;
         magnetPill.style.boxShadow = `0 2px 14px color-mix(in srgb, ${activeBg} 40%, transparent)`;
+        magnetPill.style.opacity = "1";
       };
 
-      if (filterTabsContainer && magnetPill) {
-        filterTabsContainer.setAttribute("data-magnet-ready", "true");
-        const initialActive = filterTabsContainer.querySelector(".yt-filter-tab.is-active");
-        if (initialActive) updateMagnetPill(initialActive);
-        window.addEventListener("resize", () => {
-          const active = filterTabsContainer.querySelector(".yt-filter-tab.is-active");
-          if (active) updateMagnetPill(active);
-        }, { passive: true });
+      if (filterTabs && magnetPill) {
+        filterTabs.setAttribute("data-magnet-ready", "true");
+
+        const initialTab = filterTabs.querySelector(".yt-filter-tab.is-active");
+        if (initialTab) updateMagnetPill(initialTab);
+
+        window.addEventListener(
+          "resize",
+          () => {
+            const active = filterTabs.querySelector(".yt-filter-tab.is-active");
+            if (active) updateMagnetPill(active);
+          },
+          { passive: true },
+        );
       }
 
       const applyFilters = () => {
         let visibleCount = 0;
-        const total = cards.length;
 
         cards.forEach((card) => {
-          const category = card.dataset.category || "";
-          const searchText = card.dataset.search || "";
-
-          const matchesCategory = activeCategory === "all" || category === activeCategory;
-          const matchesQuery = !activeQuery || searchText.includes(activeQuery);
+          const matchesCategory = activeCategory === "all" || card.dataset.category === activeCategory;
+          const matchesQuery = !activeQuery || (card.dataset.search || "").includes(activeQuery);
           const show = matchesCategory && matchesQuery;
 
           card.hidden = !show;
@@ -1047,24 +1078,19 @@ const categoryCounts = categories.reduce(
         if (resetBtn) resetBtn.hidden = activeCategory === "all" && activeQuery.length === 0;
 
         if (statusText) {
+          const noun = visibleCount === 1 ? "record" : "records";
+
           if (activeQuery) {
-            const catStr = activeCategory === "all" ? "" : ` in ${activeCategory}`;
-            statusText.innerHTML = `Found <strong>${visibleCount}</strong> ${visibleCount === 1 ? 'investigation' : 'investigations'} matching "${escapeHtml(activeQuery)}"${catStr}`;
+            const fieldStr = activeCategory === "all" ? "" : ` under ${activeCategory}`;
+            statusText.innerHTML =
+              `Filing <strong>${visibleCount}</strong> ${noun} matching "${escapeHtml(activeQuery)}"${fieldStr}`;
           } else if (activeCategory !== "all") {
-            statusText.innerHTML = `Showing <strong>${visibleCount}</strong> investigations in ${activeCategory}`;
+            statusText.innerHTML = `Filing <strong>${visibleCount}</strong> ${noun} under ${activeCategory}`;
           } else {
-            statusText.innerHTML = `Showing all <strong>${total}</strong> video monographs`;
+            statusText.innerHTML = `Filing <strong>${visibleCount}</strong> records under complete catalogue`;
           }
         }
       };
-
-      function escapeHtml(str) {
-        return str
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-      }
 
       const setActiveTab = (tab) => {
         tabs.forEach((t) => {
@@ -1072,30 +1098,25 @@ const categoryCounts = categories.reduce(
           t.classList.toggle("is-active", isTarget);
           t.setAttribute("aria-selected", isTarget ? "true" : "false");
         });
+
         activeCategory = tab.dataset.filter || "all";
         updateMagnetPill(tab);
         applyFilters();
       };
 
-      // Tab clicks
       tabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
-          setActiveTab(tab);
-        });
+        tab.addEventListener("click", () => setActiveTab(tab));
       });
 
-      // Search input
       searchInput?.addEventListener("input", (e) => {
         activeQuery = (e.target.value || "").trim().toLowerCase();
         applyFilters();
       });
 
-      // Clear / Reset
       const resetSearchAndFilters = () => {
-        if (searchInput) {
-          searchInput.value = "";
-        }
+        if (searchInput) searchInput.value = "";
         activeQuery = "";
+
         const allTab = tabs.find((t) => t.dataset.filter === "all") || tabs[0];
         if (allTab) {
           setActiveTab(allTab);
@@ -1117,26 +1138,27 @@ const categoryCounts = categories.reduce(
       resetBtn?.addEventListener("click", resetSearchAndFilters);
       emptyReset?.addEventListener("click", resetSearchAndFilters);
 
-      // Check URL query param ?category=
+      /* Deep link: ?category=end-times pre-selects a subject tab. */
       const urlCategory = new URLSearchParams(window.location.search).get("category");
       if (urlCategory) {
         const matchingTab = tabs.find((t) => t.dataset.filter === urlCategory);
         if (matchingTab) setActiveTab(matchingTab);
       }
 
-      // Keyboard shortcut ⌘K / Ctrl+K
+      /* ⌘K / Ctrl+K focuses search; Escape clears and blurs. */
       window.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
           e.preventDefault();
           searchInput?.focus();
           searchInput?.select();
-        } else if (e.key === "Escape" && document.activeElement === searchInput) {
-          if (searchInput) {
-            searchInput.value = "";
-            activeQuery = "";
-            applyFilters();
-            searchInput.blur();
-          }
+          return;
+        }
+
+        if (e.key === "Escape" && document.activeElement === searchInput && searchInput) {
+          searchInput.value = "";
+          activeQuery = "";
+          applyFilters();
+          searchInput.blur();
         }
       });
     };
@@ -1156,10 +1178,12 @@ const categoryCounts = categories.reduce(
 </script>
 
 <style>
-  /* Hallmark · Editorial video archive · dark manuscript / antique gold · poster → details rail → compact record */
-  /* ═══════════════════════════════════════════
-     BASE & AMBIENT
-     ═══════════════════════════════════════════ */
+  /* ─────────────────────────────────────────────
+     YOUTUBE ARCHIVE · Design System V2.4
+     Dark manuscript ground · antique-gold voltage under 5%
+     Ledger apparatus · editorial numbering · apparatus ink taxonomy
+     ───────────────────────────────────────────── */
+
   .yt-page {
     position: relative;
     color: var(--hc-text-primary);
@@ -1172,7 +1196,7 @@ const categoryCounts = categories.reduce(
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 2px;
     background: var(--hc-gold);
     transform-origin: 0 50%;
     transform: scaleX(0);
@@ -1181,166 +1205,231 @@ const categoryCounts = categories.reduce(
     transition: transform 120ms ease-out;
   }
 
-  .text-gold {
-    color: var(--hc-gold);
+  /* ═══════════════════════════════════════════
+     SECTION DIVIDER WITH EMBLEM
+     ═══════════════════════════════════════════ */
+  .yt-divider {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: var(--wrap, 1240px);
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 2rem);
+    color: var(--hc-gold-dim);
+  }
+
+  .yt-divider__rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--hc-rule) 20%,
+      var(--hc-rule) 80%,
+      transparent
+    );
+  }
+
+  .yt-divider__emblem {
+    flex-shrink: 0;
+    opacity: 0.8;
   }
 
   /* ═══════════════════════════════════════════
-     HERO SECTION
+     HERO: the catalogue as a runtime reel.
+     Shell (masthead, tray, well, plate) is shared in global.css.
      ═══════════════════════════════════════════ */
-  .yt-hero {
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule);
-    background:
-      radial-gradient(ellipse 850px 420px at 15% 25%, rgba(216, 177, 102, 0.05) 0%, transparent 65%),
-      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
-    padding: clamp(3rem, 5.5vw, 4.5rem) 0 clamp(2.25rem, 4vw, 3.25rem);
-    overflow: hidden;
+  .yt-reel__plate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.25rem;
   }
 
-  .yt-hero::before {
+  .yt-reel__note {
+    text-align: right;
+  }
+
+  .yt-reel__strip {
+    display: flex;
+    height: 34px;
+    margin: 0.35rem 0.4rem 0;
+  }
+
+  .yt-reel__group {
+    display: flex;
+    flex: var(--n) 1 0;
+    min-width: 0;
+    opacity: var(--o);
+  }
+
+  .yt-reel__tick {
+    flex: var(--n) 1 0;
+    min-width: 0;
+    box-shadow: inset -1px 0 0 var(--hc-surface-1);
+    transform-origin: 50% 100%;
+  }
+
+  .yt-reel__group:not(:last-child) .yt-reel__tick:last-child {
+    box-shadow: inset -4px 0 0 var(--hc-surface-1);
+  }
+
+  .yt-reel__ruler {
+    position: relative;
+    height: 1.55rem;
+    margin: 0.3rem 0.4rem 0;
+  }
+
+  .yt-reel__ruler::before {
     content: "";
     position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 90% 10%, rgba(216, 177, 102, 0.03), transparent 45%);
-    pointer-events: none;
-  }
-
-  .yt-hero__eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .yt-hero__kicker-dot {
-    width: 6px;
+    inset: 0 0 auto;
     height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    flex-shrink: 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    background: repeating-linear-gradient(
+      90deg,
+      var(--hc-rule-strong) 0 1px,
+      transparent 1px var(--hour)
+    );
   }
 
-  .yt-hero__kicker {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .yt-hero__kicker-sep {
-    color: var(--hc-rule-strong);
-    font-size: 0.75rem;
-  }
-
-  .yt-hero__kicker-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .yt-reel__mark {
+    position: absolute;
+    top: 9px;
+    transform: translateX(-50%);
     color: var(--hc-text-tertiary);
+    font: 700 0.75rem/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    font-variant-numeric: lining-nums tabular-nums;
   }
 
-  .yt-hero__title {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display);
-    font-size: clamp(2.35rem, 5.2vw, 3.75rem);
-    font-weight: 500;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
+  .yt-reel__mark:first-child {
+    transform: none;
   }
 
-  .yt-hero__title-accent {
-    font-style: normal;
-    color: var(--hc-gold);
+  .yt-reel__rows {
+    margin: 0.55rem 0 0;
+    padding: 0 0.4rem 0.4rem;
+    list-style: none;
   }
 
-  .yt-hero__lead {
-    margin: 0 0 1.85rem;
-    font-family: var(--font-body);
-    font-size: clamp(1.02rem, 1.25vw, 1.15rem);
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-    max-width: 58ch;
-  }
-
-  .yt-hero__actions {
-    display: flex;
+  .yt-reel__rows li {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto 4.6rem;
     align-items: center;
+    gap: 0.7rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    font-size: 0.95rem;
+  }
+
+  .yt-reel__dot {
+    width: 8px;
+    height: 8px;
+    background: var(--hc-gold);
+    opacity: var(--o);
+  }
+
+  .yt-reel__name {
+    color: var(--hc-text-secondary);
+  }
+
+  .yt-reel__count {
+    color: var(--hc-text-primary);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .yt-reel__run {
+    color: var(--hc-text-tertiary);
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .yt-reel__channel {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
     gap: 1rem;
-    flex-wrap: wrap;
+    margin: 0;
+    padding: 0.75rem 0.4rem 0.45rem;
+  }
+
+  .yt-reel__handle {
+    color: var(--hc-gold);
+    font: 600 0.95rem/1.3 var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  .yt-reel__subs {
+    color: var(--hc-text-secondary);
+    font-size: 0.95rem;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yt-reel__tick {
+      animation: yt-reel-in var(--motion-slow) var(--ease-standard) both;
+      animation-delay: calc(var(--i) * 16ms + 120ms);
+    }
+  }
+
+  @keyframes yt-reel-in {
+    from {
+      opacity: 0;
+      transform: scaleY(0.15);
+    }
+
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .yt-reel__plate {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .yt-reel__note {
+      text-align: left;
+    }
+
+    .yt-reel__rows li {
+      gap: 0.5rem;
+      grid-template-columns: 8px minmax(0, 1fr) auto 4.4rem;
+    }
   }
 
   .yt-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.55rem;
     font-family: var(--font-ui);
     font-size: 0.84rem;
     font-weight: 600;
     letter-spacing: 0.03em;
     text-decoration: none;
     padding: 0.7rem 1.35rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-sm, 4px);
     transition: all 200ms ease;
   }
 
   .yt-btn--primary {
     background: var(--hc-gold);
-    color: #0b0b0d;
+    color: var(--hc-text-inverse, #0f0f10);
     border: 1px solid var(--hc-gold);
-    box-shadow: 0 4px 16px rgba(200, 155, 75, 0.25);
+    box-shadow: 0 4px 16px rgba(200, 155, 75, 0.22);
   }
 
   .yt-btn--primary:hover {
-    background: var(--hc-gold-soft);
-    border-color: var(--hc-gold-soft);
-    color: #0b0b0d;
+    background: var(--hc-gold-bright);
+    border-color: var(--hc-gold-bright);
+    color: var(--hc-text-inverse, #0f0f10);
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(200, 155, 75, 0.35);
-  }
-
-
-  .yt-channel-showcase__link:hover {
-    background: var(--hc-gold);
-    color: #0b0b0d;
-    border-color: var(--hc-gold);
-  }
-
-  .yt-channel-showcase__banner {
-    position: relative;
-    aspect-ratio: 16 / 7;
-    overflow: hidden;
-  }
-
-  .yt-channel-showcase__banner-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  .yt-channel-showcase__scrim {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(15, 15, 16, 0.1) 0%, rgba(15, 15, 16, 0.85) 100%);
-  }
-
-  .yt-channel-showcase__caption {
-    position: absolute;
-    bottom: 0.85rem;
-    left: 1rem;
-    right: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
+    box-shadow: 0 6px 22px rgba(200, 155, 75, 0.32);
   }
 
   /* ═══════════════════════════════════════════
@@ -1351,9 +1440,9 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-section-head h2 {
-    margin: 0.35rem 0 0.65rem;
+    margin: 0.4rem 0 0.7rem;
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3.2vw, 2.35rem);
+    font-size: clamp(1.85rem, 3.2vw, 2.4rem);
     font-weight: 500;
     letter-spacing: -0.015em;
     color: var(--hc-text-primary);
@@ -1362,9 +1451,9 @@ const categoryCounts = categories.reduce(
   .yt-section-head p:not(.hc-eyebrow) {
     margin: 0;
     font-size: 0.98rem;
-    line-height: 1.6;
+    line-height: 1.62;
     color: var(--hc-text-secondary);
-    max-width: 38rem;
+    max-width: 40rem;
   }
 
   /* ═══════════════════════════════════════════
@@ -1372,22 +1461,20 @@ const categoryCounts = categories.reduce(
      ═══════════════════════════════════════════ */
   .yt-featured {
     scroll-margin-top: 4.5rem;
-    padding-block: 3.25rem;
-    border-bottom: 1px solid var(--hc-rule);
+    padding-block: 3.5rem;
     background: var(--hc-surface-0);
   }
 
   .yt-theater {
     display: grid;
     grid-template-columns: minmax(0, 1.55fr) minmax(17rem, 0.75fr);
-    gap: clamp(1.25rem, 3vw, 2.5rem);
+    gap: clamp(1.5rem, 3vw, 2.75rem);
     align-items: stretch;
   }
 
   @media (max-width: 900px) {
     .yt-theater {
       grid-template-columns: 1fr;
-      gap: 1.75rem;
     }
   }
 
@@ -1396,22 +1483,23 @@ const categoryCounts = categories.reduce(
     width: 100%;
     aspect-ratio: 16 / 9;
     align-self: start;
-    border-radius: var(--radius-md);
-    background: var(--hc-surface-0);
-    border: 1px solid var(--hc-rule);
+    background: var(--hc-surface-1);
+    border: 1px solid var(--hc-rule-strong);
+    outline: 1px solid var(--hc-rule-soft);
+    outline-offset: -5px;
     overflow: hidden;
-    transition: border-color var(--motion-base) var(--ease-standard);
+    transition: border-color 200ms ease;
   }
 
   .yt-player:hover {
-    border-color: rgba(216, 177, 102, 0.4);
+    border-color: var(--hc-gold-dim);
   }
 
   .yt-player__poster {
     position: absolute;
     inset: 0;
     z-index: 2;
-    transition: opacity var(--motion-base) var(--ease-standard);
+    transition: opacity 200ms ease;
   }
 
   .yt-player__poster img {
@@ -1424,7 +1512,7 @@ const categoryCounts = categories.reduce(
   .yt-player__shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(15, 15, 16, 0.04) 48%, rgba(15, 15, 16, 0.5) 100%);
+    background: linear-gradient(180deg, rgba(15, 15, 16, 0.03) 45%, rgba(15, 15, 16, 0.55) 100%);
     pointer-events: none;
   }
 
@@ -1433,17 +1521,17 @@ const categoryCounts = categories.reduce(
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 3.75rem;
-    height: 3.75rem;
+    width: 3.9rem;
+    height: 3.9rem;
     border-radius: 50%;
     background: var(--hc-gold);
-    border: 1px solid var(--hc-gold);
-    color: var(--hc-text-inverse);
+    border: 1px solid var(--hc-gold-bright);
+    color: var(--hc-text-inverse, #0f0f10);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform var(--motion-base) var(--ease-emphasis), background-color var(--motion-fast) var(--ease-standard);
+    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease;
   }
 
   .yt-player__play svg {
@@ -1451,23 +1539,53 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-player:hover .yt-player__play {
-    transform: translate(-50%, -50%) scale(1.06);
+    transform: translate(-50%, -50%) scale(1.07);
     background: var(--hc-gold-bright);
+  }
+
+  .yt-player__pulse {
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    border: 1px solid var(--hc-gold);
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .yt-player__pulse {
+      animation: ytPulse 2.6s ease-out infinite;
+    }
+  }
+
+  @keyframes ytPulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    70% {
+      transform: scale(1.55);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.55);
+      opacity: 0;
+    }
   }
 
   .yt-player__duration {
     position: absolute;
     bottom: 0.85rem;
     right: 0.85rem;
-    background: rgba(15, 15, 16, 0.86);
-    border: 1px solid var(--hc-rule-soft);
+    background: rgba(15, 15, 16, 0.88);
+    border: 1px solid var(--hc-rule);
     color: var(--hc-text-primary);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 0.25rem 0.55rem;
-    border-radius: var(--radius-xs);
+    letter-spacing: 0.05em;
+    font-variant-numeric: tabular-nums;
+    padding: 0.24rem 0.55rem;
+    border-radius: var(--radius-xs, 2px);
   }
 
   .yt-player__embed {
@@ -1488,22 +1606,37 @@ const categoryCounts = categories.reduce(
     border: 0;
   }
 
-  /* Theater Dossier Panel */
+  /* Theater dossier */
   .yt-theater__meta {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: clamp(1.25rem, 2.5vw, 2rem) 0 clamp(1.25rem, 2.5vw, 2rem) clamp(1.25rem, 2.5vw, 2rem);
-    background: transparent;
-    border: 0;
+    padding: 1.5rem 0 1.5rem clamp(1.5rem, 2.5vw, 2.25rem);
     border-left: 1px solid var(--hc-rule);
+  }
+
+  @media (max-width: 900px) {
+    .yt-theater__meta {
+      padding-left: 0;
+      border-left: none;
+      border-top: 1px solid var(--hc-rule);
+    }
+  }
+
+  .yt-dossier-label {
+    margin: 0 0 1.15rem;
+    font-family: var(--font-ui);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--hc-gold-dim);
   }
 
   .yt-theater__badge-row {
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    margin-bottom: 1.1rem;
+    margin-bottom: 1.15rem;
     flex-wrap: wrap;
   }
 
@@ -1511,15 +1644,15 @@ const categoryCounts = categories.reduce(
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding: 0.25rem 0.65rem;
-    border-radius: 9999px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--chip-color, var(--hc-gold));
+    padding: 0.26rem 0.7rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--chip-color, var(--hc-gold)) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--chip-color, var(--hc-gold)) 35%, transparent);
     color: var(--chip-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
@@ -1533,21 +1666,22 @@ const categoryCounts = categories.reduce(
   .yt-theater__duration-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.6rem;
-    border-radius: var(--radius-xs);
+    gap: 0.4rem;
+    padding: 0.26rem 0.65rem;
+    border-radius: var(--radius-xs, 2px);
     background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
+    border: 1px solid var(--hc-rule-soft);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 
   .yt-theater__title {
-    margin: 0 0 0.85rem;
+    margin: 0 0 0.9rem;
     font-family: var(--font-display);
-    font-size: clamp(1.35rem, 2vw, 1.65rem);
+    font-size: clamp(1.4rem, 2vw, 1.7rem);
     font-weight: 500;
     line-height: 1.25;
     color: var(--hc-text-primary);
@@ -1556,35 +1690,41 @@ const categoryCounts = categories.reduce(
   .yt-theater__desc {
     margin: 0 0 1.5rem;
     font-size: 0.95rem;
-    line-height: 1.62;
+    line-height: 1.65;
     color: var(--hc-text-secondary);
     flex-grow: 1;
   }
 
-  .yt-theater__footer {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--hc-rule);
+  /* Dossier ledger rows */
+  .yt-theater__ledger {
+    margin-bottom: 1.5rem;
+    border-top: 1px solid var(--hc-rule-soft);
   }
 
-  .yt-theater__meta-items {
+  .yt-ledger-row {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0.15rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+  }
+
+  .yt-ledger-key {
     font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .yt-meta-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--hc-text-tertiary);
-    margin-right: 0.25rem;
   }
 
-  .yt-meta-divider {
-    color: var(--hc-rule-strong);
+  .yt-ledger-val {
+    font-family: var(--font-ui);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--hc-text-primary);
+    font-variant-numeric: tabular-nums;
   }
 
   .yt-theater__actions {
@@ -1597,67 +1737,66 @@ const categoryCounts = categories.reduce(
   .yt-theater__play-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.5rem;
     background: var(--hc-gold);
-    color: #0b0b0d;
+    color: var(--hc-text-inverse, #0f0b0d);
     border: 1px solid var(--hc-gold);
     font-family: var(--font-ui);
     font-size: 0.81rem;
     font-weight: 700;
     letter-spacing: 0.03em;
-    padding: 0.6rem 1.15rem;
-    border-radius: var(--radius-sm);
+    padding: 0.62rem 1.2rem;
+    border-radius: var(--radius-sm, 4px);
     cursor: pointer;
     transition: all 180ms ease;
   }
 
   .yt-theater__play-btn:hover {
-    background: var(--hc-gold-soft);
-    border-color: var(--hc-gold-soft);
+    background: var(--hc-gold-bright);
+    border-color: var(--hc-gold-bright);
     transform: translateY(-1px);
   }
 
   .yt-theater__external-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.45rem;
     font-family: var(--font-ui);
     font-size: 0.81rem;
     font-weight: 600;
     color: var(--hc-text-secondary);
     text-decoration: none;
     padding: 0.6rem 1rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-sm, 4px);
     border: 1px solid var(--hc-rule);
     transition: all 180ms ease;
   }
 
   .yt-theater__external-link:hover {
     color: var(--hc-gold);
-    border-color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.08);
+    border-color: var(--hc-gold-dim);
+    background: rgba(216, 177, 102, 0.07);
   }
 
   /* ═══════════════════════════════════════════
-     ARCHIVE & EXPLORATION
+     ARCHIVE — catalogue ledger
      ═══════════════════════════════════════════ */
   .yt-archive {
-    padding-block: 4.5rem 6rem;
+    padding-block: 3.5rem 5.5rem;
     background:
-      radial-gradient(ellipse 900px 400px at 50% 0%, rgba(216, 177, 102, 0.04) 0%, transparent 70%),
+      radial-gradient(ellipse 900px 380px at 50% 0%, rgba(216, 177, 102, 0.04) 0%, transparent 70%),
       var(--hc-surface-0);
   }
 
   .yt-controls {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    margin-bottom: 1.75rem;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
   }
 
-  /* Search Box */
+  /* Search bar */
   .yt-search-wrap {
-    position: relative;
     width: 100%;
   }
 
@@ -1665,18 +1804,17 @@ const categoryCounts = categories.reduce(
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    min-height: 48px;
+    min-height: 50px;
     padding: 0 1rem;
-    border-radius: var(--radius-sm, 8px);
-    background: var(--hc-surface-1);
+    border-radius: var(--radius-xs, 2px);
+    background: var(--hc-surface-2);
     border: 1px solid var(--hc-rule);
-    transition: border-color 200ms ease, box-shadow 200ms ease, background 200ms ease;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
   }
 
   .yt-search-box:focus-within {
     border-color: var(--hc-gold);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.18);
-    background: var(--hc-surface-2);
+    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.16);
   }
 
   .yt-search-icon {
@@ -1690,7 +1828,11 @@ const categoryCounts = categories.reduce(
     border: none;
     color: var(--hc-text-primary);
     font-family: var(--font-body);
-    font-size: 1.01rem;
+    font-size: 1rem;
+  }
+
+  .yt-search-input:focus {
+    outline: none;
   }
 
   .yt-search-input::-webkit-search-cancel-button,
@@ -1705,13 +1847,16 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-search-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
     color: var(--hc-text-tertiary);
     cursor: pointer;
-    font-size: 0.95rem;
-    padding: 0.25rem 0.5rem;
-    transition: color 180ms ease;
+    padding: 0.3rem;
+    border-radius: var(--radius-xs, 2px);
+    transition: color 160ms ease;
   }
 
   .yt-search-clear:hover {
@@ -1721,11 +1866,11 @@ const categoryCounts = categories.reduce(
   .yt-search-kbd {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.55rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 6px;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid var(--hc-rule-soft);
+    border-radius: var(--radius-xs, 2px);
     font-family: var(--font-ui);
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 600;
     color: var(--hc-text-tertiary);
     background: var(--hc-surface-1);
@@ -1733,7 +1878,7 @@ const categoryCounts = categories.reduce(
     flex-shrink: 0;
   }
 
-  /* Filter Tabs Bar with Sliding Magnet Pill */
+  /* Filter tabs with sliding magnet pill */
   .yt-filter-bar {
     display: flex;
     align-items: center;
@@ -1758,13 +1903,25 @@ const categoryCounts = categories.reduce(
     width: max-content;
   }
 
+  /* Seven subjects outgrow one row: wrap on wide screens, scroll on phones. */
+  @media (min-width: 900px) {
+    .yt-filter-bar {
+      overflow-x: visible;
+    }
+
+    .yt-filter-tabs {
+      flex-wrap: wrap;
+      width: auto;
+    }
+  }
+
   .yt-filter-magnet-pill {
     position: absolute;
     top: 0;
     left: 0;
     width: 0;
     height: 0;
-    border-radius: var(--radius-pill);
+    border-radius: 999px;
     pointer-events: none;
     z-index: 1;
     opacity: 0;
@@ -1777,58 +1934,13 @@ const categoryCounts = categories.reduce(
       opacity 120ms ease;
   }
 
-  /* Category Color Palette for YouTube Filters */
-  .yt-filter-tab[data-filter="all"] {
+  /* Every subject tab shares the one gold accent. */
+  .yt-filter-tab {
     --tab-color: var(--hc-gold);
-    --tab-bg: rgba(200, 155, 75, 0.12);
-    --tab-border: rgba(200, 155, 75, 0.35);
+    --tab-bg: rgba(216, 177, 102, 0.1);
+    --tab-border: rgba(216, 177, 102, 0.32);
     --tab-active-bg: #c89b4b;
     --tab-active-text: #141312;
-  }
-
-  .yt-filter-tab[data-category="epistemology"],
-  .yt-filter-tab[data-filter="epistemology"] {
-    --tab-color: #d8b166;
-    --tab-bg: rgba(216, 177, 102, 0.12);
-    --tab-border: rgba(216, 177, 102, 0.35);
-    --tab-active-bg: #c89b4b;
-    --tab-active-text: #141312;
-  }
-
-  .yt-filter-tab[data-category="prophecy"],
-  .yt-filter-tab[data-filter="prophecy"] {
-    --tab-color: var(--cat-prophecies-text, #d47565);
-    --tab-bg: rgba(224, 90, 71, 0.12);
-    --tab-border: rgba(224, 90, 71, 0.35);
-    --tab-active-bg: #c94532;
-    --tab-active-text: #ffffff;
-  }
-
-  .yt-filter-tab[data-category="history"],
-  .yt-filter-tab[data-filter="history"] {
-    --tab-color: var(--cat-history-text, #d5b091);
-    --tab-bg: rgba(212, 139, 82, 0.12);
-    --tab-border: rgba(212, 139, 82, 0.35);
-    --tab-active-bg: #c4783d;
-    --tab-active-text: #ffffff;
-  }
-
-  .yt-filter-tab[data-category="theology"],
-  .yt-filter-tab[data-filter="theology"] {
-    --tab-color: var(--cat-theology-text, #9cb8a4);
-    --tab-bg: rgba(79, 168, 108, 0.12);
-    --tab-border: rgba(79, 168, 108, 0.35);
-    --tab-active-bg: #3f8e58;
-    --tab-active-text: #ffffff;
-  }
-
-  .yt-filter-tab[data-category="philosophy"],
-  .yt-filter-tab[data-filter="philosophy"] {
-    --tab-color: var(--cat-philosophy-text, #a3afc7);
-    --tab-bg: rgba(96, 143, 214, 0.12);
-    --tab-border: rgba(96, 143, 214, 0.35);
-    --tab-active-bg: #4f78b8;
-    --tab-active-text: #ffffff;
   }
 
   .yt-filter-tab {
@@ -1836,20 +1948,20 @@ const categoryCounts = categories.reduce(
     z-index: 2;
     display: inline-flex;
     align-items: center;
-    gap: 0.48rem;
-    padding: 0.42rem 0.95rem;
+    gap: 0.5rem;
+    padding: 0.44rem 1rem;
     border: 1px solid var(--tab-border, var(--hc-rule));
-    border-radius: var(--radius-pill);
+    border-radius: 999px;
     background: var(--hc-surface-1);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
+    font-size: 0.84rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: all 200ms ease;
+    transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease;
   }
 
   .yt-filter-tab__dot {
@@ -1857,10 +1969,8 @@ const categoryCounts = categories.reduce(
     height: 7px;
     border-radius: 50%;
     background: var(--tab-color, var(--hc-gold));
-    box-shadow: 0 0 6px var(--tab-color, var(--hc-gold));
-    display: inline-block;
     flex-shrink: 0;
-    transition: transform 200ms ease, background 200ms ease, box-shadow 200ms ease;
+    transition: transform 180ms ease;
   }
 
   .yt-filter-tab:hover {
@@ -1870,84 +1980,81 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-filter-tab:hover .yt-filter-tab__dot {
-    transform: scale(1.25);
-    box-shadow: 0 0 10px var(--tab-color, var(--hc-gold));
+    transform: scale(1.3);
   }
 
   .yt-filter-tab.is-active {
     color: var(--tab-active-text, #ffffff);
-    background: var(--tab-active-bg, var(--hc-gold));
-    border-color: var(--tab-active-bg, var(--hc-gold));
     font-weight: 700;
-    box-shadow: 0 2px 12px color-mix(in srgb, var(--tab-active-bg) 40%, transparent);
   }
 
   .yt-filter-tabs[data-magnet-ready="true"] .yt-filter-tab.is-active {
     background: transparent;
     border-color: transparent;
-    box-shadow: none;
   }
 
   .yt-filter-tab.is-active .yt-filter-tab__dot {
     background: currentColor;
-    box-shadow: 0 0 6px currentColor;
   }
 
   .yt-filter-tab__count {
-    font-size: 0.8rem;
-    padding: 0.1rem 0.4rem;
-    border-radius: var(--radius-pill);
-    background: rgba(0, 0, 0, 0.18);
+    font-size: 0.78rem;
+    padding: 0.08rem 0.45rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.2);
     color: var(--hc-text-primary);
+    font-variant-numeric: tabular-nums;
   }
 
   .yt-filter-tab.is-active .yt-filter-tab__count {
-    background: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.28);
     color: currentColor;
   }
 
   .yt-reset-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.85rem;
-    border-radius: var(--radius-pill);
+    gap: 0.4rem;
+    padding: 0.42rem 0.9rem;
+    border-radius: 999px;
     border: 1px dashed var(--hc-rule-strong);
     background: transparent;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.8rem;
     font-weight: 600;
     letter-spacing: 0.05em;
     cursor: pointer;
     white-space: nowrap;
+    flex-shrink: 0;
     transition: all 180ms ease;
   }
 
   .yt-reset-btn:hover {
     border-color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.1);
+    border-style: solid;
+    background: rgba(216, 177, 102, 0.08);
   }
 
-  /* Status Bar */
+  /* Status ledger line */
   .yt-status-bar {
     display: flex;
     align-items: center;
     margin-bottom: 1.75rem;
-    min-height: 2.2rem;
+    min-height: 2.1rem;
   }
 
   .yt-status-chip {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
-    padding: 0.35rem 0.85rem;
-    border-radius: var(--radius-pill);
-    background: rgba(216, 177, 102, 0.08);
+    padding: 0.36rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(216, 177, 102, 0.07);
     border: 1px solid rgba(216, 177, 102, 0.22);
     color: var(--hc-text-secondary);
     font-family: var(--font-ui);
-    font-size: 0.84rem;
+    font-size: 0.83rem;
   }
 
   .yt-status-dot {
@@ -1962,9 +2069,12 @@ const categoryCounts = categories.reduce(
   .yt-status-chip strong {
     color: var(--hc-gold);
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Video Grid */
+  /* ═══════════════════════════════════════════
+     RECORD CARDS — double hairline ledger style
+     ═══════════════════════════════════════════ */
   .yt-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1989,24 +2099,42 @@ const categoryCounts = categories.reduce(
     position: relative;
     display: flex;
     flex-direction: column;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-xs, 2px);
     background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
+    border: 1px solid var(--hc-rule);
+    outline: 1px solid var(--hc-rule-soft);
+    outline-offset: -5px;
     overflow: hidden;
-    transition: transform var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
+    transition: transform 200ms ease, border-color 200ms ease;
   }
 
   .yt-card[hidden] {
     display: none !important;
   }
 
-  .yt-card:hover {
-    transform: translateY(-1px);
-    border-color: var(--hc-rule-strong);
+  /* Cursor-following parchment spotlight */
+  .yt-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(
+      340px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(216, 177, 102, 0.09),
+      transparent 65%
+    );
+    transition: opacity 220ms ease;
   }
 
-  .yt-card:focus-within {
-    border-color: var(--hc-gold);
+  .yt-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--hc-gold-dim);
+  }
+
+  .yt-card:hover::after {
+    opacity: 1;
   }
 
   .yt-card__media {
@@ -2022,28 +2150,33 @@ const categoryCounts = categories.reduce(
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .yt-card__duration {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
+  .yt-card:hover .yt-card__img {
+    transform: scale(1.035);
   }
 
-  .yt-card__duration svg {
+  .yt-card__rec {
+    position: absolute;
+    top: 0.65rem;
+    left: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(15, 15, 16, 0.82);
+    border: 1px solid var(--hc-rule);
     color: var(--hc-gold);
-    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    font-variant-numeric: tabular-nums;
+    border-radius: var(--radius-xs, 2px);
   }
 
   .yt-card__body {
     display: flex;
     flex-direction: column;
-    padding: 0.95rem 1rem 1rem;
+    padding: 1rem 1.05rem 1.05rem;
     flex-grow: 1;
   }
 
@@ -2052,31 +2185,31 @@ const categoryCounts = categories.reduce(
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.85rem;
   }
 
   .yt-card__record-meta {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.7rem;
     flex-shrink: 0;
   }
 
   .yt-card__cat-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-xs);
-    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--cat-color, var(--hc-gold)) 28%, transparent);
+    gap: 0.42rem;
+    padding: 0.22rem 0.6rem;
+    border-radius: var(--radius-xs, 2px);
+    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--cat-color, var(--hc-gold)) 30%, transparent);
     color: var(--cat-color, var(--hc-gold));
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
-    transition: background-color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+    transition: border-color 160ms ease, background-color 160ms ease;
   }
 
   .yt-card__cat-dot {
@@ -2089,12 +2222,27 @@ const categoryCounts = categories.reduce(
 
   .yt-card:hover .yt-card__cat-pill {
     border-color: var(--cat-color, var(--hc-gold));
-    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 16%, transparent);
+  }
+
+  .yt-card__duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .yt-card__duration svg {
+    color: var(--hc-gold-dim);
+    flex-shrink: 0;
   }
 
   .yt-card__year {
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     font-weight: 600;
     color: var(--hc-text-tertiary);
     font-variant-numeric: tabular-nums;
@@ -2103,11 +2251,11 @@ const categoryCounts = categories.reduce(
   .yt-card__title {
     margin: 0 0 0.55rem;
     font-family: var(--font-display);
-    font-size: clamp(1.03rem, 1.25vw, 1.15rem);
+    font-size: clamp(1.02rem, 1.2vw, 1.12rem);
     font-weight: 600;
-    line-height: 1.3;
+    line-height: 1.32;
     color: var(--hc-text-primary);
-    transition: color var(--motion-fast) var(--ease-standard);
+    transition: color 160ms ease;
   }
 
   .yt-card:hover .yt-card__title {
@@ -2118,7 +2266,7 @@ const categoryCounts = categories.reduce(
     margin: 0 0 1rem;
     font-family: var(--font-body);
     font-size: 0.86rem;
-    line-height: 1.55;
+    line-height: 1.56;
     color: var(--hc-text-secondary);
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -2133,24 +2281,26 @@ const categoryCounts = categories.reduce(
     justify-content: flex-end;
     padding-top: 0.7rem;
     border-top: 1px solid var(--hc-rule-soft);
-    gap: 0.75rem;
   }
 
   .yt-card__action {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.42rem;
     color: var(--hc-gold);
     font-family: var(--font-ui);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    transition: color var(--motion-fast) var(--ease-standard);
   }
 
-  .yt-card:hover .yt-card__action {
-    color: var(--hc-gold-soft);
+  .yt-card__action svg {
+    transition: transform 180ms ease;
+  }
+
+  .yt-card:hover .yt-card__action svg {
+    transform: translateX(3px);
   }
 
   .yt-card__hit-button {
@@ -2169,20 +2319,20 @@ const categoryCounts = categories.reduce(
     opacity: 1;
   }
 
-  /* Empty State */
+  /* Empty state */
   .yt-empty {
     text-align: center;
     padding: 4rem 1.5rem;
     background: var(--hc-surface-1);
     border: 1px dashed var(--hc-rule-strong);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-xs, 2px);
     margin-top: 1.5rem;
   }
 
   .yt-empty__icon {
-    font-size: 1.75rem;
-    color: var(--hc-gold);
-    margin-bottom: 0.75rem;
+    display: inline-flex;
+    color: var(--hc-gold-dim);
+    margin-bottom: 0.85rem;
   }
 
   .yt-empty h3 {
@@ -2199,45 +2349,57 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-empty__reset {
-    background: var(--hc-surface-2);
+    background: transparent;
     color: var(--hc-gold);
     border: 1px solid var(--hc-rule);
     font-family: var(--font-ui);
-    font-size: 0.81rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    padding: 0.55rem 1.25rem;
-    border-radius: var(--radius-sm);
+    letter-spacing: 0.04em;
+    padding: 0.6rem 1.3rem;
+    border-radius: var(--radius-sm, 4px);
     cursor: pointer;
     transition: all 180ms ease;
   }
 
   .yt-empty__reset:hover {
     background: var(--hc-gold);
-    color: #0b0b0d;
+    color: var(--hc-text-inverse, #0f0b0d);
     border-color: var(--hc-gold);
   }
 
   /* ═══════════════════════════════════════════
-     CTA SECTION
+     CTA — deep umber apparatus panel
      ═══════════════════════════════════════════ */
   .yt-cta {
-    padding-block: 4.5rem 6rem;
+    padding-block: 4rem 6rem;
     border-top: 1px solid var(--hc-rule);
     background: var(--hc-surface-0);
   }
 
   .yt-cta__card {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 2.5rem;
     padding: 2.75rem 3rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-xs, 2px);
     background:
-      radial-gradient(circle at 10% 20%, rgba(200, 155, 75, 0.08), transparent 50%),
-      var(--hc-surface-1);
+      radial-gradient(circle at 8% 15%, rgba(216, 177, 102, 0.09), transparent 45%),
+      var(--hc-surface-umber, #6e3b24);
     border: 1px solid var(--hc-rule-strong);
-    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+    outline: 1px solid var(--hc-rule-soft);
+    outline-offset: -5px;
+    overflow: hidden;
+  }
+
+  .yt-cta__card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 95% 90%, rgba(15, 15, 16, 0.25), transparent 55%);
+    pointer-events: none;
   }
 
   @media (max-width: 840px) {
@@ -2249,26 +2411,32 @@ const categoryCounts = categories.reduce(
   }
 
   .yt-cta__content {
+    position: relative;
     max-width: 36rem;
   }
 
+  .yt-cta__content .hc-eyebrow {
+    color: var(--hc-gold-soft, #e2c783);
+  }
+
   .yt-cta__content h2 {
-    margin: 0.35rem 0 0.75rem;
+    margin: 0.4rem 0 0.8rem;
     font-family: var(--font-display);
     font-size: clamp(1.65rem, 2.5vw, 2.15rem);
     font-weight: 500;
     line-height: 1.22;
-    color: var(--hc-text-primary);
+    color: var(--hc-fixed-parchment, #f2ebdc);
   }
 
   .yt-cta__content p:not(.hc-eyebrow) {
     margin: 0;
     font-size: 0.98rem;
-    line-height: 1.62;
-    color: var(--hc-text-secondary);
+    line-height: 1.65;
+    color: color-mix(in srgb, var(--hc-fixed-parchment, #f2ebdc) 82%, transparent);
   }
 
   .yt-cta__buttons {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
@@ -2281,21 +2449,55 @@ const categoryCounts = categories.reduce(
     justify-content: center;
   }
 
+  .yt-cta__buttons .hc-btn--ghost {
+    color: var(--hc-fixed-parchment, #f2ebdc);
+    border-color: color-mix(in srgb, var(--hc-fixed-parchment, #f2ebdc) 35%, transparent);
+  }
+
+  .yt-cta__buttons .hc-btn--ghost:hover {
+    color: var(--hc-gold-soft, #e2c783);
+    border-color: var(--hc-gold-soft, #e2c783);
+  }
+
   /* ═══════════════════════════════════════════
      LIGHT THEME ADAPTATION
      ═══════════════════════════════════════════ */
-  :global([data-theme="light"]) .yt-hero {
-    background:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(176, 126, 44, 0.08), transparent 70%),
-      var(--hc-surface-0);
+  :global([data-theme="light"]) .yt-player__duration,
+  :global([data-theme="light"]) .yt-card__rec {
+    background: rgba(43, 40, 36, 0.85);
   }
 
-  :global([data-theme="light"]) .yt-hero__stats,
-  :global([data-theme="light"]) .yt-channel-showcase,
-  :global([data-theme="light"]) .yt-theater__meta,
-  :global([data-theme="light"]) .yt-card,
-  :global([data-theme="light"]) .yt-cta__card,
-  :global([data-theme="light"]) .yt-empty {
-    box-shadow: 0 4px 20px rgba(43, 40, 36, 0.06);
+  :global([data-theme="light"]) .yt-card::after {
+    background: radial-gradient(
+      340px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(176, 126, 44, 0.1),
+      transparent 65%
+    );
+  }
+
+  :global([data-theme="light"]) .yt-filter-tab__count {
+    background: rgba(43, 40, 36, 0.08);
+  }
+
+  /* ═══════════════════════════════════════════
+     REDUCED MOTION
+     ═══════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    .yt-card,
+    .yt-card__img,
+    .yt-player__play,
+    .yt-btn,
+    .yt-filter-tab,
+    .yt-card__action svg {
+      transition: none;
+    }
+
+    .yt-card:hover {
+      transform: none;
+    }
+
+    .yt-card:hover .yt-card__img {
+      transform: none;
+    }
   }
 </style>

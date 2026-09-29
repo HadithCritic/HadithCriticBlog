@@ -43,6 +43,7 @@ def main():
         "migrations/0005_derived_stats.sql",
         "migrations/0006_narrator_top_hadith.sql",
         "migrations/0007_narrator_search_index.sql",
+        "migrations/0008_create_structured_hadith.sql",
     ]
     for sf in schema_files:
         path = ROOT / sf

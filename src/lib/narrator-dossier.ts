@@ -52,9 +52,6 @@ function heroMarkup(detail: NarratorDetail): string {
       ? `<span class="rijal-badge rijal-badge--gen">${escapeHtml(detail.generation)}</span>`
       : '',
     detail.tabaqaNumber ? `<span class="rijal-badge">Ṭabaqa ${detail.tabaqaNumber}</span>` : '',
-    detail.grade
-      ? `<span class="rijal-badge rijal-badge--grade">${escapeHtml(detail.grade)}</span>`
-      : '',
     ...(detail.flags || []).map(
       (f) => `<span class="rijal-badge rijal-badge--flag">${escapeHtml(f)}</span>`
     )
@@ -449,18 +446,23 @@ function nomenclatureSection(detail: NarratorDetail): string {
   const aliases = detail.aliases?.length
     ? `
       <div class="rijal-aliases-block">
-        <h3 class="rijal-subhead">Recorded Alias Forms (${detail.aliasCount})</h3>
-        <div class="rijal-aliases-wrap">
-          ${detail.aliases
-            .map(
-              (a) => `
-            <span class="rijal-alias-pill" dir="rtl" lang="ar">
-              ${escapeHtml(a.form)}
-              <span class="rijal-alias-n">${a.count}</span>
-            </span>`
-            )
-            .join('')}
-        </div>
+        <details class="rijal-aliases-details">
+          <summary class="rijal-aliases-summary">
+            <span class="rijal-subhead">Recorded Alias Forms (${detail.aliasCount})</span>
+            <span class="rijal-aliases-hint">${detail.aliases.length.toLocaleString()} forms · expand register</span>
+          </summary>
+          <div class="rijal-aliases-wrap">
+            ${detail.aliases
+              .map(
+                (a) => `
+              <span class="rijal-alias-pill" dir="rtl" lang="ar">
+                ${escapeHtml(a.form)}
+                <span class="rijal-alias-n">${a.count}</span>
+              </span>`
+              )
+              .join('')}
+          </div>
+        </details>
       </div>`
     : '';
 
@@ -552,7 +554,7 @@ export function renderNarratorDossier(dossier: NarratorDossier): string {
   // rather than pointing at a dossier that turns out to be empty.
   const linkable = new Set(Object.keys(dossier.chainNames).map(Number));
 
-  return [
+  const sections = [
     heroMarkup(detail),
     verdictsSection(detail),
     deathNoticeSection(detail),
@@ -564,7 +566,29 @@ export function renderNarratorDossier(dossier: NarratorDossier): string {
     nomenclatureSection(detail),
     placesSection(detail),
     networkSection(detail, linkable)
-  ].join('');
+  ];
+  const sectionLinks = ([
+    ['sec-verdicts', 'Scholarly verdicts'],
+    ['sec-death', 'Death notice'],
+    ['sec-presence', 'Collections'],
+    ['sec-transmissions', 'Narrations'],
+    ['sec-forms', 'Name forms'],
+    ['sec-chains', 'Sample chains'],
+    ['sec-criticism', 'Jarḥ &amp; taʿdīl'],
+    ['sec-genealogy', 'Lineage'],
+    ['sec-places', 'Places'],
+    ['sec-network', 'Network']
+  ] as [string, string][]).filter(([id]) =>
+    sections.some((section) => section.includes(`id="${id}"`))
+  );
+  const navigation = sectionLinks.length
+    ? `<nav class="rijal-section-nav" aria-label="On this dossier">
+        <span class="rijal-section-nav__label">On this page</span>
+        ${sectionLinks.map(([id, label]) => `<a href="#${id}">${label}</a>`).join('')}
+      </nav>`
+    : '';
+
+  return [sections[0], navigation, ...sections.slice(1)].join('');
 }
 
 /** A dossier that cannot be shown. The badge says why, because they differ. */

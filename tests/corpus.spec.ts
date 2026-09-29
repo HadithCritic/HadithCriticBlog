@@ -239,6 +239,21 @@ test.describe('narration record', () => {
     noDatabaseTraffic(urls);
   });
 
+  test('keeps the source wording distinct from the normalized transmitter index', async ({ page }) => {
+    await page.goto('/hadith/237072');
+    await expect(page.locator('.edition-source-path')).toContainText('Kitāb 1', {
+      timeout: CORPUS_TIMEOUT
+    });
+    await expect(page.locator('.edition-reference-summary__pages')).toContainText('[1/217]');
+    await expect(page.getByText('English report rendering')).toBeVisible();
+    await expect(page.locator('.source-narrators summary')).toContainText('Source narrator name forms');
+    await expect(page.locator('.ladder-verb')).toHaveCount(0);
+
+    await page.locator('.source-narrators summary').click();
+    await expect(page.locator('.source-narrators__ar').first()).toBeVisible();
+    await expect(page.locator('.source-narrators li')).toHaveCount(5);
+  });
+
   test('an id with no record says so rather than failing blank', async ({ page }) => {
     await page.goto('/hadith/999999999');
     await expect(page.locator('.hadith-degraded__title')).toContainText('not in this corpus', {

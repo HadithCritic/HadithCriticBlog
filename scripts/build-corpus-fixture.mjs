@@ -65,7 +65,8 @@ const SCHEMA_FILES = [
   'migrations/0004_hadith_search_index.sql',
   'migrations/0005_derived_stats.sql',
   'migrations/0006_narrator_top_hadith.sql',
-  'migrations/0007_narrator_search_index.sql'
+  'migrations/0007_narrator_search_index.sql',
+  'migrations/0008_create_structured_hadith.sql'
 ];
 
 /**
@@ -76,7 +77,7 @@ const SCHEMA_FILES = [
  * The rest are picked below to spread across collections and to cover both
  * spellings of the names the folding tests rely on.
  */
-const REQUIRED_HADITH = [20614];
+const REQUIRED_HADITH = [20614, 237072];
 
 /** Narrators the fixture must contain, whether or not the chains pull them in. */
 const REQUIRED_NARRATORS = [5361];
@@ -199,8 +200,10 @@ function main() {
         'chapter_ar',
         'chapter_en',
         'matn_ar',
+        'matn_ar_diac',
         'matn_en',
         'text_ar',
+        'text_ar_diac',
         'text_en',
         'path_count',
         'narrator_count',
@@ -253,6 +256,25 @@ function main() {
       'UPDATE hadith_book SET hadith_count = (SELECT COUNT(*) FROM hadith WHERE hadith.book_id = hadith_book.id)'
     );
     console.log(`  hadith_book: ${bookIds.length}`);
+
+    // Preserve structured source records after their collection parents exist.
+    for (const [table, sql] of [
+      ['hadith_edition', 'SELECT DISTINCT e.* FROM hadith_edition e JOIN hadith_reference r ON r.edition_id = e.id WHERE r.hadith_id IN (__IDS__)'],
+      ['hadith_kitab', 'SELECT DISTINCT k.* FROM hadith_kitab k JOIN hadith_structure s ON s.kitab_id = k.id WHERE s.hadith_id IN (__IDS__)'],
+      ['hadith_bab', 'SELECT DISTINCT b.* FROM hadith_bab b JOIN hadith_structure s ON s.bab_id = b.id WHERE s.hadith_id IN (__IDS__)'],
+      ['hadith_structure', 'SELECT * FROM hadith_structure WHERE hadith_id IN (__IDS__)'],
+      ['hadith_reference', 'SELECT * FROM hadith_reference WHERE hadith_id IN (__IDS__)']
+    ]) {
+      const rows = src.prepare(sql.replace('__IDS__', inHadith)).all(...hadithIds);
+      if (rows.length) {
+        const columns = Object.keys(rows[0]);
+        const insert = dst.prepare(
+          `INSERT OR REPLACE INTO ${table} (${columns.join(',')}) VALUES (${placeholders(columns.length)})`
+        );
+        for (const row of rows) insert.run(...columns.map((column) => row[column] ?? null));
+      }
+      console.log(`  ${table}: ${rows.length}`);
+    }
 
     // Narrators the fixture references, plus the ones the data tests name.
     const narratorIds = [

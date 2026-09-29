@@ -38,6 +38,18 @@ export interface HadithRecord {
   book_en: string;
   book_ar: string;
   book_slug: string;
+  /** Present in corpus schema v2; NULL on releases without a verified mapping. */
+  text_ar_diac?: string | null;
+  matn_ar_diac?: string | null;
+  kitab_id?: number | null;
+  kitab_ordinal?: number | null;
+  kitab_ar?: string | null;
+  kitab_en?: string | null;
+  bab_id?: number | null;
+  bab_ordinal?: number | null;
+  bab_ar?: string | null;
+  bab_en?: string | null;
+  assignment_basis?: 'source_chapter_label' | 'kitab_title_only' | null;
 }
 
 /** A search hit: the record plus the excerpts the reader's query earned. */
@@ -67,8 +79,36 @@ export interface ChainNode {
 export interface HadithDetail {
   hadith: HadithRecord;
   chain: ChainNode[];
+  sourceNarrators: HadithNarratorSurface[];
+  references: HadithReference[];
   subjects: { label_ar: string; label_en: string }[];
   glosses: { word_ar: string; word_en: string }[];
+}
+
+/** Exact Arabic name forms indexed from the report, distinct from chain paths. */
+export interface HadithNarratorSurface {
+  pos: number;
+  narrator_id: number | null;
+  surface: string;
+  surface_diac: string | null;
+  name_en: string | null;
+  name_ar: string | null;
+}
+
+/** A printed page marker with the edition metadata that establishes its basis. */
+export interface HadithReference {
+  reference_ordinal: number;
+  edition_id: number;
+  volume: number;
+  page: number;
+  source_marker: string;
+  work_title_ar: string;
+  publisher_ar: string;
+  publication_place_ar: string;
+  edition_statement_ar: string;
+  year_hijri: number;
+  year_gregorian: number;
+  volume_count: number;
 }
 
 export interface NarratorRecord {
