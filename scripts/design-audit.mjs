@@ -64,14 +64,13 @@ for (const file of files) {
   if (file.includes(`${join('src', 'components')}`)) {
     // These brand rules concern reader-visible component markup, not
     // implementation identifiers, comments, CSS, or JavaScript behavior.
-    // Repeat until stable so removing one block cannot splice its neighbours
-    // into a new one, and let the closing tag carry whitespace like a browser does.
+    // An unclosed block runs to the end of the file, as it does in a browser, and
+    // the closing tag may carry whitespace. Repeat until stable so removing one
+    // block cannot splice its neighbours into a new one.
     let markup = code;
     for (let previous = ''; previous !== markup; ) {
       previous = markup;
-      markup = markup
-        .replace(/<script\b[\s\S]*?<\/script[^>]*>/gi, '')
-        .replace(/<style\b[\s\S]*?<\/style[^>]*>/gi, '');
+      markup = markup.replace(/<(script|style)\b[\s\S]*?(?:<\/\1[^>]*>|$)/gi, '');
     }
     const visibleCopy = />[^<>]*\bcopy\b[^<>]*</i;
     const visibleGlyph = />[^<>]*[\u2600-\u27bf\u2190-\u21ff\u2300-\u23ff\u25a0-\u25ff][^<>]*</;
