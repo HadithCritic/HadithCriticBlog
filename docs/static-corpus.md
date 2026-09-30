@@ -47,6 +47,37 @@ sql.js-httpvfs in a web worker  ->  SQLite WASM  ->  FTS5
 src/lib/corpus-client.ts  ->  the pages
 ```
 
+## Structured source data pilot
+
+Migration `0008_create_structured_hadith.sql` adds nullable vocalized Arabic
+fields, exact narrator-name surfaces, compilation hierarchy, edition metadata,
+and printed page locators. It does not assign the hierarchy by itself. The
+Musannaf Ibn Abī Shaybah pilot uses the reviewed boundary register at
+`src/data/corpus-alignment/ibn-abi-shaybah-boundaries.json` and the ignored raw
+source export to populate a **new staged copy** of the master:
+
+```powershell
+python scripts/audit-ibn-abi-shaybah.py
+python scripts/audit-ibn-abi-shaybah-boundaries.py
+python scripts/enrich-ibn-abi-shaybah-corpus.py
+```
+
+The enrichment tool checks both input hashes against the boundary register,
+refuses to overwrite its output, runs SQLite integrity and foreign-key checks,
+and leaves `dist-db/silsilah.db` untouched. For this pilot it records 41
+explicit Kitāb boundaries, source chapter-label runs, 237 reports without a
+separate Bāb label, vocalized Arabic when supplied, and printed page markers
+linked to the edition metadata. English Kitāb titles remain null until verified;
+legacy English chapter labels are marked unverified. See
+`dist-db/alignment/ibn-abi-shaybah/` for local generated parity reports.
+
+The browser distinguishes the source Arabic transcription, English report
+rendering, normalized transmitter paths, and source narrator forms. A path
+index is not presented as a verbatim isnād. Do not publish this pilot or change
+`src/data/corpus-meta.json` until the reviewed release has been approved and
+the complete staged release passes `npm run verify:corpus -- --version ...
+--master ...`.
+
 ## Versions are immutable
 
 A corpus build is named `YYYY-MM-DD-<short commit>` and published under a

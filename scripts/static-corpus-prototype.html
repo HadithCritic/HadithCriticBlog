@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Static corpus delivery prototype</title>
+    <style>
+      :root { color-scheme: light dark; font: 16px/1.55 system-ui, sans-serif; }
+      body { max-width: 70rem; margin: 2rem auto; padding: 0 1rem 4rem; }
+      h1, h2 { line-height: 1.2; }
+      form { display: flex; flex-wrap: wrap; gap: .65rem; align-items: center; margin: 1rem 0; }
+      input, button { font: inherit; padding: .55rem .7rem; }
+      input { min-width: min(24rem, 80vw); }
+      button { cursor: pointer; }
+      .note, #metrics { color: #777; }
+      .result { border-top: 1px solid #8886; padding: .8rem 0; }
+      .arabic { font-size: 1.35rem; direction: rtl; text-align: right; }
+      #detail, #dossier { margin-top: 1.5rem; border-top: 2px solid #8888; padding-top: 1rem; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <h1>Static corpus delivery prototype</h1>
+    <p class="note">Local benchmark only. Searches the Muwatta' Malik shard, then fetches a selected narration or narrator dossier as one compressed JSON file. The production reader is unchanged.</p>
+
+    <section>
+      <h2>Search one collection</h2>
+      <form id="search-form" action="/hadith/">
+        <label for="query">Arabic or English terms</label>
+        <input id="query" name="q" value="مالك" required />
+        <button>Search Muwatta' Malik</button>
+      </form>
+      <p id="search-status" role="status"></p>
+      <div id="results"></div>
+      <div id="detail"></div>
+    </section>
+
+    <section>
+      <h2>Load a narrator dossier</h2>
+      <form id="narrator-form" action="/narrators/">
+        <label for="narrator-id">Narrator ID</label>
+        <input id="narrator-id" name="id" type="number" min="0" value="5361" required />
+        <button>Load dossier</button>
+      </form>
+      <div id="dossier"></div>
+    </section>
+
+    <h2>Fetch measurements</h2>
+    <pre id="metrics">No prototype data loaded.</pre>
+
+    <script>
+      const cache = new Map();
+      const loads = [];
+      const cacheBuster = new URLSearchParams(location.search).get('run') || '';
+
+      async function loadJson(path, label) {
+        if (cache.has(path)) return { value: cache.get(path), elapsedMs: 0, cached: true };
+        const start = performance.now();
+        const response = await fetch(`/data/${path}${cacheBuster ? `?run=${encodeURIComponent(cacheBuster)}` : ''}`);
+        if (!response.ok) throw new Error(`${response.status} loading ${path}`);
+        const value = await response.json();
+        const elapsedMs = performance.now() - start;
+        cache.set(path, value);
+        loads.push({ label, path, elapsedMs: Math.round(elapsedMs * 10) / 10, transferredBytes: performance.getEntriesByName(new URL(response.url).href).at(-1)?.transferSize ?? null });
+        renderMetrics();
+        return { value, elapsedMs, cached: false };
+      }
+
+      function foldArabic(text) {
+        return String(text ?? '').normalize('NFC').toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, '');
+      }
+
+      function renderMetrics() {
+        document.querySelector('#metrics').textContent = JSON.stringify({
+          dataRequests: loads.length,
+          loads,
+          repeatBehavior: 'A second load in this page session is served from the in-memory cache and makes no request.'
+        }, null, 2);
+      }
+
+      document.querySelector('#search-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const query = foldArabic(document.querySelector('#query').value).trim();
+        const status = document.querySelector('#search-status');
+        const results = document.querySelector('#results');
+        results.replaceChildren();
+        document.querySelector('#detail').replaceChildren();
+        status.textContent = 'Loading the selected collection shard…';
+        try {
+          const { value: index } = await loadJson('hadith/books/muwatta-malik.search.json.gz', 'Muwatta search shard');
+          const terms = query.split(/\s+/).filter(Boolean);
+          const matches = index.rows.filter((row) => {
+            const haystack = foldArabic([row.hadith_num, row.chapter_ar, row.chapter_en, row.matn_ar, row.text_ar, row.matn_en, row.text_en].join(' '));
+            return terms.every((term) => haystack.includes(term));
+          }).slice(0, 30);
+          status.textContent = `${matches.length} matching narrations shown (up to 30) in ${index.book.titleEn}.`;
+          for (const row of matches) {
+            const article = document.createElement('article');
+            article.className = 'result';
+            const title = document.createElement('strong');
+            title.textContent = `Narration #${row.id} · ${row.hadith_num}`;
+            const text = document.createElement('p');
+            text.textContent = row.text_en || row.matn_en || row.chapter_en || '';
+            const arabic = document.createElement('p');
+            arabic.className = 'arabic';
+            arabic.textContent = row.text_ar || row.matn_ar || '';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = 'Load full narration';
+            button.addEventListener('click', () => loadHadith(row.id));
+            article.append(title, text, arabic, button);
+            results.append(article);
+          }
+        } catch (error) {
+          status.textContent = String(error);
+        }
+      });
+
+      async function loadHadith(id) {
+        const target = document.querySelector('#detail');
+        target.textContent = `Loading narration #${id}…`;
+        try {
+          const { value } = await loadJson(`hadith/records/${id}.json.gz`, `Hadith ${id} detail`);
+          target.replaceChildren();
+          const heading = document.createElement('h3');
+          heading.textContent = `${value.hadith.book_en} · Hadith ${id}`;
+          const arabic = document.createElement('p');
+          arabic.className = 'arabic';
+          arabic.textContent = value.hadith.text_ar || value.hadith.matn_ar || '';
+          const english = document.createElement('p');
+          english.textContent = value.hadith.text_en || value.hadith.matn_en || '';
+          const chain = document.createElement('pre');
+          chain.textContent = value.chain.map((node) => `${node.path_idx + 1}.${node.pos + 1} ${node.name} → ${node.name_en || ''}`).join('\n');
+          target.append(heading, arabic, english, chain);
+        } catch (error) { target.textContent = String(error); }
+      }
+
+      document.querySelector('#narrator-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const id = Number(document.querySelector('#narrator-id').value);
+        const target = document.querySelector('#dossier');
+        target.textContent = `Loading narrator #${id}…`;
+        try {
+          const { value } = await loadJson(`narrators/${id}.json.gz`, `Narrator ${id} dossier`);
+          target.replaceChildren();
+          const heading = document.createElement('h3');
+          heading.textContent = value.detail.nameEn || value.detail.nameAr || `Narrator #${id}`;
+          const summary = document.createElement('p');
+          summary.textContent = `${value.criticismRows.length} attributed statements · ${value.transmissions.length} selected transmissions · ${value.transmissionCount} total linked narrations`;
+          const statements = document.createElement('ol');
+          for (const row of value.criticismRows) {
+            const item = document.createElement('li');
+            item.textContent = `${row.critic}: ${row.text} ${row.citation}`;
+            statements.append(item);
+          }
+          target.append(heading, summary, statements);
+        } catch (error) { target.textContent = String(error); }
+      });
+    </script>
+  </body>
+</html>
