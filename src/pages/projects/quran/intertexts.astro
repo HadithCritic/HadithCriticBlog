@@ -1,11 +1,10 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const releaseId = "v0.5.26-cc-57cb2b7be321";
 const indexPath = `../../../../public/data/quran/releases/${releaseId}/intertext-catalog.json`;
-const index = JSON.parse(readFileSync(fileURLToPath(new URL(indexPath, import.meta.url)), "utf8")) as {
+type IntertextIndex = {
   recordCount: number;
   sourceFileCount: number;
   recordSourceFileCount: number;
@@ -17,6 +16,9 @@ const index = JSON.parse(readFileSync(fileURLToPath(new URL(indexPath, import.me
     fields: Record<string, { label: string; values: Array<{ exactText: string; locator: string; line: number; sourceUrl: string }> }>;
   }>;
 };
+const index = readQuranReleaseJson<IntertextIndex>(new URL(indexPath, import.meta.url), {
+  recordCount: 0, sourceFileCount: 0, recordSourceFileCount: 0, fieldElementCounts: {}, records: [],
+});
 const preview = index.records.slice(0, 3);
 ---
 

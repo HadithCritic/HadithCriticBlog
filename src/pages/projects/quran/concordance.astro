@@ -1,8 +1,25 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import catalog from "../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/concordance-catalog.json";
+import { existsSync, readFileSync } from "node:fs";
 
-const maxShardBytes = Math.max(...catalog.shards.map((shard) => shard.bytes));
+type ConcordanceCatalog = {
+  sourceFileCount: number;
+  recordCount: number;
+  fieldCount: number;
+  fieldTypeCount: number;
+  shards: Array<{ bytes: number; path: string; sourceTitleExact: string; recordCount: number }>;
+};
+const catalogPath = new URL(
+  "../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/concordance-catalog.json",
+  import.meta.url,
+);
+const catalog: ConcordanceCatalog = existsSync(catalogPath)
+  ? JSON.parse(readFileSync(catalogPath, "utf8")) as ConcordanceCatalog
+  : { sourceFileCount: 0, recordCount: 0, fieldCount: 0, fieldTypeCount: 0, shards: [] };
+
+const maxShardBytes = catalog.shards.length
+  ? Math.max(...catalog.shards.map((shard) => shard.bytes))
+  : 0;
 ---
 
 <BaseLayout

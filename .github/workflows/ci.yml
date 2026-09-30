@@ -4,14 +4,16 @@ on:
   push:
     branches: [main, drafts]
   pull_request:
-    branches: [main]
+    branches: [main, drafts]
 
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Keep the image fixed while ubuntu-latest rolls to Ubuntu 26.04 in
+    # October 2026, so this project's toolchain does not change under CI.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
@@ -35,6 +37,9 @@ jobs:
       # index. That last one is the only thing standing between an edit to
       # either fold and search quietly returning fewer results.
       - run: npm run test:normalize
+
+      # Source graph projections and edge-to-source invariants.
+      - run: npm run test:research
 
       - run: npm run check
 
@@ -79,7 +84,7 @@ jobs:
       - run: npm run test:e2e
 
       - if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |

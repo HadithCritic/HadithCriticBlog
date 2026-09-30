@@ -1,7 +1,6 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const releaseId = "v0.5.26-cc-57cb2b7be321";
 const indexUrl = new URL(`../../../../public/data/quran/releases/${releaseId}/manuscripts.json`, import.meta.url);
@@ -36,8 +35,15 @@ type CatalogIndex = {
   elementShards: Array<{ path: string; bytes: number; sha256: string; recordCount: number; elementCount: number }>;
   records: CatalogRecord[];
 };
-const catalog = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as CatalogIndex;
+const catalog = readQuranReleaseJson<CatalogIndex>(indexUrl, {
+  recordCount: 0, recordsWithoutNativeId: 0, fileCount: 0, sourceCommit: "", sourceLicense: "",
+  attribution: "", modificationNotice: "", fieldPaths: [], fieldElementCounts: {},
+  sourceElementCount: 0, elementShardCount: 0, elementShards: [], records: [],
+});
 const initialRecords = catalog.records.slice(0, 8);
+const maxElementShardBytes = catalog.elementShards.length
+  ? Math.max(...catalog.elementShards.map((shard) => shard.bytes))
+  : 0;
 
 function fieldSummary(record: CatalogRecord, key: string): string {
   return record.fields[key]?.values[0]?.exactText ?? "";
@@ -65,7 +71,7 @@ function fieldSummary(record: CatalogRecord, key: string): string {
     <section class="qmc-scope" aria-labelledby="qmc-scope-title">
       <h2 id="qmc-scope-title">Collection scope</h2>
       <p>This index contains {catalog.recordCount.toLocaleString("en-GB")} <code>msDesc</code> records from {catalog.fileCount.toLocaleString("en-GB")} XML files under <code>data/quran_manuscripts</code> in commit <code>{catalog.sourceCommit}</code>. The repository describes a broader inventory; this page reports only the records in this pinned collection.</p>
-      <p>The selected catalogue fields are indexed for collection search. The full source tree contains {catalog.sourceElementCount.toLocaleString("en-GB")} TEI elements across these records in {catalog.elementShardCount.toLocaleString("en-GB")} lazy shards; open a record to load its complete element tree. Parent and child element values may repeat source text and remain separate. The largest element shard is {(Math.max(...catalog.elementShards.map((shard) => shard.bytes)) / 1_000_000).toFixed(2)} MB.</p>
+      <p>The selected catalogue fields are indexed for collection search. The full source tree contains {catalog.sourceElementCount.toLocaleString("en-GB")} TEI elements across these records in {catalog.elementShardCount.toLocaleString("en-GB")} lazy shards; open a record to load its complete element tree. Parent and child element values may repeat source text and remain separate. The largest element shard is {(maxElementShardBytes / 1_000_000).toFixed(2)} MB.</p>
       <p>All {catalog.recordsWithoutNativeId.toLocaleString("en-GB")} descriptions lack a native <code>msDesc/@xml:id</code>. The index keeps that value null and uses a file plus within-file element position and source line to navigate to each record.</p>
       <p>Field labels name TEI elements, not normalized scholarly conclusions. For example, an identifier string is not assumed to be a shelfmark, and a date statement is not converted into a numeric date range.</p>
     </section>

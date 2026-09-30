@@ -1,12 +1,11 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const releaseId = "v0.5.26-cc-57cb2b7be321";
 const releaseDirectory = `../../../../public/data/quran/releases/${releaseId}/`;
 const graphManifestName = "research-graph-v5-manifest.json";
-const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseDirectory}${graphManifestName}`, import.meta.url)), "utf8")) as {
+type GraphManifest = {
   edgeCount: number;
   countsByType: Record<string, number>;
   readerAuthorities: Array<{ nativeKey: string; exactLabel: string | null; sourceUrl: string }>;
@@ -14,10 +13,21 @@ const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseDirecto
   sourceBibliographyKeyCoverage: { distinctKeyValues: number; keyValuesMatchingLocalBiblStructIds: number; unresolvedKeyValues: number };
   intertextTargetCrosswalk: { occurrences: number; resolvedOccurrences: number; resolvedNativeIdCount: number };
 };
+const manifest = readQuranReleaseJson<GraphManifest>(new URL(`${releaseDirectory}${graphManifestName}`, import.meta.url), {
+  edgeCount: 0, countsByType: {
+    reported_reader_authority: 0, candidate_cairo_word_locator: 0, commentary_quran_reference: 0,
+    source_explicit_tei_reference: 0, source_bibliographic_key_reference: 0,
+    candidate_commentary_cairo_range_locator: 0,
+  }, readerAuthorities: [], assets: [],
+  sourceBibliographyKeyCoverage: { distinctKeyValues: 0, keyValuesMatchingLocalBiblStructIds: 0, unresolvedKeyValues: 0 },
+  intertextTargetCrosswalk: { occurrences: 0, resolvedOccurrences: 0, resolvedNativeIdCount: 0 },
+});
 const readerShardName = manifest.assets.find((asset) => asset.path.includes("-readers-"))?.path;
-if (!readerShardName) throw new Error("Research graph reader-authority shard is missing");
-const readerShard = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseDirectory}${readerShardName}`, import.meta.url)), "utf8")) as {
-  edges: Array<{ variantId: string; variantSourceUrl: string; readerAuthorityKey: string; sourceKeyExact: string }>;
+type ReaderShard = { edges: Array<{ variantId: string; variantSourceUrl: string; readerAuthorityKey: string; sourceKeyExact: string }> };
+const readerShard: ReaderShard = readerShardName ? readQuranReleaseJson<ReaderShard>(new URL(`${releaseDirectory}${readerShardName}`, import.meta.url), {
+  edges: [] as Array<{ variantId: string; variantSourceUrl: string; readerAuthorityKey: string; sourceKeyExact: string }>,
+}) : {
+  edges: [],
 };
 const authorities = new Map(manifest.readerAuthorities.map((authority) => [authority.nativeKey, authority]));
 const preview = readerShard.edges.slice(0, 12);

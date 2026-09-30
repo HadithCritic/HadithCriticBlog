@@ -1,7 +1,6 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const indexUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/reader-record-counts.json", import.meta.url);
 type AnalysisMember = {
@@ -38,7 +37,12 @@ type AnalysisIndex = {
   resultSha256: string;
   rows: AnalysisRow[];
 };
-const analysis = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as AnalysisIndex;
+const analysis = readQuranReleaseJson<AnalysisIndex>(indexUrl, {
+  dataset: "", analysisVersion: "", sourceRepository: "", sourceCommit: "", sourceLicense: "",
+  attribution: "", sourceFile: "", sourceFileSha256: "", inputReleaseSha256: "",
+  selection: { records: "", filter: null }, operation: "", interpretationLimit: "",
+  recordCount: 0, sourceLabelEntryCount: 0, groupCount: 0, resultSha256: "", rows: [],
+});
 const initialRows = analysis.rows.slice(0, 8);
 
 function variantUrl(member: AnalysisMember): string {

@@ -1,11 +1,10 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const releaseId = "v0.5.26-cc-57cb2b7be321";
 const releasePath = `../../../../public/data/quran/releases/${releaseId}/`;
-const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releasePath}commentary-manifest.json`, import.meta.url)), "utf8")) as {
+type CommentaryManifest = {
   recordCount: number;
   sourceFileCount: number;
   exactTextUtf8Bytes: number;
@@ -19,11 +18,21 @@ const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releasePath}co
   sourceElementNameCounts: Record<string, number>;
   assets: Array<{ sourceFile: string; path: string; recordCount: number; sourceElementCount: number; headerElementCount: number; bytes: number }>;
 };
-const previewAsset = manifest.assets.find((asset) => asset.sourceFile.endsWith("sura-00001.xml")) ?? manifest.assets[0];
-const previewPayload = JSON.parse(readFileSync(fileURLToPath(new URL(`${releasePath}${previewAsset.path}`, import.meta.url)), "utf8")) as {
+type CommentaryPreviewPayload = {
   records: Array<{ elementName: string; exactText: string; xmlLangExact: string | null; locator: string; line: number; sourceUrl: string }>;
 };
+const manifest = readQuranReleaseJson<CommentaryManifest>(new URL(`${releasePath}commentary-manifest.json`, import.meta.url), {
+  recordCount: 0, sourceFileCount: 0, exactTextUtf8Bytes: 0, sourceElementCount: 0,
+  sourceElementTextUtf8Bytes: 0, headerElementCount: 0, headerElementTextUtf8Bytes: 0,
+  headerElementNameCounts: {}, headerElementNames: [], sourceElementNames: [],
+  sourceElementNameCounts: {}, assets: [],
+});
+const previewAsset = manifest.assets.find((asset) => asset.sourceFile.endsWith("sura-00001.xml")) ?? manifest.assets[0];
+const previewPayload = previewAsset
+  ? readQuranReleaseJson<CommentaryPreviewPayload>(new URL(`${releasePath}${previewAsset.path}`, import.meta.url), { records: [] })
+  : { records: [] };
 const preview = previewPayload.records.slice(0, 8);
+const maxShardBytes = manifest.assets.length ? Math.max(...manifest.assets.map((asset) => asset.bytes)) : 0;
 ---
 
 <BaseLayout
@@ -52,7 +61,7 @@ const preview = previewPayload.records.slice(0, 8);
         <div><dt>Body elements</dt><dd>{manifest.sourceElementCount.toLocaleString("en-GB")}</dd></div>
         <div><dt>Header elements</dt><dd>{manifest.headerElementCount.toLocaleString("en-GB")}</dd></div>
       </dl>
-      <p>The text-block scope contains {manifest.recordCount.toLocaleString("en-GB")} selected records. Separate scopes expose every one of {manifest.sourceElementCount.toLocaleString("en-GB")} elements below <code>text/body</code> and all {manifest.headerElementCount.toLocaleString("en-GB")} elements in <code>teiHeader</code>, including empty elements. Parent and child records can repeat source text because each represents a different XML element; they remain separate. Search one source file at a time; the selected shard is loaded only when requested and the largest shard is {(Math.max(...manifest.assets.map((asset) => asset.bytes)) / 1_000_000).toFixed(2)} MB.</p>
+      <p>The text-block scope contains {manifest.recordCount.toLocaleString("en-GB")} selected records. Separate scopes expose every one of {manifest.sourceElementCount.toLocaleString("en-GB")} elements below <code>text/body</code> and all {manifest.headerElementCount.toLocaleString("en-GB")} elements in <code>teiHeader</code>, including empty elements. Parent and child records can repeat source text because each represents a different XML element; they remain separate. Search one source file at a time; the selected shard is loaded only when requested and the largest shard is {(maxShardBytes / 1_000_000).toFixed(2)} MB.</p>
     </section>
 
     <section class="qcb-search" aria-labelledby="qcb-search-title">

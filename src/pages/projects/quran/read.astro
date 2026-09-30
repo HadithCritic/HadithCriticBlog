@@ -1,5 +1,5 @@
 ---
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 
@@ -43,11 +43,20 @@ type CairoWord = { nativeId: string; exactText: string; locator: string; sourceU
 type CairoVerse = { verseNativeId: string; exactText: string; locator: string; sourceUrl: string; line: number; verseLocator: string; verseSourceUrl: string; verseLine: number; words: CairoWord[] };
 type CairoShard = { path: string; verseNativeIds: string[] };
 type CairoCatalog = { shards: CairoShard[]; verseCount: number; wordTokenCount: number };
-const cairoCatalog = (await import("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/cairo-arabic-catalog.json")).default as CairoCatalog;
-const passageIndex = JSON.parse(readFileSync(fileURLToPath(passageUrl), "utf8")) as PassageIndex;
-const catalog = JSON.parse(readFileSync(fileURLToPath(catalogUrl), "utf8")) as Catalog;
+const cairoCatalogUrl = new URL(`${releaseBase}cairo-arabic-catalog.json`, import.meta.url);
+const cairoCatalog = existsSync(cairoCatalogUrl)
+  ? JSON.parse(readFileSync(fileURLToPath(cairoCatalogUrl), "utf8")) as CairoCatalog
+  : { shards: [], verseCount: 0, wordTokenCount: 0 };
+const passageIndex = existsSync(passageUrl)
+  ? JSON.parse(readFileSync(fileURLToPath(passageUrl), "utf8")) as PassageIndex
+  : { passages: {} } as PassageIndex;
+const catalog = existsSync(catalogUrl)
+  ? JSON.parse(readFileSync(fileURLToPath(catalogUrl), "utf8")) as Catalog
+  : { readerIndexFiles: [], records: [] } as Catalog;
 const readerIndexes = catalog.readerIndexFiles.flatMap(({ path }) => {
-  const index = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseBase}${path}`, import.meta.url)), "utf8")) as ReaderIndex;
+  const indexUrl = new URL(`${releaseBase}${path}`, import.meta.url);
+  if (!existsSync(indexUrl)) return [];
+  const index = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as ReaderIndex;
   return index.records;
 });
 const readerReferencesById = new Map(readerIndexes.map((record) => [record.variantId, record.references]));

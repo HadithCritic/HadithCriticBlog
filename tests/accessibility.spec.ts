@@ -13,7 +13,7 @@ test('search opens with the keyboard shortcut and handles development index abse
 test('reduced motion keeps archive content visible', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/blogs');
-  await expect(page.locator('.ledger-row').first()).toBeVisible();
+  await expect(page.locator('.bi-row').first()).toBeVisible();
 });
 
 test('production Pagefind returns an article result', async ({ page }) => {

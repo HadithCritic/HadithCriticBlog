@@ -1,9 +1,9 @@
 ---
 import BaseLayout from "../../../../layouts/BaseLayout.astro";
-import taxonomyData from "../../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/intertext-taxonomy.json";
+import { existsSync, readFileSync } from "node:fs";
 
 const releaseId = "v0.5.26-cc-57cb2b7be321";
-const index = taxonomyData as {
+type TaxonomyIndex = {
   categoryCount: number;
   topLevelCategoryCount: number;
   explicitRecordCategoryReferenceCount: number;
@@ -21,6 +21,16 @@ const index = taxonomyData as {
     descriptions: Array<{ exactText: string; attributes: Array<{ expandedName: string; exactValue: string }>; locator: string; line: number; sourceUrl: string }>;
   }>;
 };
+const taxonomyPath = new URL(`../../../../../public/data/quran/releases/${releaseId}/intertext-taxonomy.json`, import.meta.url);
+const index: TaxonomyIndex = existsSync(taxonomyPath)
+  ? JSON.parse(readFileSync(taxonomyPath, "utf8")) as TaxonomyIndex
+  : {
+      categoryCount: 0,
+      topLevelCategoryCount: 0,
+      explicitRecordCategoryReferenceCount: 0,
+      sourceFile: { path: "", sha256: "", url: "", taxonomyId: "" },
+      categories: [],
+    };
 const byId = new Map(index.categories.map((category) => [category.nativeId, category]));
 function labelFor(nativeId: string | null) {
   if (!nativeId) return "Parent category not supplied";

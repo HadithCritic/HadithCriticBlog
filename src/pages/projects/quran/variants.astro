@@ -1,7 +1,6 @@
 ---
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { readQuranReleaseJson } from "../../../lib/quran-release-json";
 
 const indexUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/variants.json", import.meta.url);
 const releaseUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/release.json", import.meta.url);
@@ -40,11 +39,18 @@ type PilotIndex = {
   modificationNotice: string;
   records: PilotRecord[];
 };
-const pilot = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as PilotIndex;
-const fullRelease = JSON.parse(readFileSync(fileURLToPath(releaseUrl), "utf8")) as {
+const pilot = readQuranReleaseJson<PilotIndex>(indexUrl, {
+  recordCount: 0, completeSourceRecordCount: 0, attribution: "", sourceRepository: "",
+  sourceCommit: "", modificationNotice: "", records: [],
+});
+type VariantRelease = {
   releaseId: string;
   coverage: { variants: { recordCount: number; candidateWordCount: number; recordsWithoutSourceKey: number; detailShards: number } };
 };
+const fullRelease = readQuranReleaseJson<VariantRelease>(releaseUrl, {
+  releaseId: "v0.5.26-cc-57cb2b7be321",
+  coverage: { variants: { recordCount: 0, candidateWordCount: 0, recordsWithoutSourceKey: 0, detailShards: 0 } },
+});
 const records = pilot.records;
 const initialRecords = records.slice(0, 12);
 const fullCoverage = fullRelease.coverage.variants;
