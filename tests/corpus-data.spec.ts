@@ -95,7 +95,7 @@ test('a narrator filter counts narrations, not chain positions', async ({ page }
 test('the sample narration keeps its identity, chain and apparatus', async ({ page }) => {
   await page.goto(`/hadith/${EXPECTED.sampleHadith}`);
   await expect(page.locator('.edition-hero')).toBeVisible({ timeout: CORPUS_TIMEOUT });
-  await expect(page).toHaveTitle(new RegExp(EXPECTED.sampleReference.replace(/'/g, "'")));
+  await expect(page).toHaveTitle(new RegExp(EXPECTED.sampleReference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   // Two branches, and the chain that ends at the compiler.
   await expect(page.locator('.isnad-path-card')).toHaveCount(2);

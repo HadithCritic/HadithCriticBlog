@@ -64,9 +64,15 @@ for (const file of files) {
   if (file.includes(`${join('src', 'components')}`)) {
     // These brand rules concern reader-visible component markup, not
     // implementation identifiers, comments, CSS, or JavaScript behavior.
-    const markup = code
-      .replace(/<script\b[\s\S]*?<\/script>/gi, '')
-      .replace(/<style\b[\s\S]*?<\/style>/gi, '');
+    // Repeat until stable so removing one block cannot splice its neighbours
+    // into a new one, and let the closing tag carry whitespace like a browser does.
+    let markup = code;
+    for (let previous = ''; previous !== markup; ) {
+      previous = markup;
+      markup = markup
+        .replace(/<script\b[\s\S]*?<\/script[^>]*>/gi, '')
+        .replace(/<style\b[\s\S]*?<\/style[^>]*>/gi, '');
+    }
     const visibleCopy = />[^<>]*\bcopy\b[^<>]*</i;
     const visibleGlyph = />[^<>]*[\u2600-\u27bf\u2190-\u21ff\u2300-\u23ff\u25a0-\u25ff][^<>]*</;
     const copyMatch = markup.match(visibleCopy);
