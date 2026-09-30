@@ -1,2753 +1,423 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { academicStudies } from '../../data/academic-studies';
-import { icmaArtDirections, defaultArtDirection } from '../../data/icma-art-directions';
 import { getCollection } from 'astro:content';
+import { academicStudies } from '../../data/academic-studies';
+import { FAMILIES, studyFamily, type IcmaFamily } from '../../data/icma-families';
+import { relatedMethods } from '../../data/related-methods';
 
-const icmaStudies = academicStudies.filter((s) => s.category === 'icma');
-const otherStudies = academicStudies.filter((s) => s.category !== 'icma');
+const articles = await getCollection('articles');
+const articleUrl = new Map(articles.map((entry) => [entry.id.split('/').pop()!.replace(/\.mdx?$/, ''), `/blogs/${entry.id}/`]));
 
-// Build live article route lookup for all 27 ICMA studies
-const allArticles = await getCollection('articles');
-const articleMap = new Map<string, string>();
-for (const art of allArticles) {
-  const filename = art.id.split('/').pop()?.replace(/\.mdx?$/, '') || art.id;
-  articleMap.set(filename, `/blogs/${art.id}/`);
-  articleMap.set(art.id, `/blogs/${art.id}/`);
-}
+const studies = academicStudies
+  .filter((study) => study.category === 'icma')
+  .map((study, index) => ({
+    ...study,
+    no: String(index + 1).padStart(2, '0'),
+    family: studyFamily[study.slug] ?? 'network',
+    href: articleUrl.get(study.slug) ?? `/blogs/${study.slug}/`
+  }));
 
-const familyLabels: Record<string, string> = {
-  chronology: 'Chronology',
-  polemics: 'Polemics',
-  geography: 'Sacred Geography',
-  legal: 'Legal & Penal',
-  'source-reconstruction': 'Reconstruction',
-  variants: 'Textual Variants',
-  network: 'Transmission Network'
-};
+/* Families run largest first, so the dock, the rail and the page agree on order. */
+const sections = (Object.keys(FAMILIES) as IcmaFamily[])
+  .map((id) => ({ id, ...FAMILIES[id], items: studies.filter((study) => study.family === id) }))
+  .filter((section) => section.items.length > 0)
+  .sort((a, b) => b.items.length - a.items.length);
 
-// Facet counts for the research-family filter in the discovery bar. Derived
-// from the same art-direction data the dossier cards and ledger badges
-// already read, so a new family added there appears here automatically.
-const familyCounts = Object.entries(
-  icmaStudies.reduce<Record<string, number>>((acc, study) => {
-    const family = (icmaArtDirections[study.slug] || defaultArtDirection).family;
-    acc[family] = (acc[family] || 0) + 1;
-    return acc;
-  }, {})
-)
-  .map(([family, n]) => ({ family, n, label: familyLabels[family] || family }))
-  .sort((a, b) => b.n - a.n);
+const treatise = academicStudies.find((study) => study.featured);
 
+/* The treatise card sits on the house charcoal. */
+const HOUSE = { bg: '#17140f', ink: '#f2ebdc', accent: '#e2c38a' };
 
-
-interface MotzkiStudy {
-  number: string;
-  visualFamily?: string;
-  year: string;
-  title: string;
-  subject: string;
-  type: string;
-  classification: string;
-  bookTitle?: string;
-  bookSubtitle?: string;
-  seriesTitle?: string;
-  publisher?: string;
-  summary: string;
-  points: string[];
-  link?: {
-    url: string;
-    label: string;
-  };
-}
-
-const motzkiStudies: MotzkiStudy[] = [
-  // ── 1. 📕 Brill — The Origins of Islamic Jurisprudence (01–06) ──
-  {
-    number: '01',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991',
-    title: 'The Muṣannaf of ʿAbd al-Razzāq al-Ṣanʿānī as a Source of Authentic Aḥādīth of the First Century A.H.',
-    subject: 'ʿAbd al-Razzāq’s Muṣannaf',
-    type: 'Case study',
-    classification: 'Source reconstruction · authenticity testing',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary:
-      'Motzki investigates whether the 11-volume Muṣannaf of ʿAbd al-Razzāq al-Ṣanʿānī (d. 211/827) preserves authentic legal traditions from the 1st and early 2nd centuries A.H., directly confronting Joseph Schacht’s skepticism regarding early legal isnāds. Reconstructing the work’s manuscript recensions (chiefly via Isḥāq b. Ibrāhīm al-Dabarī, d. 286/899) and evaluating a statistical cross-section of 3,810 traditions across ʿAbd al-Razzāq’s primary teachers—Maʿmar b. Rāshid (32%), Ibn Jurayj (29%), Sufyān al-Thawrī (22%), and Sufyān b. ʿUyayna (4%)—Motzki demonstrates that each authority possesses an idiosyncratic transmission profile statistically irreconcilable with retrospective forgery. Corroborated by formal hallmarks like expressed uncertainty (shakk), indirect cross-citations, and independent biographical records, the study establishes that ʿAbd al-Razzāq faithfully reproduced pre-classical legal teaching corpora from Mecca, Medina, and Basra.',
-    points: [
-      'Refuting Schachtian Skepticism: Schacht accepted 2nd-century attribution to Abū Ḥanīfa while dismissing 1st-century authorities as fictive without empirical proof; Motzki demonstrates that transmission history must be tested for concrete evidence of falsification rather than dismissed a priori.',
-      'Manuscript Recension Recovery: 90% (29 of 33 books) of the extant Muṣannaf derives from a single student, Isḥāq b. Ibrāhīm al-Dabarī (d. 286/899), who audited the work under parental supervision in 210 A.H.; collation across later branches (al-Aʿrābī, al-Būsī, al-Qurṭubī) proves the text represents stable written lecture notebooks.',
-      'Quantified Informant Profiles: Statistical profiling of 3,810 traditions shows radically divergent source structures—Maʿmar relies 28% on al-Zuhrī and 25% on Qatāda with 1% personal opinion; Ibn Jurayj draws 39% from ʿAṭāʾ b. Abī Rabāḥ; al-Thawrī contains 19% personal legal reasoning (raʾy) across 161 authorities. A forger fabricating labels would never invent such distinct profiles.',
-      'Inadvertent Criteria of Authenticity: Non-deliberate textual markers—including explicit admissions of teacher doubt (e.g. "Abū Bakr was unsure about it"), indirect cross-transmissions between primary teachers (al-Thawrī → Ibn Jurayj), and specific samāʿ distinctions—preclude deliberate pseudepigraphy.',
-      'Rebuttal of Hawting & Juynboll: Refutes Hawting’s claim of late redaction by showing introductory formulae mirror student copyist practices, and dismisses Juynboll’s conjecture of hyper-sophisticated forgery designed to trick modern critics as unsupported speculation.',
-      'Historical Horizon of 1st-Century Law: Because ʿAbd al-Razzāq acquired his material between 144 and 153 A.H. from scholars recording 1st-century Meccan jurists like ʿAṭāʾ and Companions like Ibn ʿAbbās, the Muṣannaf offers genuine historical access to pre-classical Islamic jurisprudence before the formal madhāhib.'
-    ],
-    link: {
-      url: '/projects/motzki-origins-jurisprudence/',
-      label: 'Read Complete Academic Chapter & Apparatus'
-    }
-  },
-  {
-    number: '02',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991 / 2002',
-    title: 'Die Anfänge der islamischen Jurisprudenz / The Origins of Islamic Jurisprudence',
-    subject: 'Early Meccan fiqh',
-    type: 'Monograph',
-    classification: 'Large-scale source reconstruction',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary: 'This is Motzki’s large-scale application of source criticism to early Meccan jurisprudence. Using ʿAbd al-Razzāq’s transmission material, he reconstructs earlier layers of teaching and then compares them with biographical evidence.',
-    points: [
-      'The roots of Meccan legal scholarship can be traced into the middle of the first Islamic century.',
-      'The material attributed to ʿAṭāʾ, ʿAmr b. Dīnār, Ibn Jurayj, and other transmitters can be tested through formal transmission criteria.',
-      'The evidence points to substantial local development in Mecca alongside reception of material from other centers.',
-      'The strongest conclusions come from combining source analysis, variant comparison, and biography.'
-    ]
-  },
-  {
-    number: '03',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991',
-    title: 'The ʿAṭāʾ b. Abī Rabāḥ Corpus',
-    subject: 'ʿAṭāʾ · Ibn Jurayj',
-    type: 'Case study',
-    classification: 'Authenticity test · Meccan fiqh',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary: 'Within The Origins of Islamic Jurisprudence, Motzki tests whether Ibn Jurayj’s large corpus from ʿAṭāʾ genuinely reflects his teacher’s legal instruction rather than later attribution.',
-    points: [
-      'ʿAṭāʾ material accounts for almost 40% of the Ibn Jurayj material preserved through ʿAbd al-Razzāq.',
-      'Indirect transmissions, variant reports, uncertainties, and disagreements with ʿAṭāʾ are treated as evidence of reporting precision.',
-      'The corpus is dominated by legal opinions and teaching rather than a later, artificially standardized Prophetic corpus.',
-      'Motzki concludes that the transmission provides a substantial basis for reconstructing early Meccan legal thought.'
-    ]
-  },
-  {
-    number: '04',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991',
-    title: 'The ʿAmr b. Dīnār Transmission Experiment',
-    subject: 'ʿAmr b. Dīnār · Ibn Jurayj · Ibn ʿUyayna',
-    type: 'Case study',
-    classification: 'Independent pupils · transmission control',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary: 'Motzki compares the ʿAmr material transmitted by Ibn Jurayj with the parallel corpus transmitted by Sufyān b. ʿUyayna. The two strands provide an unusually valuable internal control because they preserve the same teacher through different pupils.',
-    points: [
-      'The two transmission strands have distinct profiles rather than looking like a single fabricated chain duplicated mechanically.',
-      'Genre distribution, use of transmission formulas, and treatment of ʿAmr’s own opinions differ in systematic ways.',
-      'The 72-year age gap between ʿAmr and Ibn ʿUyayna is treated as unusual but not sufficient by itself to prove fabrication.',
-      'Independent pupils make it possible to test the quality and stability of material attributed to the same teacher.'
-    ]
-  },
-  {
-    number: '05',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991',
-    title: 'The Ibn Jurayj Source Corpus',
-    subject: 'Ibn Jurayj and his informants',
-    type: 'Case study',
-    classification: 'Source provenance · geographic stratification',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary: 'Motzki maps Ibn Jurayj’s extensive network of more than one hundred informants to determine where his material came from and whether it reflects a coherent historical teaching environment.',
-    points: [
-      'Meccan authorities form the backbone of the corpus, with ʿAṭāʾ and ʿAmr accounting for the largest share.',
-      'Medinan material is present in a meaningful secondary proportion, while genuine Syrian and Basran material is marginal.',
-      'The profile suggests strong local Meccan development together with selective reception of outside traditions.',
-      'The differing profiles of individual source corpora support the authenticity of the transmission attributions.'
-    ]
-  },
-  {
-    number: '06',
-    visualFamily: 'origins-jurisprudence',
-    year: '1991 / 2010',
-    title: 'The Jurisprudence of Ibn Shihāb al-Zuhrī',
-    subject: 'Ibn Shihāb al-Zuhrī',
-    type: 'Case study',
-    classification: 'Source-critical reconstruction',
-    bookTitle: 'The Origins of Islamic Jurisprudence',
-    bookSubtitle: 'Meccan Fiqh before the Classical Schools',
-    seriesTitle: 'Islamic History and Civilization · Vol. 28',
-    publisher: 'BRILL',
-    summary: 'Motzki reconstructs al-Zuhrī’s legal teaching from later collections and compares independent transmission lines. The study becomes an important example of how a teacher’s corpus can be reconstructed without simply equating it with a lost written book.',
-    points: [
-      'Transmission terminology and source preferences can reveal distinctive profiles within a teacher’s corpus.',
-      'Later collections can preserve earlier teaching when their transmission relationships are reconstructed critically.',
-      'Matn comparison is required to determine whether different isnād branches really transmit related material.',
-      'Source reconstruction is about recovering a historical body of teaching, not automatically a verbatim lost book.'
-    ]
-  },
-
-  // ── 2. 📗 Brill — Analysing Muslim Traditions (07–09) ──
-  {
-    number: '07',
-    visualFamily: 'analysing-traditions',
-    year: '1996',
-    title: '“Whither Ḥadīth Studies?” / Quo vadis Ḥadīth-Forschung?',
-    subject: 'Nāfiʿ traditions',
-    type: 'Case study',
-    classification: 'Explicit ICMA · common-link reassessment',
-    bookTitle: 'Analysing Muslim Traditions',
-    bookSubtitle: 'Studies in Legal, Exegetical and Maghāzī Ḥadīth',
-    seriesTitle: 'Islamic History and Civilization · Vol. 78',
-    publisher: 'BRILL',
-    summary: 'Motzki’s clearest named ICMA case re-examines Juynboll’s analysis of traditions attributed to Nāfiʿ. The study uses the relationship between isnād and matn variants to test whether the common link should be understood as the originator or as a historical collector and disseminator.',
-    points: [
-      'The common link should not automatically be identified with the invention of the tradition.',
-      'A single strand below the common link is not automatically fictitious merely because other branches are unknown.',
-      'Matn groups that correspond to transmission branches provide an empirical check on the isnād reconstruction.',
-      'The common link may be the first major collector and professional disseminator, while the informant he names may push the tradition’s history earlier.'
-    ]
-  },
-  {
-    number: '08',
-    visualFamily: 'analysing-traditions',
-    year: '2000',
-    title: 'The Prophet and the Debtors: A Ḥadīth Analysis under Scrutiny',
-    subject: 'Surraq / debtors tradition',
-    type: 'Case study',
-    classification: 'Applied criticism · late attestation',
-    bookTitle: 'Analysing Muslim Traditions',
-    bookSubtitle: 'Studies in Legal, Exegetical and Maghāzī Ḥadīth',
-    seriesTitle: 'Islamic History and Civilization · Vol. 78',
-    publisher: 'BRILL',
-    summary: 'Motzki uses the Surraq tradition to demonstrate the danger of assuming that a tradition first existed when it first appears in a surviving compilation. Its transmission history is used to test chronology more cautiously.',
-    points: [
-      'Non-occurrence in a surviving early collection can have several explanations besides non-existence.',
-      'Early collections were selective and could be edited, rearranged, or transmitted incompletely.',
-      'A tradition may be historically early even when its earliest extant witness is late.',
-      'The case reinforces Motzki’s broader rejection of arguments from silence as a standalone dating method.'
-    ]
-  },
-  {
-    number: '09',
-    visualFamily: 'analysing-traditions',
-    year: '2010',
-    title: 'The Origins of Muslim Exegesis: A Debate',
-    subject: 'Early tafsīr transmission',
-    type: 'Methodological application',
-    classification: 'Source criticism · exegesis',
-    bookTitle: 'Analysing Muslim Traditions',
-    bookSubtitle: 'Studies in Legal, Exegetical and Maghāzī Ḥadīth',
-    seriesTitle: 'Islamic History and Civilization · Vol. 78',
-    publisher: 'BRILL',
-    summary: 'Motzki applies his broader source-critical program to early Muslim exegesis, challenging approaches that attempt to date exegetical material from textual content alone.',
-    points: [
-      'Exegetical texts can preserve older sources inside later compilations.',
-      'Source reconstruction can shorten the chronological distance between a report and the period it describes.',
-      'The provenance claimed in an isnād must be tested rather than simply accepted or dismissed.',
-      'The same transmission logic used for ḥadīth can illuminate the development of tafsīr.'
-    ]
-  },
-
-  // ── 3. 📘 Brill — The Biography of Muḥammad (10) ──
-  {
-    number: '10',
-    visualFamily: 'biography-muhammad',
-    year: '2000',
-    title: 'The Murder of Ibn Abī l-Ḥuqayq',
-    subject: 'Maghāzī traditions',
-    type: 'Case study',
-    classification: 'Applied ICMA · historical reports',
-    bookTitle: 'The Biography of Muḥammad',
-    bookSubtitle: 'The Issue of the Sources',
-    seriesTitle: 'Islamic History and Civilization · Vol. 32',
-    publisher: 'BRILL',
-    summary: 'Motzki applies the combined method to reports about the murder of Ibn Abī l-Ḥuqayq, testing the origin and reliability of competing Maghāzī narratives through their transmission and textual relationships.',
-    points: [
-      'Different narrative forms can be compared as members of a transmission history rather than treated as isolated accounts.',
-      'The isnād bundle provides a framework for locating where individual versions become visible.',
-      'Textual divergences can indicate later expansion, combination, or modification.',
-      'The study is explicitly listed by Motzki among detailed examples of isnād-cum-matn analysis.'
-    ]
-  },
-
-  // ── 4. 📙 Gorgias Press — Reconstruction of a Source of Ibn Isḥāq… (11) ──
-  {
-    number: '11',
-    visualFamily: 'reconstruction-ishaq',
-    year: '2017',
-    title: 'Reconstruction of a Source of Ibn Isḥāq’s Life of the Prophet and Early Qurʾān Exegesis',
-    subject: 'Muḥammad b. Abī Muḥammad · Ibn ʿAbbās traditions',
-    type: 'Case study',
-    classification: 'Explicit ICMA · source reconstruction',
-    bookTitle: 'Reconstruction of a Source of Ibn Isḥāq',
-    bookSubtitle: 'A Study of Early Ibn ʿAbbās Traditions',
-    seriesTitle: 'Islamic History and Thought',
-    publisher: 'GORGIAS PRESS',
-    summary: 'Motzki reconstructs the profile of Muḥammad b. Abī Muḥammad inside Ibn Isḥāq’s Sīra material. He argues that the source can be identified only by combining the patterns of transmission with differences in textual content and structure.',
-    points: [
-      'The material attributed to Muḥammad b. Abī Muḥammad has a distinctive profile when compared with Ibn Isḥāq’s other named sources.',
-      'The combined method allows Ibn Isḥāq to remain a meaningful common link while his earlier sources are separately reconstructed.',
-      'Motzki identifies recurring information about the Prophet’s Qurayshī, Jewish, and Medinan opponents as part of the source’s profile.',
-      'The central conclusion is that Muḥammad b. Abī Muḥammad was a source for Ibn Isḥāq’s vita, a conclusion unavailable from isnād or text alone.'
-    ]
-  },
-
-  // ── 5. 📓 Routledge — Ḥadīth: Origins and Developments (12) ──
-  {
-    number: '12',
-    visualFamily: 'hadith-origins',
-    year: '2004',
-    title: 'Ḥadīth: Origins and Developments',
-    subject: 'Modern scholarship on ḥadīth',
-    type: 'Edited volume',
-    classification: 'Research context · edited collection',
-    bookTitle: 'Ḥadīth: Origins and Developments',
-    bookSubtitle: 'Origins and Developments',
-    seriesTitle: 'The Formation of the Classical Islamic World · Vol. 28',
-    publisher: 'ROUTLEDGE',
-    summary: 'Motzki’s edited volume places the major debates over ḥadīth transmission, isnād origins, and methods of dating into one scholarly corpus. It also includes his important study of ʿAbd al-Razzāq’s Muṣannaf.',
-    points: [
-      'The volume is organized around origins and transmission, the origin and reliability of the isnād, and methods of analysing and dating ḥadīths.',
-      'Motzki’s introduction presents the move away from sweeping scepticism toward source-critical examination of individual traditions.',
-      'His Muṣannaf study appears within the section on methods of analysing and dating ḥadīths.',
-      'The volume is best treated as methodological context rather than a single ICMA case study.'
-    ]
-  },
-
-  // ── 6. 📜 Standalone HadithCritic Research Dossiers (13–17) ──
-  {
-    number: '13',
-    year: '2012',
-    title: 'Methods of Dating Early Legal Traditions',
-    subject: 'Methodological program',
-    type: 'Methodology',
-    classification: 'Dating · source criticism · ICMA',
-    bookTitle: 'HadithCritic Methodology Register',
-    publisher: 'HADITHCRITIC',
-    summary: 'Motzki frames the problem of recovering the first century and a half of Islamic law from later sources. He presents isnād-cum-matn analysis as a concrete way to test whether transmitted material preserves earlier reports rather than simply projecting later ideas backward.',
-    points: [
-      'Source claims should be tested through concrete examinations of mutūn, asānīd, and biographical information rather than accepted or rejected wholesale.',
-      'ICMA asks whether differences in matn correlate with differences in transmission lines.',
-      'A positive correlation supports the historical reality of the named transmission process.',
-      'The method is a testable middle position between radical scepticism and uncritical acceptance.'
-    ]
-  },
-  {
-    number: '14',
-    year: '2005',
-    title: 'Dating Muslim Traditions: A Survey',
-    subject: 'Dating traditions',
-    type: 'Methodology',
-    classification: 'Core ICMA · five-step model',
-    bookTitle: 'HadithCritic Methodology Register',
-    publisher: 'HADITHCRITIC',
-    summary: 'Motzki surveys the principal methods used to date Muslim traditions and argues that isnād-cum-matn analysis is more reliable than matn-only, collection-occurrence, or common-link analysis used in isolation.',
-    points: [
-      'Compile all identifiable variants of the tradition.',
-      'Diagram the full isnād bundle and identify common links and partial common links.',
-      'Compile the matns belonging to the different transmission branches for synoptic comparison.',
-      'Compare isnād groups with matn groups to determine whether a correlation exists.',
-      'Where correlation exists, reconstruct the common link’s transmitted form and later changes.'
-    ]
-  },
-  {
-    number: '15',
-    year: '1998',
-    title: 'The Prophet and the Cat: On Dating Mālik’s Muwaṭṭaʾ and Legal Traditions',
-    subject: 'Mālik’s Muwaṭṭaʾ · Companion traditions',
-    type: 'Case study',
-    classification: 'Applied ICMA · dating',
-    bookTitle: 'HadithCritic Applied ICMA',
-    publisher: 'HADITHCRITIC',
-    summary: 'Motzki extends his transmission-critical method to traditions preserved in Mālik’s Muwaṭṭaʾ, using their transmission history to reassess the dating of legal and Companion material.',
-    points: [
-      'The date of the earliest surviving collection is not automatically the date of origin of its contents.',
-      'Companion traditions can be investigated through their surviving chains and textual variants.',
-      'Transmission structure must be read alongside textual form to distinguish older material from subsequent reshaping.',
-      'The study is one of the detailed isnād-cum-matn examples Motzki later cites when explaining the method.'
-    ]
-  },
-  {
-    number: '16',
-    year: '2001',
-    title: 'The Collection of the Qurʾān',
-    subject: 'Reports on Abū Bakr’s collection and ʿUthmān’s edition',
-    type: 'Case study',
-    classification: 'Applied ICMA · Qurʾānic tradition',
-    bookTitle: 'HadithCritic Applied ICMA',
-    publisher: 'HADITHCRITIC',
-    summary: 'Motzki applies his isnād-plus-matn method to reports about the collection of the Qurʾān. He argues that the transmission evidence permits a substantially earlier dating of these reports than major text-centered theories had proposed.',
-    points: [
-      'Groups of matn variants correspond closely with groups of isnād variants.',
-      'That correlation supports interpreting the transmission as historical rather than wholesale fabrication.',
-      'Al-Zuhrī is treated as a major disseminator of the report on Abū Bakr’s collection.',
-      'The material can be placed by the first quarter of the second Islamic century, while the named earlier informants provide further chronological depth.'
-    ]
-  },
-  {
-    number: '17',
-    year: '1999',
-    title: 'The Role of Non-Arab Converts in the Development of Early Islamic Law',
-    subject: 'Ethnicity and legal scholarship',
-    type: 'Historical study',
-    classification: 'Not ICMA · prosopographical statistics',
-    bookTitle: 'HadithCritic Historical Dossier',
-    publisher: 'HADITHCRITIC',
-    summary: 'This study belongs in the Motzki research dossier but is not an ICMA case. He tests the claim that non-Arab converts came to dominate early Islamic jurisprudence through a statistical analysis of the biographical evidence.',
-    points: [
-      'The overall sample contains 63 Arab and 52 non-Arab scholars, rather than a clear non-Arab majority.',
-      'The proportions change substantially across generations, contradicting a simple linear story of mawālī dominance.',
-      'Regional patterns differ sharply, with non-Arab scholars especially prominent in some centers but not others.',
-      'Motzki argues that the conventional picture results partly from overgeneralizing a limited set of prominent examples.'
-    ]
-  }
-];
-
-const relatedMethods = [
-  {
-    title: 'Sadeghi — The Traveling Tradition Test',
-    label: 'Adjacent method',
-    author: 'Behnam Sadeghi',
-    year: '2010',
-    text: 'A related dating technique that correlates the transmission geography of traditions with their content and circulation history.',
-  },
-  {
-    title: 'Görke, Motzki & Schoeler — First-Century Sources for the Life of Muḥammad?',
-    label: 'Methodological debate',
-    author: 'Andreas Görke, Harald Motzki & Gregor Schoeler',
-    year: '2012',
-    text: 'A major discussion of early-source reconstruction and the methodological questions surrounding isnād-cum-matn analysis.',
-  },
-  {
-    title: 'Pavlovitch — The Origin of the Isnād and al-Mukhtār’s Revolt',
-    label: 'Isnād-focused / related',
-    author: 'Pavel Pavlovitch',
-    year: '2018',
-    text: 'Highly relevant to transmission history, while the study itself does not present a full isnād-cum-matn analysis of its central material.',
-  },
-  {
-    title: 'Juynboll — Muslim Traditions',
-    label: 'Precursor / common-link analysis',
-    author: 'G.H.A. Juynboll',
-    year: '1983',
-    text: 'Important for the genealogy of transmission-network analysis, especially common-link work, but not synonymous with ICMA itself.',
-  },
-];
+const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:${jacket.bg};--j-ink:${jacket.ink};--j-accent:${jacket.accent}`;
 ---
 
 <BaseLayout
   title="Academic Studies & ICMA Register | HadithCritic Projects"
-  description="An institutional research register of Isnād-cum-matn analysis, transmission criticism, common-link studies, and related scholarship on early hadith traditions."
+  description="A register of isnād-cum-matn studies, each traced to its common link and dated."
 >
   <div class="studies-page">
-    <header class="studies-hero" aria-labelledby="studies-title">
-      <div class="hc-container">
-        <div class="studies-hero__content">
-          <span class="hc-eyebrow">Academic Corpus · ICMA Register</span>
-          <h1 id="studies-title" class="studies-title">
-            Academic Studies <span class="studies-title-accent">&amp; ICMA Register</span>
-          </h1>
-          <p class="studies-intro">
-            A curated research catalogue of <strong>Isnād-cum-matn analysis (ICMA)</strong>, transmission criticism, and historical reconstructions of early hadith traditions.
+    <header class="hc-masthead" aria-labelledby="studies-title" data-motion="hero">
+      <div class="hc-container hc-masthead__inner">
+        <div>
+          <p class="hc-eyebrow">Academic studies</p>
+          <h1 id="studies-title" class="hc-masthead__title">The ICMA Register</h1>
+          <p class="hc-masthead__lead">
+            Isnād-cum-matn studies that trace a tradition to its common link and date it.
           </p>
+          <div class="hc-masthead__actions">
+            <a href="#register" class="hc-btn">Browse the register</a>
+            <a href="/research/" class="hc-back-link hc-back-link--ruled">Hadith Criticism Atlas <span aria-hidden="true">→</span></a>
+          </div>
         </div>
+
+        <aside class="hc-instrument" aria-label="The register at a glance">
+          <div class="hc-instrument__well">
+            <dl class="hc-instrument__plate glance">
+              <div class="glance__figure">
+                <dt>ICMA studies</dt>
+                <dd class="hc-instrument__figure">{studies.length}</dd>
+              </div>
+              <div class="glance__figure">
+                <dt>Research families</dt>
+                <dd class="hc-instrument__figure">{sections.length}</dd>
+              </div>
+            </dl>
+
+            <div class="mix" aria-hidden="true">
+              {sections.map((section) => (
+                <span class="mix__seg" style={`--n:${section.items.length};background:${section.bg}`}></span>
+              ))}
+            </div>
+
+            <p class="hc-instrument__cap" id="families-cap">Research families</p>
+            <ol class="jump" aria-labelledby="families-cap">
+              {sections.map((section) => (
+                <li>
+                  <a class="jump__row" href={`#${section.id}`}>
+                    <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
+                    <span class="jump__name">{section.label}</span>
+                    <span class="jump__n">{section.items.length}</span>
+                    <span class="jump__go" aria-hidden="true">→</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </aside>
       </div>
     </header>
 
-    <main>
-      <section class="studies-shelf hc-container" aria-labelledby="shelf-title">
-        <div class="studies-shelf__header">
-          <div class="studies-shelf__intro">
-            <span class="section-kicker">Archival Corpus · 27 Monograph Editions</span>
-            <h2 id="shelf-title" class="section-title">ICMA Studies in the Archive</h2>
-            <p class="studies-shelf__lead">
-              Research monographs applying <em>isnād-cum-matn</em> analysis (ICMA). Each study correlates transmission pathways across early regional centers with textual variant stratification to reconstruct and date the emergence of classical traditions.
-            </p>
-          </div>
-        </div>
-
-        {/* ── RESEARCH DISCOVERY: search + family filter ── */}
-        <div class="studies-discovery" data-studies-discovery hidden>
-          <div class="studies-discovery__search">
-            <span class="studies-discovery__icon" aria-hidden="true">⌕</span>
-            <label class="sr-only" for="studies-search-input">Search monograph titles, traditions, and common links</label>
-            <input
-              id="studies-search-input"
-              type="text"
-              class="studies-discovery__input"
-              placeholder="Search by title, tradition, or common link…"
-              data-studies-search
-              autocomplete="off"
-            />
-            <button type="button" class="studies-discovery__clear" data-studies-clear hidden aria-label="Clear search">×</button>
-          </div>
-
-          <div class="studies-discovery__tabs" data-studies-filter-group role="group" aria-label="Filter by research family">
-            <button type="button" class="studies-tab is-active" data-family-filter="all" aria-pressed="true">
-              All <span class="studies-tab__n">{icmaStudies.length}</span>
+    <div class="hc-container dockwrap" id="register">
+      <div class="dock" role="search" data-dock hidden>
+        <label class="dock__field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          <input id="study-query" class="dock__input" type="search" placeholder="Search title, tradition or common link" autocomplete="off" aria-label="Search the register" />
+          <kbd class="dock__kbd" aria-hidden="true">/</kbd>
+        </label>
+        <div class="dock__chips" role="group" aria-label="Filter by research family">
+          {sections.map((section) => (
+            <button type="button" class="chip" data-family={section.id} aria-pressed="false">
+              <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
+              {section.label} <span class="chip__n">{section.items.length}</span>
+              <svg class="chip__x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
             </button>
-            {familyCounts.map(({ family, n, label }) => (
-              <button type="button" class="studies-tab" data-family-filter={family} aria-pressed="false">
-                {label} <span class="studies-tab__n">{n}</span>
-              </button>
-            ))}
-          </div>
-
-          <span class="studies-discovery__status" data-studies-status aria-live="polite">
-            {icmaStudies.length} studies
-          </span>
-        </div>
-
-        {/* ── 1. THE MONOGRAPH DOSSIER READER ── */}
-        <div class="studies-dossier-wrap" data-studies-dossier-wrap>
-          <div class="studies-carousel" data-studies-carousel>
-            <div class="studies-carousel__topbar">
-              <div class="studies-carousel__eyebrow">
-                <span class="studies-carousel__kicker">Critical Edition</span>
-                <span class="studies-carousel__line" aria-hidden="true"></span>
-                <span data-active-motif-label>Sacred Geography · Syrian Regional Isnād Axis</span>
-              </div>
-              <div class="studies-carousel__counter" aria-live="polite">
-                <strong data-studies-current>01</strong><span>/</span><span>{String(icmaStudies.length).padStart(2, '0')}</span>
-              </div>
-            </div>
-
-            <div class="studies-carousel__stage" data-studies-stage>
-              {icmaStudies.map((study, index) => {
-                const art = icmaArtDirections[study.slug] || defaultArtDirection;
-                const articleUrl = articleMap.get(study.slug) || articleMap.get(study.id) || `/blogs/${study.slug}/`;
-                const num = String(index + 1).padStart(2, '0');
-                const cite = study.citeKey || `ICMA-${num}`;
-                return (
-                  <article
-                    class={`icma-card icma-card--${art.family}${index === 0 ? ' is-active' : ''}`}
-                    data-studies-slide={index}
-                    data-family={art.family}
-                    data-motif-label={art.motifLabel}
-                    id={study.slug}
-                    aria-hidden={index === 0 ? 'false' : 'true'}
-                  >
-                    {/* Folio Bar */}
-                    <div class="icma-card__folio-bar">
-                      <div class="icma-card__folio-left">
-                        <span class="icma-card__folio-badge">Study {num}</span>
-                        <span class="icma-card__folio-sep" aria-hidden="true">/</span>
-                        <span class="icma-card__cite-pill">{cite}</span>
-                      </div>
-                      <div class="icma-card__folio-right">
-                        <span class={`icma-card__family-chip icma-card__family-chip--${art.family}`}>
-                          {familyLabels[art.family] || art.family}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Monograph Title & Subject Focus */}
-                    <div class="icma-card__hero">
-                      <h3 class="icma-card__title">
-                        <a href={articleUrl} class="icma-card__title-link">{study.title}</a>
-                      </h3>
-
-                      {study.subtitle && (
-                        <p class="icma-card__subtitle">{study.subtitle}</p>
-                      )}
-                    </div>
-
-                    {/* Content & Scholarly Apparatus */}
-                    <div class="icma-card__body">
-                      <div class="icma-card__col-main">
-                        <p class="icma-card__abstract">{study.abstract}</p>
-
-                        <div class="icma-card__apparatus-strip">
-                          <span class="icma-card__apparatus-tag">Apparatus note</span>
-                          <p class="icma-card__apparatus-note">{art.analyticalNote}</p>
-                        </div>
-                      </div>
-
-                      <div class="icma-card__col-side">
-                        <div class="icma-card__specs">
-                          <div class="icma-card__spec-item">
-                            <span class="icma-card__spec-label">Tradition</span>
-                            <span class="icma-card__spec-val">{study.tradition || '—'}</span>
-                          </div>
-                          <div class="icma-card__spec-item">
-                            <span class="icma-card__spec-label">Common Link</span>
-                            <span class="icma-card__spec-val icma-card__spec-val--accent">{study.commonLink || '—'}</span>
-                          </div>
-                        </div>
-
-                        {study.keyFindings && study.keyFindings.length > 0 && (
-                          <div class="icma-card__findings">
-                            <span class="icma-card__findings-head">Variant Conclusions</span>
-                            <ul class="icma-card__findings-list">
-                              {study.keyFindings.map((finding) => (
-                                <li>
-                                  <span class="icma-card__findings-mark" aria-hidden="true">—</span>
-                                  <span>{finding}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Colophon & Research Actions */}
-                    <footer class="icma-card__colophon">
-                      <div class="icma-card__cite-stamp">
-                        <span class="icma-card__stamp-label">Archival Citation</span>
-                        <code>HadithCritic ICMA Archive · {cite}</code>
-                      </div>
-
-                      <div class="icma-card__actions">
-                        {study.pdfUrl && (
-                          <a href={study.pdfUrl} class="icma-btn icma-btn--ghost" download>
-                            PDF <span aria-hidden="true">↓</span>
-                          </a>
-                        )}
-                        <a href={articleUrl} class="icma-btn icma-btn--primary">
-                          Read Critical Study <span aria-hidden="true">→</span>
-                        </a>
-                      </div>
-                    </footer>
-                  </article>
-                );
-              })}
-            </div>
-
-            <div class="studies-carousel__controls">
-              <button type="button" class="studies-carousel__button" data-studies-prev aria-label="Previous monograph study">
-                <span aria-hidden="true">←</span> <span>Previous Study</span>
-              </button>
-              <div class="studies-carousel__counter-bottom" aria-live="polite">
-                <span class="studies-carousel__counter-label">Study</span>
-                <strong data-studies-current-bot>01</strong>
-                <span>of</span>
-                <span>{String(icmaStudies.length).padStart(2, '0')}</span>
-              </div>
-              <button type="button" class="studies-carousel__button" data-studies-next aria-label="Next monograph study">
-                <span>Next Study</span> <span aria-hidden="true">→</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ── 2. THE COMPLETE ARCHIVAL INDEX LEDGER ── */}
-        <div class="studies-ledger" id="register-title" data-studies-ledger>
-          <header class="studies-ledger__header">
-            <div>
-              <span class="studies-ledger__kicker">Institutional Register</span>
-              <h3 class="studies-ledger__title">Complete 27-Monograph Archival Index</h3>
-            </div>
-            <span class="studies-ledger__meta">Cross-referenced with research editions</span>
-          </header>
-
-          <div class="studies-ledger__table-wrap">
-            <table class="studies-ledger__table">
-              <thead>
-                <tr>
-                  <th scope="col" class="th-code">Accession</th>
-                  <th scope="col" class="th-title">Monograph Title &amp; Target Tradition</th>
-                  <th scope="col" class="th-link">Common Link</th>
-                  <th scope="col" class="th-method">Methodology</th>
-                  <th scope="col" class="th-action">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {icmaStudies.map((study, index) => {
-                  const art = icmaArtDirections[study.slug] || defaultArtDirection;
-                  const articleUrl = articleMap.get(study.slug) || articleMap.get(study.id) || `/blogs/${study.slug}/`;
-                  const num = String(index + 1).padStart(2, '0');
-                  const cite = study.citeKey || `ICMA-${num}`;
-                  const haystack = `${study.title} ${study.subtitle || ''} ${study.tradition || ''} ${study.commonLink || ''} ${cite}`.toLowerCase();
-                  return (
-                    <tr class="studies-ledger__row" data-ledger-row={index} data-family={art.family} data-search-haystack={haystack}>
-                      <td class="td-code">
-                        <span class="studies-ledger__cite-code">{cite}</span>
-                      </td>
-                      <td class="td-title">
-                        <a href={articleUrl} class="studies-ledger__entry-link">
-                          <strong>{study.title}</strong>
-                        </a>
-                        {study.subtitle && <span class="studies-ledger__subtitle">{study.subtitle}</span>}
-                        <span class="studies-ledger__tradition">{study.tradition}</span>
-                      </td>
-                      <td class="td-link">
-                        <span class="studies-ledger__common-link">{study.commonLink || '—'}</span>
-                      </td>
-                      <td class="td-method">
-                        <span class={`studies-ledger__badge studies-ledger__badge--${art.family}`}>
-                          {familyLabels[art.family] || art.family}
-                        </span>
-                      </td>
-                      <td class="td-action">
-                        <a href={articleUrl} class="studies-ledger__read-link" title={`Read full investigation: ${study.title}`}>
-                          Read <span aria-hidden="true">→</span>
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr class="studies-ledger__empty" data-ledger-empty>
-                  <td colspan="5">
-                    No studies match <strong data-empty-query></strong>. Try a different term, or clear the family filter above.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section class="motzki-section hc-container" aria-labelledby="motzki-title">
-        <div class="motzki-header">
-          <div>
-            <span class="section-kicker">Harald Motzki · research dossier</span>
-            <h2 id="motzki-title" class="section-title">Motzki case studies</h2>
-            <p class="motzki-lead">
-              A compact study-by-study record of Motzki’s principal applications of transmission criticism, source reconstruction, and isnād-cum-matn analysis. Each case isolates what he examines and the conclusions he draws from it.
-            </p>
-          </div>
-        </div>
-
-        <div class="motzki-carousel" data-motzki-carousel>
-          <div class="motzki-carousel__topbar">
-            <div class="motzki-carousel__eyebrow">
-              <span>Motzki corpus</span>
-              <span class="motzki-carousel__line" aria-hidden="true"></span>
-              <span>{String(motzkiStudies.length).padStart(2, '0')} studies</span>
-            </div>
-            <div class="motzki-carousel__counter" aria-live="polite">
-              <strong data-motzki-current>01</strong><span>/</span><span>{String(motzkiStudies.length).padStart(2, '0')}</span>
-            </div>
-          </div>
-
-          <div class="motzki-carousel__stage" data-motzki-stage>
-            {motzkiStudies.map((study, index) => (
-              <article class={`motzki-card${index === 0 ? ' is-active' : ''}${study.visualFamily ? ` motzki-card--${study.visualFamily}` : ''}`} data-motzki-slide={index} aria-hidden={index === 0 ? 'false' : 'true'}>
-                <div class="motzki-card__folio-bar">
-                  <div class="motzki-card__folio-left">
-                    <span class="motzki-card__study-badge">Study {study.number}</span>
-                    {study.seriesTitle && (
-                      <>
-                        <span class="motzki-card__sep" aria-hidden="true">/</span>
-                        <span class="motzki-card__series-strip">{study.seriesTitle}</span>
-                      </>
-                    )}
-                  </div>
-                  <div class="motzki-card__folio-right">
-                    <span class="motzki-card__meta-tag">{study.type}</span>
-                    <span class="motzki-card__sep" aria-hidden="true">·</span>
-                    <span class="motzki-card__meta-tag motzki-card__meta-tag--year">{study.year}</span>
-                    <span class="motzki-card__sep" aria-hidden="true">·</span>
-                    <span class="motzki-card__meta-tag motzki-card__meta-tag--classification">{study.classification}</span>
-                  </div>
-                </div>
-
-                <div class="motzki-card__heading">
-                  <span class="motzki-card__subject">{study.subject}</span>
-                  <h3 class="motzki-card__title">{study.title}</h3>
-                  {study.visualFamily === 'biography-muhammad' && study.bookSubtitle && (
-                    <div class="motzki-card__sources-tag">
-                      <span class="motzki-card__dash">—</span>
-                      <em>{study.bookSubtitle}</em>
-                      <span class="motzki-card__dash">—</span>
-                    </div>
-                  )}
-                </div>
-
-                <div class="motzki-card__body">
-                  <div class="motzki-card__summary-wrap">
-                    <span class="motzki-card__label">What Motzki examines</span>
-                    <p class="motzki-card__summary">{study.summary}</p>
-                    {study.link && (
-                      <div class="motzki-card__action">
-                        <a href={study.link.url} class="motzki-card__action-btn">
-                          <span>{study.link.label}</span>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                            <polyline points="12 5 19 12 12 19"></polyline>
-                          </svg>
-                        </a>
-                      </div>
-                    )}
-                  </div>
-
-                  <div class="motzki-card__points">
-                    <div class="motzki-card__points-head">
-                      <span>Principal findings</span>
-                      <span class="motzki-card__points-count">{String(study.points.length).padStart(2, '0')} points</span>
-                    </div>
-                    <ol class="motzki-card__points-list">
-                      {study.points.map((point, pIdx) => (
-                        <li class="motzki-card__point-item">
-                          <span class="motzki-point-num" aria-hidden="true">{String(pIdx + 1).padStart(2, '0')}</span>
-                          <span class="motzki-point-text">{point}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-
-                {study.publisher && (
-                  <div class="motzki-card__footer">
-                    <div class="motzki-card__edition-info">
-                      {study.bookTitle && <span class="motzki-card__edition-title">{study.bookTitle}</span>}
-                      {study.bookSubtitle && study.visualFamily !== 'biography-muhammad' && (
-                        <span class="motzki-card__edition-sub"> · {study.bookSubtitle}</span>
-                      )}
-                    </div>
-                    <div class="motzki-card__publisher-tag">{study.publisher}</div>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-
-          <div class="motzki-carousel__controls">
-            <button type="button" class="motzki-carousel__button" data-motzki-prev aria-label="Previous Motzki study">
-              <span aria-hidden="true">←</span> <span>Previous Study</span>
-            </button>
-            <div class="motzki-carousel__counter-bottom" aria-live="polite">
-              <span class="motzki-carousel__counter-label">Study</span>
-              <strong data-motzki-current-bot>01</strong>
-              <span>of</span>
-              <span>{String(motzkiStudies.length).padStart(2, '0')}</span>
-            </div>
-            <button type="button" class="motzki-carousel__button" data-motzki-next aria-label="Next Motzki study">
-              <span>Next Study</span> <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="related-section hc-container" aria-labelledby="related-title">
-        <div class="section-intro">
-          <div>
-            <span class="section-kicker">Adjacent scholarship</span>
-            <h2 id="related-title" class="section-title">Related transmission methods</h2>
-          </div>
-          <a href="/academia/" class="hc-link">View Academia <span aria-hidden="true">→</span></a>
-        </div>
-
-        <div class="related-method-grid">
-          {relatedMethods.map((item) => (
-            <article class="related-method">
-              <div class="related-method__meta">
-                <span class="related-method__label">{item.label}</span>
-                {item.year && <span class="related-method__year">{item.year}</span>}
-              </div>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-            </article>
           ))}
         </div>
+        <span id="study-count" class="dock__count" aria-live="polite">{studies.length} of {studies.length} studies</span>
+      </div>
+    </div>
 
-        {otherStudies.length > 0 && (
-          <div class="other-works">
-            <div class="other-works__head">
-              <span>Archive overflow</span>
-              <a href="/academia/">{otherStudies.length} additional academic works & formal treatises →</a>
-            </div>
-          </div>
-        )}
+    <div class="catalog hc-container">
+      <nav class="rail" aria-label="Research families">
+        <ul class="rail__list">
+          {sections.map((section) => (
+            <li><a href={`#${section.id}`} class="rail__link" data-spy={section.id}>{section.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      <div class="sections">
+        {sections.map((section) => (
+          <section id={section.id} class="sec" aria-labelledby={`heading-${section.id}`}>
+            <header class="sec__head">
+              <h2 id={`heading-${section.id}`} class="sec__title">{section.label}</h2>
+              <span class="sec__rule" aria-hidden="true"></span>
+              <span class="sec__count">{section.items.length}</span>
+            </header>
+            <ul class="list">
+              {section.items.map((study) => (
+                <li data-study data-family={study.family} data-search={`${study.title} ${study.subtitle ?? ''} ${study.tradition ?? ''} ${study.commonLink ?? ''} ${study.citeKey ?? ''}`}>
+                  <article class={`jacket jacket--${study.family}`} style={style(section)}>
+                    <p class="jacket__top">
+                      <span class="jacket__no">No. {study.no}</span>
+                      <span class="jacket__go" aria-hidden="true">→</span>
+                    </p>
+                    <h3 class="jacket__title"><a class="jacket__link" href={study.href}>{study.title}</a></h3>
+                    {study.subtitle && <p class="jacket__sub">{study.subtitle}</p>}
+                    <dl class="jacket__facts">
+                      <div><dt>Common link</dt><dd>{study.commonLink}</dd></div>
+                      <div><dt>Dated</dt><dd>{study.dating}</dd></div>
+                    </dl>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+
+        <div id="study-empty" class="empty" hidden>
+          <p>No studies match these filters.</p>
+          <button type="button" id="study-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="related hc-container" aria-labelledby="related-title">
+      <header class="sec__head">
+        <h2 id="related-title" class="sec__title">Related methods</h2>
+        <span class="sec__rule" aria-hidden="true"></span>
+        <span class="sec__count">{relatedMethods.length}</span>
+      </header>
+      <ul class="methods">
+        {relatedMethods.map((item) => (
+          <li class="method">
+            <p class="method__meta">{item.label}<span aria-hidden="true"> · </span>{item.year}</p>
+            <h3 class="method__title">{item.title}</h3>
+            <p class="method__by">{item.author}</p>
+            <p class="method__text">{item.text}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    {treatise && (
+      <section class="published hc-container" aria-labelledby="published-title">
+        <a class="volume-card" href="/academia/" style={style(HOUSE)}>
+          <span class="volume-card__cover" aria-hidden="true">
+            <img src={treatise.frontCover} alt="" width="700" height="1050" loading="lazy" decoding="async" />
+          </span>
+          <span class="volume-card__body">
+            <span class="volume-card__eyebrow">Published treatise · {treatise.publicationDate}</span>
+            <span id="published-title" class="volume-card__title">{treatise.title}</span>
+            <span class="volume-card__sub">{treatise.subtitle}</span>
+            <span class="volume-card__go">See all academic works <span aria-hidden="true">→</span></span>
+          </span>
+        </a>
       </section>
-    </main>
+    )}
   </div>
 </BaseLayout>
 
-
-
 <script>
-  function initStudiesCarousel() {
-    const shelf = document.querySelector<HTMLElement>('.studies-shelf');
-    const root = shelf?.querySelector<HTMLElement>('[data-studies-carousel]');
-    if (!shelf || !root || root.dataset.studiesInitialized === 'true') return;
-    root.dataset.studiesInitialized = 'true';
+  const page = document.querySelector<HTMLElement>('.studies-page');
 
-    const stage = root.querySelector<HTMLElement>('[data-studies-stage]');
-    const slides = Array.from(root.querySelectorAll<HTMLElement>('[data-studies-slide]'));
-    const dots = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-studies-dot]'));
-    const prev = root.querySelector<HTMLButtonElement>('[data-studies-prev]');
-    const next = root.querySelector<HTMLButtonElement>('[data-studies-next]');
-    const current = root.querySelector<HTMLElement>('[data-studies-current]');
-    const currentBot = root.querySelector<HTMLElement>('[data-studies-current-bot]');
-    const motifLabel = root.querySelector<HTMLElement>('[data-active-motif-label]');
+  if (page) {
+    const dock = page.querySelector<HTMLElement>('[data-dock]');
+    const input = page.querySelector<HTMLInputElement>('#study-query');
+    const count = page.querySelector<HTMLElement>('#study-count');
+    const empty = page.querySelector<HTMLElement>('#study-empty');
+    const reset = page.querySelector<HTMLButtonElement>('#study-reset');
+    const chips = [...page.querySelectorAll<HTMLButtonElement>('.chip')];
+    const studies = [...page.querySelectorAll<HTMLElement>('[data-study]')];
+    const sections = [...page.querySelectorAll<HTMLElement>('.sections .sec')];
+    const links = [...page.querySelectorAll<HTMLAnchorElement>('.rail__link')];
+    let family = '';
 
-    // Connected views
-    const ribbonButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-studies-nav]'));
-    const ledgerRows = Array.from(shelf.querySelectorAll<HTMLTableRowElement>('[data-ledger-row]'));
-    const inspectButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-inspect-slide]'));
+    /* Transliteration is folded on both sides, so "zuhri" finds al-Zuhrī and "ata" finds ʿAṭāʾ. */
+    const fold = (text: string) =>
+      text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʿʾ'’‘`]/g, '').toLowerCase();
+    const haystacks = new Map(studies.map((study) => [study, fold(study.dataset.search ?? '')]));
 
-    if (!stage || !slides.length) return;
-    stage.style.height = '';
-
-    let index = 0;
-
-    function show(nextIndex: number) {
-      index = (nextIndex + slides.length) % slides.length;
-
-      slides.forEach((slide, i) => {
-        const active = i === index;
-        slide.classList.toggle('is-active', active);
-        slide.setAttribute('aria-hidden', active ? 'false' : 'true');
-      });
-
-      dots.forEach((dot, i) => {
-        const active = i === index;
-        dot.classList.toggle('is-active', active);
-        dot.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
-
-      ribbonButtons.forEach((btn, i) => {
-        const active = i === index;
-        btn.classList.toggle('is-active', active);
-        btn.setAttribute('aria-selected', active ? 'true' : 'false');
-      });
-
-      ledgerRows.forEach((row, i) => {
-        row.classList.toggle('is-active', i === index);
-      });
-
-      const numStr = String(index + 1).padStart(2, '0');
-      if (current) current.textContent = numStr;
-      if (currentBot) currentBot.textContent = numStr;
-
-      const currentSlide = slides[index];
-      if (motifLabel && currentSlide?.dataset.motifLabel) {
-        motifLabel.textContent = currentSlide.dataset.motifLabel;
-      }
-
-      dots[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      ribbonButtons[index]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-
-    // Prev / Next controls
-    prev?.addEventListener('click', () => show(index - 1));
-    next?.addEventListener('click', () => show(index + 1));
-    dots.forEach((dot, i) => dot.addEventListener('click', () => show(i)));
-
-    // Ribbon quick-jump navigation
-    ribbonButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = Number(btn.dataset.studiesNav);
-        if (!Number.isNaN(target)) show(target);
-      });
-    });
-
-    // Ledger "Inspect" navigation
-    inspectButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const target = Number(btn.dataset.inspectSlide);
-        if (!Number.isNaN(target)) {
-          show(target);
-          const dossier = shelf.querySelector<HTMLElement>('[data-studies-dossier-wrap]');
-          (dossier || root).scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      });
-    });
-
-    root.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowLeft') show(index - 1);
-      if (event.key === 'ArrowRight') show(index + 1);
-    });
-
-    let touchStartX = 0;
-    stage.addEventListener('touchstart', (e) => {
-      if (e.changedTouches && e.changedTouches[0]) {
-        touchStartX = e.changedTouches[0].screenX;
-      }
-    }, { passive: true });
-    stage.addEventListener('touchend', (e) => {
-      if (e.changedTouches && e.changedTouches[0]) {
-        const touchEndX = e.changedTouches[0].screenX;
-        if (touchStartX - touchEndX > 45) show(index + 1);
-        if (touchEndX - touchStartX > 45) show(index - 1);
-      }
-    }, { passive: true });
-
-    // Research discovery: search + family filter. Both act on the ledger
-    // rows and ribbon items already in the DOM; nothing here fetches or
-    // re-renders content, so it stays cheap even at archive scale.
-    const discovery = shelf.querySelector<HTMLElement>('[data-studies-discovery]');
-    const searchInput = shelf.querySelector<HTMLInputElement>('[data-studies-search]');
-    const clearButton = shelf.querySelector<HTMLButtonElement>('[data-studies-clear]');
-    const filterButtons = Array.from(shelf.querySelectorAll<HTMLButtonElement>('[data-family-filter]'));
-    const statusEl = shelf.querySelector<HTMLElement>('[data-studies-status]');
-    const emptyRow = shelf.querySelector<HTMLTableRowElement>('[data-ledger-empty]');
-    const emptyQueryEl = emptyRow?.querySelector<HTMLElement>('[data-empty-query]');
-
-    let activeFamily = 'all';
-
-    function applyFilter() {
-      const query = (searchInput?.value || '').trim().toLowerCase();
-      const filtered = activeFamily !== 'all' || query.length > 0;
+    const apply = () => {
+      const query = fold(input?.value.trim() ?? '');
       let visible = 0;
-      let firstVisible = -1;
 
-      ledgerRows.forEach((row, i) => {
-        const haystack = row.dataset.searchHaystack || '';
-        const family = row.dataset.family || '';
-        const matches = (activeFamily === 'all' || family === activeFamily) && (!query || haystack.includes(query));
-        row.classList.toggle('is-hidden', !matches);
-        if (matches) {
-          visible += 1;
-          if (firstVisible === -1) firstVisible = i;
-        }
+      for (const study of studies) {
+        const matches =
+          (query === '' || (haystacks.get(study) ?? '').includes(query)) && (family === '' || study.dataset.family === family);
+        study.hidden = !matches;
+        if (matches) visible += 1;
+      }
+      for (const section of sections) section.hidden = section.querySelector('[data-study]:not([hidden])') === null;
+      for (const chip of chips) chip.setAttribute('aria-pressed', String(chip.dataset.family === family));
+      if (count) count.textContent = `${visible} of ${studies.length} studies`;
+      if (empty) {
+        empty.hidden = visible > 0;
+        const message = empty.querySelector('p');
+        if (message) message.textContent = query ? `No studies match "${input?.value.trim()}".` : 'No studies match these filters.';
+      }
+
+      const url = new URL(location.href);
+      if (query) url.searchParams.set('q', query);
+      else url.searchParams.delete('q');
+      if (family) url.searchParams.set('family', family);
+      else url.searchParams.delete('family');
+      history.replaceState(null, '', url);
+    };
+
+    const params = new URLSearchParams(location.search);
+    const requested = params.get('family') ?? '';
+    if (input) input.value = params.get('q') ?? '';
+    if (chips.some((chip) => chip.dataset.family === requested)) family = requested;
+
+    input?.addEventListener('input', apply);
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        family = family === chip.dataset.family ? '' : (chip.dataset.family ?? '');
+        apply();
       });
-
-      ribbonButtons.forEach((btn, i) => {
-        btn.classList.toggle('is-hidden', Boolean(ledgerRows[i]?.classList.contains('is-hidden')));
-      });
-
-      if (clearButton) clearButton.hidden = query.length === 0;
-
-      if (emptyRow) {
-        emptyRow.classList.toggle('is-visible', visible === 0);
-        if (emptyQueryEl) emptyQueryEl.textContent = query ? `"${query}"` : 'this filter';
-      }
-
-      if (statusEl) {
-        statusEl.textContent = filtered
-          ? `${visible} of ${slides.length} studies match`
-          : `${slides.length} studies`;
-      }
-
-      // Keep the dossier reader pointed at something the filter didn't hide.
-      if (firstVisible !== -1 && ledgerRows[index]?.classList.contains('is-hidden')) {
-        show(firstVisible);
-      }
     }
-
-    searchInput?.addEventListener('input', applyFilter);
-    clearButton?.addEventListener('click', () => {
-      if (searchInput) {
-        searchInput.value = '';
-        searchInput.focus();
-      }
-      applyFilter();
+    reset?.addEventListener('click', () => {
+      if (input) input.value = '';
+      family = '';
+      apply();
+      input?.focus();
     });
-    filterButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activeFamily = btn.dataset.familyFilter || 'all';
-        filterButtons.forEach((b) => {
-          const on = b === btn;
-          b.classList.toggle('is-active', on);
-          b.setAttribute('aria-pressed', String(on));
-        });
-        applyFilter();
-      });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+      event.preventDefault();
+      input?.focus();
+    });
+    /* A jump link to a family the filter has hidden clears the filter first. */
+    window.addEventListener('hashchange', () => {
+      if (document.getElementById(location.hash.slice(1))?.hidden) reset?.click();
     });
 
-    // Reveal last: with JavaScript off, the bar never appears and visitors
-    // get the complete, always-visible ledger below exactly as before.
-    if (discovery) discovery.hidden = false;
+    /* Revealed last: with JavaScript off the whole register is simply listed. */
+    if (dock) dock.hidden = false;
+    apply();
 
-    show(0);
-  }
-
-  function initMotzkiCarousel() {
-    const root = document.querySelector<HTMLElement>('[data-motzki-carousel]');
-    if (!root || root.dataset.motzkiInitialized === 'true') return;
-    root.dataset.motzkiInitialized = 'true';
-
-    const stage = root.querySelector<HTMLElement>('[data-motzki-stage]');
-    const slides = Array.from(root.querySelectorAll<HTMLElement>('[data-motzki-slide]'));
-    const prev = root.querySelector<HTMLButtonElement>('[data-motzki-prev]');
-    const next = root.querySelector<HTMLButtonElement>('[data-motzki-next]');
-    const current = root.querySelector<HTMLElement>('[data-motzki-current]');
-    const currentBot = root.querySelector<HTMLElement>('[data-motzki-current-bot]');
-
-    if (!stage || !slides.length) return;
-    stage.style.height = '';
-
-    let index = 0;
-
-    function show(nextIndex: number) {
-      index = (nextIndex + slides.length) % slides.length;
-
-      slides.forEach((slide, i) => {
-        const active = i === index;
-        slide.classList.toggle('is-active', active);
-        slide.setAttribute('aria-hidden', active ? 'false' : 'true');
-      });
-
-      const numStr = String(index + 1).padStart(2, '0');
-      if (current) current.textContent = numStr;
-      if (currentBot) currentBot.textContent = numStr;
+    if ('IntersectionObserver' in window && sections.length) {
+      const setActive = (id: string) => {
+        for (const link of links) link.classList.toggle('is-active', link.dataset.spy === id);
+      };
+      const spy = new IntersectionObserver(
+        (observed) => {
+          const best = observed.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (best) setActive(best.target.id);
+        },
+        { rootMargin: '-25% 0px -55% 0px', threshold: [0, 0.2, 0.5] }
+      );
+      for (const section of sections) spy.observe(section);
+      setActive(sections[0]?.id ?? '');
     }
-
-    prev?.addEventListener('click', () => show(index - 1));
-    next?.addEventListener('click', () => show(index + 1));
-
-    root.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowLeft') show(index - 1);
-      if (event.key === 'ArrowRight') show(index + 1);
-    });
-
-    show(0);
   }
-
-  function initCarousels() {
-    initStudiesCarousel();
-    initMotzkiCarousel();
-  }
-
-  document.addEventListener('DOMContentLoaded', initCarousels);
-  initCarousels();
 </script>
 
 <style>
-  /* =======================================================================
-     ACADEMIC STUDIES — INSTITUTIONAL RESEARCH REGISTER
-     Visual language: critical edition / research catalogue / digital humanities
-     No decorative theme layers; hierarchy and typography carry the identity.
-     ======================================================================= */
-
-  .studies-page {
-    --studies-rail: 1px solid var(--hc-rule);
-    --studies-max: 1440px;
-    min-height: 100vh;
-    padding-bottom: clamp(5rem, 9vw, 8rem);
-    background: var(--hc-surface-0);
-    color: var(--hc-text-primary);
-  }
-
-  .studies-page .hc-container {
-    width: min(calc(100% - 2rem), var(--studies-max));
-    margin-inline: auto;
-  }
-
-  /* -----------------------------------------------------------------------
-     Shared editorial primitives
-     ----------------------------------------------------------------------- */
-
-  .studies-page a {
-    text-underline-offset: 0.18em;
-  }
-
-  .hc-eyebrow,
-  .section-kicker,
-  .studies-ledger__kicker,
-  .motzki-card__label,
-  .motzki-card__subject,
-  .icma-card__apparatus-tag,
-  .icma-card__findings-head,
-  .hero-index__label,
-  .hero-index__code,
-  .hero-meta-line,
-  .studies-carousel__topbar,
-  .motzki-carousel__topbar {
-    font-family: var(--font-ui);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-  }
-
-  .hc-link {
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-
-  .hc-link:hover,
-  .hc-link:focus-visible {
-    color: var(--hc-gold);
-  }
-
-  /* -----------------------------------------------------------------------
-     01 — Institutional masthead
-     ----------------------------------------------------------------------- */
-
-  .studies-hero {
-    padding: clamp(3.5rem, 6.5vw, 5.5rem) 0 clamp(2.5rem, 5vw, 3.5rem);
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .studies-hero__content {
-    max-width: 52rem;
-  }
-
-  .studies-title {
-    max-width: 22ch;
-    margin: 0.85rem 0 1rem;
-    font-family: var(--font-display, serif);
-    font-size: clamp(2.4rem, 4.5vw, 3.8rem);
-    font-weight: 400;
-    line-height: 1.08;
-    letter-spacing: -0.025em;
-    color: var(--hc-text-primary);
-    text-wrap: balance;
-  }
-
-  .studies-title-accent {
-    color: var(--hc-gold);
-    font-style: italic;
-    font-weight: 400;
-  }
-
-  .studies-intro {
-    max-width: 58ch;
-    margin: 0;
-    font-size: clamp(1rem, 1.25vw, 1.15rem);
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  .studies-intro strong {
-    color: var(--hc-text-primary);
-    font-weight: 650;
-  }
-
-  /* -----------------------------------------------------------------------
-     02 — Section architecture
-     ----------------------------------------------------------------------- */
-
-  .section-intro,
-  .studies-shelf__header,
-  .motzki-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2rem;
-    align-items: end;
-  }
-
-  .section-intro {
-    margin-bottom: 2.25rem;
-  }
-
-  .section-kicker {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--hc-gold);
-  }
-
-  .section-title {
-    max-width: 22ch;
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.85rem, 3.2vw, 2.6rem);
-    font-weight: 400;
-    line-height: 1.1;
-    letter-spacing: -0.025em;
-    color: var(--hc-text-primary);
-    text-wrap: balance;
-  }
-
-  .section-intro__index {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .studies-shelf {
-    padding-top: clamp(4rem, 7vw, 6rem);
-  }
-
-  .studies-shelf__header {
-    margin-bottom: 2.25rem;
-  }
-
-  .studies-shelf__lead {
-    max-width: 64ch;
-    margin: 0.75rem 0 0;
-    font-size: 0.95rem;
-    line-height: 1.72;
-    color: var(--hc-text-secondary);
-  }
-
-  .studies-shelf__lead em {
-    color: var(--hc-text-primary);
-  }
-
-  /* -----------------------------------------------------------------------
-     02b — Research discovery (search + family filter)
-     ----------------------------------------------------------------------- */
-
-  .studies-discovery {
-    display: grid;
-    gap: 1.1rem;
-    margin-bottom: 2.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .studies-discovery[hidden] {
-    display: none;
-  }
-
-  .studies-discovery__search {
-    position: relative;
-    display: flex;
-    align-items: center;
-    max-width: 32rem;
-  }
-
-  .studies-discovery__icon {
-    position: absolute;
-    left: 0;
-    color: var(--hc-text-tertiary);
-    font-size: 1.05rem;
-    pointer-events: none;
-  }
-
-  .studies-discovery__input {
-    width: 100%;
-    padding: 0.7rem 2rem 0.75rem 1.6rem;
-    border: 0;
-    border-bottom: 1px solid var(--hc-rule-strong);
-    background: transparent;
-    color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1.02rem;
-    transition: border-color var(--motion-fast, 160ms) ease;
-  }
-
-  .studies-discovery__input::placeholder {
-    color: var(--hc-text-tertiary);
-  }
-
-  .studies-discovery__input:focus {
-    border-bottom-color: var(--hc-gold);
-  }
-
-  .studies-discovery__clear {
-    position: absolute;
-    right: 0;
-    bottom: 0.5rem;
-    min-width: 24px;
-    min-height: 24px;
-    border: 0;
-    background: transparent;
-    color: var(--hc-text-tertiary);
-    font-size: 1.1rem;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  .studies-discovery__clear:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .studies-discovery__tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 0.5rem;
-  }
-
-  .studies-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 24px;
-    padding: 0.3rem 0.7rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
-    background: var(--hc-surface-1);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 500;
-    line-height: 1.3;
-    cursor: pointer;
-    transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
-  }
-
-  .studies-tab:hover {
-    color: var(--hc-text-primary);
-    border-color: var(--hc-rule-strong);
-    background: var(--hc-surface-2);
-  }
-
-  .studies-tab.is-active {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 10%, var(--hc-surface-1));
-  }
-
-  .studies-tab__n {
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-    font-size: 0.75rem;
-  }
-
-  .studies-tab.is-active .studies-tab__n {
-    color: inherit;
-    opacity: 0.75;
-  }
-
-  .studies-discovery__status {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.04em;
-    color: var(--hc-text-tertiary);
-  }
-
-  /* -----------------------------------------------------------------------
-     03 — Monograph dossier wrap
-     ----------------------------------------------------------------------- */
-
-  .studies-dossier-wrap {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs, 4px);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  /* -----------------------------------------------------------------------
-     04 — ICMA dossier reader
-     ----------------------------------------------------------------------- */
-
-  .studies-carousel {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    background: var(--hc-surface-1);
-  }
-
-  .studies-carousel__topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem 1rem;
-    min-height: 2.85rem;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--hc-rule);
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--hc-text-tertiary);
-  }
-
-  .studies-carousel__eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    min-width: 0;
-  }
-
-  .studies-carousel__kicker {
-    color: var(--hc-gold);
-    white-space: nowrap;
-    font-weight: 700;
-  }
-
-  .studies-carousel__line {
-    width: 2.2rem;
-    height: 1px;
-    flex: 0 0 auto;
-    background: var(--hc-rule-strong);
-  }
-
-  .studies-carousel__counter {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .studies-carousel__counter strong {
-    color: var(--hc-text-primary);
-  }
-
-  .studies-carousel__stage {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .icma-card {
-    display: none;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-    flex-direction: column;
-    gap: 1.5rem;
-    min-height: 0;
-    padding: clamp(1.75rem, 4vw, 2.75rem);
-    background: transparent;
-  }
-
-  .icma-card.is-active {
-    display: flex;
-    animation: motzkiSlideIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  /* Family modifiers remain semantic hooks */
-  .icma-card--polemics,
-  .icma-card--geography,
-  .icma-card--chronology,
-  .icma-card--legal,
-  .icma-card--source-reconstruction,
-  .icma-card--variants,
-  .icma-card--network {
-    background: transparent;
-  }
-
-  .icma-card__folio-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1.25rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .icma-card__folio-left,
-  .icma-card__folio-right {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.45rem 0.65rem;
-    min-width: 0;
-  }
-
-  .icma-card__folio-right {
-    justify-content: flex-end;
-  }
-
-  .icma-card__folio-badge,
-  .icma-card__cite-pill,
-  .icma-card__family-chip {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    line-height: 1.35;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .icma-card__folio-badge {
-    color: var(--hc-text-primary);
-    font-weight: 700;
-  }
-
-  .icma-card__cite-pill {
-    color: var(--hc-gold);
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  .icma-card__family-chip {
-    color: var(--hc-text-tertiary);
-    padding: 0;
-    border: 0;
-    background: transparent;
-  }
-
-  .icma-card__folio-sep {
-    color: var(--hc-rule-strong);
-  }
-
-  .icma-card__hero {
-    max-width: 60rem;
-    padding: 0.25rem 0;
-  }
-
-  .icma-card__title {
-    max-width: 36ch;
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.75rem, 3.2vw, 2.5rem);
-    font-weight: 500;
-    line-height: 1.18;
-    letter-spacing: -0.025em;
-    text-wrap: balance;
-  }
-
-  .icma-card__title-link {
-    color: var(--hc-text-primary);
-    text-decoration: none;
-  }
-
-  .icma-card__title-link:hover,
-  .icma-card__title-link:focus-visible {
-    color: var(--hc-gold);
-  }
-
-  .icma-card__subtitle {
-    max-width: 58ch;
-    margin: 0.65rem 0 0;
-    font-family: var(--font-display, serif);
-    font-size: 1.02rem;
-    font-style: italic;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  .icma-card__body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 1fr);
-    gap: 1.5rem clamp(2rem, 5vw, 4rem);
-    align-items: start;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .icma-card__col-main,
-  .icma-card__col-side {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    min-width: 0;
-  }
-
-  .icma-card__abstract {
-    max-width: 66ch;
-    margin: 0;
-    font-size: 0.96rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  .icma-card__specs {
-    display: grid;
-    background: transparent;
-    padding: 0;
-    border-top: 1px solid var(--hc-rule);
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .icma-card__spec-item {
-    display: grid;
-    gap: 0.25rem;
-    padding: 0.75rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .icma-card__spec-item:last-child {
-    border-bottom: none;
-  }
-
-  .icma-card__spec-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    line-height: 1.4;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .icma-card__spec-val {
-    font-family: var(--font-display, serif);
-    font-size: 0.98rem;
-    line-height: 1.35;
-    color: var(--hc-text-primary);
-  }
-
-  .icma-card__spec-val--accent {
-    color: var(--hc-gold);
-  }
-
-  .icma-card__apparatus-strip {
-    margin-top: 0.5rem;
-    padding: 1rem 0 0;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .icma-card__apparatus-tag,
-  .icma-card__findings-head {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--hc-gold);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .icma-card__apparatus-note {
-    max-width: 66ch;
-    margin: 0;
-    font-size: 0.88rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-  }
-
-  .icma-card__findings {
-    margin-top: 0.25rem;
-    padding-top: 0.75rem;
-  }
-
-  .icma-card__findings-list {
-    display: grid;
-    gap: 0.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .icma-card__findings-list li {
-    display: grid;
-    grid-template-columns: 1rem minmax(0, 1fr);
-    gap: 0.4rem;
-    font-size: 0.86rem;
-    line-height: 1.55;
-    color: var(--hc-text-secondary);
-  }
-
-  .icma-card__findings-mark {
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-  }
-
-  .icma-card__colophon {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1rem 2rem;
-    align-items: end;
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid var(--hc-rule-strong);
-  }
-
-  .icma-card__cite-stamp {
-    min-width: 0;
-  }
-
-  .icma-card__stamp-label {
-    display: block;
-    margin-bottom: 0.3rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .icma-card__cite-stamp code {
-    display: block;
-    overflow-wrap: anywhere;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  .icma-card__actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-  }
-
-  .icma-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 2rem;
-    padding: 0.35rem 0.75rem;
-    border-radius: var(--radius-xs, 4px);
-    background: transparent;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-decoration: none;
-    cursor: pointer;
-  }
-
-  .icma-btn--ghost {
-    color: var(--hc-text-secondary);
-    border: 1px solid var(--hc-rule);
-  }
-
-  .icma-btn--primary {
-    color: var(--hc-gold);
-    border: 1px solid var(--hc-gold);
-    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
-  }
-
-  .icma-btn--ghost:hover,
-  .icma-btn--ghost:focus-visible {
-    color: var(--hc-text-primary);
-    border-color: var(--hc-rule-strong);
-  }
-
-  .icma-btn--primary:hover,
-  .icma-btn--primary:focus-visible {
-    color: #ffffff;
-    background: var(--hc-gold);
-  }
-
-  /* -----------------------------------------------------------------------
-     05 — Dossier controls
-     ----------------------------------------------------------------------- */
-
-  .studies-carousel__controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.85rem 1.25rem;
-    border-top: 1px solid var(--hc-rule);
-    background: var(--hc-surface-1);
-  }
-
-  .studies-carousel__button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs, 4px);
-    background: transparent;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
-  }
-
-  .studies-carousel__button:hover,
-  .studies-carousel__button:focus-visible {
-    color: var(--hc-text-primary);
-    border-color: var(--hc-rule-strong);
-    background: color-mix(in srgb, var(--hc-surface-2) 40%, transparent);
-  }
-
-  .studies-carousel__counter-bottom {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .studies-carousel__counter-bottom strong {
-    color: var(--hc-text-primary);
-  }
-
-  /* -----------------------------------------------------------------------
-     06 — Complete archival ledger
-     ----------------------------------------------------------------------- */
-
-  .studies-ledger {
-    margin-top: clamp(3.5rem, 7vw, 6rem);
-    border-top: 1px solid var(--hc-rule-strong);
-  }
-
-  .studies-ledger__header {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 2rem;
-    align-items: end;
-    padding: 1.5rem 0;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .studies-ledger__kicker {
-    display: block;
-    margin-bottom: 0.45rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--hc-gold);
-  }
-
-  .studies-ledger__title {
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.55rem, 2.8vw, 2.35rem);
-    font-weight: 400;
-    line-height: 1.1;
-    letter-spacing: -0.025em;
-  }
-
-  .studies-ledger__meta {
-    max-width: 36ch;
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    line-height: 1.5;
-    color: var(--hc-text-tertiary);
-    text-align: right;
-  }
-
-  .studies-ledger__table-wrap {
-    overflow-x: auto;
-  }
-
-  .studies-ledger__table {
-    width: 100%;
-    min-width: 980px;
-    border-collapse: collapse;
-  }
-
-  .studies-ledger__table th {
-    padding: 0.85rem 0.85rem;
-    border-bottom: 1px solid var(--hc-rule-strong);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.1em;
-    text-align: left;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    white-space: nowrap;
-  }
-
-  .studies-ledger__table td {
-    padding: 1rem 0.85rem;
-    border-bottom: 1px solid var(--hc-rule);
-    vertical-align: top;
-  }
-
-  .studies-ledger__row {
-    transition: background 120ms ease;
-  }
-
-  .studies-ledger__row:hover,
-  .studies-ledger__row.is-active {
-    background: var(--hc-surface-1);
-  }
-
-  .studies-ledger__row.is-hidden {
-    display: none;
-  }
-
-  .studies-ledger__empty {
-    display: none;
-  }
-
-  .studies-ledger__empty.is-visible {
-    display: table-row;
-  }
-
-  .studies-ledger__empty td {
-    padding: 1.75rem 0.9rem;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    text-align: center;
-  }
-
-  .studies-ledger__empty strong {
-    color: var(--hc-text-primary);
-  }
-
-  .studies-ledger__cite-code {
-    display: inline-block;
-    min-width: 4.5rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    color: var(--hc-gold);
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  .studies-ledger__entry-link {
-    display: block;
-    color: var(--hc-text-primary);
-    text-decoration: none;
-  }
-
-  .studies-ledger__entry-link strong {
-    display: block;
-    max-width: 54ch;
-    font-family: var(--font-display, serif);
-    font-size: 1.02rem;
-    font-weight: 500;
-    line-height: 1.35;
-  }
-
-  .studies-ledger__entry-link:hover strong,
-  .studies-ledger__entry-link:focus-visible strong {
-    color: var(--hc-gold);
-  }
-
-  .studies-ledger__subtitle,
-  .studies-ledger__arabic,
-  .studies-ledger__tradition {
-    display: block;
-    margin-top: 0.28rem;
-    font-size: 0.78rem;
-    line-height: 1.5;
-    color: var(--hc-text-tertiary);
-  }
-
-  .studies-ledger__common-link {
-    font-family: var(--font-display, serif);
-    font-size: 0.94rem;
-    line-height: 1.4;
-    color: var(--hc-text-secondary);
-  }
-
-  .studies-ledger__badge {
-    display: inline-block;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    white-space: nowrap;
-  }
-
-  .th-action,
-  .td-action {
-    text-align: right;
-  }
-
-  .studies-ledger__actions {
-    display: inline-flex;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  .studies-ledger__read-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-decoration: none;
-    transition: color 150ms ease;
-  }
-
-  .studies-ledger__read-link:hover,
-  .studies-ledger__read-link:focus-visible {
-    color: var(--hc-text-primary);
-    text-decoration: underline;
-  }
-
-  /* -----------------------------------------------------------------------
-     07 — Motzki research dossier
-     ----------------------------------------------------------------------- */
-
-  .motzki-section {
-    padding-top: clamp(4.5rem, 8vw, 7rem);
-  }
-
-  .motzki-header {
-    margin-bottom: 2.25rem;
-  }
-
-  .motzki-lead {
-    max-width: 66ch;
-    margin: 0.8rem 0 0;
-    font-size: 0.95rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-carousel {
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: var(--radius-xs, 4px);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  .motzki-carousel__topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem 1rem;
-    padding: 0.85rem 1.25rem;
-    border-bottom: 1px solid var(--hc-rule);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-carousel__eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-  }
-
-  .motzki-carousel__eyebrow span:first-child {
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .motzki-carousel__line {
-    width: 2.4rem;
-    height: 1px;
-    background: var(--hc-rule-strong);
-  }
-
-  .motzki-carousel__counter {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .motzki-carousel__counter strong {
-    color: var(--hc-text-primary);
-  }
-
-  .motzki-carousel__stage {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .motzki-card {
-    display: none;
-    width: 100%;
-    box-sizing: border-box;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: clamp(1.75rem, 4vw, 2.75rem);
-    background: transparent;
-  }
-
-  .motzki-card.is-active {
-    display: flex;
-    animation: motzkiSlideIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes motzkiSlideIn {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .motzki-card__folio-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-    padding-bottom: 0.9rem;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .motzki-card__folio-left,
-  .motzki-card__folio-right {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.45rem 0.65rem;
-    min-width: 0;
-  }
-
-  .motzki-card__folio-right {
-    justify-content: flex-end;
-  }
-
-  .motzki-card__study-badge {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.35;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    padding: 0.15rem 0.55rem;
-    border-radius: var(--radius-xs, 4px);
-    background: color-mix(in srgb, var(--hc-gold) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--hc-gold) 32%, transparent);
-    white-space: nowrap;
-  }
-
-  .motzki-card__sep {
-    color: var(--hc-rule-strong);
-    font-size: 0.75rem;
-  }
-
-  .motzki-card__series-strip {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-card__meta-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    line-height: 1.35;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-card__meta-tag--year {
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-secondary);
-    font-weight: 600;
-  }
-
-  .motzki-card__meta-tag--classification {
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-card__heading {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .motzki-card__subject {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .motzki-card__title {
-    max-width: 48ch;
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.4rem, 2.4vw, 1.95rem);
-    font-weight: 600;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    color: var(--hc-text-primary);
-  }
-
-  .motzki-card__sources-tag {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin-top: 0.2rem;
-    font-family: var(--font-display, serif);
-    font-size: 0.96rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-card__dash {
-    color: var(--hc-rule-strong);
-  }
-
-  .motzki-card__body {
-    display: grid;
-    grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr);
-    gap: 1.75rem clamp(2rem, 4vw, 3.5rem);
-    align-items: start;
-    margin-top: 0.5rem;
-  }
-
-  .motzki-card__summary-wrap {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.65rem;
-  }
-
-  .motzki-card__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .motzki-card__summary {
-    max-width: 66ch;
-    margin: 0;
-    font-size: 0.95rem;
-    line-height: 1.78;
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-card__action {
-    margin-top: 0.75rem;
-  }
-
-  .motzki-card__action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    color: var(--hc-text-inverse);
-    background: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    text-decoration: none;
-    padding: 0.55rem 1.15rem;
-    border: 1px solid var(--hc-gold);
-    border-radius: var(--radius-xs, 4px);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: background 150ms ease, color 150ms ease, transform 150ms ease;
-  }
-
-  .motzki-card__action-btn:hover,
-  .motzki-card__action-btn:focus-visible {
-    color: var(--hc-text-inverse);
-    background: color-mix(in srgb, var(--hc-gold) 85%, black);
-    border-color: color-mix(in srgb, var(--hc-gold) 85%, black);
-    transform: translateY(-1px);
-  }
-
-  .motzki-card__action-btn:focus-visible {
-    outline: 2px solid var(--hc-gold);
-    outline-offset: 2px;
-  }
-
-  .motzki-card__action-btn svg {
-    transition: transform 150ms ease;
-  }
-
-  .motzki-card__action-btn:hover svg,
-  .motzki-card__action-btn:focus-visible svg {
-    transform: translateX(3px);
-  }
-
-  .motzki-card__points {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    padding: 0;
-    background: transparent;
-    border: none;
-  }
-
-  .motzki-card__points-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-card__points-count {
-    color: var(--hc-gold);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .motzki-card__points-list {
-    display: grid;
-    gap: 0.75rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .motzki-card__point-item {
-    display: grid;
-    grid-template-columns: 1.5rem minmax(0, 1fr);
-    gap: 0.65rem;
-    align-items: start;
-    font-size: 0.86rem;
-    line-height: 1.62;
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-point-num {
-    display: inline-block;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.55;
-    letter-spacing: 0.05em;
-  }
-
-  .motzki-point-text {
-    min-width: 0;
-  }
-
-  .motzki-card__footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 1rem;
-    margin-top: 0.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .motzki-card__edition-info {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    font-family: var(--font-display, serif);
-    font-size: 0.9rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .motzki-card__edition-title {
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .motzki-card__edition-sub {
-    font-style: italic;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-card__publisher-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--radius-xs, 4px);
-    background: color-mix(in srgb, var(--hc-surface-2) 60%, transparent);
-    border: 1px solid var(--hc-rule);
-    white-space: nowrap;
-  }
-
-  /* -----------------------------------------------------------------------
-     07b — Motzki carousel controls & pagination
-     ----------------------------------------------------------------------- */
-
-  .motzki-carousel__controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.85rem 1.25rem;
-    border-top: 1px solid var(--hc-rule);
-    background: var(--hc-surface-1);
-  }
-
-  .motzki-carousel__button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs, 4px);
-    background: transparent;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
-  }
-
-  .motzki-carousel__button:hover,
-  .motzki-carousel__button:focus-visible {
-    color: var(--hc-text-primary);
-    border-color: var(--hc-rule-strong);
-    background: color-mix(in srgb, var(--hc-surface-2) 40%, transparent);
-  }
-
-  .motzki-carousel__button:focus-visible {
-    outline: 2px solid var(--hc-gold);
-    outline-offset: 2px;
-  }
-
-  .motzki-carousel__counter-bottom {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .motzki-carousel__counter-bottom strong {
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  /* -----------------------------------------------------------------------
-     08 — Related scholarship / bibliography
-     ----------------------------------------------------------------------- */
-
-  .related-section {
-    padding-top: clamp(4.5rem, 8vw, 7rem);
-  }
-
-  .related-method-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 2.5rem 3.5rem;
-    border-top: 1px solid var(--hc-rule);
-    padding-top: 2rem;
-  }
-
-  .related-method {
-    display: grid;
-    align-content: start;
-    min-width: 0;
-    padding: 0;
-  }
-
-  .related-method:nth-child(odd),
-  .related-method:nth-child(even) {
-    padding: 0;
-    border: none;
-  }
-
-  .related-method__meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.55rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    line-height: 1.4;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .related-method__year {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .related-method h3 {
-    max-width: 30ch;
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: clamp(1.25rem, 2vw, 1.65rem);
-    font-weight: 400;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-  }
-
-  .related-method p {
-    max-width: 62ch;
-    margin: 0.65rem 0 0;
-    font-size: 0.88rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-  }
-
-  .other-works {
-    margin-top: 2.5rem;
-    border-top: 1px solid var(--hc-rule);
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .other-works__head {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    align-items: baseline;
-    padding: 0.9rem 0;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .other-works__head a {
-    color: var(--hc-text-secondary);
-    text-decoration: none;
-  }
-
-  .other-works__head a:hover,
-  .other-works__head a:focus-visible {
-    color: var(--hc-gold);
-  }
-
-  /* -----------------------------------------------------------------------
-     09 — Focus states / reduced motion
-     ----------------------------------------------------------------------- */
-
-  .studies-page :focus-visible {
-    outline: 2px solid var(--hc-gold);
-    outline-offset: 3px;
+  .studies-page { min-height: 100vh; background: var(--hc-surface-0); }
+  .studies-page [hidden] { display: none !important; }
+
+  /* Masthead instrument: plate figures, a proportional family bar, jump rows */
+  .glance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 1.1rem 0; }
+  .glance__figure { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 0.7rem; margin: 0; padding: 0 1.25rem; }
+  .glance__figure + .glance__figure { border-left: 1px dashed rgba(26, 23, 21, 0.4); }
+  .glance dt { font: 700 0.81rem/1.35 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .glance dd { margin: 0; }
+
+  .mix { display: flex; gap: 3px; margin: 0.9rem 0.4rem 0; }
+  .mix__seg { flex: var(--n) 1 0; height: 10px; }
+
+  .jump { margin: 0; padding: 0 0.4rem 0.4rem; list-style: none; }
+  .jump li + li { border-top: 1px solid var(--hc-rule-soft); }
+  .jump__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.85rem; min-height: 44px; margin-inline: -0.6rem; padding: 0.6rem; color: inherit; text-decoration: none; transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
+  .jump__row:hover { background: rgba(216, 177, 102, 0.08); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
+  .jump__name { color: var(--hc-text-primary); font: 600 1rem/1.35 var(--font-display); letter-spacing: -0.015em; }
+  .jump__n { color: var(--hc-text-tertiary); font: 500 0.95rem var(--font-ui); font-variant-numeric: tabular-nums; }
+  .jump__go { color: var(--hc-gold-dim); transition: transform var(--motion-base) var(--ease-standard), color var(--motion-base) ease; }
+  .jump__row:hover .jump__go { color: var(--hc-gold); transform: translateX(3px); }
+  .swatch { flex: none; width: 12px; height: 12px; border-radius: 2px; background: var(--sw); box-shadow: 0 0 0 1px var(--sw-ring); }
+
+  /* Dock: search and family filters */
+  .dockwrap { padding-top: 1.5rem; scroll-margin-top: 5rem; }
+  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
+  .dock__field { flex: 1 1 260px; display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.8rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-0); color: var(--hc-text-tertiary); }
+  .dock__field:focus-within { border-color: var(--hc-gold); box-shadow: 0 0 0 1px var(--hc-gold); }
+  .dock__input { --hc-focus-width: 0px; flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--hc-text-primary); font: 400 0.95rem var(--font-body); }
+  .dock__input::placeholder { color: var(--hc-text-tertiary); }
+  .dock__input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0 0.5rem 0 0.4rem; cursor: pointer; background: var(--hc-text-tertiary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .dock__input::-webkit-search-cancel-button:hover { background: var(--hc-text-primary); }
+  .dock__kbd { padding: 0.1rem 0.45rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; font: 700 0.78rem var(--font-ui); }
+  .dock__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease; }
+  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
+  .chip__n { color: var(--hc-text-tertiary); font-variant-numeric: tabular-nums; }
+  .chip__x { display: none; width: 12px; height: 12px; }
+  .chip[aria-pressed='true'] { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
+  .chip[aria-pressed='true'] .chip__x { display: block; }
+  .dock__count { margin-left: auto; padding: 0 0.6rem; color: var(--hc-text-tertiary); font: 500 0.88rem var(--font-ui); font-variant-numeric: tabular-nums; }
+  @media (min-width: 1001px) { .dock { position: sticky; top: 4.75rem; z-index: 20; } }
+
+  /* Register layout: family rail, then one section per family */
+  .catalog { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); padding-block: clamp(2rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem); }
+  .rail { position: sticky; top: 9rem; align-self: start; }
+  .rail__list { margin: 0; padding: 0; list-style: none; border-left: 1px solid var(--hc-rule-soft); }
+  .rail__link { display: block; margin-left: -1px; padding: 0.55rem 0 0.55rem 1rem; border-left: 2px solid transparent; color: var(--hc-text-tertiary); font: 500 0.95rem var(--font-ui); text-decoration: none; transition: color 0.2s ease, border-color 0.2s ease; }
+  .rail__link:hover { color: var(--hc-text-primary); }
+  .rail__link.is-active { border-left-color: var(--hc-gold); color: var(--hc-gold); }
+
+  .sections { display: grid; gap: clamp(3rem, 6vw, 4.5rem); min-width: 0; }
+  .sec { scroll-margin-top: 9rem; }
+  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .sec__title { margin: 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
+  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .list > li { display: grid; }
+
+  /* Study jacket: a bound cover in its family's colors, one link per card */
+  .jacket { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 0.7rem; min-height: 14rem; padding: 1.05rem 1.15rem 1.1rem; overflow: hidden; border-radius: 2px; background: var(--j-bg); color: var(--j-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--j-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
+  .jacket:hover, .jacket:focus-within { box-shadow: inset 0 0 0 2px var(--j-accent); }
+  .jacket::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; -webkit-mask-image: radial-gradient(120% 110% at 100% 0%, #000 6%, transparent 64%); mask-image: radial-gradient(120% 110% at 100% 0%, #000 6%, transparent 64%); }
+  .jacket--polemics::before { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 0 1px, transparent 1px 8px); }
+  .jacket--geography::before { background: linear-gradient(color-mix(in srgb, var(--j-accent) 22%, transparent) 1px, transparent 1px) 0 0 / 100% 28px, linear-gradient(90deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 1px, transparent 1px) 0 0 / 28px 100%; }
+  .jacket--chronology::before { background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--j-accent) 24%, transparent) 0 1px, transparent 1px 10px); }
+  .jacket--legal::before { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 0 1px, transparent 1px 14px); }
+  .jacket--source-reconstruction::before { background: radial-gradient(circle, color-mix(in srgb, var(--j-accent) 40%, transparent) 1px, transparent 1.6px) 0 0 / 14px 14px; }
+  .jacket--variants::before { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--j-accent) 20%, transparent) 0 1px, transparent 1px 12px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--j-accent) 20%, transparent) 0 1px, transparent 1px 12px); }
+  .jacket--network::before { background: radial-gradient(circle, color-mix(in srgb, var(--j-accent) 34%, transparent) 2px, transparent 2.6px) 0 0 / 26px 26px; }
+
+  .jacket__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin: 0; color: var(--j-accent); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .jacket__no { font-variant-numeric: lining-nums tabular-nums; }
+  .jacket__title { margin: 0; font: 600 1.15rem/1.3 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+  .jacket__link { color: inherit; text-decoration: none; }
+  .jacket__link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+  .jacket__sub { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); font-size: 0.9rem; line-height: 1.5; text-wrap: pretty; }
+  .jacket__facts { display: grid; gap: 0.55rem; margin: auto 0 0; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--j-ink) 18%, transparent); }
+  .jacket__facts dt { color: var(--j-accent); font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .jacket__facts dd { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0.1rem 0 0; font-size: 0.88rem; line-height: 1.4; }
+  .jacket__go { font-size: 1.05rem; letter-spacing: 0; transition: transform 0.25s var(--ease); }
+  .jacket:hover .jacket__go, .jacket:focus-within .jacket__go { transform: translateX(3px); }
+
+  .empty { padding: 2.5rem 1.5rem; border: 1px dashed var(--hc-rule); border-radius: 2px; color: var(--hc-text-secondary); text-align: center; }
+  .empty p { margin: 0 0 1rem; }
+
+  .related, .published { padding-block: 0 clamp(3rem, 6vw, 5rem); }
+
+  /* Related methods: ruled columns, no cards */
+  .methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 clamp(1.5rem, 4vw, 3rem); margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
+  .method { padding: 1.1rem 0 1.2rem; border-bottom: 1px solid var(--hc-rule-soft); }
+  .method p, .method h3 { margin: 0; }
+  .method__meta { color: var(--hc-gold-dim); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .method__title { margin-top: 0.45rem !important; color: var(--hc-text-primary); font: 600 1.05rem/1.35 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
+  .method__by { margin-top: 0.2rem !important; color: var(--hc-text-tertiary); font-size: 0.88rem; }
+  .method__text { margin-top: 0.5rem !important; color: var(--hc-text-secondary); font-size: 0.95rem; line-height: 1.6; text-wrap: pretty; }
+
+  /* Published treatise: the one book with a real cover */
+  .volume-card { position: relative; display: flex; overflow: hidden; border-radius: 2px; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--j-accent) 16%, transparent), transparent 62%), var(--j-bg); color: var(--j-ink); text-decoration: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--j-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
+  .volume-card:hover { box-shadow: inset 0 0 0 2px var(--j-accent); }
+  .volume-card__cover { flex: 0 0 9rem; margin: 1.1rem 0 1.1rem 1.1rem; aspect-ratio: 2 / 3; box-shadow: 6px 6px 18px rgba(0, 0, 0, 0.45); }
+  .volume-card__cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .volume-card__body { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 0.5rem; min-width: 0; padding: 1.25rem clamp(1.1rem, 3vw, 2rem); }
+  .volume-card__eyebrow { color: var(--j-accent); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .volume-card__title { font: 600 clamp(1.3rem, 2.6vw, 1.7rem)/1.25 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+  .volume-card__sub { color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); line-height: 1.5; }
+  .volume-card__go { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.6rem; color: var(--j-accent); font: 500 0.9rem var(--font-ui); transition: gap 0.2s ease; }
+  .volume-card:hover .volume-card__go { gap: 0.55rem; }
+
+  @media (max-width: 1000px) {
+    .catalog { grid-template-columns: 1fr; }
+    .rail { display: none; }
+    .sec { scroll-margin-top: 5rem; }
+  }
+
+  @media (max-width: 700px) {
+    .sec__rule { display: none; }
+    .dock__count { margin-left: 0; }
+    .methods { grid-template-columns: minmax(0, 1fr); }
+    .volume-card { flex-direction: column; }
+    .volume-card__cover { flex: none; width: 7rem; margin: 1.1rem 1.1rem 0; }
+    .volume-card__body { padding-top: 1rem; }
+  }
+
+  @media (max-width: 460px) {
+    .glance { grid-template-columns: minmax(0, 1fr); row-gap: 1rem; }
+    .glance__figure + .glance__figure { padding-top: 1rem; border-top: 1px dashed rgba(26, 23, 21, 0.4); border-left: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .icma-card,
-    .motzki-card,
-    .studies-carousel__stage,
-    .motzki-carousel__stage,
-    .motzki-card__action-btn svg {
-      transition: none !important;
-      transform: none !important;
-    }
-  }
-
-  /* -----------------------------------------------------------------------
-     Responsive editorial collapse
-     ----------------------------------------------------------------------- */
-
-  @media (max-width: 1000px) {
-    .icma-card__body,
-    .motzki-card__body {
-      grid-template-columns: 1fr;
-      gap: 1.75rem;
-    }
-
-    .icma-card__colophon {
-      grid-template-columns: 1fr;
-    }
-
-    .icma-card__actions {
-      justify-content: flex-start;
-    }
-
-    .motzki-card__points {
-      padding-top: 1rem;
-      border-top: 1px solid var(--hc-rule);
-    }
-  }
-
-  @media (max-width: 760px) {
-    .studies-page .hc-container {
-      width: min(calc(100% - 1.25rem), var(--studies-max));
-    }
-
-    .studies-hero {
-      padding-top: 2.5rem;
-    }
-
-    .studies-title {
-      font-size: clamp(2rem, 9vw, 3rem);
-    }
-
-    .section-intro,
-    .studies-shelf__header,
-    .motzki-header,
-    .studies-ledger__header {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-
-    .section-title {
-      max-width: 18ch;
-    }
-
-    .studies-carousel__topbar,
-    .motzki-carousel__topbar {
-      align-items: flex-start;
-    }
-
-    .icma-card {
-      padding: 1.35rem 1rem;
-    }
-
-    .icma-card__folio-bar {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-    .icma-card__folio-right {
-      justify-content: flex-start;
-    }
-
-    .icma-card__title {
-      max-width: 20ch;
-      font-size: clamp(1.5rem, 6.5vw, 2.1rem);
-    }
-
-    .icma-card__colophon {
-      margin-top: auto;
-      padding-top: 1.25rem;
-    }
-
-    .motzki-card {
-      padding: 1.35rem 1rem;
-    }
-
-    .motzki-card__folio-bar {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .motzki-card__folio-right {
-      justify-content: flex-start;
-    }
-
-    .motzki-card__title {
-      max-width: none;
-      font-size: clamp(1.25rem, 5vw, 1.65rem);
-    }
-
-    .motzki-card__footer {
-      margin-top: 0.5rem;
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .related-method-grid {
-      grid-template-columns: 1fr;
-      gap: 2rem;
-    }
-
-    .other-works__head {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .studies-title-accent {
-      display: block;
-      margin-top: 0.1em;
-    }
-
-    .icma-card__hero {
-      padding-top: 1.65rem;
-    }
-
-    .icma-card__title {
-      font-size: clamp(1.95rem, 11.5vw, 3rem);
-    }
-
-    .studies-ledger__meta {
-      text-align: left;
-    }
+    .studies-page * { transition: none !important; }
   }
 </style>

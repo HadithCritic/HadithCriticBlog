@@ -1,0 +1,133 @@
+---
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import taxonomyData from "../../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/intertext-taxonomy.json";
+
+const releaseId = "v0.5.26-cc-57cb2b7be321";
+const index = taxonomyData as {
+  categoryCount: number;
+  topLevelCategoryCount: number;
+  explicitRecordCategoryReferenceCount: number;
+  sourceFile: { path: string; sha256: string; url: string; taxonomyId: string };
+  categories: Array<{
+    nativeId: string;
+    parentNativeId: string;
+    depth: number;
+    siblingOrder: number;
+    attributes: Array<{ expandedName: string; exactValue: string }>;
+    elementPath: string;
+    line: number;
+    locator: string;
+    sourceUrl: string;
+    descriptions: Array<{ exactText: string; attributes: Array<{ expandedName: string; exactValue: string }>; locator: string; line: number; sourceUrl: string }>;
+  }>;
+};
+const byId = new Map(index.categories.map((category) => [category.nativeId, category]));
+function labelFor(nativeId: string | null) {
+  if (!nativeId) return "Parent category not supplied";
+  const parent = byId.get(nativeId);
+  return parent?.descriptions[0]?.exactText || nativeId;
+}
+---
+
+<BaseLayout
+  title="Intertext Taxonomy | Quran | HadithCritic Projects"
+  description="Browse the source hierarchy of 122 Corpus Coranicum intertext categories with exact TEI IDs and line citations."
+>
+  <div class="qtx-page hc-container">
+    <nav class="qtx-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/intertexts/">Intertexts</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Category taxonomy</span>
+    </nav>
+
+    <header class="qtx-header">
+      <p class="hc-eyebrow">Corpus Coranicum · quran_intertexts</p>
+      <h1 class="hc-title hc-title--lg">Category Taxonomy</h1>
+      <p class="qtx-lede">Browse the category hierarchy as encoded in the pinned TEI source. Category IDs, descriptions, parent placement, and document order remain attached to their source lines.</p>
+    </header>
+
+    <section class="qtx-coverage" aria-labelledby="qtx-coverage-title">
+      <h2 id="qtx-coverage-title">Indexed coverage</h2>
+      <dl>
+        <div><dt>Categories</dt><dd>{index.categoryCount}</dd></div>
+        <div><dt>Top-level entries</dt><dd>{index.topLevelCategoryCount}</dd></div>
+        <div><dt>Explicit record links</dt><dd>{index.explicitRecordCategoryReferenceCount}</dd></div>
+      </dl>
+      <p>The source export contains no explicit <code>catRef</code> links from its intertext records to these categories. The taxonomy is therefore browsable on its own; this page does not assign categories to records.</p>
+    </section>
+
+    <section class="qtx-search" aria-labelledby="qtx-search-title">
+      <h2 id="qtx-search-title">Find a category</h2>
+      <form id="qtx-form" method="get" action="/projects/quran/intertexts/categories/">
+        <label for="qtx-query">Search exact category values · case-sensitive</label>
+        <input id="qtx-query" name="q" type="search" autocomplete="off" disabled>
+        <button class="hc-btn hc-btn--ghost" type="submit" disabled>Search {index.categoryCount} categories</button>
+      </form>
+      <p id="qtx-status" class="qtx-status" aria-live="polite" aria-atomic="true">Loading source-located categories…</p>
+      <noscript><p>Interactive search needs JavaScript. The complete source hierarchy is listed below.</p></noscript>
+    </section>
+
+    <ol id="qtx-results" class="qtx-results" aria-label="Source taxonomy categories">
+      {index.categories.map((category) => <li class="qtx-entry" data-category-id={category.nativeId} style={`--qtx-depth:${category.depth - 1}`}>
+        <div class="qtx-entry-heading">
+          <h3>{category.descriptions[0]?.exactText || "[category has no description]"}</h3>
+          <a href={category.sourceUrl} target="_blank" rel="noopener noreferrer">Open source category line ↗</a>
+        </div>
+        <p class="qtx-identity"><code>{category.nativeId}</code> · parent: {labelFor(category.parentNativeId)} · depth {category.depth} · source order {category.siblingOrder}</p>
+        <p class="qtx-locator">{category.locator} · {category.elementPath} · source line {category.line}</p>
+        {category.attributes.length > 0 && <ul class="qtx-attrs">{category.attributes.map((attribute) => <li>{attribute.expandedName} = {attribute.exactValue}</li>)}</ul>}
+        {category.descriptions.slice(1).map((description) => <div class="qtx-description">
+          <p dir="auto">{description.exactText || "[empty source description]"}</p>
+          <p class="qtx-locator">{description.locator} · source line {description.line}</p>
+          <a href={description.sourceUrl} target="_blank" rel="noopener noreferrer">Open source description line ↗</a>
+        </div>)}
+      </li>)}
+    </ol>
+
+    <section class="qtx-notes" aria-labelledby="qtx-notes-title">
+      <h2 id="qtx-notes-title">Scope and source</h2>
+      <p>This page indexes every <code>category</code> in the source taxonomy. Parent and depth values reflect its literal XML nesting. The sibling <code>msDesc</code> records contain no explicit category references, so no record-to-category mapping is inferred.</p>
+      <p>Source: Corpus Coranicum Project, ed. Michael Marx, TEI data, pinned commit <code>57cb2b7be321ecfba100cb5f7988974f47864a14</code>, CC BY-SA 4.0. <a href={index.sourceFile.url} target="_blank" rel="noopener noreferrer">Open source taxonomy</a> · SHA-256 <code>{index.sourceFile.sha256}</code>. Download the <a href={`/data/quran/releases/${releaseId}/intertext-taxonomy.json`} download>versioned source index</a>.</p>
+    </section>
+    <nav class="qtx-tools" aria-label="Quran project pages">
+      <a class="hc-btn" href="/projects/quran/intertexts/">Intertext source catalogue <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Return to Quran project <span aria-hidden="true">→</span></a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../../lib/quran-intertext-taxonomy-browser";
+</script>
+
+<style is:global>
+  .qtx-page { padding-block:2rem clamp(5rem,10vw,8rem); }
+  .qtx-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qtx-crumbs a, .qtx-entry a, .qtx-notes a { color:var(--hc-gold); text-decoration:none; }
+  .qtx-header { max-width:64rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qtx-header h1 { margin-block:.5rem 1rem; }
+  .qtx-lede { max-width:70ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qtx-coverage, .qtx-search, .qtx-notes { max-width:76rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qtx-coverage h2, .qtx-search h2, .qtx-notes h2 { color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.4rem; font-weight:500; }
+  .qtx-coverage dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; }
+  .qtx-coverage dl div { padding:1rem; background:var(--hc-surface-1); }
+  .qtx-coverage dt { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.78rem; }
+  .qtx-coverage dd { margin:.3rem 0 0; color:var(--hc-gold); font-family:var(--font-display); font-size:1.5rem; }
+  .qtx-search form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.7rem; max-width:60rem; }
+  .qtx-search label { grid-column:1/-1; color:var(--hc-text-secondary); font-family:var(--font-ui); font-size:.85rem; }
+  #qtx-query { min-width:0; padding:.8rem 1rem; border:1px solid var(--hc-rule-strong); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  .qtx-status { min-height:1.5em; color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qtx-results { display:grid; gap:.55rem; padding:0; list-style:none; }
+  .qtx-entry { margin-left:calc(var(--qtx-depth) * clamp(0rem, 1.5vw, 1.1rem)); padding:1rem 1.2rem; border-bottom:1px solid var(--hc-rule); background:var(--hc-surface-1); }
+  .qtx-entry-heading { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:.5rem 1rem; }
+  .qtx-entry h3 { margin:0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.18rem; font-weight:500; }
+  .qtx-identity, .qtx-locator { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.78rem; line-height:1.7; overflow-wrap:anywhere; }
+  .qtx-entry code { color:var(--hc-text-secondary); }
+  .qtx-attrs { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.78rem; overflow-wrap:anywhere; }
+  .qtx-description { margin-top:.8rem; padding-top:.7rem; border-top:1px solid var(--hc-rule); }
+  .qtx-description > p:first-child { margin:.2rem 0; color:var(--hc-text-primary); white-space:pre-wrap; }
+  .qtx-tools { display:flex; flex-wrap:wrap; gap:.75rem; padding-top:2rem; }
+  @media(max-width:760px) { #qtx-form { grid-template-columns:1fr; } .qtx-coverage dl { grid-template-columns:1fr; gap:.75rem; } .qtx-entry { margin-left:calc(var(--qtx-depth) * .2rem); } }
+</style>

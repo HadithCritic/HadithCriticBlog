@@ -126,6 +126,10 @@ brand accent.
 `--hc-copper` is the text-safe member of this family; see Status below. Reach
 for it rather than `--hc-umber` whenever the value is a `color`.
 
+### Qirāʾāt palette: `qiraat.css`
+
+Used by `/projects/quran/` and `/projects/quran/transmission/`. **One hue per reader; his two transmitters are its deep and light shade.** Ten hues, fixed and identical in both themes, each ink checked at AA against its own ground (`q-nafi` teal, `q-abu_jafar` amber, `q-abu_amr` lapis, `q-yaqub` rust, `q-asim` pine, `q-hamza` oxblood, `q-khalaf_ashir` plum, `q-kisai` olive, `q-ibn_amir` slate, `q-ibn_kathir` rose). Classes `shade-0` and `shade-1` set `--bg` and `--ink`; `.sw` draws a swatch. These hues identify people and carry no evaluative meaning, and a name is always printed beside them. Do not reuse them for anything else on those pages.
+
 ### Categories
 
 Four article-taxonomy hues, tuned for **12% fills and 30% borders**:
@@ -645,6 +649,18 @@ server). A field that carries focus with its own border must set `--hc-focus-wid
 on the inner input so focus is not drawn twice. The native search clear button is
 re-drawn in a themed color. An empty result names the query. Old `?format=App` links
 still resolve to Tool. Card grids use a 10px gap.
+
+### `/research` atlas
+
+The hadith criticism atlas reuses the masthead, instrument, dock and ruled-list shapes. Its
+one new figure is the **timeline map**: one row per lead author, x by year (the scale widens
+after 1990 because most of the literature is recent), marks by form (circle article or chapter,
+square book or thesis, diamond edited volume). Mark fills are the academic-studies jacket
+colors and stand for a main theme, never for a judgment of a work. Selecting a work draws a
+solid line to what it cites and a dashed line from what cites it, so the two directions differ
+by shape and not only by color. The full list of works below the map is the no-JavaScript
+path, with the same citation relations in a native `<details>`. Map text stays at its designed
+size and the container scrolls on small screens rather than shrinking the SVG below 12px.
 
 ### Row hover
 

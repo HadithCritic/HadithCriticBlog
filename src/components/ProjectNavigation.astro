@@ -1,0 +1,135 @@
+---
+interface Props { mobile?: boolean }
+const { mobile = false } = Astro.props;
+const pathname = Astro.url.pathname.replace(/(.)\/$/, '$1');
+const groups = [
+  { title: 'Databases', links: [
+    { title: 'Hadith Corpus', href: '/hadith/' },
+    { title: 'Rijāl Register', href: '/narrators/' },
+    { title: 'Quran', href: '/projects/quran/' }
+  ] },
+  { title: 'Research', links: [
+    { title: 'Hadith Criticism Atlas', href: '/research/' },
+    { title: 'Academic Studies', href: '/projects/academic-studies/' },
+    { title: 'Shirk: Endorsed by the Scholars of Islam', href: '/research/shirk-endorsed/' }
+  ] }
+];
+const isCurrent = (href: string) => {
+  const route = href.replace(/\/$/, '');
+  return pathname === route || (route !== '/research' && pathname.startsWith(`${route}/`));
+};
+const active = pathname === '/projects' || groups.some(group => group.links.some(link => isCurrent(link.href)));
+---
+
+<details class:list={['project-nav', { 'project-nav--mobile': mobile }]} data-project-nav>
+  <summary class="project-nav__trigger" data-active={active || undefined}>
+    <span>Projects</span>
+    <span class="project-nav__chevron" aria-hidden="true"></span>
+    <span class="project-nav__indicator" aria-hidden="true"></span>
+  </summary>
+  <div class="project-nav__panel">
+    <a class="project-nav__all" href="/projects/" aria-current={pathname === '/projects' ? 'page' : undefined}>
+      All projects
+    </a>
+    <div class="project-nav__groups">
+      {groups.map(group => (
+        <div class="project-nav__group">
+          <p class="project-nav__heading">{group.title}</p>
+          <ul>
+            {group.links.map(link => (
+              <li><a href={link.href} aria-current={pathname === link.href.replace(/\/$/, '') ? 'page' : isCurrent(link.href) ? 'location' : undefined}>{link.title}</a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+</details>
+
+<style>
+  .project-nav { position: relative; }
+  .project-nav__trigger {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-xs);
+    color: var(--hc-text-secondary);
+    font: 700 0.82rem/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    list-style: none;
+    cursor: pointer;
+    transition: color var(--motion-fast) var(--ease-standard);
+  }
+  .project-nav__trigger::-webkit-details-marker { display: none; }
+  .project-nav__trigger:hover, .project-nav[open] > summary { color: var(--hc-text-primary); }
+  .project-nav__trigger[data-active] { color: var(--hc-gold); }
+  .project-nav__chevron {
+    width: 6px;
+    height: 6px;
+    border-right: 1px solid currentColor;
+    border-bottom: 1px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    transition: transform var(--motion-fast) var(--ease-standard);
+  }
+  .project-nav[open] > summary .project-nav__chevron { transform: translateY(1px) rotate(225deg); }
+  .project-nav__indicator { position: absolute; bottom: 6px; left: 0.6rem; right: 0.6rem; height: 2px; background: var(--hc-gold); transform: scaleX(0); transition: transform var(--motion-base) var(--ease-standard); }
+  .project-nav[open] > summary .project-nav__indicator, .project-nav__trigger[data-active] .project-nav__indicator { transform: scaleX(1); }
+  .project-nav__panel {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 14px);
+    left: 50%;
+    width: min(36rem, calc(100vw - 2rem));
+    transform: translateX(-50%);
+    padding: 6px;
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    box-shadow: var(--hc-header-shadow);
+  }
+  .project-nav__all { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; padding: 0.8rem 1rem; border-bottom: 1px solid var(--hc-rule); color: var(--hc-gold); font: 600 0.9rem/1.4 var(--font-ui); text-decoration: none; }
+  .project-nav__all:hover { background: var(--hc-surface-2); }
+  .project-nav__groups { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.25rem; padding: 1rem 0.5rem 0.5rem; }
+  .project-nav__heading { margin: 0 0 0.5rem; padding-inline: 0.5rem; color: var(--hc-text-tertiary); font: 600 0.75rem/1.5 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .project-nav__group ul { margin: 0; padding: 0; list-style: none; }
+  .project-nav__group a { display: flex; align-items: center; min-height: 44px; padding: 0.7rem 0.5rem; border-bottom: 1px solid var(--hc-rule-soft); color: var(--hc-text-primary); font: 400 0.9rem/1.5 var(--font-body); text-decoration: none; }
+  .project-nav__group a:hover, .project-nav__group a[aria-current] { box-shadow: inset 2px 0 var(--hc-gold); background: var(--hc-surface-2); color: var(--hc-gold); }
+  .project-nav--mobile > summary { justify-content: space-between; min-height: 48px; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--hc-rule-soft); font-size: 0.95rem; }
+  .project-nav--mobile .project-nav__indicator { display: none; }
+  .project-nav--mobile .project-nav__panel { position: static; width: auto; transform: none; padding: 0; margin: 0.5rem 0 1rem; border: 0; border-left: 1px solid var(--hc-rule); border-radius: 0; background: transparent; box-shadow: none; }
+  .project-nav--mobile .project-nav__groups { grid-template-columns: 1fr; gap: 1rem; padding: 1rem 0 0 0.5rem; }
+  .project-nav--mobile .project-nav__all { padding-inline: 1rem 0.5rem; }
+  @media (prefers-reduced-motion: reduce) {
+    .project-nav__trigger, .project-nav__chevron, .project-nav__indicator { transition: none; }
+  }
+</style>
+
+<script>
+  const projectMenus = [...document.querySelectorAll<HTMLDetailsElement>('[data-project-nav]')];
+  projectMenus.forEach(menu => {
+    const trigger = menu.querySelector<HTMLElement>('summary');
+    menu.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !menu.open) return;
+      event.preventDefault();
+      event.stopPropagation();
+      menu.open = false;
+      trigger?.focus();
+    });
+    menu.addEventListener('focusout', event => {
+      if (event.relatedTarget instanceof Node && !menu.contains(event.relatedTarget)) menu.open = false;
+    });
+    menu.addEventListener('click', event => {
+      if ((event.target as Element).closest('a')) menu.open = false;
+    });
+  });
+  document.addEventListener('pointerdown', event => {
+    projectMenus.forEach(menu => {
+      if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+    });
+  });
+</script>
