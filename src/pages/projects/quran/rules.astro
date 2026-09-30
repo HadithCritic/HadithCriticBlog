@@ -1,0 +1,326 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import rulesData from "../../../data/qiraat/rules.json";
+import "../../../styles/qiraat.css";
+
+/* The general rules of the ten readers: how each treats a whole class of words, from the chapters
+   before the word-by-word section of Taḥbīr at-Taysīr. Built by scripts/quran/qiraat/build-rules-data.py. */
+type Reader = { qari: string; display: string; whole: boolean; riwayat: { id: string; display: string }[] };
+type Claim = { id: string; book_id: string; page: string; quote: string; quote_is_exact_raw: boolean; via: string[]; note: string | null };
+type Group = {
+  kind: "reading" | "differs" | "reported" | "unstated"; tone: number | null; short: string; members: string[];
+  readers: Reader[]; qaris: string[]; member_count: number; value_label?: string;
+  forms?: { text: string; book_id: string; page: string }[]; claims?: Claim[];
+  by_book?: { book_id: string; values: { label: string }[] }[]; values?: { label: string }[];
+};
+type Report = Claim & { readers: Reader[]; value_label: string; basis: string };
+type Rule = {
+  id: string; lemma: string; note?: string | null; unresolved?: { span: string; reason: string }[];
+  groups: Group[]; reports: Report[]; books: string[];
+};
+type Chapter = { title_ar: string; rules: Rule[] };
+
+const data = rulesData as unknown as {
+  counts: { rules: number; chapters: number; claims: number; books: number };
+  qaris: { id: string; display: string; name_ar: string; riwayat: string[] }[];
+  riwayat: { id: string; qari: string; display: string; name_ar: string }[];
+  books: { book_id: string; short_title: string; mark: string }[];
+  chapters: Chapter[];
+};
+const total = data.riwayat.length;
+const bookOf = new Map(data.books.map((book) => [book.book_id, book]));
+const bookName = (id: string) => bookOf.get(id)?.short_title ?? id;
+const qariOf = new Map(data.qaris.map((q) => [q.id, q]));
+const labelLang = (text: string | undefined) => (/[؀-ۿ]/u.test(text ?? "") ? "ar" : undefined);
+const noteParts = (text: string) => text.split(/([؀-ۿ]+(?:\s+[؀-ۿ]+)*)/u);
+const letter = (group: Group) => String.fromCharCode(65 + (group.tone ?? 0));
+const tally = (rule: Rule) => rule.groups.map((g) => `${g.kind === "reading" ? letter(g) : g.short} ${g.member_count}`);
+
+const VIA: Record<string, string> = {
+  direct: "The book names this transmitter",
+  qari: "The book names the qāriʾ; applied to both his transmitters",
+  rest: "The book says “the others”; applied to the readers it covers",
+};
+const BASIS: Record<string, string> = {
+  report: "Reported through a named student",
+  rejected: "Recorded, then rejected in the book",
+  disputed: "The book says there is a dispute over this reader",
+  permitted: "The book permits this as a way of beginning the word",
+};
+const KIND_LABEL = { differs: "The books differ", reported: "Reported, not listed", unstated: "Not stated in the books cited" };
+const KIND_TITLE = { differs: "What each book gives", reported: "Reports only", unstated: "No book states these readers" };
+
+function spans(groups: Group[]): number[] {
+  if (groups.length === 1) return [6];
+  if (groups.length === 2) {
+    const [a, b] = groups.map((group) => group.member_count);
+    return Math.max(a, b) >= 14 ? (a >= b ? [4, 2] : [2, 4]) : [3, 3];
+  }
+  return groups.map((group, index) => (index === 0 && group.member_count >= 10 ? 6 : 3));
+}
+
+const chapters = data.chapters.map((chapter, index) => ({ ...chapter, slug: `ch-${index + 1}`, number: index + 1 }));
+let counter = 0;
+const numbered = new Map<string, string>();
+for (const chapter of chapters) for (const rule of chapter.rules) numbered.set(rule.id, String((counter += 1)).padStart(3, "0"));
+---
+
+<BaseLayout
+  title="General rules | Quran | HadithCritic Projects"
+  description="How each of the ten readers treats whole classes of words, with the classical book and page for each statement."
+>
+  <div class="qr">
+    <header class="hc-masthead" aria-labelledby="qr-title">
+      <div class="hc-container hc-masthead__inner">
+        <div>
+          <nav class="hc-eyebrow" aria-label="Breadcrumb">
+            <a href="/">Home</a> / <a href="/projects/">Projects</a> / <a href="/projects/quran/">Quran</a> / <span aria-current="page">General rules</span>
+          </nav>
+          <h1 id="qr-title" class="hc-masthead__title">General rules</h1>
+          <p class="hc-masthead__lead">
+            How each reader treats a whole class of words: the hamza, the madd, the imāla, merging one letter into another, stopping.
+            They come from the chapters that precede the word-by-word section of Ibn al-Jazarī’s <i>Taḥbīr at-Taysīr</i>.
+            Every statement is a proposal that no reviewer has checked yet, and every quotation is checked against its page.
+          </p>
+          <div class="hc-masthead__actions">
+            <a class="hc-btn" href="#chapters">Chapters <span aria-hidden="true">↓</span></a>
+            <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Word by word <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+        <aside class="hc-instrument" aria-label="What this page holds">
+          <div class="hc-instrument__well">
+            <div class="hc-instrument__plate glance">
+              <dl class="glance__figures">
+                <div><dt>Rules</dt><dd class="hc-instrument__figure">{data.counts.rules}</dd></div>
+                <div><dt>Chapters</dt><dd class="hc-instrument__figure">{data.counts.chapters}</dd></div>
+                <div><dt>Claims</dt><dd class="hc-instrument__figure">{data.counts.claims}</dd></div>
+              </dl>
+              <p class="glance__of">from pages 181 to 281 of the main source</p>
+            </div>
+            <p class="hc-instrument__cap">A rule with no reader named for a reading says nothing about that reader. A short English note is ours; the Arabic beside it is the book’s.</p>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <div class="hc-container qr-body">
+      <section class="sec" id="chapters" aria-labelledby="chapters-h">
+        <header class="sec__head">
+          <h2 id="chapters-h" class="sec__title">Chapters</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+          <span class="sec__count">{chapters.length}</span>
+        </header>
+        <ol class="toc">
+          {chapters.map((chapter) => (
+            <li><a href={`#${chapter.slug}`}><span class="toc__ar hc-quran" lang="ar">{chapter.title_ar}</span> <b>{chapter.rules.length}</b></a></li>
+          ))}
+        </ol>
+      </section>
+
+      {chapters.map((chapter) => (
+        <section class="sec" id={chapter.slug} aria-labelledby={`${chapter.slug}-h`}>
+          <header class="sec__head">
+            <h2 id={`${chapter.slug}-h`} class="sec__title sec__title--ar hc-quran" lang="ar">{chapter.title_ar}</h2>
+            <span class="sec__rule" aria-hidden="true"></span>
+            <span class="sec__count">{chapter.rules.length}</span>
+          </header>
+          {chapter.rules.map((rule) => (
+            <article class="pos" id={rule.id} aria-labelledby={`${rule.id}-h`}>
+              <header class="pos__head">
+                <div>
+                  <p class="pos__no"><span class="disc disc--lg">{numbered.get(rule.id)}</span> Rule</p>
+                  <h3 class="pos__title pos__title--ar hc-quran" id={`${rule.id}-h`} lang="ar">{rule.lemma}</h3>
+                  <div class="gs" role="img" aria-label={`Who reads what: ${tally(rule).join(", ")}`}>
+                    {rule.groups.map((group) => (
+                      <div class="gs__g"><span class="gs__k">{group.kind === "reading" ? letter(group) : group.short} <b>{group.member_count}</b></span></div>
+                    ))}
+                  </div>
+                </div>
+              </header>
+              {rule.note && <p class="pos__flag">{noteParts(rule.note).map((text) => <bdi lang={labelLang(text)}>{text}</bdi>)}</p>}
+              {rule.unresolved && rule.unresolved.length > 0 && (
+                <p class="pos__flag">
+                  Not assigned to any reader:{" "}
+                  {rule.unresolved.map((u, i) => (
+                    <>{i > 0 && "; "}<bdi lang="ar">{u.span}</bdi> ({noteParts(u.reason).map((text) => <bdi lang={labelLang(text)}>{text}</bdi>)})</>
+                  ))}
+                </p>
+              )}
+              <ol class="cards">
+                {(() => {
+                  const layout = spans(rule.groups);
+                  return rule.groups.map((group, index) => (
+                    <li class={`card card--${group.kind}`} style={`grid-column: span ${layout[index]}`}>
+                      <div class="card__top">
+                        <p class="card__kind">
+                          {group.kind === "reading" && <b class="lt lt--lg">{letter(group)}</b>}
+                          {group.kind === "reading" ? "Reading" : KIND_LABEL[group.kind]}
+                        </p>
+                        <p class="card__n"><b>{group.member_count}</b> of {total}</p>
+                      </div>
+                      <h4 class="card__title"><bdi lang={labelLang(group.value_label)}>{group.kind === "reading" ? group.value_label : KIND_TITLE[group.kind]}</bdi></h4>
+                      {group.forms && group.forms.length > 0 && (
+                        <ul class="forms" aria-label="As written in the book">
+                          {group.forms.map((form) => (
+                            <li><bdi class="forms__ar" lang="ar">{form.text}</bdi><span class="forms__src">{bookOf.get(form.book_id)?.mark} · {form.page}</span></li>
+                          ))}
+                        </ul>
+                      )}
+                      {group.by_book && (
+                        <ul class="bybook">
+                          {group.by_book.map((entry) => (
+                            <li><b class="mk mk--on">{bookOf.get(entry.book_id)?.mark}</b>{entry.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}</li>
+                          ))}
+                        </ul>
+                      )}
+                      {group.values && <p class="card__note">Reports only: {group.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}. See below.</p>}
+                      <p class="card__who">
+                        <span class="card__k">{group.kind === "unstated" ? "Not stated for" : "Read by"}</span>
+                        {group.readers.map((reader, i) => (
+                          <>
+                            {i > 0 && " "}
+                            <span class={`who q-${reader.qari}`}>
+                              <i class={reader.whole ? "sw" : `sw sw--${qariOf.get(reader.qari)!.riwayat.indexOf(reader.riwayat[0].id)}`} aria-hidden="true"></i>
+                              {reader.display}{!reader.whole && ` (${reader.riwayat.map((r) => r.display).join(", ")})`}{i < group.readers.length - 1 && ","}
+                            </span>
+                          </>
+                        ))}
+                      </p>
+                      {group.claims && group.claims.length > 0 && (
+                        <details class="card__src">
+                          <summary>Quotations ({group.claims.length})</summary>
+                          <ul class="quotes">
+                            {group.claims.map((claim) => (
+                              <li>
+                                <p class="quotes__ref">{bookName(claim.book_id)}, {claim.page}</p>
+                                <blockquote class="quotes__ar" lang="ar">{claim.quote}</blockquote>
+                                <p class="quotes__how">
+                                  {claim.via.map((v) => VIA[v]).join(". ")}{!claim.quote_is_exact_raw && ". The quotation runs over a page break, so its vowel marks are omitted"}
+                                </p>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </li>
+                  ));
+                })()}
+              </ol>
+              {rule.reports.length > 0 && (
+                <details class="reports">
+                  <summary>Also reported in the book ({rule.reports.length})</summary>
+                  <ul>
+                    {rule.reports.map((report) => (
+                      <li class="rep">
+                        <p class="quotes__ref">
+                          {bookName(report.book_id)}, {report.page}. {report.readers.map((r) => (r.whole ? r.display : `${r.display} (${r.riwayat.map((w) => w.display).join(", ")})`)).join(", ")}: <bdi lang={labelLang(report.value_label)}>{report.value_label}</bdi>. {BASIS[report.basis]}.
+                        </p>
+                        <blockquote class="quotes__ar" lang="ar">{report.quote}</blockquote>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </article>
+          ))}
+        </section>
+      ))}
+
+      <section class="sec" id="status" aria-labelledby="status-h">
+        <header class="sec__head">
+          <h2 id="status-h" class="sec__title">What is and is not here</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+        </header>
+        <dl class="guide">
+          <div><dt>What the machine checks</dt><dd>That each quoted passage is on the cited page and that every reader named is in the passage. Nothing is corrected.</dd></div>
+          <div><dt>What nobody has checked</dt><dd>Whether a reader was assigned to the right treatment. That takes a person reading the passage, and it has not happened yet.</dd></div>
+          <div><dt>Left out on purpose</dt><dd>Agreements of all readers, the views of teachers outside the ten, the author’s own routes beyond the book, and the yāʾāt and dropped yāʾāt, which are entered place by place under each sura.</dd></div>
+          <div><dt>Labels</dt><dd>The short English notes and the grouping are ours. The Arabic beside them is the book’s. Nothing here grades a reading.</dd></div>
+        </dl>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .qr-body { padding-block: 0 clamp(4rem, 9vw, 7rem); }
+  .sec { padding-top: clamp(2.75rem, 5vw, 4.25rem); scroll-margin-top: 9rem; }
+  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .sec__title { margin: 0; font: 600 clamp(1.4rem, 3vw, 1.8rem)/1.3 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .sec__title--ar { font-family: var(--font-arabic); font-weight: 400; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.8; letter-spacing: 0; }
+  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
+  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+
+  .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .toc a { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); color: var(--hc-text-primary); text-decoration: none; }
+  .toc a:hover { border-color: var(--hc-gold); }
+  .toc__ar { font: 400 1.25rem/1.7 var(--font-arabic); }
+  .toc b { font: 600 0.9rem var(--font-ui); color: var(--hc-text-secondary); font-variant-numeric: tabular-nums; }
+
+  .disc { display: inline-grid; place-items: center; min-width: 1.7rem; height: 1.7rem; padding-inline: 0.15rem; border-radius: 999px; background: var(--hc-gold); color: var(--hc-text-inverse); font: 700 0.8rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .lt { display: inline-grid; place-items: center; min-width: 1.6rem; height: 1.6rem; margin-inline-end: 0.6rem; border: 1px solid var(--hc-gold); border-radius: 2px; color: var(--hc-gold); font: 700 0.85rem/1 var(--font-ui); vertical-align: 0.05em; }
+
+  .glance { padding: 1.1rem 1.25rem 1.25rem; }
+  .glance__figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; margin: 0; }
+  .glance__figures div { display: flex; flex-direction: column-reverse; gap: 0.5rem; }
+  .glance__figures div + div { padding-inline-start: 1rem; border-inline-start: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
+  .glance dt { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .glance dd { margin: 0; }
+  .glance__of { margin: 0.9rem 0 0; font-size: 0.9rem; line-height: 1.5; }
+
+  .pos { padding-block: clamp(1.75rem, 3.5vw, 2.75rem); border-top: 1px solid var(--hc-rule); scroll-margin-top: 9rem; content-visibility: auto; contain-intrinsic-size: auto 30rem; }
+  .pos:target .pos__title { color: var(--hc-gold-bright); }
+  .pos__head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; margin-bottom: 1.25rem; }
+  .pos__no { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.5rem; font: 600 0.81rem/1 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
+  .pos__title { margin: 0; font: 600 clamp(1.3rem, 2.4vw, 1.7rem)/1.25 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .pos__title--ar { font-family: var(--font-arabic); font-weight: 400; font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.8; letter-spacing: 0; }
+  .pos__flag { max-width: 70ch; margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--hc-rule-strong); color: var(--hc-text-secondary); font-size: 0.93rem; line-height: 1.6; }
+  .gs { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; margin-top: 0.5rem; }
+  .gs__k { font: 700 0.75rem/1.2 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--hc-text-secondary); font-variant-numeric: tabular-nums; }
+
+  .cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .card { --fg: var(--hc-text-primary); --fg2: var(--hc-text-secondary); --fg3: var(--hc-text-tertiary); --line: var(--hc-rule-soft); display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; padding: 1.05rem 1.15rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-2); color: var(--fg); }
+  .card--differs { --fg: var(--hc-fixed-parchment-ink); --fg2: color-mix(in srgb, var(--hc-fixed-parchment-ink) 86%, var(--hc-fixed-parchment-deep)); --fg3: color-mix(in srgb, var(--hc-fixed-parchment-ink) 78%, var(--hc-fixed-parchment-deep)); --line: rgba(26, 23, 21, 0.25); border-color: transparent; background: repeating-linear-gradient(135deg, rgba(26, 23, 21, 0.06) 0 2px, transparent 2px 9px), var(--hc-fixed-parchment-deep); }
+  .card--reported { border: 1px dashed var(--hc-text-tertiary); background: transparent; }
+  .card--unstated { border: 1px dotted var(--hc-text-tertiary); background: transparent; }
+  .card__top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  .card__kind { display: flex; align-items: center; margin: 0; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg2); }
+  .card__n { margin: 0; font: 500 0.85rem/1 var(--font-ui); color: var(--fg2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .card__n b { font: 600 1.5rem/1 var(--font-display); color: var(--fg); }
+  .card__title { margin: 0; font: 600 1.2rem/1.3 var(--font-display); letter-spacing: -0.015em; color: var(--fg); }
+  .card__note, .card__who { margin: 0; color: var(--fg2); font-size: 0.96rem; line-height: 1.7; }
+  .card__k { display: block; margin-bottom: 0.2rem; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); }
+  .who { display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-end: 0.15rem; color: var(--fg); white-space: nowrap; }
+  .forms { margin: 0; padding: 0; list-style: none; }
+  .forms li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 1rem; padding-block: 0.1rem; border-top: 1px solid var(--line); }
+  .forms__ar { font: 400 1.3rem/1.8 var(--font-arabic); color: var(--fg); }
+  .forms__src { font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.08em; color: var(--fg3); }
+  .bybook { margin: 0; padding: 0; list-style: none; font-size: 0.96rem; line-height: 1.55; }
+  .bybook li { display: flex; gap: 0.6rem; align-items: baseline; padding-block: 0.2rem; }
+  .mk { display: inline-grid; place-items: center; min-width: 1.6rem; height: 1.3rem; padding-inline: 0.25rem; border-radius: 2px; box-shadow: inset 0 0 0 1px currentColor; font: 700 0.75rem/1 var(--font-ui); letter-spacing: 0.04em; }
+  .card__src { margin-top: auto; padding-top: 0.4rem; }
+  .card__src summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-height: 2rem; cursor: pointer; color: var(--fg); font: 600 0.81rem/1.4 var(--font-ui); letter-spacing: 0.06em; }
+  .quotes { margin: 0.5rem 0 0; padding: 0; list-style: none; }
+  .quotes li { padding: 0.65rem 0 0.75rem; border-top: 1px solid var(--line, var(--hc-rule-soft)); }
+  .quotes__ref { margin: 0 0 0.3rem; font-size: 0.9rem; line-height: 1.5; color: var(--fg2, var(--hc-text-secondary)); }
+  .quotes__ar { margin: 0; font-size: 1.2rem; line-height: var(--leading-arabic); color: var(--fg, var(--hc-text-primary)); }
+  .quotes__how { margin: 0.3rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--fg3, var(--hc-text-tertiary)); }
+  .reports { margin-top: 0.9rem; }
+  .reports summary { min-height: 2rem; cursor: pointer; color: var(--hc-gold); font: 600 0.81rem/1.6 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .reports ul { margin: 0.4rem 0 0; padding: 0; list-style: none; }
+  .reports li { padding: 0.7rem 0 0.8rem; border-top: 1px solid var(--hc-rule-soft); }
+
+  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 10px; margin: 0; }
+  .guide div { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
+  .guide dt { font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold); }
+  .guide dd { margin: 0.5rem 0 0; color: var(--hc-text-secondary); font-size: 0.96rem; line-height: 1.65; }
+
+  @media (max-width: 900px) {
+    .cards { grid-template-columns: minmax(0, 1fr); }
+    .card { grid-column: 1 / -1 !important; }
+  }
+  @media (max-width: 480px) {
+    .glance__figures { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .glance__figures div, .glance__figures div + div { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 0.9rem; padding: 0.35rem 0; border-inline-start: 0; }
+  }
+</style>

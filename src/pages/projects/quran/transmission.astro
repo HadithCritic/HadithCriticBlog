@@ -1,0 +1,305 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import data from "../../../data/quran-transmission.json";
+import "../../../styles/qiraat.css";
+
+type Witness = { book_id: string; volume: string | null; page: string; quote: string; exact_raw: boolean; note: string | null; hedged: boolean };
+type Person = typeof data.persons[number];
+type Link = { id: string; student: string; teacher: string; firm: boolean; d: string; lineages: string[]; q: string | null; witnesses: Witness[] };
+
+const links = data.edges as Link[];
+const people = new Map(data.persons.map((person) => [person.id, person]));
+const wear = (person: Person) => (person.q ? `q-${person.q}${person.shade !== null ? ` shade-${person.shade}` : ""}` : "");
+const hasTeachers = new Set(links.map((link) => link.student));
+const pageOf = (link: Link) => [...new Set(link.witnesses.map((w) => `${w.volume ? `vol. ${w.volume}, ` : ""}p. ${w.page}`))].join("; ");
+
+/* Ledger: one block per person who has teachers, by column then name. */
+const blocks = data.persons
+  .filter((person) => hasTeachers.has(person.id))
+  .sort((a, b) => a.layer - b.layer || a.latin.localeCompare(b.latin))
+  .map((person) => ({ person, links: links.filter((link) => link.student === person.id) }));
+
+const readerRules = data.readers
+  .map((q) => `.tx:has(#tx-r-${q.id}:checked) :is(.node, .edge, .lk):not([data-l~="${q.id}"]) { display: none; }`)
+  .join("\n");
+const nonFirm = data.counts.links - data.counts.firm;
+/* Notes are English with short Arabic quotations inline; give each Arabic run its own language. */
+const ARABIC_RUN = /([؀-ۿ][؀-ۿ\sً-ٟ،؟]*[؀-ۿ]|[؀-ۿ])/u;
+const runs = (text: string) => text.split(ARABIC_RUN).map((part, index) => ({ part, ar: index % 2 === 1 }));
+---
+
+<BaseLayout
+  title="Transmission of the readings | Quran | HadithCritic Projects"
+  description="The chains by which the ten readers and their twenty transmitters are said to have received the Qurʾān, traced to the Prophet, each link cited to Ibn al-Jazarī’s an-Nashr."
+>
+  <div class="tx">
+    <header class="hc-masthead" aria-labelledby="tx-title">
+      <div class="hc-container hc-masthead__inner">
+        <div>
+          <nav class="hc-eyebrow" aria-label="Breadcrumb">
+            <a href="/">Home</a> / <a href="/projects/">Projects</a> / <a href="/projects/quran/">Quran</a> / <span aria-current="page">Transmission</span>
+          </nav>
+          <h1 id="tx-title" class="hc-masthead__title">Transmission</h1>
+          <p class="hc-masthead__lead">
+            The chains by which the ten readers, and the twenty transmitters who carried their readings, are said to have received the Qurʾān, traced upward to the Prophet.
+            Every link is a sentence in Ibn al-Jazarī’s an-Nashr, cited by page. The diagram records what that book says. It does not judge it.
+          </p>
+          <div class="hc-masthead__actions">
+            <a class="hc-btn" href="#diagram">See the diagram <span aria-hidden="true">↓</span></a>
+            <a class="hc-back-link hc-back-link--ruled" href="/projects/quran/"><span aria-hidden="true">←</span> The readings</a>
+          </div>
+        </div>
+
+        <aside class="hc-instrument" aria-label="The diagram at a glance">
+          <div class="hc-instrument__well">
+            <dl class="hc-instrument__plate glance">
+              <div><dt>Readers</dt><dd class="hc-instrument__figure">10</dd></div>
+              <div><dt>Transmitters</dt><dd class="hc-instrument__figure">20</dd></div>
+              <div><dt>Links</dt><dd class="hc-instrument__figure">{data.counts.links}</dd></div>
+            </dl>
+            <div class="palette" aria-hidden="true">
+              {data.readers.map((q) => <span class={`palette__pair q-${q.id}`}><i class="sw sw--0"></i><i class="sw sw--1"></i></span>)}
+            </div>
+            <p class="hc-instrument__cap">One color for each reader. His two transmitters are its deeper and lighter shade.</p>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <div class="hc-container dockwrap">
+      <fieldset class="dock">
+        <legend class="dock__label">Follow</legend>
+        <label class="chip">
+          <input class="chip__input" type="radio" name="tx-reader" id="tx-r-all" checked />
+          <span>All ten</span>
+        </label>
+        {data.readers.map((q) => (
+          <label class={`chip q-${q.id}`}>
+            <input class="chip__input" type="radio" name="tx-reader" id={`tx-r-${q.id}`} />
+            <i class="sw" aria-hidden="true"></i><span>{q.display}</span><span class="chip__ar" lang="ar">{q.name_ar}</span>
+          </label>
+        ))}
+      </fieldset>
+    </div>
+
+    <div class="hc-container tx-body">
+      <section class="sec" id="diagram" aria-labelledby="diagram-h">
+        <header class="sec__head">
+          <h2 id="diagram-h" class="sec__title">From the Prophet downward</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+          <span class="sec__count">{data.counts.persons}</span>
+        </header>
+        <p class="lede">
+          Read from left to right: a line runs from a teacher to the person who read on him. A person’s column is the length of the longest chain from the Prophet to him, so he can sit further right than his own teacher’s teachers. Choose a reader above to see only his line.
+        </p>
+        <a class="skip" href="#links">Skip the diagram to the list of every link</a>
+
+        <div class="frame">
+          <div class="scroller" role="region" aria-label="Transmission diagram, scrolls sideways" tabindex="0">
+            <svg class="diagram" viewBox={`0 0 ${data.width} ${data.height}`} style={`width:${data.width}px;height:${data.height}px`} role="group" aria-label="Transmission diagram. The list of links below gives the same information as text.">
+              <g class="heads" aria-hidden="true">
+                {data.col_x.map((x, k) => <text x={x + data.node.w / 2} y="22" text-anchor="middle">{k === 0 ? "The Prophet" : `Step ${k}`}</text>)}
+              </g>
+              <g class="edges" aria-hidden="true">
+                {links.map((link) => (
+                  <path class={`edge${link.firm ? "" : " edge--loose"}${link.q ? ` q-${link.q}` : ""}`} d={link.d} data-l={link.lineages.join(" ")} />
+                ))}
+              </g>
+              <g class="nodes">
+                {data.persons.map((person) => {
+                  const inner = (
+                    <>
+                      <rect width={data.node.w} height={data.node.h} rx="3" />
+                      <text class="node__latin" x={data.node.w / 2} y={person.kind === "qari" || person.kind === "riwaya" ? 19 : person.lines.length > 1 ? 19 : 28} text-anchor="middle">
+                        {person.lines.map((line, i) => <tspan x={data.node.w / 2} dy={i === 0 ? 0 : 15}>{line}</tspan>)}
+                      </text>
+                      {(person.kind === "qari" || person.kind === "riwaya") && (
+                        <text class="node__ar" x={data.node.w / 2} y="38" text-anchor="middle" lang="ar" direction="rtl">{person.ar}</text>
+                      )}
+                      <title>{person.latin} · {person.ar_full}</title>
+                    </>
+                  );
+                  return (
+                    <g class={`node node--${person.kind} ${wear(person)}`} data-l={person.lineages.join(" ")} transform={`translate(${person.x} ${person.y})`}>
+                      {hasTeachers.has(person.id) ? <a href={`#p-${person.id}`} aria-label={`${person.latin}, step ${person.layer}. Go to his teachers in the list.`}>{inner}</a> : inner}
+                    </g>
+                  );
+                })}
+              </g>
+            </svg>
+          </div>
+
+          <ul class="key" aria-label="How to read the diagram">
+            <li><svg class="key__node" viewBox="0 0 44 22" aria-hidden="true"><rect class="k-prophet" width="44" height="22" rx="3" /></svg>The Prophet, at the left of every chain.</li>
+            <li><span class="key__pair q-nafi" aria-hidden="true"><i class="sw sw--0"></i><i class="sw sw--1"></i></span>A reader in his color; his two transmitters in its lighter shades.</li>
+            <li><svg class="key__node" viewBox="0 0 44 22" aria-hidden="true"><rect class="k-plain q-yaqub" width="44" height="22" rx="3" /></svg>Everyone else. An outline in a reader’s color means the person appears only in that reader’s chain.</li>
+            <li><svg class="key__line" viewBox="0 0 44 10" aria-hidden="true"><path d="M2,5 H42" /></svg>A statement that one person read on the other.</li>
+            <li><svg class="key__line key__line--loose" viewBox="0 0 44 10" aria-hidden="true"><path d="M2,5 H42" /></svg>Dashed: the book hedges it, or describes hearing, letters only or companionship ({nonFirm} of {data.counts.links}).</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="sec" id="links" aria-labelledby="links-h">
+        <header class="sec__head">
+          <h2 id="links-h" class="sec__title">Every link, with its source</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+          <span class="sec__count">{data.counts.links}</span>
+        </header>
+        <p class="lede">Each entry names a person, the teachers the book gives him, and the page. Open “Quoted text” for the sentence itself, in the book’s own wording.</p>
+        <div class="ledger">
+          {blocks.map(({ person, links: own }) => (
+            <article class={`lk ${wear(person)}`} id={`p-${person.id}`} data-l={person.lineages.join(" ")}>
+              <h3 class="lk__name">
+                {person.q && <i class={person.shade !== null ? "sw" : "sw sw--0"} aria-hidden="true"></i>}
+                {person.latin} <span class="lk__ar" lang="ar">{person.ar}</span>
+              </h3>
+              <p class="lk__step">Step {person.layer}</p>
+              <ol class="lk__list">
+                {own.map((link) => {
+                  const teacher = people.get(link.teacher)!;
+                  return (
+                    <li class={link.firm ? "" : "is-loose"}>
+                      <p class="lk__line">
+                        <span class="lk__verb">read on</span>
+                        {hasTeachers.has(teacher.id) ? <a href={`#p-${teacher.id}`}>{teacher.latin}</a> : <span>{teacher.latin}</span>}
+                        <span class="lk__pg">an-Nashr, {pageOf(link)}</span>
+                        {!link.firm && <span class="lk__flag">hedged or not a reading</span>}
+                      </p>
+                      <details>
+                        <summary>Quoted text{link.witnesses.length > 1 ? ` (${link.witnesses.length})` : ""}</summary>
+                        {link.witnesses.map((w) => (
+                          <div class="lk__quote">
+                            <blockquote lang="ar">{w.quote}</blockquote>
+                            <p>{w.volume ? `Vol. ${w.volume}, ` : ""}p. {w.page}{!w.exact_raw && ". The sentence runs over a page break, so its vowel marks are omitted"}</p>
+                            {w.note && <p>{runs(w.note).map((r) => (r.ar ? <span lang="ar">{r.part}</span> : r.part))}</p>}
+                          </div>
+                        ))}
+                      </details>
+                    </li>
+                  );
+                })}
+              </ol>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="sec" id="guide" aria-labelledby="guide-h">
+        <header class="sec__head">
+          <h2 id="guide-h" class="sec__title">How to read this</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+        </header>
+        <dl class="guide">
+          <div><dt>One book</dt><dd>Every link comes from an-Nashr. Other books may give other teachers, and where they do this page does not show it yet.</dd></div>
+          <div><dt>Read on</dt><dd>The book’s phrase for a student reciting to a teacher. Where it says something else, such as hearing or transmitting letters, the link is dashed and its note says so.</dd></div>
+          <div><dt>Joined entries</dt><dd>Some chains are given in another reader’s entry. Where we matched a name in one entry to a person in another, the link’s note says so.</dd></div>
+          <div><dt>Two people, two names</dt><dd>Khalaf and al-Dūrī each appear twice, once for each reading they carried, and are kept as separate people because the book presents them that way.</dd></div>
+          <div><dt>Review</dt><dd>No link has been reviewed. Each is checked only for one thing: that the quoted words appear on the cited page.</dd></div>
+        </dl>
+        <p class="attribution">Quotations are from an edition in the Maktaba Shamela, cited by page. Latin spellings of names are ours.</p>
+      </section>
+    </div>
+  </div>
+
+  <style is:inline set:html={readerRules}></style>
+</BaseLayout>
+
+<style>
+  .tx-body { padding-block: 0 clamp(4rem, 9vw, 7rem); }
+  .sec { padding-top: clamp(2.75rem, 5vw, 4.25rem); scroll-margin-top: 9rem; }
+  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .sec__title { margin: 0; font: 600 clamp(1.4rem, 3vw, 1.8rem)/1.3 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
+  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+  .lede { max-width: 66ch; margin: 0 0 1rem; color: var(--hc-text-secondary); line-height: 1.72; }
+
+  .glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; margin: 0; padding: 1.1rem 1.25rem 1.25rem; }
+  .glance div { display: flex; flex-direction: column-reverse; gap: 0.5rem; }
+  .glance div + div { padding-inline-start: 1rem; border-inline-start: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
+  .glance dt { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .glance dd { margin: 0; }
+  .palette { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin: 0.8rem 0.4rem 0; }
+  .palette__pair { display: grid; gap: 2px; }
+  .palette__pair .sw { width: 100%; height: 1.1rem; }
+
+  .dockwrap { padding-top: 1.5rem; }
+  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; padding: 6px 6px 6px 1rem; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
+  .dock__label { float: inline-start; margin-inline-end: 0.5rem; padding: 0; font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
+  .chip { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease; }
+  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
+  .chip__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; appearance: none; background: none; border: 0; border-radius: inherit; cursor: pointer; }
+  .chip:has(:checked) { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
+  .chip__ar { font-size: 1.05rem; line-height: 1; }
+  @media (min-width: 1001px) { .dockwrap { position: sticky; top: 4.75rem; z-index: 20; } }
+  @media (max-width: 1000px) { .dock { flex-wrap: nowrap; overflow-x: auto; } .chip { flex: none; } }
+
+  .skip { display: inline-block; margin-bottom: 0.75rem; color: var(--hc-gold); font: 600 0.81rem/1.6 var(--font-ui); letter-spacing: 0.06em; }
+  .frame { padding: 8px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-1); box-shadow: inset 0 0 0 5px var(--hc-surface-1), inset 0 0 0 6px var(--hc-rule-soft); }
+  .scroller { overflow: auto; max-height: 78vh; }
+  .diagram { display: block; max-width: none; }
+  .heads text { fill: var(--hc-text-tertiary); font: 700 12px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Lines: neutral, or the reader's shade when the person is in one reader's line only. */
+  .edge { fill: none; stroke: var(--hc-text-tertiary); stroke-width: 1.5; opacity: 0.7; vector-effect: non-scaling-stroke; }
+  .edge[class*="q-"] { stroke: var(--s-bg); opacity: 0.95; }
+  :global([data-theme="light"]) .edge[class*="q-"] { stroke: var(--d-bg); }
+  .edge--loose { stroke-dasharray: 5 4; }
+
+  .node rect { fill: var(--hc-surface-2); stroke: var(--hc-rule-strong); stroke-width: 1; }
+  .node text { fill: var(--hc-text-primary); }
+  .node a { cursor: pointer; }
+  .node a:hover rect { stroke: var(--hc-gold); stroke-width: 2; }
+  .node__latin { font: 600 14px var(--font-body); }
+  .node__ar { font: 400 16px var(--font-arabic); }
+  .node--prophet rect, .k-prophet { fill: var(--hc-fixed-parchment); stroke: var(--hc-fixed-parchment-ink); }
+  .node--prophet text { fill: var(--hc-fixed-parchment-ink); }
+  .node--qari rect { fill: var(--d-bg); stroke: none; }
+  .node--qari text { fill: var(--d-ink); }
+  .node--riwaya rect { fill: var(--bg); stroke: none; }
+  .node--riwaya text { fill: var(--ink); }
+  .node--other[class*="q-"] rect { stroke: var(--s-bg); stroke-width: 2; }
+  :global([data-theme="light"]) .node--other[class*="q-"] rect { stroke: var(--d-bg); }
+
+  .key { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.7rem 1.5rem; margin: 0; padding: 1rem 0.9rem 0.6rem; list-style: none; color: var(--hc-text-secondary); font-size: 0.9rem; line-height: 1.5; }
+  .key li { display: flex; gap: 0.7rem; align-items: center; }
+  .key__pair { flex: none; display: inline-flex; gap: 2px; }
+  .key__pair .sw { width: 1.1rem; height: 1.1rem; }
+  .key__node { flex: none; width: 2.75rem; }
+  .key__node rect { fill: var(--hc-surface-2); stroke: var(--hc-rule-strong); }
+  .key__node .k-prophet { fill: var(--hc-fixed-parchment); stroke: var(--hc-fixed-parchment-ink); }
+  .key__node .k-plain { stroke: var(--s-bg); stroke-width: 2; }
+  .key__line { flex: none; width: 2.75rem; }
+  .key__line path { fill: none; stroke: var(--hc-text-secondary); stroke-width: 2; }
+  .key__line--loose path { stroke-dasharray: 5 4; }
+
+  .ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .lk { padding: 1rem 1.1rem 0.6rem; border: 1px solid var(--hc-rule-soft); border-inline-start: 4px solid var(--bg, var(--hc-rule-strong)); border-radius: 2px; background: var(--hc-surface-1); scroll-margin-top: 9rem; }
+  .lk:target { border-color: var(--hc-gold); background: var(--hc-surface-2); }
+  .lk__name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; font: 600 1.05rem/1.35 var(--font-display); color: var(--hc-text-primary); }
+  .lk__ar { font-size: 1.15rem; color: var(--hc-text-secondary); }
+  .lk__step { margin: 0.2rem 0 0.6rem; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
+  .lk__list { margin: 0; padding: 0; list-style: none; }
+  .lk__list li { padding: 0.55rem 0; border-top: 1px solid var(--hc-rule-soft); }
+  .lk__line { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; margin: 0; color: var(--hc-text-primary); font-size: 0.96rem; line-height: 1.5; }
+  .lk__line a { color: var(--hc-gold); text-decoration: underline; text-underline-offset: 0.2em; }
+  .lk__verb { font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
+  .lk__pg { color: var(--hc-text-secondary); font-size: 0.88rem; }
+  .lk__flag { padding: 0 0.4rem; border: 1px dashed var(--hc-text-tertiary); border-radius: 2px; color: var(--hc-text-secondary); font: 600 0.75rem/1.6 var(--font-ui); }
+  .lk details summary { min-height: 1.75rem; cursor: pointer; color: var(--hc-gold); font: 600 0.75rem/1.6 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .lk__quote { padding: 0.4rem 0 0.5rem; }
+  .lk__quote blockquote { margin: 0; font-size: 1.15rem; line-height: var(--leading-arabic); color: var(--hc-text-primary); }
+  .lk__quote p { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--hc-text-tertiary); }
+
+  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 10px; margin: 0; }
+  .guide div { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
+  .guide dt { font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold); }
+  .guide dd { margin: 0.5rem 0 0; color: var(--hc-text-secondary); font-size: 0.96rem; line-height: 1.65; }
+  .attribution { max-width: 70ch; margin: 1.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.85rem; line-height: 1.7; }
+
+  @media (max-width: 900px) { .ledger { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 480px) {
+    .glance { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .glance div, .glance div + div { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 0.9rem; padding: 0.35rem 0; border-inline-start: 0; }
+    .glance div + div { border-top: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
+  }
+</style>
