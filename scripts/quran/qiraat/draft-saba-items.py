@@ -127,6 +127,16 @@ def main() -> int:
                 cov = max(nc.lemma_score(lw, other), nc.lemma_score(nc.wc.words(other), word))
                 if cov >= 0.5:
                     scored.append((cov, f))
+            if not scored:
+                # Ibn Mujāhid numbers some verses one apart from the count Taḥbīr uses; accept a neighbouring verse
+                # only for a word that matches the position's lemma almost completely.
+                for f in by_sura.get(sura, []):
+                    if abs(int(f["verse"].rsplit("-", 1)[1]) - verse) != 1:
+                        continue
+                    other = f.get("lemma") or ""
+                    cov = nc.lemma_score(nc.wc.words(other), word)
+                    if cov >= 0.9:
+                        scored.append((cov, f))
             scored.sort(key=lambda x: -x[0])
             candidates = [f for cov, f in scored if cov == scored[0][0]] if scored else []
             if not candidates:
