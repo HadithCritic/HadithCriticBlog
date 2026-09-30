@@ -1,0 +1,156 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const releaseId = "v0.5.26-cc-57cb2b7be321";
+const releasePath = `../../../../public/data/quran/releases/${releaseId}/`;
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releasePath}commentary-manifest.json`, import.meta.url)), "utf8")) as {
+  recordCount: number;
+  sourceFileCount: number;
+  exactTextUtf8Bytes: number;
+  sourceElementCount: number;
+  sourceElementTextUtf8Bytes: number;
+  headerElementCount: number;
+  headerElementTextUtf8Bytes: number;
+  headerElementNameCounts: Record<string, number>;
+  headerElementNames: string[];
+  sourceElementNames: string[];
+  sourceElementNameCounts: Record<string, number>;
+  assets: Array<{ sourceFile: string; path: string; recordCount: number; sourceElementCount: number; headerElementCount: number; bytes: number }>;
+};
+const previewAsset = manifest.assets.find((asset) => asset.sourceFile.endsWith("sura-00001.xml")) ?? manifest.assets[0];
+const previewPayload = JSON.parse(readFileSync(fileURLToPath(new URL(`${releasePath}${previewAsset.path}`, import.meta.url)), "utf8")) as {
+  records: Array<{ elementName: string; exactText: string; xmlLangExact: string | null; locator: string; line: number; sourceUrl: string }>;
+};
+const preview = previewPayload.records.slice(0, 8);
+---
+
+<BaseLayout
+  title="Commentary Text Index | Quran | HadithCritic Projects"
+  description="Search exact source-located text blocks from the pinned Corpus Coranicum Quran commentary TEI collection."
+>
+  <div class="qcb-page hc-container">
+    <nav class="qcb-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Commentary Text Index</span>
+    </nav>
+
+    <header class="qcb-header">
+      <p class="hc-eyebrow">Corpus Coranicum · quran_commentary</p>
+      <h1 class="hc-title hc-title--lg">Commentary Text Index</h1>
+      <p class="qcb-lede">Search selected text blocks or every source element recorded in the pinned TEI commentary files. Each result keeps its source file, element path, line, declared language, and exact character data.</p>
+    </header>
+
+    <section class="qcb-coverage" aria-labelledby="qcb-coverage-title">
+      <h2 id="qcb-coverage-title">Indexed coverage</h2>
+      <dl>
+        <div><dt>Source files</dt><dd>{manifest.sourceFileCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Text blocks</dt><dd>{manifest.recordCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Body elements</dt><dd>{manifest.sourceElementCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Header elements</dt><dd>{manifest.headerElementCount.toLocaleString("en-GB")}</dd></div>
+      </dl>
+      <p>The text-block scope contains {manifest.recordCount.toLocaleString("en-GB")} selected records. Separate scopes expose every one of {manifest.sourceElementCount.toLocaleString("en-GB")} elements below <code>text/body</code> and all {manifest.headerElementCount.toLocaleString("en-GB")} elements in <code>teiHeader</code>, including empty elements. Parent and child records can repeat source text because each represents a different XML element; they remain separate. Search one source file at a time; the selected shard is loaded only when requested and the largest shard is {(Math.max(...manifest.assets.map((asset) => asset.bytes)) / 1_000_000).toFixed(2)} MB.</p>
+    </section>
+
+    <section class="qcb-search" aria-labelledby="qcb-search-title">
+      <h2 id="qcb-search-title">Search a source file</h2>
+      <form id="qcb-form" method="get" action="/projects/quran/commentary/">
+        <div class="qcb-field">
+          <label for="qcb-source">Source file</label>
+          <select id="qcb-source" name="file" disabled>
+            {manifest.assets.map((asset) => <option value={asset.sourceFile}>{asset.sourceFile} · {asset.recordCount.toLocaleString("en-GB")} blocks · {asset.sourceElementCount.toLocaleString("en-GB")} body · {asset.headerElementCount.toLocaleString("en-GB")} header</option>)}
+          </select>
+        </div>
+        <div class="qcb-field">
+          <label for="qcb-scope">Search scope</label>
+          <select id="qcb-scope" name="scope" disabled>
+            <option value="blocks">Selected text blocks</option>
+            <option value="body">All text/body elements</option>
+            <option value="header">TEI header elements</option>
+          </select>
+        </div>
+        <div class="qcb-field">
+          <label for="qcb-element">TEI element name</label>
+          <select id="qcb-element" name="element" disabled>
+            <option value="all">All element names</option>
+            {[...new Set([...manifest.sourceElementNames, ...manifest.headerElementNames])].sort().map((name) => <option value={name}>{name} · {(manifest.sourceElementNameCounts[name] ?? 0) + (manifest.headerElementNameCounts[name] ?? 0)}</option>)}
+          </select>
+        </div>
+        <div class="qcb-field">
+          <label for="qcb-query">Search exact text · case-sensitive</label>
+          <input id="qcb-query" name="q" type="search" autocomplete="off" disabled>
+        </div>
+        <label class="qcb-empty-toggle" for="qcb-include-empty">
+          <input id="qcb-include-empty" name="includeEmpty" type="checkbox" value="1" disabled>
+          Include empty and whitespace-only source elements
+        </label>
+        <button class="hc-btn hc-btn--ghost" type="submit" disabled>Load selected file</button>
+      </form>
+      <p id="qcb-status" class="qcb-status" aria-live="polite" aria-atomic="true">Loading source-located commentary records…</p>
+      <noscript>
+        <p>Interactive search needs JavaScript. The source-linked preview is shown below; <a href={`/data/quran/releases/${releaseId}/commentary-manifest.json`} download>download the commentary release manifest</a> for all 85 source files and shard checksums.</p>
+      </noscript>
+    </section>
+
+    <ol id="qcb-results" class="qcb-results" aria-label="Commentary source records">
+      {preview.map((record) => <li class="qcb-entry">
+        <header><span class="qcb-kind">TEI {record.elementName}</span><span class="qcb-language">{record.xmlLangExact ?? "Language not declared on this element"}</span></header>
+        <blockquote class="qcb-exact" dir="auto" lang={record.xmlLangExact ?? undefined}>{record.exactText}</blockquote>
+        <p class="qcb-locator">{record.locator} · source line {record.line}</p>
+        <a href={record.sourceUrl} target="_blank" rel="noopener noreferrer">Open exact commentary TEI line ↗</a>
+      </li>)}
+    </ol>
+    <button id="qcb-more" class="hc-btn hc-btn--ghost" type="button" hidden disabled>Show more records</button>
+
+    <section class="qcb-notes" aria-labelledby="qcb-notes-title">
+      <h2 id="qcb-notes-title">Scope and source</h2>
+      <p>The body-elements scope exposes exact descendant character data for each TEI element below <code>text/body</code>; the header scope exposes every element in <code>teiHeader</code>. Nested ancestors and descendants can therefore repeat strings. Search uses a literal, case-sensitive substring check and can be narrowed by element name. The selected text-block scope remains available for the prior block-oriented view. These indexes do not claim to be a critical edition or translation alignment; every result retains its source element name, attributes in the release data, XPath, and line link.</p>
+      <p>Source: Corpus Coranicum Project, ed. Michael Marx, TEI data, pinned commit <code>57cb2b7be321ecfba100cb5f7988974f47864a14</code>, CC BY-SA 4.0. The full source file hash and shard hashes are in the <a href={`/data/quran/releases/${releaseId}/commentary-manifest.json`} download>versioned commentary manifest</a>.</p>
+    </section>
+    <nav class="qcb-tools" aria-label="Quran project pages">
+      <a class="hc-btn" href="/projects/quran/relationships/">Relationship index <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/manuscripts/">Manuscript catalogue <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Return to Quran project <span aria-hidden="true">→</span></a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/quran-commentary-browser";
+</script>
+
+<style is:global>
+  .qcb-page { padding-block:2rem clamp(5rem,10vw,8rem); }
+  .qcb-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qcb-crumbs a, .qcb-entry a, .qcb-notes a { color:var(--hc-gold); text-decoration:none; }
+  .qcb-header { max-width:64rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qcb-header h1 { margin-block:.5rem 1rem; }
+  .qcb-lede { max-width:70ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qcb-coverage, .qcb-search, .qcb-notes { max-width:76rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qcb-coverage h2, .qcb-search h2, .qcb-notes h2 { margin:0 0 .85rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qcb-coverage dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.5rem; margin:1.5rem 0; }
+  .qcb-coverage dt { color:var(--hc-text-tertiary); font-size:.82rem; }
+  .qcb-coverage dd { margin:.35rem 0 0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.65rem; }
+  .qcb-coverage > p, .qcb-notes p, .qcb-status { max-width:78ch; color:var(--hc-text-secondary); font-size:.9rem; line-height:1.7; }
+  #qcb-form { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)) auto; align-items:end; gap:.75rem; }
+  .qcb-field { display:grid; gap:.45rem; min-width:0; }
+  .qcb-empty-toggle { display:flex; align-items:center; gap:.5rem; color:var(--hc-text-secondary); font-size:.82rem; }
+  .qcb-empty-toggle input { width:1rem; min-height:1rem; accent-color:var(--hc-gold); }
+  #qcb-form label { color:var(--hc-text-secondary); font-size:.82rem; }
+  #qcb-form select, #qcb-form input { width:100%; min-height:2.75rem; padding:.55rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  #qcb-more[hidden] { display:none; }
+  .qcb-results { display:grid; gap:.75rem; margin:1.5rem 0; padding:0; list-style:none; }
+  .qcb-entry { padding:1rem 1.15rem; border-bottom:1px solid var(--hc-rule); background:var(--hc-surface-1); }
+  .qcb-entry header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem 1rem; }
+  .qcb-kind { color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.05rem; }
+  .qcb-language, .qcb-locator { color:var(--hc-text-tertiary); font-size:.8rem; overflow-wrap:anywhere; }
+  .qcb-exact { margin:1rem 0; color:var(--hc-text-primary); font-family:var(--font-body); font-size:1.02rem; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .qcb-locator { line-height:1.7; }
+  .qcb-tools { display:flex; flex-wrap:wrap; gap:.75rem; padding-top:2rem; }
+  @media(max-width:1024px) { #qcb-form { grid-template-columns:repeat(2,minmax(0,1fr)); } #qcb-form button { grid-column:1/-1; } }
+  @media(max-width:800px) { .qcb-coverage dl { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:640px) { #qcb-form { grid-template-columns:1fr; } #qcb-form button { grid-column:auto; } .qcb-coverage dl { grid-template-columns:1fr; gap:.75rem; } }
+</style>

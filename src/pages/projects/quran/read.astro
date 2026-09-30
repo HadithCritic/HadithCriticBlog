@@ -1,0 +1,524 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const releaseBase = "../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/";
+const passageUrl = new URL(`${releaseBase}variant-passages.json`, import.meta.url);
+const catalogUrl = new URL(`${releaseBase}variant-catalog.json`, import.meta.url);
+type ReaderReference = {
+  ordinal: number;
+  nativeKey: string | null;
+  exactLabel: string;
+  sourceRecord: { url: string; line: number; locator: string };
+  readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string; linkRule: string };
+};
+type ReadWord = {
+  sourceLocator: string | null;
+  targetExactText: string;
+  targetSourceUrl: string | null;
+  alignment: null | {
+    targetVerseId: string;
+    targetExactText: string;
+    targetSourceUrl: string | null;
+    targetVerseExactText: string | null;
+    targetVerseSourceUrl: string | null;
+  };
+};
+type ReadRecord = {
+  variantId: string;
+  readerNativeKey: string | null;
+  readerExactLabel: string | null;
+  readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string };
+  readerReferences: ReaderReference[];
+  exactSourceText: string;
+  sourceRecord: { url: string };
+  words: ReadWord[];
+};
+type PassageIndex = { passages: Record<string, { exactText: string; sourceUrl: string; records: Array<{ variantId: string; words: Array<{ variantExactText: string; variantSourceLocator: string | null; targetExactText: string; targetSourceUrl: string | null }> }> }> };
+type Catalog = { readerIndexFiles: Array<{ path: string }>; records: Array<{ variantId: string; readerNativeKey: string | null; readerExactLabel: string | null; readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string }; readerReferenceCount: number; exactSourceText: string; sourceRecord: { url: string } }> };
+type ReaderIndex = { records: Array<{ variantId: string; references: ReaderReference[] }> };
+const MISSING_READER_KEY = "__missing_reader_key__";
+type CairoWord = { nativeId: string; exactText: string; locator: string; sourceUrl: string; line: number };
+type CairoVerse = { verseNativeId: string; exactText: string; locator: string; sourceUrl: string; line: number; verseLocator: string; verseSourceUrl: string; verseLine: number; words: CairoWord[] };
+type CairoShard = { path: string; verseNativeIds: string[] };
+type CairoCatalog = { shards: CairoShard[]; verseCount: number; wordTokenCount: number };
+const cairoCatalog = (await import("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/cairo-arabic-catalog.json")).default as CairoCatalog;
+const passageIndex = JSON.parse(readFileSync(fileURLToPath(passageUrl), "utf8")) as PassageIndex;
+const catalog = JSON.parse(readFileSync(fileURLToPath(catalogUrl), "utf8")) as Catalog;
+const readerIndexes = catalog.readerIndexFiles.flatMap(({ path }) => {
+  const index = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseBase}${path}`, import.meta.url)), "utf8")) as ReaderIndex;
+  return index.records;
+});
+const readerReferencesById = new Map(readerIndexes.map((record) => [record.variantId, record.references]));
+const sourceCatalogRecords = catalog.records.map((record) => ({
+  ...record,
+  readerReferences: readerReferencesById.get(record.variantId) ?? [],
+}));
+const catalogById = new Map(sourceCatalogRecords.map((record) => [record.variantId, record]));
+const readerOptionsByKey = new Map<string, string>();
+for (const record of sourceCatalogRecords) {
+  if (!record.readerReferences.length) {
+    if (!readerOptionsByKey.has(MISSING_READER_KEY)) readerOptionsByKey.set(MISSING_READER_KEY, "No TEI-listed label");
+  }
+  for (const reference of record.readerReferences) {
+    if (reference.nativeKey && !readerOptionsByKey.has(reference.nativeKey)) {
+      readerOptionsByKey.set(reference.nativeKey, reference.exactLabel);
+    }
+  }
+}
+const readerOptions = [...readerOptionsByKey.entries()].sort((left, right) =>
+  left[1].localeCompare(right[1], "en") || left[0].localeCompare(right[0], "en"),
+);
+const verseIds = cairoCatalog.shards.flatMap((shard) => shard.verseNativeIds).sort();
+const selectedVerse = verseIds.includes(Astro.url.searchParams.get("verse") ?? "")
+  ? Astro.url.searchParams.get("verse")!
+  : verseIds[0] ?? "";
+const requestedReaderKey = Astro.url.searchParams.get("reader") ?? "";
+const selectedReaderKey = readerOptionsByKey.has(requestedReaderKey) ? requestedReaderKey : "";
+const selectedPassage = passageIndex.passages[selectedVerse];
+const initialCairoShardInfo = cairoCatalog.shards.find((shard) => shard.verseNativeIds.includes(selectedVerse));
+const initialCairoShard = initialCairoShardInfo
+  ? JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseBase}${initialCairoShardInfo.path}`, import.meta.url)), "utf8")) as { records: CairoVerse[] }
+  : { records: [] as CairoVerse[] };
+const initialCairoVerse = initialCairoShard.records.find((verse) => verse.verseNativeId === selectedVerse);
+const initialRecords: ReadRecord[] = (selectedPassage?.records ?? []).map((entry) => {
+  const source = catalogById.get(entry.variantId);
+  if (!source) throw new Error(`Passage index references missing catalog record ${entry.variantId}`);
+  return {
+    ...source,
+    words: entry.words.map((word) => ({
+      sourceLocator: word.variantSourceLocator,
+      targetExactText: word.targetExactText,
+      targetSourceUrl: word.targetSourceUrl,
+      alignment: { targetVerseId: selectedVerse, targetExactText: word.targetExactText, targetSourceUrl: word.targetSourceUrl,
+        targetVerseExactText: selectedPassage.exactText, targetVerseSourceUrl: selectedPassage.sourceUrl },
+    })),
+  };
+}).filter((record) => !selectedReaderKey || (selectedReaderKey === MISSING_READER_KEY
+  ? record.readerReferences.length === 0
+  : record.readerReferences.some((reference) => reference.nativeKey === selectedReaderKey)));
+const variantIndexUrl = (record: ReadRecord, readerKey = selectedReaderKey || record.readerNativeKey || MISSING_READER_KEY) => {
+  const params = new URLSearchParams({
+    verse: selectedVerse,
+    reader: readerKey,
+  });
+  return `/projects/quran/variants/?${params.toString()}#${encodeURIComponent(record.variantId)}`;
+};
+---
+
+<BaseLayout
+  title="Read & Compare | Quran | HadithCritic Projects"
+  description="Compare source-linked variant records with the separate Cairo 1924 Arabic text layer."
+>
+  <div class="qr-page hc-container">
+    <nav class="qr-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Read &amp; Compare</span>
+    </nav>
+
+    <header class="qr-header">
+      <p class="hc-eyebrow">Corpus Coranicum · complete candidate passage index</p>
+      <h1 class="hc-title hc-title--lg">Read &amp; Compare</h1>
+      <p class="qr-lede">Inspect the source-reported form next to a separately identified Cairo 1924 Arabic text passage. The locator link is a candidate relation and has not been reviewed as an equivalence.</p>
+    </header>
+
+    <section class="qr-picker" aria-labelledby="qr-picker-title">
+      <h2 id="qr-picker-title">Choose a passage</h2>
+      <label for="qr-passage-search">Filter passage IDs</label>
+      <input id="qr-passage-search" type="search" placeholder="Type a surah and verse, such as 020-069" autocomplete="off" aria-controls="qr-verse">
+      <p id="qr-filter-status" class="qr-status" aria-live="polite" aria-atomic="true">{cairoCatalog.verseCount.toLocaleString("en-GB")} Cairo verse IDs available.</p>
+      <label for="qr-verse">Cairo 1924 source verse ID</label>
+      <select id="qr-verse" name="verse">
+        {verseIds.map((verseId) => {
+          const shard = cairoCatalog.shards.find((entry) => entry.verseNativeIds.includes(verseId));
+          return <option value={verseId} data-shard={shard?.path} selected={verseId === selectedVerse}>{verseId}</option>;
+        })}
+      </select>
+      <label for="qr-reader">Corpus Coranicum reader key</label>
+      <select id="qr-reader" name="reader">
+        <option value="" selected={!selectedReaderKey}>All reader keys</option>
+        {readerOptions.map(([key, label]) => (
+          <option value={key} selected={key === selectedReaderKey}>{label} · {key === MISSING_READER_KEY ? "key not supplied" : key}</option>
+        ))}
+      </select>
+      <p class="qr-status">This filter uses the source’s reader key as recorded. It does not identify or equate reading traditions across sources.</p>
+      <button id="qr-load" class="hc-btn hc-btn--ghost" type="button" disabled>Open passage</button>
+      <p id="qr-status" class="qr-status" aria-live="polite" aria-atomic="true">Complete source text: {cairoCatalog.verseCount.toLocaleString()} verses and {cairoCatalog.wordTokenCount.toLocaleString()} linked word tokens. Candidate links are shown only where the source locator index supplies them.</p>
+    </section>
+
+    <section class="qr-passage" aria-labelledby="qr-passage-title">
+      <div class="qr-passage__heading">
+        <div>
+          <p class="hc-eyebrow">Cairo 1924 edition · Arabic text</p>
+          <h2 id="qr-passage-title">{selectedVerse}</h2>
+        </div>
+        {initialCairoVerse?.sourceUrl && <nav class="qr-verse-sources" aria-label="Cairo verse sources"><a id="qr-verse-source" href={initialCairoVerse.sourceUrl} target="_blank" rel="noopener noreferrer">Open source text line ↗</a><a id="qr-verse-record-source" href={initialCairoVerse.verseSourceUrl} target="_blank" rel="noopener noreferrer">Open containing verse record ↗</a></nav>}
+      </div>
+      <pre id="qr-arabic" class="qr-arabic" dir="rtl" lang="ar">{initialCairoVerse?.exactText ?? "Source verse is unavailable in the current release."}</pre>
+      <details class="qr-reading-format">
+        <summary>Readable format · <code>quran-whitespace-collapse/1.0.0</code></summary>
+        <p id="qr-arabic-reading" class="qr-arabic-reading" dir="rtl" lang="ar" data-transform-profile="quran-whitespace-collapse/1.0.0">{initialCairoVerse?.exactText.replace(/\s+/gu, " ").trim() ?? "Source verse is unavailable in the current release."}</p>
+      </details>
+      <p class="qr-word-source-label">Source-linked word tokens</p>
+      <p id="qr-arabic-words" class="qr-arabic-words" dir="rtl" lang="ar" aria-label="Source-linked Arabic word tokens">
+        {initialCairoVerse?.words.map((word) => <a href={word.sourceUrl} target="_blank" rel="noopener noreferrer" title={`${word.locator} · source line ${word.line}`}>{word.exactText}</a>)}
+      </p>
+      <p class="qr-note">The passage above preserves the exact TEI character string and whitespace. The separate readable format applies <code>quran-whitespace-collapse/1.0.0</code>: each ECMAScript <code>\s</code> run becomes one U+0020 space, then boundary spaces are removed. It never replaces the source view. Word-level links below remain candidates.</p>
+    </section>
+
+    <section class="qr-variants" aria-labelledby="qr-variants-title">
+      <h2 id="qr-variants-title">Source variant records</h2>
+      <ol id="qr-records">
+        {initialRecords.map((record) => (
+          <li class="qr-record">
+            <header><p>TEI record <code>{record.variantId}</code> · {record.readerReferences[0]?.exactLabel ?? "No TEI-listed label"}{record.readerReferences.length > 1 && ` · ${record.readerReferences.length} TEI-listed labels`}</p><nav aria-label="Record sources"><a href={variantIndexUrl(record)}>Open in Variant Index</a> · <a href={record.sourceRecord.url} target="_blank" rel="noopener noreferrer">Open source record line ↗</a></nav></header>
+            {record.readerReferences.length > 0 && <details class="qr-reader-references"><summary>Inspect {record.readerReferences.length.toLocaleString("en-GB")} TEI-listed label{record.readerReferences.length === 1 ? "" : "s"} and source keys</summary><ol>{record.readerReferences.map((reference) => <li><pre>{reference.exactLabel}</pre><code>{reference.nativeKey ?? "key not supplied"}</code><a href={reference.sourceRecord.url} target="_blank" rel="noopener noreferrer">Open this persName source line {reference.sourceRecord.line} ↗</a>{reference.readerAuthority && <a href={reference.readerAuthority.sourceUrl} target="_blank" rel="noopener noreferrer">Open linked authority {reference.readerAuthority.exactLabel || reference.readerAuthority.nativeKey} ↗</a>}</li>)}</ol></details>}
+            <pre dir="ltr">{record.exactSourceText}</pre>
+            {record.words.filter((word) => word.alignment?.targetVerseId === selectedVerse).map((word) => word.alignment && (
+              <p class="qr-locator">Source word locator <code>{word.sourceLocator ?? "not supplied"}</code> · candidate only · Cairo word <bdi dir="rtl" lang="ar">{word.alignment.targetExactText}</bdi>{word.alignment.targetSourceUrl && <> · <a href={word.alignment.targetSourceUrl} target="_blank" rel="noopener noreferrer">Open Cairo token source line ↗</a></>}</p>
+            ))}
+            <p>The export has no linked source-authority key for this variant record.</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <footer class="qr-footer">
+      <p>This reader covers all 6,236 Arabic source verses and 77,432 source-identified word tokens. Candidate links appear only where a source locator exists; an empty candidate list is not a claim that a verse has no reported readings. See the <a href="/projects/quran/variants/">complete Variant Index</a>, <a href="/projects/quran/manuscripts/">manuscript catalogue</a>, <a href="/projects/quran/analyses/">reproducible analyses</a>, or <a href="/projects/quran/methods/">Methods &amp; Data</a> for extraction rules and known gaps.</p>
+    </footer>
+  </div>
+</BaseLayout>
+
+<script>
+  const MISSING_READER_KEY = "__missing_reader_key__";
+  type Passage = { exactText: string; sourceUrl: string; records: Array<{ variantId: string; words: Array<{ variantExactText: string; variantSourceLocator: string | null; targetExactText: string; candidateMethod: string; targetSourceUrl: string | null }> }> };
+  type PassageIndex = { passages: Record<string, Passage> };
+  type ReadIndexRecord = {
+    variantId: string; readerNativeKey: string | null; readerExactLabel: string | null;
+    readerReferences: Array<{ ordinal: number; nativeKey: string | null; exactLabel: string; sourceRecord: { url: string; line: number; locator: string }; readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string; linkRule: string } }>;
+    readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string };
+    exactSourceText: string; sourceRecord: { url: string };
+  };
+  type BrowserCatalog = { readerIndexFiles: Array<{ path: string }>; records: Array<Omit<ReadIndexRecord, "readerReferences"> & { readerReferenceCount: number }> };
+  type ReadCatalog = { records: ReadIndexRecord[] };
+  type ReaderIndex = { records: Array<{ variantId: string; references: ReadIndexRecord["readerReferences"] }> };
+  type CairoWord = { nativeId: string; exactText: string; locator: string; sourceUrl: string; line: number };
+  type CairoVerse = { verseNativeId: string; exactText: string; locator: string; sourceUrl: string; line: number; verseLocator: string; verseSourceUrl: string; verseLine: number; words: CairoWord[] };
+  type CairoPayload = { sourceFileSha256: string; verseCount: number; records: CairoVerse[] };
+  const READABLE_TEXT_PROFILE = "quran-whitespace-collapse/1.0.0";
+  function readableTextFromExactSource(value: string): string {
+    return value.replace(/\s+/gu, " ").trim();
+  }
+  const select = document.querySelector("#qr-verse") as HTMLSelectElement | null;
+  const readerSelect = document.querySelector("#qr-reader") as HTMLSelectElement | null;
+  const passageSearch = document.querySelector<HTMLInputElement>("#qr-passage-search");
+  const filterStatus = document.querySelector<HTMLElement>("#qr-filter-status");
+  const button = document.querySelector<HTMLButtonElement>("#qr-load");
+  const status = document.querySelector<HTMLElement>("#qr-status");
+  const title = document.querySelector<HTMLElement>("#qr-passage-title");
+  const arabic = document.querySelector<HTMLElement>("#qr-arabic");
+  const arabicReading = document.querySelector<HTMLElement>("#qr-arabic-reading");
+  const readingFormat = document.querySelector<HTMLDetailsElement>(".qr-reading-format");
+  const arabicWords = document.querySelector<HTMLElement>("#qr-arabic-words");
+  const verseSource = document.querySelector<HTMLAnchorElement>("#qr-verse-source");
+  const verseRecordSource = document.querySelector<HTMLAnchorElement>("#qr-verse-record-source");
+  const recordsList = document.querySelector<HTMLOListElement>("#qr-records");
+
+  let readingFormatWasOpen: boolean | null = null;
+  window.addEventListener("beforeprint", () => {
+    if (!readingFormat) return;
+    readingFormatWasOpen = readingFormat.open;
+    readingFormat.open = true;
+  });
+  window.addEventListener("afterprint", () => {
+    if (!readingFormat || readingFormatWasOpen === null) return;
+    readingFormat.open = readingFormatWasOpen;
+    readingFormatWasOpen = null;
+  });
+
+  function render(index: PassageIndex, catalog: ReadCatalog, verseId: string, cairoVerse: CairoVerse | undefined): void {
+    if (!title || !arabic || !arabicWords || !recordsList || !status) return;
+    const passage = index.passages[verseId];
+    const recordsById = new Map(catalog.records.map((record) => [record.variantId, record]));
+    const allMatches = passage?.records.map((entry) => ({ record: recordsById.get(entry.variantId), words: entry.words }))
+      .filter((entry): entry is { record: ReadIndexRecord; words: Passage["records"][number]["words"] } => Boolean(entry.record)) ?? [];
+    const readerKey = readerSelect?.value ?? "";
+    const matches = allMatches.filter(({ record }) => !readerKey || (readerKey === MISSING_READER_KEY
+      ? record.readerReferences.length === 0
+      : record.readerReferences.some((reference) => reference.nativeKey === readerKey)));
+    title.textContent = verseId;
+    const exactArabic = cairoVerse?.exactText ?? "Source verse is unavailable in the current release.";
+    arabic.textContent = exactArabic;
+        if (arabicReading) arabicReading.textContent = readableTextFromExactSource(exactArabic);
+        arabicReading?.setAttribute("data-transform-profile", READABLE_TEXT_PROFILE);
+    arabicWords.replaceChildren();
+    for (const word of cairoVerse?.words ?? []) {
+      const token = document.createElement("a");
+      token.href = word.sourceUrl;
+      token.target = "_blank";
+      token.rel = "noopener noreferrer";
+      token.title = `${word.locator} · source line ${word.line}`;
+      token.textContent = word.exactText;
+      arabicWords.appendChild(token);
+    }
+    if (verseSource) {
+      verseSource.hidden = !cairoVerse?.sourceUrl;
+      if (cairoVerse?.sourceUrl) verseSource.href = cairoVerse.sourceUrl;
+    }
+    if (verseRecordSource) {
+      verseRecordSource.hidden = !cairoVerse?.verseSourceUrl;
+      if (cairoVerse?.verseSourceUrl) verseRecordSource.href = cairoVerse.verseSourceUrl;
+    }
+    recordsList.replaceChildren();
+    for (const { record, words } of matches) {
+      const item = document.createElement("li");
+      item.className = "qr-record";
+      const header = document.createElement("header");
+      const identity = document.createElement("p");
+      identity.textContent = `TEI record ${record.variantId} · ${record.readerReferences[0]?.exactLabel ?? "No TEI-listed label"}${record.readerReferences.length > 1 ? ` · ${record.readerReferences.length} TEI-listed labels` : ""}`;
+      const source = document.createElement("a");
+      source.href = record.sourceRecord.url;
+      source.target = "_blank";
+      source.rel = "noopener noreferrer";
+      source.textContent = "Open source record line ↗";
+      const indexLink = document.createElement("a");
+      const variantParams = new URLSearchParams({
+        verse: verseId,
+        reader: readerKey || record.readerNativeKey || MISSING_READER_KEY,
+      });
+      indexLink.href = `/projects/quran/variants/?${variantParams.toString()}#${encodeURIComponent(record.variantId)}`;
+      indexLink.textContent = "Open in Variant Index";
+      const sources = document.createElement("nav");
+      sources.setAttribute("aria-label", "Record sources");
+      sources.appendChild(indexLink);
+      sources.appendChild(document.createTextNode(" · "));
+      sources.appendChild(source);
+      header.appendChild(identity);
+      header.appendChild(sources);
+      if (record.readerReferences.length) {
+        const referenceDetails = document.createElement("details");
+        referenceDetails.className = "qr-reader-references";
+        const summary = document.createElement("summary");
+        summary.textContent = `Inspect ${record.readerReferences.length.toLocaleString()} TEI-listed labels and source keys`;
+        const referenceList = document.createElement("ol");
+        for (const reference of record.readerReferences) {
+          const referenceItem = document.createElement("li");
+          const exactLabel = document.createElement("pre");
+          exactLabel.textContent = reference.exactLabel;
+          const key = document.createElement("code");
+          key.textContent = reference.nativeKey ?? "key not supplied";
+          const referenceSource = document.createElement("a");
+          referenceSource.href = reference.sourceRecord.url;
+          referenceSource.target = "_blank";
+          referenceSource.rel = "noopener noreferrer";
+          referenceSource.textContent = `Open this persName source line ${reference.sourceRecord.line} ↗`;
+          referenceItem.appendChild(exactLabel);
+          referenceItem.appendChild(key);
+          referenceItem.appendChild(referenceSource);
+          if (reference.readerAuthority) {
+            const authoritySource = document.createElement("a");
+            authoritySource.href = reference.readerAuthority.sourceUrl;
+            authoritySource.target = "_blank";
+            authoritySource.rel = "noopener noreferrer";
+            authoritySource.textContent = `Open linked authority ${reference.readerAuthority.exactLabel || reference.readerAuthority.nativeKey} ↗`;
+            referenceItem.appendChild(authoritySource);
+          }
+          referenceList.appendChild(referenceItem);
+        }
+        referenceDetails.appendChild(summary);
+        referenceDetails.appendChild(referenceList);
+        item.appendChild(referenceDetails);
+      }
+      const text = document.createElement("pre");
+      text.dir = "ltr";
+      text.textContent = record.exactSourceText;
+      item.appendChild(header);
+      item.appendChild(text);
+      for (const word of words) {
+        const locator = document.createElement("p");
+        locator.className = "qr-locator";
+        locator.appendChild(document.createTextNode(`Variant source word locator ${word.variantSourceLocator ?? "not supplied"} · candidate only · Variant word `));
+        const variantToken = document.createElement("bdi");
+        variantToken.dir = "ltr";
+        variantToken.textContent = word.variantExactText;
+        locator.appendChild(variantToken);
+        locator.appendChild(document.createTextNode(` · candidate rule ${word.candidateMethod}`));
+        locator.appendChild(document.createTextNode(" · Cairo word "));
+        const arabicToken = document.createElement("bdi");
+        arabicToken.dir = "rtl";
+        arabicToken.lang = "ar";
+        arabicToken.textContent = word.targetExactText;
+        locator.appendChild(arabicToken);
+        if (word.targetSourceUrl) {
+          locator.appendChild(document.createTextNode(" · "));
+          const tokenSource = document.createElement("a");
+          tokenSource.href = word.targetSourceUrl;
+          tokenSource.target = "_blank";
+          tokenSource.rel = "noopener noreferrer";
+          tokenSource.textContent = "Open Cairo token source line ↗";
+          locator.appendChild(tokenSource);
+        }
+        item.appendChild(locator);
+      }
+      const missing = document.createElement("p");
+      missing.textContent = "The export has no linked source-authority key for this variant record.";
+      item.appendChild(missing);
+      recordsList.appendChild(item);
+    }
+    if (matches.length) {
+      const scope = readerKey ? ` for reader key ${readerKey === MISSING_READER_KEY ? "not supplied" : readerKey}` : "";
+        status.textContent = `${matches.length.toLocaleString()} source variant record${matches.length === 1 ? "" : "s"} ${matches.length === 1 ? "has" : "have"} a candidate locator for this passage${scope}.`;
+    } else if (readerKey && allMatches.length) {
+      status.textContent = `The source locator index has no candidate records for this passage under the selected reader key. This does not establish that the source contains no reported readings.`;
+    } else {
+      status.textContent = "The current locator index supplies no candidate variant records for this verse. This does not establish that the source contains no reported readings.";
+    }
+  }
+
+  if (select && button && status) {
+    const verseSelect = select;
+    const base = "/data/quran/releases/v0.5.26-cc-57cb2b7be321/";
+    const initialRequestedVerse = new URLSearchParams(window.location.search).get("verse");
+    if (initialRequestedVerse && [...verseSelect.options].some((option) => option.value === initialRequestedVerse)) {
+      verseSelect.value = initialRequestedVerse;
+    }
+    const loadCairoVerse = async (verseId: string): Promise<CairoVerse | undefined> => {
+      const shard = verseSelect.selectedOptions[0]?.dataset.shard;
+      if (!shard) throw new Error("Selected verse has no Cairo source shard")
+      const response = await fetch(`${base}${encodeURIComponent(shard)}`);
+      if (!response.ok) throw new Error("Cairo verse shard unavailable");
+      const payload = await response.json() as CairoPayload;
+      if (!payload.records.length || payload.records.some((row) => row.words.some((word) => !word.nativeId || !word.locator || !word.sourceUrl))) {
+        throw new Error("Cairo verse shard failed source coverage checks");
+      }
+      const verse = payload.records.find((row) => row.verseNativeId === verseId);
+      if (!verse) throw new Error("Selected source verse is absent from its surah shard");
+      return verse;
+    };
+    void Promise.all([
+      fetch(`${base}variant-passages.json`).then((response) => { if (!response.ok) throw new Error("Passage index unavailable"); return response.json() as Promise<PassageIndex>; }),
+      fetch(`${base}variant-catalog.json`).then((response) => { if (!response.ok) throw new Error("Catalog unavailable"); return response.json() as Promise<BrowserCatalog>; }),
+      loadCairoVerse(verseSelect.value),
+    ]).then(async ([index, compactCatalog, initialVerse]) => {
+        const indexes = await Promise.all(compactCatalog.readerIndexFiles.map(async ({ path }) => {
+          const response = await fetch(`${base}${encodeURIComponent(path)}`);
+          if (!response.ok) throw new Error("TEI-listed label index unavailable");
+          return response.json() as Promise<ReaderIndex>;
+        }));
+        const references = new Map(indexes.flatMap((readerIndex) => readerIndex.records.map((record) => [record.variantId, record.references] as const)));
+        const catalog: { records: ReadIndexRecord[] } = {
+          records: compactCatalog.records.map((record) => ({
+            ...record,
+            readerReferences: references.get(record.variantId) ?? [],
+          })),
+        };
+        let currentVerse = initialVerse;
+        let currentVerseId = select.value;
+        const requestedReader = new URLSearchParams(window.location.search).get("reader") ?? "";
+        const availableReaderKeys = new Set(catalog.records.flatMap((record) => record.readerReferences.length
+          ? record.readerReferences.map((reference) => reference.nativeKey).filter((key): key is string => Boolean(key))
+          : [MISSING_READER_KEY]));
+        if (readerSelect && requestedReader && availableReaderKeys.has(requestedReader)) readerSelect.value = requestedReader;
+        const verseIds = [...verseSelect.options].map((option) => option.value);
+        const shardByVerse = new Map([...verseSelect.options].map((option) => [option.value, option.dataset.shard ?? ""]));
+        function filterPassages(): void {
+          const query = passageSearch?.value.trim() ?? "";
+          const matching = verseIds.filter((id) => id.includes(query)).slice(0, 200);
+          const current = verseSelect.value;
+          verseSelect.replaceChildren();
+          for (const verseId of matching) {
+            const option = document.createElement("option");
+            option.value = verseId;
+            option.textContent = verseId;
+            option.dataset.shard = shardByVerse.get(verseId) ?? "";
+            verseSelect.appendChild(option);
+          }
+          if (matching.includes(current)) verseSelect.value = current;
+          else if (matching.length) verseSelect.value = matching[0];
+          if (filterStatus) filterStatus.textContent = `${matching.length.toLocaleString()} matching passage ID${matching.length === 1 ? "" : "s"}${matching.length === 200 ? " shown (first 200)" : ""} of ${verseIds.length.toLocaleString()}.`;
+        }
+        const requested = new URLSearchParams(window.location.search).get("verse");
+        if (requested && [...select.options].some((option) => option.value === requested)) select.value = requested;
+        if (passageSearch) {
+          passageSearch.addEventListener("input", filterPassages);
+          filterPassages();
+          if (requested && verseIds.includes(requested)) passageSearch.value = requested;
+          filterPassages();
+        }
+        render(index, catalog, select.value, currentVerse);
+        readerSelect?.addEventListener("change", () => {
+          render(index, catalog, currentVerseId, currentVerse);
+          const url = new URL(window.location.href);
+          url.searchParams.set("verse", currentVerseId);
+          if (readerSelect.value) url.searchParams.set("reader", readerSelect.value);
+          else url.searchParams.delete("reader");
+          window.history.replaceState({}, "", url);
+        });
+        button.disabled = false;
+        button.addEventListener("click", () => {
+          status.textContent = "Loading the selected Cairo source verse…";
+          void loadCairoVerse(select.value).then((verse) => {
+            currentVerse = verse;
+            currentVerseId = select.value;
+            render(index, catalog, currentVerseId, currentVerse);
+            const url = new URL(window.location.href);
+            url.searchParams.set("verse", currentVerseId);
+            if (readerSelect?.value) url.searchParams.set("reader", readerSelect.value);
+            else url.searchParams.delete("reader");
+            window.history.replaceState({}, "", url);
+          }).catch((error: unknown) => {
+            console.error("Could not load Cairo source verse", error);
+            status.textContent = "The selected source verse could not be loaded.";
+          });
+        });
+      })
+      .catch(() => { status.textContent = "The complete passage index is unavailable. The initial source-linked passage remains readable."; });
+  }
+</script>
+
+<style>
+  .qr-page { padding-block: 2rem clamp(5rem, 10vw, 8rem); }
+  .qr-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qr-crumbs a, .qr-record a, .qr-footer a, .qr-verse-sources a { color:var(--hc-gold); text-decoration:none; }
+  .qr-header { max-width:64rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qr-header h1 { margin-block:.5rem 1rem; }
+  .qr-lede { max-width:70ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qr-picker, .qr-passage, .qr-variants { max-width:72rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qr-picker h2, .qr-variants h2 { margin:0 0 .85rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qr-picker label { display:block; margin-bottom:.5rem; color:var(--hc-text-secondary); font-size:.85rem; }
+  .qr-picker select { min-width:min(100%,22rem); min-height:2.75rem; margin-inline-end:.5rem; padding:.55rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  .qr-status, .qr-note, .qr-record > p, .qr-footer { color:var(--hc-text-secondary); font-size:.86rem; line-height:1.7; }
+  .qr-passage__heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; }
+  .qr-verse-sources { display:flex; flex-wrap:wrap; gap:.5rem 1rem; }
+  .qr-passage__heading h2 { margin:0; color:var(--hc-text-primary); font-family:var(--font-display); font-weight:500; }
+  .qr-arabic { margin-block:1rem; padding:1.25rem; border-inline-start:2px solid var(--hc-gold-dim); background:var(--hc-surface-1); color:var(--hc-text-primary); font-family:var(--font-arabic); font-size:clamp(1.5rem,3vw,2.1rem); line-height:2.1; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .qr-reading-format { margin-block:1rem; }
+  .qr-reading-format summary { cursor:pointer; color:var(--hc-gold); }
+  .qr-arabic-reading { margin-block:.75rem; padding:1rem; background:var(--hc-surface-1); color:var(--hc-text-primary); font-family:var(--font-arabic); font-size:clamp(1.35rem,2.7vw,1.9rem); line-height:2.1; white-space:normal; overflow-wrap:anywhere; }
+  .qr-arabic-words { display:flex; flex-wrap:wrap; gap:.45rem .75rem; margin:0; padding:1rem; direction:rtl; line-height:2.1; }
+  .qr-word-source-label { margin:0; color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qr-arabic-words a { color:var(--hc-gold); text-decoration:none; border-bottom:1px dotted var(--hc-gold-dim); }
+  #qr-records { display:grid; gap:1rem; margin:0; padding:0; list-style:none; }
+  .qr-record { padding:clamp(1rem,3vw,1.5rem); border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); }
+  .qr-record header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.5rem 1rem; align-items:center; }
+  .qr-record header nav { display:flex; flex-wrap:wrap; gap:.4rem; color:var(--hc-text-tertiary); font-size:.82rem; }
+  .qr-record header p { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.82rem; }
+  .qr-record pre { padding:.75rem; background:var(--hc-surface-0); color:var(--hc-text-primary); font-family:var(--font-body); white-space:pre-wrap; overflow-wrap:anywhere; }
+  .qr-record code, .qr-locator code { overflow-wrap:anywhere; color:var(--hc-text-primary); }
+  .qr-locator { display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; }
+  .qr-locator bdi { padding:.2rem .45rem; border-inline-start:2px solid var(--hc-rule-strong); font-family:var(--font-arabic); font-size:1.1rem; }
+  .qr-footer { padding-top:2rem; }
+  @media (max-width:680px) { .qr-picker select { width:100%; margin-bottom:.5rem; } }
+  @media print {
+    @page { margin:14mm; }
+    :global(.site-header), :global(#site-footer) { display:none; }
+    .qr-crumbs, .qr-picker { display:none; }
+    .qr-page { max-width:none; padding:0; color:#111; }
+    .qr-arabic { margin-block:.5rem; padding:.4rem; background:#fff; color:#111; font-size:11pt; line-height:1.45; }
+    .qr-record { break-inside:avoid; background:#fff; color:#111; }
+    .qr-record a, .qr-footer a, .qr-verse-sources a { color:#111; text-decoration:underline; }
+  }
+</style>

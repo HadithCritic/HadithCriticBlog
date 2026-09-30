@@ -1,0 +1,291 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const indexUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/reader-record-counts.json", import.meta.url);
+type AnalysisMember = {
+  variantId: string;
+  line: number;
+  labelOrdinal: number | null;
+  exactLabel: string | null;
+  labelLine: number | null;
+  labelSourceUrl: string | null;
+};
+type AnalysisRow = {
+  readerNativeKey: string | null;
+  readerAuthority: null | { nativeKey: string; exactLabel: string; line: number; sourceUrl: string };
+  recordCount: number;
+  sourceLabelEntryCount: number;
+  variantRecords: AnalysisMember[];
+};
+type AnalysisIndex = {
+  dataset: string;
+  analysisVersion: string;
+  sourceRepository: string;
+  sourceCommit: string;
+  sourceLicense: string;
+  attribution: string;
+  sourceFile: string;
+  sourceFileSha256: string;
+  inputReleaseSha256: string;
+  selection: { records: string; filter: null };
+  operation: string;
+  interpretationLimit: string;
+  recordCount: number;
+  sourceLabelEntryCount: number;
+  groupCount: number;
+  resultSha256: string;
+  rows: AnalysisRow[];
+};
+const analysis = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as AnalysisIndex;
+const initialRows = analysis.rows.slice(0, 8);
+
+function variantUrl(member: AnalysisMember): string {
+  return `${analysis.sourceRepository}/blob/${analysis.sourceCommit}/${analysis.sourceFile}#L${member.line}`;
+}
+---
+
+<BaseLayout
+  title="Analyses | Quran | HadithCritic Projects"
+  description="A reproducible count of source-listed Quran variant labels and their TEI records."
+>
+  <div class="qa-page hc-container">
+    <nav class="qa-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Analyses</span>
+    </nav>
+
+    <header class="qa-header">
+      <p class="hc-eyebrow">Reproducible output · CC TEI</p>
+      <h1 class="hc-title hc-title--lg">TEI-listed label counts</h1>
+      <p class="qa-lede">This analysis preserves every direct <code>persName</code> label and key listed on each variant record. Entries may be descriptive labels as well as personal names; the interface does not classify their meaning.</p>
+    </header>
+
+    <section class="qa-method" aria-labelledby="qa-method-title">
+      <h2 id="qa-method-title">Selection and operation</h2>
+      <dl>
+        <dt>Input</dt><dd>{analysis.selection.records}, source commit <code>{analysis.sourceCommit}</code>.</dd>
+        <dt>Operation</dt><dd>{analysis.operation}</dd>
+        <dt>Edition, verse numbering, and normalization</dt><dd>Not applicable. This counts TEI record rows and does not compare or normalize text.</dd>
+        <dt>Interpretation limit</dt><dd>{analysis.interpretationLimit}</dd>
+        <dt>Result hash</dt><dd><code>{analysis.resultSha256}</code></dd>
+      </dl>
+    </section>
+
+    <section class="qa-search" aria-labelledby="qa-search-title">
+      <h2 id="qa-search-title">Browse source-listed keys</h2>
+      <label for="qa-query">Search exact source key, label, or variant ID</label>
+      <div class="qa-search__row">
+        <input id="qa-query" type="search" autocomplete="off" disabled />
+        <button id="qa-clear" class="hc-btn hc-btn--ghost" type="button" disabled>Clear</button>
+      </div>
+      <p id="qa-status" aria-live="polite">{analysis.groupCount.toLocaleString("en-GB")} key groups · {analysis.sourceLabelEntryCount.toLocaleString("en-GB")} source label entries across {analysis.recordCount.toLocaleString("en-GB")} variant records.</p>
+      <a class="qa-download" href="/data/quran/releases/v0.5.26-cc-57cb2b7be321/reader-record-counts.json" download>Download analysis rows and record members</a>
+    </section>
+
+    <ol id="qa-results" class="qa-results" aria-label="Reader key record-count groups">
+      {initialRows.map((row) => (
+        <li class="qa-row">
+          <header>
+            <div>
+              <p class="hc-eyebrow">Exact source key</p>
+              <h3><code>{row.readerNativeKey ?? "Reader key not supplied"}</code></h3>
+              {row.readerAuthority && <p>{row.readerAuthority.exactLabel}</p>}
+              {!row.readerAuthority && row.readerNativeKey && <p>No linked reader authority record.</p>}
+            </div>
+            <p class="qa-count"><strong>{row.recordCount.toLocaleString("en-GB")}</strong> records · {row.sourceLabelEntryCount.toLocaleString("en-GB")} label entries</p>
+          </header>
+          {row.readerAuthority && <a class="qa-authority" href={row.readerAuthority.sourceUrl} target="_blank" rel="noopener noreferrer">Open reader authority source line ↗</a>}
+          <details>
+            <summary>Inspect the {row.sourceLabelEntryCount.toLocaleString("en-GB")} exact label entries</summary>
+            <ol>{row.variantRecords.map((member) => <li><a href={variantUrl(member)} target="_blank" rel="noopener noreferrer"><code>{member.variantId}</code> · record source line {member.line}</a>{member.exactLabel !== null && <> · <pre>{member.exactLabel}</pre>{member.labelSourceUrl && <a href={member.labelSourceUrl} target="_blank" rel="noopener noreferrer">Open this persName source line {member.labelLine} ↗</a>}</>}</li>)}</ol>
+          </details>
+        </li>
+      ))}
+    </ol>
+    <button id="qa-more" class="hc-btn hc-btn--ghost" type="button" disabled>Show more key groups</button>
+
+    <footer class="qa-footer">
+      <h2>Source and reuse</h2>
+      <p>{analysis.attribution} Source file SHA-256: <code>{analysis.sourceFileSha256}</code>. Release database SHA-256: <code>{analysis.inputReleaseSha256}</code>. This derived index is CC BY-SA 4.0 with the source data.</p>
+      <p><a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · <a href="/projects/quran/read/">Read &amp; Compare</a> · <a href="/projects/quran/variants/">Variant Index</a> · <a href="/projects/quran/manuscripts/">Manuscript Catalogue</a> · <a href="/projects/quran/methods/">Methods &amp; Data</a></p>
+    </footer>
+  </div>
+</BaseLayout>
+
+<script>
+  type Member = { variantId: string; line: number; labelOrdinal: number | null; exactLabel: string | null; labelLine: number | null; labelSourceUrl: string | null };
+  type ReaderAuthority = null | { nativeKey: string; exactLabel: string; line: number; sourceUrl: string };
+  type Row = { readerNativeKey: string | null; readerAuthority: ReaderAuthority; recordCount: number; sourceLabelEntryCount: number; variantRecords: Member[] };
+  type Index = { rows: Row[]; recordCount: number; groupCount: number; sourceRepository: string; sourceCommit: string; sourceFile: string };
+  const query = document.querySelector<HTMLInputElement>("#qa-query");
+  const clear = document.querySelector<HTMLButtonElement>("#qa-clear");
+  const more = document.querySelector<HTMLButtonElement>("#qa-more");
+  const status = document.querySelector<HTMLElement>("#qa-status");
+  const results = document.querySelector<HTMLOListElement>("#qa-results");
+  const pageSize = 12;
+  let printDetails: Array<{ element: HTMLDetailsElement; open: boolean }> = [];
+  window.addEventListener("beforeprint", () => {
+    printDetails = [...document.querySelectorAll<HTMLDetailsElement>(".qa-row details")].map((element) => ({ element, open: element.open }));
+    for (const entry of printDetails) entry.element.open = true;
+  });
+  window.addEventListener("afterprint", () => {
+    for (const entry of printDetails) entry.element.open = entry.open;
+  });
+  let allRows: Row[] = [];
+  let filtered: Row[] = [];
+  let shown = 0;
+
+  function makeRow(row: Row, index: Index): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "qa-row";
+    const header = document.createElement("header");
+    const identity = document.createElement("div");
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "hc-eyebrow";
+    eyebrow.textContent = "Exact source key";
+    const title = document.createElement("h3");
+    const key = document.createElement("code");
+    key.textContent = row.readerNativeKey ?? "Reader key not supplied";
+    title.appendChild(key);
+    const label = document.createElement("p");
+    label.textContent = row.readerAuthority?.exactLabel ?? (row.readerNativeKey ? "No linked reader authority record." : "");
+    identity.appendChild(eyebrow);
+    identity.appendChild(title);
+    if (label.textContent) identity.appendChild(label);
+    const count = document.createElement("p");
+    count.className = "qa-count";
+    const strong = document.createElement("strong");
+    strong.textContent = row.recordCount.toLocaleString();
+    count.appendChild(strong);
+    count.appendChild(document.createTextNode(` records · ${row.sourceLabelEntryCount.toLocaleString()} label entries`));
+    header.appendChild(identity);
+    header.appendChild(count);
+    item.appendChild(header);
+    if (row.readerAuthority) {
+      const authority = document.createElement("a");
+      authority.className = "qa-authority";
+      authority.href = row.readerAuthority.sourceUrl;
+      authority.target = "_blank";
+      authority.rel = "noopener noreferrer";
+      authority.textContent = "Open reader authority source line ↗";
+      item.appendChild(authority);
+    }
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = `Inspect the ${row.recordCount.toLocaleString()} member variant records`;
+    details.appendChild(summary);
+    const list = document.createElement("ol");
+    for (const member of row.variantRecords) {
+      const entry = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = `${index.sourceRepository}/blob/${index.sourceCommit}/${index.sourceFile}#L${member.line}`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      const id = document.createElement("code");
+      id.textContent = member.variantId;
+      link.appendChild(id);
+      link.appendChild(document.createTextNode(` · source line ${member.line}`));
+      entry.appendChild(link);
+      if (member.exactLabel !== null) {
+        const label = document.createElement("pre");
+        label.textContent = member.exactLabel;
+        entry.appendChild(label);
+        if (member.labelSourceUrl) {
+          const labelSource = document.createElement("a");
+          labelSource.href = member.labelSourceUrl;
+          labelSource.target = "_blank";
+          labelSource.rel = "noopener noreferrer";
+          labelSource.textContent = `Open this persName source line ${member.labelLine} ↗`;
+          entry.appendChild(labelSource);
+        }
+      }
+      list.appendChild(entry);
+    }
+    details.appendChild(list);
+    item.appendChild(details);
+    return item;
+  }
+
+  function render(reset: boolean, index?: Index): void {
+    if (!query || !clear || !more || !status || !results) return;
+    if (reset) {
+      const term = query.value.toLowerCase();
+      filtered = allRows.filter((row) => {
+        const searchable = [row.readerNativeKey ?? "", row.readerAuthority?.exactLabel ?? "",
+          ...row.variantRecords.flatMap((member) => [member.variantId, member.exactLabel ?? ""])];
+        return searchable.some((value) => value.toLowerCase().includes(term));
+      });
+      shown = 0;
+      results.replaceChildren();
+    }
+    if (!index) return;
+    for (const row of filtered.slice(shown, shown + pageSize)) results.appendChild(makeRow(row, index));
+    shown += Math.min(pageSize, filtered.length - shown);
+    more.hidden = shown >= filtered.length;
+      status.textContent = `${filtered.length.toLocaleString()} of ${allRows.length.toLocaleString()} exact-key groups match. Counts describe this TEI export, not historical reading frequencies.`;
+    const url = new URL(window.location.href);
+    if (query.value) url.searchParams.set("q", query.value);
+    else url.searchParams.delete("q");
+    window.history.replaceState({}, "", url);
+  }
+
+  if (query && clear && more && status && results) {
+    void fetch("/data/quran/releases/v0.5.26-cc-57cb2b7be321/reader-record-counts.json")
+      .then((response) => { if (!response.ok) throw new Error("Analysis index unavailable"); return response.json() as Promise<Index>; })
+      .then((data) => {
+        allRows = data.rows;
+        query.value = new URLSearchParams(window.location.search).get("q") ?? "";
+        query.disabled = false;
+        clear.disabled = false;
+        more.disabled = false;
+        filtered = allRows;
+        render(true, data);
+        query.addEventListener("input", () => render(true, data));
+        clear.addEventListener("click", () => { query.value = ""; render(true, data); query.focus(); });
+        more.addEventListener("click", () => render(false, data));
+      })
+      .catch(() => { status.textContent = "The analysis index could not be loaded. The initial rows and full JSON download remain available."; });
+  }
+</script>
+
+<style>
+  .qa-page { padding-block:2rem clamp(5rem,10vw,8rem); }
+  .qa-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qa-crumbs a, .qa-row a, .qa-footer a { color:var(--hc-gold); text-decoration:none; }
+  .qa-header { max-width:66rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qa-header h1 { margin-block:.5rem 1rem; }
+  .qa-lede { max-width:72ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qa-method, .qa-search { max-width:72rem; padding-block:1.75rem; border-bottom:1px solid var(--hc-rule); }
+  .qa-method h2, .qa-search h2, .qa-footer h2 { margin:0 0 .8rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qa-method dl { display:grid; grid-template-columns:minmax(12rem,.35fr) minmax(0,1fr); gap:.65rem 1rem; }
+  .qa-method dt { color:var(--hc-text-primary); font-family:var(--font-ui); font-size:.83rem; }
+  .qa-method dd { margin:0; color:var(--hc-text-secondary); line-height:1.6; overflow-wrap:anywhere; }
+  .qa-method code, .qa-footer code { color:var(--hc-text-primary); overflow-wrap:anywhere; font-size:.82em; }
+  .qa-search label { display:block; margin-bottom:.5rem; color:var(--hc-text-secondary); font-size:.85rem; }
+  .qa-search__row { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .qa-search input { flex:1 1 20rem; min-width:0; min-height:2.75rem; padding:.6rem .75rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  .qa-search input:disabled, .qa-search button:disabled { opacity:.65; cursor:wait; }
+  .qa-search p, .qa-footer p { max-width:80ch; color:var(--hc-text-secondary); font-size:.86rem; line-height:1.7; }
+  .qa-download { display:inline-flex; min-height:2.5rem; align-items:center; color:var(--hc-gold); text-underline-offset:.2em; }
+  .qa-results { display:grid; max-width:72rem; gap:1rem; margin:2rem 0 1rem; padding:0; list-style:none; }
+  .qa-row { padding:clamp(1rem,3vw,1.4rem); border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); }
+  .qa-row > header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:.75rem 1.5rem; align-items:flex-start; }
+  .qa-row h3 { margin:.35rem 0; font-family:var(--font-display); font-size:1.05rem; font-weight:500; overflow-wrap:anywhere; }
+  .qa-row h3 code { color:var(--hc-text-primary); font-family:var(--font-body); font-size:.9rem; }
+  .qa-row header p:not(.hc-eyebrow) { color:var(--hc-text-secondary); font-size:.9rem; }
+  .qa-count { flex:0 0 auto; color:var(--hc-text-secondary); font-family:var(--font-ui); font-size:.83rem; }
+  .qa-count strong { color:var(--hc-text-primary); font-size:1.15rem; }
+  .qa-authority { display:inline-block; padding-block:.35rem; font-size:.82rem; }
+  .qa-row details { margin-top:.5rem; border-top:1px solid var(--hc-rule); }
+  .qa-row summary { min-height:2.75rem; align-content:center; color:var(--hc-gold); cursor:pointer; }
+  .qa-row details ol { display:grid; grid-template-columns:repeat(auto-fit,minmax(13rem,1fr)); gap:.4rem 1rem; max-height:24rem; overflow:auto; padding-inline-start:1.25rem; }
+  .qa-row details li { font-size:.82rem; overflow-wrap:anywhere; }
+  #qa-more { margin-top:1rem; }
+  .qa-footer { max-width:72rem; padding-top:2rem; }
+  @media(max-width:680px) { .qa-method dl { grid-template-columns:minmax(0,1fr); gap:.3rem; } .qa-method dd { margin-bottom:.7rem; } }
+  @media print { .qa-crumbs, .qa-search, #qa-more { display:none; } .qa-page { max-width:none; padding:0; } .qa-row { break-inside:avoid; background:#fff; } .qa-row details { border-color:#aaa; } .qa-row a, .qa-footer a { color:#111; text-decoration:underline; } }
+</style>

@@ -1,0 +1,481 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const indexUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/variants.json", import.meta.url);
+const releaseUrl = new URL("../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/release.json", import.meta.url);
+type PilotAlignment = {
+  method: string;
+  reviewState: string;
+  targetVerseId: string;
+  targetExactText: string;
+  targetSourceUrl: string | null;
+  targetVerseExactText: string | null;
+  targetVerseSourceUrl: string | null;
+};
+type PilotWord = { sourceLocator: string | null; alignment: PilotAlignment | null };
+type PilotRecord = {
+  variantId: string;
+  readerNativeKey: string | null;
+  readerExactLabel: string | null;
+  readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string };
+  readerReferences: Array<{
+    ordinal: number;
+    nativeKey: string | null;
+    exactLabel: string;
+    sourceRecord: { url: string; line: number; locator: string };
+    readerAuthority: null | { nativeKey: string; exactLabel: string | null; sourceUrl: string; linkRule: string };
+  }>;
+  exactSourceText: string;
+  sourceRecord: { url: string };
+  words: PilotWord[];
+};
+type PilotIndex = {
+  recordCount: number;
+  completeSourceRecordCount: number;
+  attribution: string;
+  sourceRepository: string;
+  sourceCommit: string;
+  modificationNotice: string;
+  records: PilotRecord[];
+};
+const pilot = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as PilotIndex;
+const fullRelease = JSON.parse(readFileSync(fileURLToPath(releaseUrl), "utf8")) as {
+  releaseId: string;
+  coverage: { variants: { recordCount: number; candidateWordCount: number; recordsWithoutSourceKey: number; detailShards: number } };
+};
+const records = pilot.records;
+const initialRecords = records.slice(0, 12);
+const fullCoverage = fullRelease.coverage.variants;
+const fullCatalogUrl = `/data/quran/releases/${fullRelease.releaseId}/variant-catalog.json`;
+const readPassageUrl = (verseId: string, readerNativeKey: string | null) => {
+  const params = new URLSearchParams({
+    verse: verseId,
+    reader: readerNativeKey ?? "__missing_reader_key__",
+  });
+  return `/projects/quran/read/?${params.toString()}`;
+};
+
+---
+
+<BaseLayout
+  title="Variant Index | Quran | HadithCritic Projects"
+  description="A source-linked pilot index of Corpus Coranicum Quran variant records."
+>
+  <div class="qv-page hc-container">
+    <nav class="qv-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Variant Index</span>
+    </nav>
+
+    <header class="qv-header">
+      <p class="hc-eyebrow">Corpus Coranicum · pinned TEI release</p>
+      <h1 class="hc-title hc-title--lg">Variant Index</h1>
+      <p class="qv-lede">
+        Browse every source-native record from the pinned export. Each record keeps its source wording and citation locator; similar-looking records are not combined.
+      </p>
+    </header>
+
+    <section class="qv-scope" aria-labelledby="qv-scope-title">
+      <h2 id="qv-scope-title">Complete variant record catalog</h2>
+      <p>
+        The searchable catalog contains {fullCoverage.recordCount.toLocaleString("en-GB")} of {pilot.completeSourceRecordCount.toLocaleString("en-GB")} variant records from the pinned export. It preserves the source TEI transcription as written; it is not Quran text in Arabic script.
+      </p>
+      <p>
+        {fullCoverage.recordsWithoutSourceKey.toLocaleString("en-GB")} records have no linked source-authority key in this export. Each record links to its exact Corpus Coranicum TEI line; an underlying work citation is not supplied here.
+      </p>
+      <p>
+        {fullCoverage.candidateWordCount.toLocaleString("en-GB")} mechanically matched Cairo word locators are candidates, not verified equivalences. Candidate details are loaded from {fullCoverage.detailShards} small release shards when opened.
+      </p>
+    </section>
+
+    <section class="qv-search" aria-labelledby="qv-search-title">
+      <h2 id="qv-search-title">Search all variant records</h2>
+      <form id="qv-search-form" method="get" action="/projects/quran/variants/">
+        <label for="qv-query">Search source text, reader label, or TEI record ID</label>
+        <input id="qv-query" name="q" type="search" autocomplete="off" />
+        <label for="qv-reader">Reader key</label>
+        <select id="qv-reader" name="reader">
+          <option value="">All reader keys</option>
+        </select>
+        <button class="hc-btn hc-btn--ghost" type="submit">Search all records</button>
+      </form>
+      <p id="qv-search-status" class="qv-search__status" aria-live="polite" aria-atomic="true">
+        The complete searchable catalog loads when you search or follow a record link. The 12-record source-linked preview is available immediately.
+      </p>
+      <noscript>
+        <p>Search needs JavaScript. The initial 12 source-linked records and the full catalog download remain available.</p>
+      </noscript>
+      <a class="qv-download" href={fullCatalogUrl} download>Download the complete 18,000-record search catalog</a>
+      <span aria-hidden="true"> · </span>
+      <a class="qv-download" href="/data/quran/releases/v0.5.26-cc-57cb2b7be321/variants.json" download>Download the 24-record pilot JSON</a>
+    </section>
+
+    <ol id="qv-results" class="qv-results" aria-label="Source-native variant records">
+      {initialRecords.map((record) => (
+        <li class="qv-record" id={record.variantId}>
+          <header class="qv-record__head">
+            <div>
+              <p class="qv-record__native">TEI record <code>{record.variantId}</code></p>
+              <pre class="qv-record__reader">{record.readerReferences[0]?.exactLabel ?? "No TEI-listed label in this record"}{record.readerReferences.length > 1 ? ` · ${record.readerReferences.length} TEI-listed labels` : ""}</pre>
+            </div>
+            <a class="qv-record__source" href={record.sourceRecord.url} target="_blank" rel="noopener noreferrer">
+              Open source line <span aria-hidden="true">↗</span>
+            </a>
+          </header>
+          {record.readerReferences.length > 0 && (
+            <details class="qv-record__reader-references">
+              <summary>Inspect {record.readerReferences.length.toLocaleString("en-GB")} TEI-listed label{record.readerReferences.length === 1 ? "" : "s"} and source keys</summary>
+              <ol>
+                {record.readerReferences.map((reference) => (
+                  <li>
+                    <pre>{reference.exactLabel}</pre>
+                    <code>{reference.nativeKey ?? "key not supplied"}</code>
+                    <a href={reference.sourceRecord.url} target="_blank" rel="noopener noreferrer">Open this persName source line {reference.sourceRecord.line} ↗</a>
+                    {reference.readerAuthority && <a href={reference.readerAuthority.sourceUrl} target="_blank" rel="noopener noreferrer">Open linked authority {reference.readerAuthority.exactLabel || reference.readerAuthority.nativeKey} ↗</a>}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
+          <p class="qv-record__label">Variant text as stored in the TEI record</p>
+          <pre class="qv-record__text" dir="ltr">{record.exactSourceText}</pre>
+          <p class="qv-record__missing">The TEI record has no linked source authority key.</p>
+          {record.words.some((word) => word.alignment) && (
+            <details class="qv-record__alignments">
+              <summary>Inspect unreviewed Cairo locator candidates</summary>
+              <ol>
+                {record.words.map((word) => word.alignment && (
+                  <li>
+                    <span>Variant word <code>{word.sourceLocator ?? "No locator"}</code></span>
+                    <span class="qv-record__candidate-state">Candidate · not reviewed</span>
+                    <span>Candidate rule: <code>{word.alignment.method}</code></span>
+                    <pre class="qv-record__arabic" dir="rtl" lang="ar">{word.alignment.targetExactText}</pre>
+                    {word.alignment.targetVerseExactText && (
+                      <>
+                        <span class="qv-record__context-label">Cairo 1924 Arabic text · verse context</span>
+                        <pre class="qv-record__arabic" dir="rtl" lang="ar">{word.alignment.targetVerseExactText}</pre>
+                        {word.alignment.targetVerseSourceUrl && (
+                          <a href={word.alignment.targetVerseSourceUrl} target="_blank" rel="noopener noreferrer">Open Cairo verse record</a>
+                        )}
+                        <a href={readPassageUrl(word.alignment.targetVerseId, record.readerNativeKey)}>Open this passage in Read &amp; Compare</a>
+                      </>
+                    )}
+                    {word.alignment.targetSourceUrl && (
+                      <a href={word.alignment.targetSourceUrl} target="_blank" rel="noopener noreferrer">Open Cairo TEI token</a>
+                    )}
+                  </li>
+                ))}
+              </ol>
+              <p>These links follow matching TEI locator formats; they do not establish that the readings are equivalent.</p>
+            </details>
+          )}
+        </li>
+      ))}
+    </ol>
+    <button id="qv-more" class="hc-btn hc-btn--ghost" type="button" hidden>Show more records</button>
+
+    <footer class="qv-attribution">
+      <h2>Source and reuse</h2>
+      <p>{pilot.attribution}</p>
+      <p>
+        TEI data: <a href={pilot.sourceRepository}>Corpus Coranicum</a>, commit <code>{pilot.sourceCommit}</code>.
+        Licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>.
+      </p>
+      <p>{pilot.modificationNotice}</p>
+      <a class="hc-back-link" href="/projects/quran/">Return to Quran project</a>
+      <span aria-hidden="true"> · </span><a class="hc-back-link" href="/projects/quran/read/">Read &amp; compare</a>
+      <span aria-hidden="true"> · </span><a class="hc-back-link" href="/projects/quran/manuscripts/">Manuscript catalogue</a>
+      <span aria-hidden="true"> · </span><a class="hc-back-link" href="/projects/quran/analyses/">Analyses</a>
+      <span aria-hidden="true"> · </span><a class="hc-back-link" href="/projects/quran/methods/">Methods &amp; data</a>
+    </footer>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/quran-variant-browser";
+</script>
+
+<style>
+  .qv-page {
+    padding-block: 2rem clamp(5rem, 10vw, 8rem);
+  }
+
+  .qv-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: clamp(2.5rem, 7vw, 5rem);
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+  }
+
+  .qv-crumbs a,
+  .qv-record a,
+  .qv-attribution a {
+    color: var(--hc-gold);
+    text-decoration: none;
+  }
+
+  .qv-header {
+    max-width: 62rem;
+    padding-bottom: clamp(2rem, 5vw, 3.5rem);
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .qv-header h1 {
+    margin-block: 0.5rem 1rem;
+  }
+
+  .qv-lede {
+    max-width: 68ch;
+    color: var(--hc-text-secondary);
+    font-size: 1.08rem;
+    line-height: 1.7;
+  }
+
+  .qv-scope,
+  .qv-search {
+    max-width: 70rem;
+    padding-block: 2rem;
+    border-bottom: 1px solid var(--hc-rule);
+  }
+
+  .qv-scope h2,
+  .qv-search h2,
+  .qv-attribution h2 {
+    margin: 0 0 0.85rem;
+    color: var(--hc-text-primary);
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 500;
+  }
+
+  .qv-scope p,
+  .qv-search__status,
+  .qv-attribution p {
+    max-width: 74ch;
+    color: var(--hc-text-secondary);
+    line-height: 1.7;
+  }
+
+  #qv-search-form {
+    display: grid;
+    grid-template-columns: minmax(14rem, 1fr) minmax(12rem, 0.55fr) auto;
+    align-items: end;
+    gap: 0.75rem 1rem;
+  }
+
+  #qv-search-form label {
+    grid-row: 1;
+    color: var(--hc-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+  }
+
+  #qv-search-form input,
+  #qv-search-form select {
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+    color: var(--hc-text-primary);
+    font: inherit;
+  }
+
+  #qv-search-form button {
+    min-height: 2.75rem;
+  }
+
+  #qv-search-form input:disabled,
+  #qv-search-form select:disabled,
+  #qv-search-form button:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  .qv-search__status {
+    margin-block: 0.8rem;
+    font-size: 0.82rem;
+  }
+
+  .qv-download {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: var(--hc-gold);
+    text-underline-offset: 0.2em;
+  }
+
+  .qv-results {
+    display: grid;
+    max-width: 70rem;
+    gap: 1.25rem;
+    margin: 2rem 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .qv-record {
+    min-width: 0;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--hc-rule);
+    border-radius: var(--radius-xs);
+    background: var(--hc-surface-1);
+  }
+
+  .qv-record__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .qv-record__native,
+  .qv-record__label {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
+  }
+
+  .qv-record__native code,
+  .qv-record code {
+    color: var(--hc-text-primary);
+    font-size: 0.82rem;
+  }
+
+  .qv-record__reader,
+  .qv-record__text,
+  .qv-record__arabic {
+    margin: 0.5rem 0 1rem;
+    padding: 0.75rem;
+    border-inline-start: 2px solid var(--hc-gold-dim);
+    background: var(--hc-surface-0);
+    color: var(--hc-text-primary);
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .qv-record__reader {
+    max-width: 52rem;
+    color: var(--hc-text-secondary);
+  }
+
+  .qv-record__label {
+    margin: 1.1rem 0 0;
+  }
+
+  .qv-record__text {
+    max-height: 16rem;
+    overflow: auto;
+  }
+
+  .qv-record__missing {
+    color: var(--hc-text-secondary);
+    font-size: 0.86rem;
+  }
+
+  .qv-record__authority { color: var(--hc-text-secondary); font-size: 0.82rem; }
+  .qv-record__authority a { color: var(--hc-gold); }
+
+  .qv-record__source {
+    flex: 0 0 auto;
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .qv-record__alignments {
+    margin-top: 1rem;
+    border-top: 1px solid var(--hc-rule);
+    color: var(--hc-text-secondary);
+  }
+
+  .qv-record__alignments summary {
+    min-height: 2.75rem;
+    align-content: center;
+    color: var(--hc-gold);
+    cursor: pointer;
+  }
+
+  .qv-record__alignments ol {
+    display: grid;
+    gap: 1rem;
+    padding-inline-start: 1.25rem;
+  }
+
+  .qv-record__alignments li {
+    display: grid;
+    justify-items: start;
+    gap: 0.35rem;
+  }
+
+  .qv-record__candidate-state {
+    padding-inline-start: 0.6rem;
+    border-inline-start: 2px solid var(--hc-rule-strong);
+    color: var(--hc-text-secondary);
+    font-size: 0.8rem;
+  }
+
+  .qv-record__context-label {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.76rem;
+  }
+
+  .qv-record__arabic {
+    width: min(100%, 38rem);
+    font-family: var(--font-arabic);
+    font-size: 1.25rem;
+    line-height: 2;
+  }
+
+  .qv-record__alignments > p {
+    font-size: 0.82rem;
+  }
+
+  .qv-attribution {
+    max-width: 70rem;
+    padding-top: 2.5rem;
+    border-top: 1px solid var(--hc-rule);
+  }
+
+  .qv-attribution code {
+    overflow-wrap: anywhere;
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 780px) {
+    #qv-search-form {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    #qv-search-form label {
+      grid-row: auto;
+      margin-top: 0.4rem;
+    }
+
+    .qv-record__head {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
+
+  @media print {
+    .qv-crumbs, .qv-search, .qv-attribution .hc-back-link { display: none; }
+    .qv-page { max-width: none; padding: 0; color: #111; }
+    .qv-record { break-inside: avoid; background: #fff; color: #111; }
+    .qv-record__text, .qv-record__arabic { max-height: none; overflow: visible; background: #fff; color: #111; }
+    .qv-record a, .qv-attribution a { color: #111; text-decoration: underline; }
+  }
+</style>

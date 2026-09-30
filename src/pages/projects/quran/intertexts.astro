@@ -1,0 +1,124 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const releaseId = "v0.5.26-cc-57cb2b7be321";
+const indexPath = `../../../../public/data/quran/releases/${releaseId}/intertext-catalog.json`;
+const index = JSON.parse(readFileSync(fileURLToPath(new URL(indexPath, import.meta.url)), "utf8")) as {
+  recordCount: number;
+  sourceFileCount: number;
+  recordSourceFileCount: number;
+  fieldElementCounts: Record<string, number>;
+  records: Array<{
+    nativeId: string | null;
+    recordLocator: string;
+    source: { file: string; line: number; url: string };
+    fields: Record<string, { label: string; values: Array<{ exactText: string; locator: string; line: number; sourceUrl: string }> }>;
+  }>;
+};
+const preview = index.records.slice(0, 3);
+---
+
+<BaseLayout
+  title="Intertext Source Catalogue | Quran | HadithCritic Projects"
+  description="Browse 713 source-located Corpus Coranicum intertext descriptions with exact TEI fields, source lines, and attribution."
+>
+  <div class="qix-page hc-container">
+    <nav class="qix-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Intertext Source Catalogue</span>
+    </nav>
+    <header class="qix-header">
+      <p class="hc-eyebrow">Corpus Coranicum · quran_intertexts</p>
+      <h1 class="hc-title hc-title--lg">Intertext Source Catalogue</h1>
+      <p class="qix-lede">Browse the pinned TEI collection’s source descriptions with their native record IDs, source-reported summaries, language and origin statements, and bibliography. Every displayed field links to its exact XML element line.</p>
+    </header>
+
+    <section class="qix-coverage" aria-labelledby="qix-coverage-title">
+      <h2 id="qix-coverage-title">Indexed coverage</h2>
+      <dl>
+        <div><dt>Source descriptions</dt><dd>{index.recordCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Files with records</dt><dd>{index.recordSourceFileCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>XML files in collection</dt><dd>{index.sourceFileCount.toLocaleString("en-GB")}</dd></div>
+      </dl>
+      <p>The index preserves selected TEI document title, identifier, summary, described work title and author, text-language statement, origin-date and place statements, repository, and bibliography fields. Values are shown as the source reports them; they are not normalized or independently checked.</p>
+    </section>
+
+    <section class="qix-search" aria-labelledby="qix-search-title">
+      <h2 id="qix-search-title">Find a source record</h2>
+      <form id="qix-form" method="get" action="/projects/quran/intertexts/">
+        <label for="qix-query">Search exact source values · case-sensitive</label>
+        <input id="qix-query" name="q" type="search" autocomplete="off" disabled>
+        <button class="hc-btn hc-btn--ghost" type="submit" disabled>Search 713 records</button>
+      </form>
+      <p id="qix-status" class="qix-status" aria-live="polite" aria-atomic="true">Loading source-located intertext records…</p>
+      <noscript>
+        <p>Interactive search needs JavaScript. The source-linked records are previewed below; <a href={`/data/quran/releases/${releaseId}/intertext-catalog.json`} download>download the complete indexed catalogue</a>.</p>
+      </noscript>
+    </section>
+
+    <ol id="qix-results" class="qix-results" aria-label="Intertext source descriptions">
+      {preview.map((record) => <li class="qix-entry">
+        <h3>{record.fields.sourceDocumentTitle?.values[0]?.exactText || "Source document title not supplied"}</h3>
+        <p class="qix-identity">Native msDesc ID: {record.nativeId ?? "not supplied"} · {record.recordLocator} · source line {record.source.line}</p>
+        <a href={record.source.url} target="_blank" rel="noopener noreferrer">Open exact TEI record line ↗</a>
+        {(["repository", "identifier", "workTitle", "workAuthor", "textLanguage", "originDate", "originPlace", "summary", "bibliography"] as const).map((key) => record.fields[key]?.values.map((value) => <section class="qix-field">
+          <h4>{record.fields[key]?.label}</h4>
+          <p class="qix-exact" dir="auto">{value.exactText || "[empty source element]"}</p>
+          <p class="qix-locator">{value.locator} · source line {value.line}</p>
+          <a href={value.sourceUrl} target="_blank" rel="noopener noreferrer">Open source element line ↗</a>
+        </section>))}
+      </li>)}
+    </ol>
+    <button id="qix-more" class="hc-btn hc-btn--ghost" type="button" hidden disabled>Show more records</button>
+
+    <section class="qix-notes" aria-labelledby="qix-notes-title">
+      <h2 id="qix-notes-title">Scope and source</h2>
+      <p>These are the TEI records in <code>data/quran_intertexts</code>, exposed as source descriptions. They are not automatically treated as manuscript witnesses or verified historical relationships. The sibling <code>categories.xml</code> hierarchy is indexed separately; the records contain no explicit category links.</p>
+      <p>Source: Corpus Coranicum Project, ed. Michael Marx, TEI data, pinned commit <code>57cb2b7be321ecfba100cb5f7988974f47864a14</code>, CC BY-SA 4.0. Download the <a href={`/data/quran/releases/${releaseId}/intertext-catalog.json`} download>versioned source catalogue JSON</a> with native IDs, field paths, source hashes, and exact values.</p>
+    </section>
+    <nav class="qix-tools" aria-label="Quran project pages">
+      <a class="hc-btn" href="/projects/quran/intertexts/categories/">Browse category taxonomy <span aria-hidden="true">→</span></a>
+      <a class="hc-btn" href="/projects/quran/commentary/">Commentary text index <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/relationships/">Relationship index <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Return to Quran project <span aria-hidden="true">→</span></a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/quran-intertext-browser";
+</script>
+
+<style is:global>
+  .qix-page { padding-block:2rem clamp(5rem,10vw,8rem); }
+  .qix-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qix-crumbs a, .qix-entry a, .qix-notes a { color:var(--hc-gold); text-decoration:none; }
+  .qix-header { max-width:64rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qix-header h1 { margin-block:.5rem 1rem; }
+  .qix-lede { max-width:70ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qix-coverage, .qix-search, .qix-notes { max-width:76rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qix-coverage h2, .qix-search h2, .qix-notes h2 { margin:0 0 .85rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qix-coverage dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.5rem; margin:1.5rem 0; }
+  .qix-coverage dt { color:var(--hc-text-tertiary); font-size:.82rem; }
+  .qix-coverage dd { margin:.35rem 0 0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.65rem; }
+  .qix-coverage > p, .qix-notes p, .qix-status { max-width:78ch; color:var(--hc-text-secondary); font-size:.9rem; line-height:1.7; }
+  #qix-form { display:grid; grid-template-columns:minmax(14rem,2fr) auto; align-items:end; gap:.75rem; }
+  #qix-form label { color:var(--hc-text-secondary); font-size:.82rem; }
+  #qix-form input { grid-column:1; width:100%; min-height:2.75rem; padding:.55rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  #qix-form button { grid-column:2; grid-row:1 / span 2; }
+  #qix-more[hidden] { display:none; }
+  .qix-results { display:grid; gap:.75rem; margin:1.5rem 0; padding:0; list-style:none; }
+  .qix-entry { padding:1.1rem 1.2rem; border-bottom:1px solid var(--hc-rule); background:var(--hc-surface-1); }
+  .qix-entry > h3 { margin:0 0 .5rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.25rem; font-weight:500; }
+  .qix-identity, .qix-locator { color:var(--hc-text-tertiary); font-size:.8rem; overflow-wrap:anywhere; line-height:1.7; }
+  .qix-field { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid var(--hc-rule); }
+  .qix-field h4 { margin:0; color:var(--hc-text-secondary); font-family:var(--font-ui); font-size:.8rem; font-weight:600; }
+  .qix-exact { margin:.45rem 0; color:var(--hc-text-primary); font-size:.94rem; line-height:1.7; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .qix-attrs { color:var(--hc-text-tertiary); font-size:.78rem; overflow-wrap:anywhere; }
+  .qix-tools { display:flex; flex-wrap:wrap; gap:.75rem; padding-top:2rem; }
+  @media(max-width:760px) { #qix-form { grid-template-columns:1fr; } #qix-form button { grid-column:auto; grid-row:auto; } .qix-coverage dl { grid-template-columns:1fr; gap:.75rem; } }
+</style>

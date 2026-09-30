@@ -1,0 +1,439 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const releaseId = "v0.5.26-cc-57cb2b7be321";
+const indexUrl = new URL(`../../../../public/data/quran/releases/${releaseId}/manuscripts.json`, import.meta.url);
+type CatalogValue = {
+  exactText: string;
+  attributes: Array<{ name: string; exactValue: string }>;
+  elementPath: string;
+  line: number;
+  sourceUrl: string;
+};
+type CatalogField = { label: string; values: CatalogValue[] };
+type CatalogRecord = {
+  nativeId: string | null;
+  recordLocator: string;
+  elementShard: string;
+  elementCount: number;
+  source: { file: string; line: number; sha256: string; url: string };
+  fields: Record<string, CatalogField>;
+};
+type CatalogIndex = {
+  recordCount: number;
+  recordsWithoutNativeId: number;
+  fileCount: number;
+  sourceCommit: string;
+  sourceLicense: string;
+  attribution: string;
+  modificationNotice: string;
+  fieldPaths: Array<{ key: string; label: string; teiXPathRelativeToMsDesc: string }>;
+  fieldElementCounts: Record<string, number>;
+  sourceElementCount: number;
+  elementShardCount: number;
+  elementShards: Array<{ path: string; bytes: number; sha256: string; recordCount: number; elementCount: number }>;
+  records: CatalogRecord[];
+};
+const catalog = JSON.parse(readFileSync(fileURLToPath(indexUrl), "utf8")) as CatalogIndex;
+const initialRecords = catalog.records.slice(0, 8);
+
+function fieldSummary(record: CatalogRecord, key: string): string {
+  return record.fields[key]?.values[0]?.exactText ?? "";
+}
+---
+
+<BaseLayout
+  title="Manuscript Catalogue | Quran | HadithCritic Projects"
+  description="Search Corpus Coranicum manuscript catalogue statements with source TEI locators."
+>
+  <div class="qmc-page hc-container">
+    <nav class="qmc-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Manuscript catalogue</span>
+    </nav>
+
+    <header class="qmc-header">
+      <p class="hc-eyebrow">Corpus Coranicum · pinned manuscript TEI</p>
+      <h1 class="hc-title hc-title--lg">Manuscript Catalogue</h1>
+      <p class="qmc-lede">Search catalogue statements in the pinned manuscript collection, then inspect every source element inside an individual <code>msDesc</code>. Element trees load on demand from checksummed shards. Catalogue descriptions remain distinct from direct observation of a manuscript.</p>
+    </header>
+
+    <section class="qmc-scope" aria-labelledby="qmc-scope-title">
+      <h2 id="qmc-scope-title">Collection scope</h2>
+      <p>This index contains {catalog.recordCount.toLocaleString("en-GB")} <code>msDesc</code> records from {catalog.fileCount.toLocaleString("en-GB")} XML files under <code>data/quran_manuscripts</code> in commit <code>{catalog.sourceCommit}</code>. The repository describes a broader inventory; this page reports only the records in this pinned collection.</p>
+      <p>The selected catalogue fields are indexed for collection search. The full source tree contains {catalog.sourceElementCount.toLocaleString("en-GB")} TEI elements across these records in {catalog.elementShardCount.toLocaleString("en-GB")} lazy shards; open a record to load its complete element tree. Parent and child element values may repeat source text and remain separate. The largest element shard is {(Math.max(...catalog.elementShards.map((shard) => shard.bytes)) / 1_000_000).toFixed(2)} MB.</p>
+      <p>All {catalog.recordsWithoutNativeId.toLocaleString("en-GB")} descriptions lack a native <code>msDesc/@xml:id</code>. The index keeps that value null and uses a file plus within-file element position and source line to navigate to each record.</p>
+      <p>Field labels name TEI elements, not normalized scholarly conclusions. For example, an identifier string is not assumed to be a shelfmark, and a date statement is not converted into a numeric date range.</p>
+    </section>
+
+    <section class="qmc-search" aria-labelledby="qmc-search-title">
+      <h2 id="qmc-search-title">Search catalogue statements</h2>
+      <label for="qmc-query">Search identifiers, repositories, date statements, support, hands, provenance, and contents summaries</label>
+      <div class="qmc-search__row">
+        <input id="qmc-query" type="search" autocomplete="off" disabled />
+        <button id="qmc-clear" class="hc-btn hc-btn--ghost" type="button" disabled>Clear</button>
+      </div>
+      <p id="qmc-status" aria-live="polite">Loading the pinned catalogue index…</p>
+      <a class="qmc-download" href={`/data/quran/releases/${releaseId}/manuscripts.json`} download>Download source-anchored catalogue JSON</a>
+    </section>
+
+    <ol id="qmc-results" class="qmc-results" aria-label="Manuscript catalogue records">
+      {initialRecords.map((record) => (
+        <li class="qmc-record">
+          <header>
+            <div>
+              <p class="hc-eyebrow">Source record</p>
+              <h3>{record.nativeId ?? record.recordLocator}</h3>
+              <p>{fieldSummary(record, "repositoryText")}</p>
+            </div>
+            <a href={record.source.url} target="_blank" rel="noopener noreferrer">Open msDesc source line ↗</a>
+          </header>
+          {!record.nativeId && <p class="qmc-no-id">No native msDesc xml:id. Locator: <code>{record.recordLocator}</code></p>}
+          <details>
+            <summary>Inspect exact catalogue fields</summary>
+            {Object.entries(record.fields).map(([key, field]) => (
+              <section class="qmc-field">
+                <h4>{field.label} <code>{catalog.fieldPaths.find((item) => item.key === key)?.teiXPathRelativeToMsDesc}</code></h4>
+                {field.values.length ? field.values.map((value) => (
+                  <div class="qmc-value">
+                    <pre dir="auto">{value.exactText || ""}</pre>
+                    {value.attributes.length > 0 && <p>TEI attributes: {value.attributes.map((attribute) => `${attribute.name}=${attribute.exactValue}`).join(" · ")}</p>}
+                    <a href={value.sourceUrl} target="_blank" rel="noopener noreferrer">Open element line {value.line} ↗</a>
+                  </div>
+                )) : <p>No element at this mapped TEI path.</p>}
+              </section>
+            ))}
+          </details>
+        </li>
+      ))}
+    </ol>
+    <button id="qmc-more" class="hc-btn hc-btn--ghost" type="button" disabled>Show more records</button>
+
+    <footer class="qmc-footer">
+      <h2>Source and reuse</h2>
+      <p>{catalog.attribution} TEI data license: {catalog.sourceLicense}. {catalog.modificationNotice}</p>
+      <p><a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> · <a href="/projects/quran/read/">Read &amp; Compare</a> · <a href="/projects/quran/variants/">Variant Index</a> · <a href="/projects/quran/analyses/">Analyses</a> · <a href="/projects/quran/methods/">Methods &amp; Data</a> · <a href="/projects/quran/">Quran project</a></p>
+    </footer>
+  </div>
+</BaseLayout>
+
+<script>
+  type Value = { exactText: string; attributes: Array<{ name: string; exactValue: string }>; elementPath: string; line: number; sourceUrl: string };
+  type Field = { label: string; values: Value[] };
+  type RecordEntry = { nativeId: string | null; recordLocator: string; elementShard: string; elementCount: number; source: { file: string; line: number; sha256: string; url: string }; fields: Record<string, Field> };
+  type ElementRecord = { elementName: string; nativeId: string | null; exactText: string; xmlLangExact: string | null; attributes: Array<{ expandedName: string; exactValue: string }>; locator: string; elementPath: string; line: number; sourceUrl: string };
+  type ElementShardInfo = { path: string; bytes: number; sha256: string; recordCount: number; elementCount: number };
+  type CatalogIndex = { sourceCommit: string; sourceLicense: string; records: RecordEntry[]; elementShards: ElementShardInfo[] };
+  const releaseId = "v0.5.26-cc-57cb2b7be321";
+  const query = document.querySelector<HTMLInputElement>("#qmc-query");
+  const clear = document.querySelector<HTMLButtonElement>("#qmc-clear");
+  const more = document.querySelector<HTMLButtonElement>("#qmc-more");
+  const status = document.querySelector<HTMLElement>("#qmc-status");
+  const results = document.querySelector<HTMLOListElement>("#qmc-results");
+  const pageSize = 10;
+  let allRecords: RecordEntry[] = [];
+  let catalogIndex: CatalogIndex | null = null;
+  let filteredRecords: RecordEntry[] = [];
+  let shown = 0;
+  let printDetails: Array<{ element: HTMLDetailsElement; open: boolean }> = [];
+  window.addEventListener("beforeprint", () => {
+    printDetails = [...document.querySelectorAll<HTMLDetailsElement>(".qmc-record details")].map((element) => ({ element, open: element.open }));
+    for (const entry of printDetails) entry.element.open = true;
+  });
+  window.addEventListener("afterprint", () => {
+    for (const entry of printDetails) entry.element.open = entry.open;
+  });
+
+  function makeRecord(record: RecordEntry): HTMLLIElement {
+    const item = document.createElement("li");
+    item.className = "qmc-record";
+    const header = document.createElement("header");
+    const identity = document.createElement("div");
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "hc-eyebrow";
+    eyebrow.textContent = "Source record";
+    const title = document.createElement("h3");
+    title.textContent = record.nativeId ?? record.recordLocator;
+    const repository = record.fields.repositoryText?.values[0]?.exactText ?? "";
+    const location = document.createElement("p");
+    location.textContent = repository;
+    identity.appendChild(eyebrow);
+    identity.appendChild(title);
+    identity.appendChild(location);
+    const source = document.createElement("a");
+    source.href = record.source.url;
+    source.target = "_blank";
+    source.rel = "noopener noreferrer";
+    source.textContent = "Open msDesc source line ↗";
+    header.appendChild(identity);
+    header.appendChild(source);
+    item.appendChild(header);
+    if (!record.nativeId) {
+      const noId = document.createElement("p");
+      noId.className = "qmc-no-id";
+      noId.textContent = `No native msDesc xml:id. Locator: ${record.recordLocator}`;
+      item.appendChild(noId);
+    }
+
+    const details = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "Inspect exact catalogue fields";
+    details.appendChild(summary);
+    for (const field of Object.values(record.fields)) {
+      const section = document.createElement("section");
+      section.className = "qmc-field";
+      const heading = document.createElement("h4");
+      heading.textContent = field.label;
+      section.appendChild(heading);
+      if (field.values.length === 0) {
+        const absent = document.createElement("p");
+        absent.textContent = "No element at this mapped TEI path.";
+        section.appendChild(absent);
+      }
+      for (const value of field.values) {
+        const entry = document.createElement("div");
+        entry.className = "qmc-value";
+        const text = document.createElement("pre");
+        text.dir = "auto";
+        text.textContent = value.exactText;
+        entry.appendChild(text);
+        if (value.attributes.length) {
+          const attributes = document.createElement("p");
+          attributes.textContent = `TEI attributes: ${value.attributes.map((attribute) => `${attribute.name}=${attribute.exactValue}`).join(" · ")}`;
+          entry.appendChild(attributes);
+        }
+        const link = document.createElement("a");
+        link.href = value.sourceUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = `Open element line ${value.line} ↗`;
+        entry.appendChild(link);
+        section.appendChild(entry);
+      }
+      details.appendChild(section);
+    }
+    const fullTree = document.createElement("details");
+    fullTree.className = "qmc-full-tree";
+    const fullSummary = document.createElement("summary");
+    fullSummary.textContent = `Inspect complete TEI element tree (${record.elementCount.toLocaleString()} source elements)`;
+    fullTree.appendChild(fullSummary);
+    const fullContent = document.createElement("div");
+    fullContent.className = "qmc-full-tree__content";
+    fullTree.appendChild(fullContent);
+    let fullTreeLoaded = false;
+    fullTree.addEventListener("toggle", () => {
+      if (fullTree.open && !fullTreeLoaded) {
+        fullTreeLoaded = true;
+        void loadFullTree(record, fullContent);
+      }
+    });
+    item.appendChild(fullTree);
+    item.appendChild(details);
+    return item;
+  }
+
+  const elementShardCache = new Map<string, Promise<Array<{ recordLocator: string; sourceFile: string; sourceFileSha256: string; elementCount: number; elements: ElementRecord[] }>>>();
+  const elementShardManifest = new Map<string, ElementShardInfo>();
+
+  async function fetchElementShard(path: string) {
+    let pending = elementShardCache.get(path);
+    if (!pending) {
+      const metadata = elementShardManifest.get(path);
+      const catalog = catalogIndex;
+      if (!metadata || !catalog) throw new Error("The manuscript record has no element shard in the pinned catalog.");
+      pending = fetch(`/data/quran/releases/${releaseId}/${path}`).then(async (response) => {
+        if (!response.ok) throw new Error("The manuscript element shard is unavailable.");
+        const bytes = await response.arrayBuffer();
+        if (bytes.byteLength !== metadata.bytes) throw new Error("The manuscript element shard size does not match its catalog.");
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+        if (hash !== metadata.sha256) throw new Error("The manuscript element shard checksum does not match its catalog.");
+        const payload = JSON.parse(new TextDecoder().decode(bytes)) as {
+          sourceCommit: string;
+          sourceLicense: string;
+          records: Array<{ recordLocator: string; sourceFile: string; sourceFileSha256: string; elementCount: number; elements: ElementRecord[] }>;
+        };
+        if (payload.sourceCommit !== catalog.sourceCommit || payload.sourceLicense !== catalog.sourceLicense
+            || payload.records.length !== metadata.recordCount
+            || payload.records.reduce((count, row) => count + row.elements.length, 0) !== metadata.elementCount) {
+          throw new Error("The manuscript element shard identity or count does not match its catalog.");
+        }
+        return payload.records;
+      });
+      elementShardCache.set(path, pending);
+    }
+    return pending;
+  }
+
+  async function loadFullTree(record: RecordEntry, container: HTMLElement) {
+    container.textContent = "Loading and checking the complete TEI element shard…";
+    try {
+      const shardRows = await fetchElementShard(record.elementShard);
+      const sourceRecord = shardRows.find((row) => row.recordLocator === record.recordLocator);
+      if (!sourceRecord || sourceRecord.sourceFile !== record.source.file
+          || sourceRecord.sourceFileSha256 !== record.source.sha256
+          || sourceRecord.elementCount !== record.elementCount
+          || sourceRecord.elements.length !== record.elementCount) {
+        throw new Error("The element records do not match the selected manuscript source record.");
+      }
+      renderFullTree(sourceRecord.elements, container);
+    } catch (error) {
+      console.error("Could not load complete manuscript TEI elements", error);
+      container.textContent = "This source element shard could not be verified. Use the linked TEI source line and release manifest to inspect the record.";
+    }
+  }
+
+  function renderFullTree(elements: ElementRecord[], container: HTMLElement) {
+    const search = document.createElement("input");
+    search.type = "search";
+    search.autocomplete = "off";
+    search.setAttribute("aria-label", "Filter exact TEI element name, text, identifier, or attribute");
+    search.placeholder = "Filter exact TEI names, text, IDs, or attributes";
+    const status = document.createElement("p");
+    status.setAttribute("aria-live", "polite");
+    const list = document.createElement("ol");
+    list.className = "qmc-element-list";
+    const more = document.createElement("button");
+    more.className = "hc-btn hc-btn--ghost";
+    more.type = "button";
+    more.textContent = "Show more source elements";
+    let matching: ElementRecord[] = [];
+    let shown = 0;
+    const pageSize = 50;
+    function render(reset: boolean) {
+      if (reset) {
+        const term = search.value;
+        matching = elements.filter((element) => [element.elementName, element.nativeId ?? "", element.exactText,
+          ...element.attributes.flatMap((attribute) => [attribute.expandedName, attribute.exactValue])].some((value) => value.includes(term)));
+        shown = 0;
+        list.replaceChildren();
+      }
+      for (const element of matching.slice(shown, shown + pageSize)) {
+        const entry = document.createElement("li");
+        const heading = document.createElement("h5");
+        heading.textContent = `TEI ${element.elementName}${element.nativeId ? ` · xml:id ${element.nativeId}` : ""}`;
+        const text = document.createElement("pre");
+        text.dir = "auto";
+        text.textContent = element.exactText || "[empty source text]";
+        const locator = document.createElement("p");
+        locator.textContent = `${element.locator} · source line ${element.line}`;
+        const attributes = document.createElement("p");
+        attributes.textContent = element.attributes.length
+          ? `Attributes: ${element.attributes.map((attribute) => `${attribute.expandedName}=${attribute.exactValue}`).join(" · ")}`
+          : "No attributes on this element.";
+        const source = document.createElement("a");
+        source.href = element.sourceUrl;
+        source.target = "_blank";
+        source.rel = "noopener noreferrer";
+        source.textContent = `Open source element line ${element.line} ↗`;
+        entry.appendChild(heading);
+        entry.appendChild(text);
+        entry.appendChild(locator);
+        entry.appendChild(attributes);
+        entry.appendChild(source);
+        list.appendChild(entry);
+      }
+      shown = Math.min(matching.length, shown + pageSize);
+      status.textContent = `${matching.length.toLocaleString()} of ${elements.length.toLocaleString()} source elements match. Showing ${shown.toLocaleString()}. Search is literal and case-sensitive; displayed text is unchanged.`;
+      more.hidden = shown >= matching.length;
+    }
+    search.addEventListener("input", () => render(true));
+    more.addEventListener("click", () => render(false));
+    container.replaceChildren(search, status, list, more);
+    render(true);
+  }
+
+  function render(reset: boolean): void {
+    if (!query || !more || !status || !results) return;
+    if (reset) {
+      const term = query.value.toLowerCase();
+      filteredRecords = allRecords.filter((record) => {
+        const haystack = [record.nativeId ?? "", record.recordLocator,
+          ...Object.values(record.fields).flatMap((field) => field.values.flatMap((value) => [
+            value.exactText,
+            ...value.attributes.map((attribute) => `${attribute.name} ${attribute.exactValue}`),
+          ]))]
+          .join("\n").toLowerCase();
+        return !term || haystack.includes(term);
+      });
+      shown = 0;
+      results.replaceChildren();
+    }
+    const next = filteredRecords.slice(shown, shown + pageSize);
+    for (const record of next) results.appendChild(makeRecord(record));
+    shown += next.length;
+    more.hidden = shown >= filteredRecords.length;
+    status.textContent = `${filteredRecords.length.toLocaleString()} of ${allRecords.length.toLocaleString()} catalogue records match. Showing ${shown.toLocaleString()}. Matching lowercases text only; displayed TEI values remain unchanged.`;
+    const url = new URL(window.location.href);
+    if (query.value) url.searchParams.set("q", query.value);
+    else url.searchParams.delete("q");
+    window.history.replaceState({}, "", url);
+  }
+
+  if (query && clear && more && status && results) {
+    void fetch(`/data/quran/releases/${releaseId}/manuscripts.json`)
+      .then((response) => { if (!response.ok) throw new Error("Catalogue unavailable"); return response.json() as Promise<CatalogIndex>; })
+      .then((data) => {
+        catalogIndex = data;
+        for (const shard of data.elementShards) elementShardManifest.set(shard.path, shard);
+        allRecords = data.records;
+        query.value = new URLSearchParams(window.location.search).get("q") ?? "";
+        query.disabled = false;
+        clear.disabled = false;
+        more.disabled = false;
+        filteredRecords = allRecords;
+        render(true);
+        query.addEventListener("input", () => render(true));
+        clear.addEventListener("click", () => { query.value = ""; render(true); query.focus(); });
+        more.addEventListener("click", () => render(false));
+      })
+      .catch(() => { status.textContent = "Search could not load the catalogue. The first source-linked records and downloadable index remain available."; });
+  }
+</script>
+
+<style>
+  .qmc-page { padding-block: 2rem clamp(5rem, 10vw, 8rem); }
+  .qmc-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qmc-crumbs a, .qmc-record a, .qmc-footer a { color:var(--hc-gold); text-decoration:none; }
+  .qmc-header { max-width:66rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qmc-header h1 { margin-block:.5rem 1rem; }
+  .qmc-lede { max-width:74ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qmc-scope, .qmc-search { max-width:74rem; padding-block:1.75rem; border-bottom:1px solid var(--hc-rule); }
+  .qmc-scope h2, .qmc-search h2, .qmc-footer h2 { margin:0 0 .8rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qmc-scope p, .qmc-search p, .qmc-footer p { max-width:78ch; color:var(--hc-text-secondary); line-height:1.7; }
+  .qmc-scope code { color:var(--hc-text-primary); overflow-wrap:anywhere; }
+  .qmc-search label { display:block; max-width:70ch; margin-bottom:.5rem; color:var(--hc-text-secondary); font-size:.85rem; }
+  .qmc-search__row { display:flex; flex-wrap:wrap; gap:.6rem; }
+  .qmc-search input { flex:1 1 20rem; min-width:0; min-height:2.75rem; padding:.6rem .75rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  .qmc-search input:disabled, .qmc-search button:disabled { opacity:.65; cursor:wait; }
+  .qmc-download { display:inline-flex; min-height:2.5rem; align-items:center; color:var(--hc-gold); text-underline-offset:.2em; }
+  .qmc-results { display:grid; max-width:74rem; gap:1rem; margin:2rem 0 1rem; padding:0; list-style:none; }
+  .qmc-record { min-width:0; padding:clamp(1rem,3vw,1.5rem); border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); }
+  .qmc-record > header { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .qmc-record h3 { margin:.4rem 0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.2rem; overflow-wrap:anywhere; }
+  .qmc-record header p:not(.hc-eyebrow) { color:var(--hc-text-secondary); font-size:.9rem; }
+  .qmc-no-id { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.78rem; overflow-wrap:anywhere; }
+  .qmc-record details { margin-top:1rem; border-top:1px solid var(--hc-rule); color:var(--hc-text-secondary); }
+  .qmc-record summary { min-height:2.75rem; align-content:center; color:var(--hc-gold); cursor:pointer; }
+  .qmc-field { padding-block:.7rem; border-top:1px solid var(--hc-rule); }
+  .qmc-field h4 { margin:.2rem 0 .6rem; color:var(--hc-text-primary); font-family:var(--font-ui); font-size:.9rem; font-weight:500; }
+  .qmc-field h4 code { display:block; margin-top:.25rem; color:var(--hc-text-tertiary); font-size:.75rem; font-weight:400; overflow-wrap:anywhere; }
+  .qmc-value { padding:.65rem 0; border-top:1px dashed var(--hc-rule); }
+  .qmc-value pre { margin:0 0 .45rem; padding:.75rem; background:var(--hc-surface-0); color:var(--hc-text-primary); font-family:var(--font-body); font-size:.9rem; line-height:1.75; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .qmc-value p, .qmc-value a { font-size:.8rem; }
+  .qmc-value p { overflow-wrap:anywhere; }
+  #qmc-more { margin-top:1rem; }
+  .qmc-footer { max-width:74rem; padding-top:2rem; }
+  @media (max-width:680px) { .qmc-record > header { flex-direction:column; gap:.25rem; } }
+  @media print {
+    .qmc-crumbs, .qmc-search, #qmc-more { display:none; }
+    .qmc-page { max-width:none; padding:0; color:#111; }
+    .qmc-record { break-inside:avoid; background:#fff; color:#111; }
+    .qmc-value pre { background:#fff; color:#111; }
+    .qmc-record a, .qmc-footer a { color:#111; text-decoration:underline; }
+  }
+</style>

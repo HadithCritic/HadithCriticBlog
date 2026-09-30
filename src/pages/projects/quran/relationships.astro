@@ -1,0 +1,146 @@
+---
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+
+const releaseId = "v0.5.26-cc-57cb2b7be321";
+const releaseDirectory = `../../../../public/data/quran/releases/${releaseId}/`;
+const graphManifestName = "research-graph-v5-manifest.json";
+const manifest = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseDirectory}${graphManifestName}`, import.meta.url)), "utf8")) as {
+  edgeCount: number;
+  countsByType: Record<string, number>;
+  readerAuthorities: Array<{ nativeKey: string; exactLabel: string | null; sourceUrl: string }>;
+  assets: Array<{ path: string; edgeCount: number }>;
+  sourceBibliographyKeyCoverage: { distinctKeyValues: number; keyValuesMatchingLocalBiblStructIds: number; unresolvedKeyValues: number };
+  intertextTargetCrosswalk: { occurrences: number; resolvedOccurrences: number; resolvedNativeIdCount: number };
+};
+const readerShardName = manifest.assets.find((asset) => asset.path.includes("-readers-"))?.path;
+if (!readerShardName) throw new Error("Research graph reader-authority shard is missing");
+const readerShard = JSON.parse(readFileSync(fileURLToPath(new URL(`${releaseDirectory}${readerShardName}`, import.meta.url)), "utf8")) as {
+  edges: Array<{ variantId: string; variantSourceUrl: string; readerAuthorityKey: string; sourceKeyExact: string }>;
+};
+const authorities = new Map(manifest.readerAuthorities.map((authority) => [authority.nativeKey, authority]));
+const preview = readerShard.edges.slice(0, 12);
+---
+
+<BaseLayout
+  title="Relationship Index | Quran | HadithCritic Projects"
+  description="Inspect source-reported reader links, candidate word locators and passage locators, commentary references, and TEI references from the pinned Corpus Coranicum export."
+>
+  <div class="qrg-page hc-container">
+    <nav class="qrg-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Relationship Index</span>
+    </nav>
+
+    <header class="qrg-header">
+      <p class="hc-eyebrow">Corpus Coranicum · explicit source relations</p>
+      <h1 class="hc-title hc-title--lg">Relationship Index</h1>
+      <p class="qrg-lede">Follow links recorded in the source data. Candidate word and passage locators remain unreviewed navigation aids, not verified equivalences.</p>
+    </header>
+
+    <section class="qrg-coverage" aria-labelledby="qrg-coverage-title">
+      <h2 id="qrg-coverage-title">Indexed relationships</h2>
+      <dl>
+        <div><dt>Reader authority keys</dt><dd>{manifest.countsByType.reported_reader_authority.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Word locator candidates</dt><dd>{manifest.countsByType.candidate_cairo_word_locator.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Commentary Quran references</dt><dd>{manifest.countsByType.commentary_quran_reference.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Other explicit TEI references</dt><dd>{manifest.countsByType.source_explicit_tei_reference.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Bibliographic key citations</dt><dd>{manifest.countsByType.source_bibliographic_key_reference.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Commentary passage locator candidates</dt><dd>{manifest.countsByType.candidate_commentary_cairo_range_locator.toLocaleString("en-GB")}</dd></div>
+      </dl>
+      <p>Reader links use the documented key-prefix alias and preserve both keys. Word links remain candidates. Commentary target strings are retained exactly. The <a href="https://github.com/telota/corpus-coranicum-website/blob/27a4fb359218a8c23bbca92b12d76b8516749bb4/backend/resources/xsl/tei/kommentar.xsl#L64-L77" target="_blank" rel="noopener noreferrer">Corpus Coranicum website export transform</a> constructs these targets from a source <code>q</code> element's <code>@type</code>, <code>@versstart</code>, and <code>@versend</code> values. Targets matching the strict <code>koran-SSS:VVV-SSS:VVV</code> pattern whose endpoint IDs both exist in the Cairo XML appear as unreviewed navigation candidates; this source-code evidence does not define interval inclusion semantics. Zero endpoints, cross-surah ranges, reversed ranges, and absent Cairo IDs remain unlinked. Other TEI references retain their exact type, target, visible text, attributes, and source locator. The pinned Corpus Coranicum website maps <code>#TUK</code> numeric fragments to <code>tuk_</code> IDs; {manifest.intertextTargetCrosswalk.resolvedOccurrences} of {manifest.intertextTargetCrosswalk.occurrences} occurrences link only where that exact ID exists uniquely in the pinned intertext records. Raw target strings remain unchanged, and the link does not validate record contents. Bibliographic <code>bibl</code> key citations preserve the source label and key. The snapshot has {manifest.sourceBibliographyKeyCoverage.distinctKeyValues.toLocaleString("en-GB")} distinct keys and {manifest.sourceBibliographyKeyCoverage.keyValuesMatchingLocalBiblStructIds.toLocaleString("en-GB")} exact matches among its local bibliography IDs. They remain unresolved as local records; only keys matching the pinned Zotero item-key convention receive an external locator, with source and content limits stated below.</p>
+    </section>
+
+    <section class="qrg-search" aria-labelledby="qrg-search-title">
+      <h2 id="qrg-search-title">Inspect a relationship type</h2>
+      <form id="qrg-form" method="get" action="/projects/quran/relationships/">
+        <label for="qrg-type">Relationship type</label>
+        <select id="qrg-type" name="type" disabled>
+          <option value="">Choose a relationship type</option>
+          <option value="reported_reader_authority">Reader authority links ({manifest.countsByType.reported_reader_authority.toLocaleString("en-GB")})</option>
+          <option value="candidate_cairo_word_locator">Word locator candidates ({manifest.countsByType.candidate_cairo_word_locator.toLocaleString("en-GB")})</option>
+          <option value="commentary_quran_reference">Commentary references ({manifest.countsByType.commentary_quran_reference.toLocaleString("en-GB")})</option>
+          <option value="source_explicit_tei_reference">Other explicit TEI references ({manifest.countsByType.source_explicit_tei_reference.toLocaleString("en-GB")})</option>
+          <option value="source_bibliographic_key_reference">Bibliographic key citations ({manifest.countsByType.source_bibliographic_key_reference.toLocaleString("en-GB")})</option>
+          <option value="candidate_commentary_cairo_range_locator">Commentary passage locator candidates ({manifest.countsByType.candidate_commentary_cairo_range_locator.toLocaleString("en-GB")})</option>
+        </select>
+        <label for="qrg-query">Search native IDs, source text, locators, or targets</label>
+        <input id="qrg-query" name="q" type="search" autocomplete="off" disabled>
+        <button class="hc-btn hc-btn--ghost" type="submit" disabled>Load relationships</button>
+      </form>
+      <p id="qrg-status" class="qrg-status" aria-live="polite" aria-atomic="true">Choose a relationship type to load its source-linked records.</p>
+      <noscript>
+        <p>Interactive filtering needs JavaScript. The first 12 reader-key links are shown below; <a href={`/data/quran/releases/${releaseId}/${graphManifestName}`} download>download the graph manifest</a> for the complete sharded dataset.</p>
+      </noscript>
+    </section>
+
+    <ol id="qrg-results" class="qrg-results" aria-label="Source-linked relationships">
+      {preview.map((edge) => {
+        const authority = authorities.get(edge.readerAuthorityKey);
+        return <li class="qrg-entry">
+          <header><p>Variant record → reported reader authority</p><span class="qrg-state qrg-state--reported">Source key</span></header>
+          <p>Variant record <a href={`/projects/quran/variants/?q=${encodeURIComponent(edge.variantId)}`}>{edge.variantId}</a> · source key <code>{edge.sourceKeyExact}</code> · authority key <code>{edge.readerAuthorityKey}</code></p>
+          <p class="qrg-exact">{authority?.exactLabel ?? "Authority label not supplied"}</p>
+          <nav aria-label="Relationship sources"><a href={edge.variantSourceUrl} target="_blank" rel="noopener noreferrer">Open variant source record ↗</a>{authority && <> · <a href={authority.sourceUrl} target="_blank" rel="noopener noreferrer">Open reader authority record ↗</a></>}</nav>
+        </li>;
+      })}
+    </ol>
+    <button id="qrg-more" class="hc-btn hc-btn--ghost" type="button" hidden disabled>Show more relationships</button>
+
+    <section class="qrg-notes" aria-labelledby="qrg-notes-title">
+      <h2 id="qrg-notes-title">How to read these links</h2>
+      <p><strong>Source-reported</strong> means the TEI or an explicit key asserts the relation. It does not independently verify the historical content of the source.</p>
+      <p><strong>Candidate · unreviewed</strong> means a mechanical locator matched a Cairo word ID. It is useful for navigation, not evidence that two readings are equivalent.</p>
+      <p>The complete graph contains {manifest.edgeCount.toLocaleString("en-GB")} relationships across the pinned CC BY-SA 4.0 export. Commentary range candidates are derived by exact syntax and Cairo-ID matching; the source target itself remains unchanged and the relation stays unreviewed because the cited transform does not define interval inclusion semantics. Exact <code>#TUK</code> publisher targets retain their raw strings and link only to matching records in the pinned intertext catalogue. Bibliography keys remain unresolved as local records. Structurally valid Zotero keys open an external item locator using the pinned Corpus Coranicum website convention; the site does not import or verify that item’s bibliographic details. Malformed and empty keys remain raw and unlinked. <a href={`/data/quran/releases/${releaseId}/${graphManifestName}`} download>Download the versioned graph manifest</a>.</p>
+    </section>
+    <nav class="qrg-tools" aria-label="Quran project pages">
+      <a class="hc-btn" href="/projects/quran/read/">Read &amp; compare <span aria-hidden="true">→</span></a>
+      <a class="hc-btn" href="/projects/quran/variants/">Variant index <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/manuscripts/">Manuscript catalogue <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Return to Quran project <span aria-hidden="true">→</span></a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/quran-research-graph";
+</script>
+
+<style is:global>
+  .qrg-page { padding-block: 2rem clamp(5rem, 10vw, 8rem); }
+  .qrg-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(2.5rem,7vw,5rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qrg-crumbs a, .qrg-entry a, .qrg-notes a { color:var(--hc-gold); text-decoration:none; }
+  .qrg-header { max-width:64rem; padding-bottom:clamp(2rem,5vw,3.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qrg-header h1 { margin-block:.5rem 1rem; }
+  .qrg-lede { max-width:70ch; color:var(--hc-text-secondary); font-size:1.08rem; line-height:1.7; }
+  .qrg-coverage, .qrg-search, .qrg-notes { max-width:76rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qrg-coverage h2, .qrg-search h2, .qrg-notes h2 { margin:0 0 .85rem; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.5rem; font-weight:500; }
+  .qrg-coverage dl { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1.5rem; margin:1.5rem 0; }
+  .qrg-coverage dt { color:var(--hc-text-tertiary); font-size:.82rem; }
+  .qrg-coverage dd { margin:.35rem 0 0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.65rem; }
+  .qrg-coverage > p, .qrg-notes p, .qrg-status { max-width:78ch; color:var(--hc-text-secondary); font-size:.9rem; line-height:1.7; }
+  #qrg-form { display:grid; grid-template-columns:minmax(14rem,1fr) minmax(14rem,2fr) auto; align-items:end; gap:.75rem; }
+  #qrg-form label { color:var(--hc-text-secondary); font-size:.82rem; }
+  #qrg-form select, #qrg-form input { width:100%; min-height:2.75rem; padding:.55rem; border:1px solid var(--hc-rule); border-radius:var(--radius-xs); background:var(--hc-surface-1); color:var(--hc-text-primary); font:inherit; }
+  #qrg-more[hidden] { display:none; }
+  .qrg-results { display:grid; gap:.75rem; margin:1.5rem 0; padding:0; list-style:none; }
+  .qrg-entry { padding:1rem 1.15rem; border-bottom:1px solid var(--hc-rule); background:var(--hc-surface-1); }
+  .qrg-entry header { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:.5rem 1rem; }
+  .qrg-entry header p { margin:0; color:var(--hc-text-primary); font-family:var(--font-display); font-size:1.08rem; }
+  .qrg-entry > p, .qrg-entry nav { color:var(--hc-text-secondary); font-size:.86rem; line-height:1.7; }
+  .qrg-entry nav { display:flex; flex-wrap:wrap; gap:.4rem 1rem; }
+  .qrg-entry code, .qrg-locator { color:var(--hc-text-tertiary); overflow-wrap:anywhere; }
+  .qrg-state { display:inline-block; padding:.2rem .45rem; border-inline-start:2px solid var(--hc-gold-dim); color:var(--hc-text-secondary); font-family:var(--font-ui); font-size:.75rem; }
+  .qrg-state--candidate { border-color:var(--hc-text-tertiary); }
+  .qrg-exact { overflow-wrap:anywhere; white-space:pre-wrap; color:var(--hc-text-primary); }
+  .qrg-exact--citation { max-height:14rem; overflow:auto; padding:.7rem; background:var(--hc-surface-0); font-family:var(--font-body); }
+  .qrg-words { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem; }
+  .qrg-words bdi { padding:.2rem .4rem; border-inline-start:1px solid var(--hc-rule-strong); }
+  .qrg-words bdi[lang="ar"] { font-family:var(--font-arabic); font-size:1.15rem; }
+  .qrg-tools { display:flex; flex-wrap:wrap; gap:.75rem; padding-top:2rem; }
+  @media(max-width:1024px) { .qrg-coverage dl { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media(max-width:760px) { #qrg-form { grid-template-columns:1fr; } .qrg-coverage dl { grid-template-columns:1fr; gap:.75rem; } }
+</style>

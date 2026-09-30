@@ -1,0 +1,112 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import catalog from "../../../../public/data/quran/releases/v0.5.26-cc-57cb2b7be321/concordance-catalog.json";
+
+const maxShardBytes = Math.max(...catalog.shards.map((shard) => shard.bytes));
+---
+
+<BaseLayout
+  title="Concordance | Quran | HadithCritic Projects"
+  description="Browse and search exact source-located word and analysis records from the Corpus Coranicum concordance TEI collection."
+>
+  <div class="qcn-page hc-container">
+    <nav class="qcn-crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a><span aria-hidden="true">/</span>
+      <a href="/projects/">Projects</a><span aria-hidden="true">/</span>
+      <a href="/projects/quran/">Quran</a><span aria-hidden="true">/</span>
+      <span aria-current="page">Concordance</span>
+    </nav>
+
+    <header class="qcn-header">
+      <p class="hc-eyebrow">Corpus Coranicum · quran_concordance</p>
+      <h1 class="hc-title hc-title--lg">Concordance</h1>
+      <p class="qcn-lede">Browse the TEI source’s word and analysis records by source file. Each row preserves its 42 ordered source fields and links to its exact TEI line.</p>
+    </header>
+
+    <section class="qcn-coverage" aria-labelledby="qcn-coverage-title">
+      <h2 id="qcn-coverage-title">Indexed source coverage</h2>
+      <dl>
+        <div><dt>Source files</dt><dd>{catalog.sourceFileCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>TEI word records</dt><dd>{catalog.recordCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Field values</dt><dd>{catalog.fieldCount.toLocaleString("en-GB")}</dd></div>
+        <div><dt>Source field types</dt><dd>{catalog.fieldTypeCount.toLocaleString("en-GB")}</dd></div>
+      </dl>
+      <p>The source has 91,285 <code>w</code> elements, each with the same 42 ordered <code>seg</code> fields. A <code>w</code> element is shown as one source record; records are not merged into inferred unique words. Empty source fields stay empty. The largest per-surah browser file is {(maxShardBytes / 1_000_000).toFixed(2)} MB.</p>
+    </section>
+
+    <section class="qcn-search" aria-labelledby="qcn-search-title">
+      <h2 id="qcn-search-title">Browse a source file</h2>
+      <form id="qcn-form" method="get" action="/projects/quran/concordance/">
+        <label for="qcn-file">Source file</label>
+        <select id="qcn-file" name="file" disabled>
+          {catalog.shards.map((shard) => <option value={shard.path}>{shard.sourceTitleExact} · {shard.recordCount.toLocaleString("en-GB")} source records</option>)}
+        </select>
+        <label for="qcn-query">Search source field values · literal and case-sensitive</label>
+        <input id="qcn-query" name="q" type="search" autocomplete="off" disabled>
+        <button class="hc-btn hc-btn--ghost" type="submit" disabled>Load source file</button>
+      </form>
+      <p id="qcn-title-source" class="qcn-title-source" aria-live="polite" aria-atomic="true">A source title locator will appear after the catalog loads.</p>
+      <p id="qcn-status" class="qcn-status" aria-live="polite" aria-atomic="true">Loading the source catalog…</p>
+      <noscript>
+        <p>Interactive search requires JavaScript. Download the <a href="/data/quran/releases/v0.5.26-cc-57cb2b7be321/concordance-catalog.json">source catalog</a> and <a href="/data/quran/manifest.json">release pointer</a> to inspect all shard paths and checksums.</p>
+      </noscript>
+    </section>
+
+    <ol id="qcn-results" class="qcn-results" aria-label="Concordance source records"></ol>
+    <button id="qcn-more" class="hc-btn hc-btn--ghost" type="button" hidden disabled>Show more source records</button>
+
+    <section class="qcn-notes" aria-labelledby="qcn-notes-title">
+      <h2 id="qcn-notes-title">Source and display rules</h2>
+      <p>The source describes this collection as “The Concordance of Rafi Talmon edited by the Corpus Coranicum.” This browser keeps each exact source-native <code>seg/@type</code> visible. Where the pinned Corpus Coranicum website English interface has a matching label, it appears beside the unchanged source type; unmatched types remain raw. All field values, empty values, and field order remain exactly as exported. The labels describe fields only and do not expand, correct, or interpret their values.</p>
+      <p>The interface labels are mapped from the <a href="https://github.com/telota/corpus-coranicum-website/blob/27a4fb359218a8c23bbca92b12d76b8516749bb4/frontend/src/i18n/database/en.json" target="_blank" rel="noopener noreferrer">Corpus Coranicum English concordance labels</a> and the repository’s pinned TEI export mapping. Five of the 42 source types have no one-to-one English label in that locale and therefore display only their native code: <code>word_number</code>, <code>analysis_number</code>, <code>analyse_prefix3</code>, <code>created_at</code>, and <code>updated_at</code>. The source labels <code>analyse_mortality</code> as “modality”; both the exact type and upstream label are retained without correction.</p>
+      <p>Every record retains its source-file hash, source order, TEI path, line, and source URL. The package catalog and per-surah shards are versioned assets in release <code>v0.5.26-cc-57cb2b7be321</code>.</p>
+      <p>Corpus Coranicum Project, edited by Michael Marx, TEI data, pinned commit <code>57cb2b7be321ecfba100cb5f7988974f47864a14</code>, CC BY-SA 4.0. See the <a href="/projects/quran/methods/">methods and data notes</a> for the release provenance.</p>
+    </section>
+    <nav class="qcn-tools" aria-label="Quran project pages">
+      <a class="hc-btn" href="/projects/quran/read/">Read &amp; compare <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/variants/">Variant index <span aria-hidden="true">→</span></a>
+      <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Quran project home <span aria-hidden="true">→</span></a>
+    </nav>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/quran-concordance-browser";
+</script>
+
+<style>
+  .qcn-page { padding-block:clamp(2rem,5vw,4rem) clamp(5rem,10vw,8rem); }
+  .qcn-crumbs { display:flex; flex-wrap:wrap; gap:.65rem; margin-bottom:clamp(3rem,8vw,6rem); color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.8rem; }
+  .qcn-crumbs a { color:var(--hc-gold); text-decoration:none; }
+  .qcn-header { max-width:60rem; padding-bottom:clamp(2.5rem,6vw,4.5rem); border-bottom:1px solid var(--hc-rule); }
+  .qcn-header h1 { margin-block:.5rem 1rem; }
+  .qcn-lede { max-width:68ch; color:var(--hc-text-secondary); font-size:clamp(1.08rem,.6vw + 1rem,1.3rem); line-height:1.75; }
+  .qcn-coverage,.qcn-search,.qcn-notes { max-width:76rem; padding-block:2rem; border-bottom:1px solid var(--hc-rule); }
+  .qcn-coverage h2,.qcn-search h2,.qcn-notes h2 { margin:0 0 1rem; font-family:var(--font-display); font-size:1.6rem; font-weight:500; }
+  .qcn-coverage dl { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:1rem; }
+  .qcn-coverage dl div { padding:1rem; background:var(--hc-surface-1); }
+  .qcn-coverage dt { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.78rem; text-transform:uppercase; }
+  .qcn-coverage dd { margin:.35rem 0 0; font-family:var(--font-display); font-size:1.55rem; }
+  .qcn-coverage p,.qcn-notes p { max-width:85ch; color:var(--hc-text-secondary); line-height:1.75; }
+  .qcn-search form { display:grid; grid-template-columns:1fr; gap:.7rem; max-width:42rem; }
+  .qcn-search label { margin-top:.4rem; color:var(--hc-text-secondary); font-family:var(--font-ui); font-size:.83rem; }
+  .qcn-search select,.qcn-search input { min-height:2.8rem; padding:.65rem .8rem; color:var(--hc-text-primary); background:var(--hc-surface-1); border:1px solid var(--hc-rule); }
+  .qcn-search button { justify-self:start; margin-top:.5rem; }
+  .qcn-title-source { color:var(--hc-text-tertiary); font-size:.82rem; overflow-wrap:anywhere; }
+  .qcn-title-source a { color:var(--hc-gold); }
+  .qcn-status { min-height:1.5em; color:var(--hc-text-tertiary); font-size:.9rem; }
+  .qcn-results { display:grid; gap:1rem; padding:2rem 0; list-style:none; }
+  .qcn-record { padding:1.25rem; background:var(--hc-surface-1); border:1px solid var(--hc-rule); }
+  .qcn-record h3 { margin:0 0 .8rem; font-family:var(--font-display); font-size:1.2rem; font-weight:500; }
+  .qcn-comparison,.qcn-fields { display:grid; grid-template-columns:minmax(10rem,1fr) minmax(10rem,2fr); gap:.25rem .8rem; }
+  .qcn-comparison dt,.qcn-fields dt { color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.76rem; overflow-wrap:anywhere; }
+  .qcn-comparison dd,.qcn-fields dd { margin:0; color:var(--hc-text-primary); overflow-wrap:anywhere; }
+  .qcn-record details { margin-top:1rem; border-top:1px solid var(--hc-rule); padding-top:.75rem; }
+  .qcn-record summary { cursor:pointer; color:var(--hc-gold); font-family:var(--font-ui); font-size:.83rem; }
+  .qcn-fields { margin-top:.8rem; }
+  .qcn-locator { margin:.8rem 0 .3rem; color:var(--hc-text-tertiary); font-family:var(--font-ui); font-size:.75rem; overflow-wrap:anywhere; }
+  .qcn-record a,.qcn-notes a { color:var(--hc-gold); }
+  #qcn-more { margin-bottom:2rem; }
+  .qcn-tools { display:flex; flex-wrap:wrap; gap:.75rem; padding-top:2rem; }
+  @media (max-width:38rem) { .qcn-comparison,.qcn-fields { grid-template-columns:1fr; } .qcn-comparison dd,.qcn-fields dd { margin-bottom:.5rem; } }
+</style>
