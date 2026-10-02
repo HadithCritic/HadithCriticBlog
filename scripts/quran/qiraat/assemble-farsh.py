@@ -102,7 +102,10 @@ def main() -> int:
         for item in batch["items"]:
             order += 1
             if item.get("merge_into"):
-                merged_by_sura[int(item["verse"].split(":")[0])].append(item)
+                # General rules have no verse; merge them into the named rule item
+                # in sura 0 just as verse-level supplements merge into their sura.
+                sura = 0 if item.get("scope") == "rule" else int(item["verse"].split(":")[0])
+                merged_by_sura[sura].append(item)
                 continue
             sura, verse, anchored = place(item)
             placed[sura].append((verse, order, anchored, item))
@@ -147,6 +150,20 @@ def main() -> int:
             target = item_fid.get(item["merge_into"])
             if target is None:
                 raise SystemExit(f"{item['id']}: merge_into {item['merge_into']} is not an item of sura {sura}")
+            target_feature = features[target]
+            for form in item["forms"]:
+                if not form.get("value_of"):
+                    continue
+                value_id = f"v{form['value_of']}"
+                if value_id in target_feature["values"]:
+                    continue
+                if not item.get("extend_target_values"):
+                    raise SystemExit(
+                        f"{item['id']}: {value_id} is not defined on {target}; "
+                        "set extend_target_values only when this source explicitly adds a distinct form"
+                    )
+                target_feature["values"][value_id] = form["short"]
+                target_feature["short"][value_id] = form["short"]
             claims.extend(claims_for(item, target, authorities, merged=True))
             book = item["witness"]["book_id"]
             if book not in books:

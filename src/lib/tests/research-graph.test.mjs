@@ -37,6 +37,15 @@ test('no work cites a publication dated after itself', () => {
   }
 });
 
+test('reviewed generic wording is not mistaken for a bibliography citation', () => {
+  const source = 'kara-2026-debating-origins-sanctity-madina-hadith';
+  assert.ok(index.workById.has(source));
+  // Kara cites Motzki's Dating Muslim Traditions. Nearby references to
+  // Juynboll concern his Nāfiʿ article, not the 1983 Muslim Tradition book.
+  assert.ok(data.edges.some(e => e.type === 'cites' && e.from === source && e.to === 'motzki-2005-dating-muslim-traditions-survey'));
+  assert.ok(!data.edges.some(e => e.type === 'cites' && e.from === source && e.to === 'juynboll-1983-muslim-tradition'));
+});
+
 test('the public file has no local paths, page numbers or evaluative fields', () => {
   const text = JSON.stringify(data);
   assert.ok(!/[A-Z]:\|\.pdf/i.test(text), 'a local path or file name leaked');

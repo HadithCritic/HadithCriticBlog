@@ -21,6 +21,17 @@ To refresh DOIs for new studies, run `python ../../../../scripts/research-graph/
 
 Requires `pymupdf`. Inputs in `docs/research/hadith-graph/inputs/`:
 
+Reviewed library additions also live in the tracked
+`docs/research/hadith-graph/library-additions.json`. The final stage merges them
+with the earlier local inputs. Each source key is relative to the library root;
+the library's `RENAME_LOG.csv` resolves older source names after reorganization.
+The manifest records metadata checks and any excerpt boundaries or known font
+decoding needed for citation extraction. Original PDFs are read-only; page
+evidence keeps their original PDF page numbers. `RG_BASE=1` skips these additions.
+`crossrefVerified: false` distinguishes a DOI printed in a PDF from an accepted
+Crossref metadata match. `excludeCitationIds` records individually reviewed false
+matches, such as generic wording near a surname, with the reason in `verification`.
+
 | File | What it is |
 |---|---|
 | `triage.csv` | Every library PDF with tier (A core, B adjacent, C out of scope), scan status, duplicates |
@@ -35,6 +46,9 @@ Requires `pymupdf`. Inputs in `docs/research/hadith-graph/inputs/`:
 
 `scan.py` scores every PDF for hadith-criticism vocabulary and text-layer presence, and
 `triage.py` turns that into tiers. They read the library read-only.
+The scanner traverses subfolders and writes relative source paths, so alphabetic
+folders and duplicate basenames are handled. It samples opening and distributed
+body pages; its output is a relevance screen, not a full reading or an OCR check.
 
 ## How edges are found
 

@@ -57,6 +57,8 @@ const ROUTES = [
   '/academia',
   '/resources',
   '/projects',
+  '/projects/tafsir',
+  '/projects/tafsir/sura/1',
   '/contact'
 ];
 

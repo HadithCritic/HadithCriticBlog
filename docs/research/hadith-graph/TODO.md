@@ -1,6 +1,6 @@
 # Hadith criticism atlas: to-do list
 
-Status as of 2026-09-29. The atlas maps 229 works. Ten of them are volumes that print other studies, and 114 of the works are studies printed inside those volumes. Everything below was deliberately left out or is still open.
+Status as of 2026-09-30. The atlas maps 261 works. Ten of them are volumes that print other studies, and 114 of the works are studies printed inside those volumes. The 32-work library expansion and the remaining candidate queue are documented in [library-expansion-review.md](library-expansion-review.md). Everything below was deliberately left out or is still open.
 
 ## 1. Scanned PDFs waiting for OCR
 
@@ -114,4 +114,8 @@ Twenty-six works from `Desktop\newtexts` plus the *Islam at 250* and Berg volume
 - Brown, "Did the Prophet Say It or Not?": year and venue are from memory and flagged unconfirmed.
 - Ehteshami, "The Four Books of Shiʿi Hadith": Crossref gives volume 29.3 but dates it 2021 (online first). The printed issue is probably 2022.
 - Motzki, *The Origins of Islamic Jurisprudence*: carries `originalYear` 1991 because the German original is what Schoeler (1996) cites.
-- Held back, still to decide: the Lowry translation of al-Shāfiʿī's *Risāla* (a primary source), and a full copy of Görke and Schoeler, *The Earliest Writings on the Life of Muḥammad*, which is in the library but not yet in the atlas.
+- Held back, still to decide: the Lowry translation of al-Shāfiʿī's *Risāla* (a primary source). The full 2024 Görke/Schoeler book was added on 2026-09-30.
+
+## 7. Library expansion metadata checks (2026-09-30)
+
+Pavlovitch’s separate EI3 entry *Muslim b. al-Ḥajjāj* still needs a publication year from publisher/front matter. Görke’s comparative hadith chapter and Pavlovitch’s ʿUbāda article have institution/journal metadata sources recorded in `library-additions.json`; their year/venue fields remain flagged until confirmed directly in the supplied PDFs.

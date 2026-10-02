@@ -73,13 +73,22 @@ def scan(path):
 
 def main():
     files = sorted(
-        os.path.join(SRC, f) for f in os.listdir(SRC) if f.lower().endswith(".pdf")
+        os.path.join(root, filename)
+        for root, _, names in os.walk(SRC)
+        for filename in names
+        if filename.lower().endswith(".pdf")
     )
     done = 0
     with open(OUT, "w", encoding="utf-8") as out, ProcessPoolExecutor(max_workers=6) as pool:
-        futures = [pool.submit(scan, p) for p in files]
-        for fut in as_completed(futures):
-            out.write(json.dumps(fut.result(), ensure_ascii=False) + "\n")
+        futures_to_paths = {pool.submit(scan, p): p for p in files}
+        for fut in as_completed(futures_to_paths):
+            record = fut.result()
+            # The library now uses alphabetic subfolders. Basenames alone can
+            # collide, and a root-only scan would silently miss the library.
+            # Match each result to its source without changing scan() callers.
+            path = futures_to_paths[fut]
+            record["file"] = os.path.relpath(path, SRC).replace("\\", "/")
+            out.write(json.dumps(record, ensure_ascii=False) + "\n")
             done += 1
             if done % 50 == 0:
                 out.flush()

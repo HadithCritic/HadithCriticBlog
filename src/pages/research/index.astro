@@ -1,26 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { graph, layoutTimeline, authorLine, venueLine, THEME_ORDER, type Work } from '../../lib/research-graph';
+import '../../styles/atlas-explorer.css';
+import { graph, authorLine, venueLine, THEME_ORDER } from '../../lib/research-graph';
 
 const { data, workById, cites, citedBy, partOf, parts, partPage } = graph;
-const timeline = layoutTimeline(graph);
-const nodeAt = new Map(timeline.nodes.map((n) => [n.id, n]));
-
-/* Node fills are the jacket colors used on the academic studies register. They mark
-   the main theme of a work and carry no judgment of it. */
-const THEME_STYLE: Record<string, { bg: string; accent: string }> = {
-  'Dating and common links': { bg: '#0b4f6c', accent: '#a6dcf0' },
-  'Isnād and transmission': { bg: '#1e3670', accent: '#b4c6f5' },
-  'Rijāl and jarḥ wa-taʿdīl': { bg: '#51306b', accent: '#dcc0f2' },
-  'Canonization and collections': { bg: '#1f5140', accent: '#b0dcc0' },
-  'Authenticity debate': { bg: '#6b1f30', accent: '#f5b8c2' },
-  'Legal ḥadīth and sunna': { bg: '#a3401c', accent: '#ffd6bd' },
-  'Sīra and maghāzī sources': { bg: '#6a5a1c', accent: '#f0e0a0' },
-  'Shiʿi ḥadīth': { bg: '#2d4a4a', accent: '#b8dede' },
-  'General studies of ḥadīth': { bg: '#4a4743', accent: '#d9d3c8' }
-};
-const themeIndex = (work: Work) => THEME_ORDER.findIndex((t) => work.themes.includes(t));
-const mainTheme = (work: Work) => THEME_ORDER[Math.max(0, themeIndex(work))];
 
 const themeCounts = THEME_ORDER.map((name) => ({ name, count: data.works.filter((w) => w.themes.includes(name)).length })).filter((t) => t.count > 0);
 
@@ -34,7 +17,7 @@ const decadeMax = Math.max(...decades.values());
 const leadScholars = data.scholars.filter((s) => s.works.length > 0);
 const plain = (id: string) => workById.get(id)!.title;
 
-/* Everything the map's detail panel needs, keyed by work id. */
+/* Citation explorer metadata, keyed by work id. */
 const atlas = Object.fromEntries(
   data.works.map((w) => [
     w.id,
@@ -48,13 +31,14 @@ const atlas = Object.fromEntries(
       b: citedBy.get(w.id) ?? [],
       p: partOf.get(w.id) ?? null,
       k: parts.get(w.id) ?? [],
-      s: w.site ?? []
+      s: w.site ?? [],
+      themes: w.themes,
+      page: partPage.get(w.id) ?? null
     }
   ])
 );
 const atlasJson = JSON.stringify(atlas).replace(/</g, '\\u003c');
 
-const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'monograph', 'thesis'].includes(w.type ?? '') ? 'square' : 'circle');
 ---
 
 <BaseLayout
@@ -68,10 +52,10 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
           <p class="hc-eyebrow">Research atlas</p>
           <h1 id="atlas-title" class="hc-masthead__title">Hadith Criticism Atlas</h1>
           <p class="hc-masthead__lead">
-            Modern scholarship on ḥadīth criticism, laid out by author and year, with the citations between works. Select a work to see what it cites and what cites it.
+            Modern scholarship on ḥadīth criticism, with the citations between works. Search the collection and explore one work’s citations at a time.
           </p>
           <div class="hc-masthead__actions">
-            <a href="#map" class="hc-btn">Open the map</a>
+            <a href="#works" class="hc-btn" data-explorer-start>Explore citations</a>
             <a href="#works" class="hc-back-link hc-back-link--ruled">Browse all works <span aria-hidden="true">→</span></a>
           </div>
         </div>
@@ -104,81 +88,57 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
       </div>
     </header>
 
-    <div class="hc-container dockwrap">
-      <div class="dock" role="search" data-dock hidden>
+    <section id="map" class="map hc-container" aria-labelledby="map-title" data-explorer hidden>
+      <header class="sec__head">
+        <h2 id="map-title" class="sec__title">Explore the collection</h2>
+        <span class="sec__rule" aria-hidden="true"></span>
+      </header>
+      <p class="map__lead">Find a work by title, author or topic. Then follow its citations, one work at a time. Connections are limited to this collection.</p>
+      <div class="dock" role="search">
         <label class="dock__field">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <input id="atlas-query" class="dock__input" type="search" placeholder="Search title, author or venue" autocomplete="off" aria-label="Search the atlas" />
+          <span class="sr-only">Search the atlas</span>
+          <input id="atlas-query" class="dock__input" type="search" placeholder="Search title, author or venue" autocomplete="off" />
           <kbd class="dock__kbd" aria-hidden="true">/</kbd>
         </label>
-        <div class="dock__chips" role="group" aria-label="Filter by theme">
-          {themeCounts.map((theme) => (
-            <button type="button" class="chip" data-theme-filter={theme.name} aria-pressed="false">
-              <span class="swatch" style={`--sw:${THEME_STYLE[theme.name].bg};--sw-ring:${THEME_STYLE[theme.name].accent}`} aria-hidden="true"></span>
-              {theme.name} <span class="chip__n">{theme.count}</span>
-              <svg class="chip__x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
-            </button>
-          ))}
-        </div>
-        <span id="atlas-count" class="dock__count" aria-live="polite">{data.works.length} of {data.works.length} works</span>
+        <label class="dock__select">Topic
+          <select id="atlas-theme">
+            <option value="">All topics</option>
+            {themeCounts.map(theme => <option value={theme.name}>{theme.name} ({theme.count})</option>)}
+          </select>
+        </label>
+        <label class="dock__select">Order
+          <select id="atlas-sort">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="title">Title A-Z</option>
+          </select>
+        </label>
       </div>
-    </div>
-
-    <section id="map" class="map hc-container" aria-labelledby="map-title">
-      <header class="sec__head">
-        <h2 id="map-title" class="sec__title">Who cites whom</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{timeline.nodes.length}</span>
-      </header>
-      <p class="map__lead">
-        Each row is a lead author and each mark a work, placed by year. Circles are articles and chapters, squares are books and theses, diamonds are edited volumes. The year scale widens after 1990. A solid line runs to a work the selected one cites, a dashed line from a work that cites it.
-      </p>
-
-      <div class="map__grid">
-        <div class="map__scroll" tabindex="0" role="region" aria-label="Timeline map, scrolls sideways on small screens">
-          <svg class="map__svg" viewBox={`0 0 ${timeline.width} ${timeline.height}`} width={timeline.width} height={timeline.height} style={`min-width:${timeline.width}px`} role="img" aria-label="Timeline of works by lead author and year. The works are also listed below.">
-            {timeline.rows.map((row, i) => (
-              <g class="map__row">
-                {i % 2 === 0 && <rect class="map__band" x="0" y={row.y - 15} width={timeline.width} height="30" />}
-                <text class="map__name" x={timeline.left - 14} y={row.y + 4} text-anchor="end">{row.name}</text>
-              </g>
-            ))}
-            {timeline.ticks.map((tick) => (
-              <g>
-                <line class="map__tick" x1={tick.x} x2={tick.x} y1="26" y2={timeline.height - 4} />
-                <text class="map__year" x={tick.x} y="16" text-anchor="middle">{tick.year}</text>
-              </g>
-            ))}
-            <line class="map__tick" x1={timeline.undatedX} x2={timeline.undatedX} y1="26" y2={timeline.height - 4} />
-            <text class="map__year" x={timeline.undatedX} y="16" text-anchor="middle">n.d.</text>
-
-            <g data-edges></g>
-
-            {data.works.map((w) => {
-              const n = nodeAt.get(w.id)!;
-              const style = THEME_STYLE[mainTheme(w)];
-              return (
-                <g
-                  class={`node node--${shape(w)}`}
-                  data-node={w.id}
-                  data-themes={w.themes.join('|')}
-                  transform={`translate(${n.x} ${n.y})`}
-                  style={`--nb:${style.bg}`}
-                >
-                  <title>{w.title}{w.year ? ` (${w.year})` : ''}</title>
-                  {shape(w) === 'square' ? <rect x="-6" y="-6" width="12" height="12" /> : shape(w) === 'diamond' ? <path d="M0 -8 8 0 0 8 -8 0Z" /> : <circle r="6.5" />}
-                </g>
-              );
-            })}
-          </svg>
+      <div class="explorer">
+        <div class="catalogue">
+          <p id="atlas-count" class="catalogue__count" aria-live="polite"></p>
+          <ol class="catalogue__list" data-catalogue aria-label="Works in the collection"></ol>
+          <button type="button" class="hc-btn hc-btn--ghost catalogue__more" data-more hidden>Show more works</button>
+          <div id="atlas-empty" class="empty" hidden>
+            <p>No works match these filters.</p>
+            <button type="button" id="atlas-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
+          </div>
         </div>
-
-        <aside class="panel" data-panel aria-live="polite" hidden>
-          <p class="panel__empty" data-panel-empty>Select a work on the map to see its citations within this collection.</p>
-          <div data-panel-body hidden></div>
-        </aside>
+        <div class="focus" data-focus>
+          <div class="focus__empty" data-focus-empty>
+            <h3>Choose a work to begin</h3>
+            <p>Its title and bibliography stay in view while you explore the connections.</p>
+            <div class="focus__guide">
+              <div><h4>Cites</h4><p>Works named in the selected text.</p></div>
+              <div><h4>Cited by</h4><p>Works that name the selected text.</p></div>
+            </div>
+            <p>You can also <a href="#works">browse the full bibliography</a>, including studies printed inside volumes.</p>
+          </div>
+          <div data-focus-body hidden></div>
+        </div>
       </div>
     </section>
+    <noscript><div class="hc-container"><p>The full bibliography below includes each work’s citation connections. Open “Cites / Cited by” to explore them.</p></div></noscript>
 
     <section id="works" class="works hc-container" aria-labelledby="works-title">
       <header class="sec__head">
@@ -186,6 +146,8 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
         <span class="sec__rule" aria-hidden="true"></span>
         <span class="sec__count">{data.works.length}</span>
       </header>
+      <details class="bibliography" data-bibliography open>
+        <summary>Full bibliography and source notes</summary>
       <ol class="list">
         {listed.map((w) => {
           const out = cites.get(w.id) ?? [];
@@ -254,15 +216,12 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
                   </details>
                 )}
               </div>
-              <button type="button" class="work__show" data-show={w.id} hidden>Show on map</button>
+              <button type="button" class="work__show" data-show={w.id} hidden>Explore citations</button>
             </li>
           );
         })}
       </ol>
-      <div id="atlas-empty" class="empty" hidden>
-        <p>No works match these filters.</p>
-        <button type="button" id="atlas-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
-      </div>
+      </details>
     </section>
 
     <section id="scholars" class="scholars hc-container" aria-labelledby="scholars-title">
@@ -310,214 +269,8 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
 </BaseLayout>
 
 <script>
-  type Entry = { t: string; a: string; y: number | null; v: string; d: string | null; c: string[]; b: string[]; p: string | null; k: string[]; s: { href: string; label: string; slug?: string }[] };
-
-  const page = document.querySelector<HTMLElement>('.atlas-page');
-  const raw = document.getElementById('atlas-data')?.textContent;
-
-  if (page && raw) {
-    const atlas: Record<string, Entry> = JSON.parse(raw);
-    const svgNS = 'http://www.w3.org/2000/svg';
-    const dock = page.querySelector<HTMLElement>('[data-dock]');
-    const input = page.querySelector<HTMLInputElement>('#atlas-query');
-    const count = page.querySelector<HTMLElement>('#atlas-count');
-    const empty = page.querySelector<HTMLElement>('#atlas-empty');
-    const reset = page.querySelector<HTMLButtonElement>('#atlas-reset');
-    const chips = [...page.querySelectorAll<HTMLButtonElement>('.chip')];
-    const rows = [...page.querySelectorAll<HTMLElement>('[data-work]')];
-    const nodes = [...page.querySelectorAll<SVGGElement>('[data-node]')];
-    const nodeById = new Map(nodes.map((n) => [n.dataset.node!, n]));
-    const edgeLayer = page.querySelector<SVGGElement>('[data-edges]')!;
-    const panel = page.querySelector<HTMLElement>('[data-panel]')!;
-    const panelEmpty = panel.querySelector<HTMLElement>('[data-panel-empty]')!;
-    const panelBody = panel.querySelector<HTMLElement>('[data-panel-body]')!;
-    let theme = '';
-    let selected = '';
-
-    const pos = (id: string) => {
-      const m = /translate\(([-\d.]+)[ ,]([-\d.]+)\)/.exec(nodeById.get(id)?.getAttribute('transform') ?? '');
-      return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
-    };
-
-    function curve(from: string, to: string, cls: string) {
-      const a = pos(from);
-      const b = pos(to);
-      if (!a || !b) return;
-      const path = document.createElementNS(svgNS, 'path');
-      const lift = Math.max(24, Math.abs(a.y - b.y) * 0.35);
-      path.setAttribute('d', `M${a.x} ${a.y} C${a.x + lift} ${a.y} ${b.x - lift} ${b.y} ${b.x} ${b.y}`);
-      path.setAttribute('class', `edge ${cls}`);
-      edgeLayer.appendChild(path);
-    }
-
-    function link(id: string) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'panel__link';
-      btn.textContent = `${atlas[id].t}${atlas[id].y ? ` (${atlas[id].y})` : ''}`;
-      btn.addEventListener('click', () => select(id));
-      const li = document.createElement('li');
-      li.appendChild(btn);
-      return li;
-    }
-
-    function group(title: string, ids: string[]) {
-      const wrap = document.createDocumentFragment();
-      const h = document.createElement('h4');
-      h.textContent = `${title} (${ids.length})`;
-      const ul = document.createElement('ul');
-      ul.className = 'panel__list';
-      ids.forEach((id) => ul.appendChild(link(id)));
-      wrap.appendChild(h);
-      wrap.appendChild(ids.length ? ul : Object.assign(document.createElement('p'), { className: 'panel__none', textContent: 'None in this collection.' }));
-      return wrap;
-    }
-
-    function select(id: string) {
-      selected = id;
-      const e = atlas[id];
-      edgeLayer.replaceChildren();
-      e.c.forEach((to) => curve(id, to, 'edge--out'));
-      e.b.forEach((from) => curve(from, id, 'edge--in'));
-      const related = new Set([id, ...e.c, ...e.b, ...e.k, ...(e.p ? [e.p] : [])]);
-      nodes.forEach((n) => {
-        const nid = n.dataset.node!;
-        n.classList.toggle('is-selected', nid === id);
-        n.classList.toggle('is-related', related.has(nid) && nid !== id);
-        n.classList.toggle('is-faded', !related.has(nid));
-      });
-
-      panelBody.replaceChildren();
-      const title = document.createElement('h3');
-      title.className = 'panel__title';
-      title.textContent = e.t;
-      const by = document.createElement('p');
-      by.className = 'panel__by';
-      by.textContent = [e.a, e.y, e.v].filter(Boolean).join(' · ');
-      panelBody.appendChild(title);
-      panelBody.appendChild(by);
-      if (e.p) {
-        const inside = document.createElement('p');
-        inside.className = 'panel__in';
-        inside.append('Printed inside ');
-        const open = document.createElement('button');
-        open.type = 'button';
-        open.className = 'panel__link panel__link--inline';
-        open.textContent = atlas[e.p].t;
-        open.addEventListener('click', () => select(e.p!));
-        inside.appendChild(open);
-        panelBody.appendChild(inside);
-      }
-      if (e.d) {
-        const a = document.createElement('a');
-        a.className = 'hc-back-link hc-back-link--ruled';
-        a.href = `https://doi.org/${e.d}`;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = 'Open the work (DOI) ↗';
-        panelBody.appendChild(a);
-      }
-      if (e.k.length) panelBody.appendChild(group('Studies printed inside it', e.k));
-      panelBody.appendChild(group('Cites', e.c));
-      panelBody.appendChild(group('Cited by', e.b));
-      const listed = document.getElementById(id);
-      if (listed) {
-        const a = document.createElement('a');
-        a.className = 'hc-back-link';
-        a.href = `#${id}`;
-        a.textContent = 'See it in the list →';
-        panelBody.appendChild(a);
-      }
-      panelEmpty.hidden = true;
-      panelBody.hidden = false;
-    }
-
-    function clearSelection() {
-      selected = '';
-      edgeLayer.replaceChildren();
-      nodes.forEach((n) => n.classList.remove('is-selected', 'is-related', 'is-faded'));
-      panelBody.hidden = true;
-      panelEmpty.hidden = false;
-    }
-
-    function apply() {
-      const q = (input?.value ?? '').trim().toLowerCase();
-      let visible = 0;
-      for (const row of rows) {
-        const themes = (row.dataset.themes ?? '').split('|');
-        const ok = (q === '' || (row.dataset.search ?? '').toLowerCase().includes(q)) && (theme === '' || themes.includes(theme));
-        row.hidden = !ok;
-        nodeById.get(row.id)?.classList.toggle('is-filtered', !ok);
-        if (ok) visible += 1;
-      }
-      chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.themeFilter === theme)));
-      if (count) count.textContent = `${visible} of ${rows.length} works`;
-      if (empty) {
-        empty.hidden = visible > 0;
-        const p = empty.querySelector('p');
-        if (p) p.textContent = q ? `No works match "${input?.value.trim()}".` : 'No works match these filters.';
-      }
-      const url = new URL(location.href);
-      q ? url.searchParams.set('q', q) : url.searchParams.delete('q');
-      theme ? url.searchParams.set('theme', theme) : url.searchParams.delete('theme');
-      history.replaceState(null, '', url);
-    }
-
-    const params = new URLSearchParams(location.search);
-    if (input) input.value = params.get('q') ?? '';
-    const asked = params.get('theme') ?? '';
-    if (chips.some((c) => c.dataset.themeFilter === asked)) theme = asked;
-
-    input?.addEventListener('input', apply);
-    chips.forEach((chip) =>
-      chip.addEventListener('click', () => {
-        theme = theme === chip.dataset.themeFilter ? '' : (chip.dataset.themeFilter ?? '');
-        apply();
-      })
-    );
-    reset?.addEventListener('click', () => {
-      if (input) input.value = '';
-      theme = '';
-      apply();
-      input?.focus();
-    });
-
-    nodes.forEach((n) => {
-      const id = n.dataset.node!;
-      n.setAttribute('tabindex', '0');
-      n.setAttribute('role', 'button');
-      n.setAttribute('aria-label', `${atlas[id].t}, ${atlas[id].a}${atlas[id].y ? `, ${atlas[id].y}` : ''}`);
-      n.addEventListener('click', () => select(id));
-      n.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter' || ev.key === ' ') {
-          ev.preventDefault();
-          select(id);
-        }
-      });
-    });
-    page.querySelectorAll<HTMLButtonElement>('[data-show]').forEach((btn) => {
-      btn.hidden = false;
-      btn.addEventListener('click', () => {
-        select(btn.dataset.show!);
-        document.getElementById('map')?.scrollIntoView({ block: 'start' });
-      });
-    });
-    document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && selected) clearSelection();
-      if (ev.key !== '/' || ev.metaKey || ev.ctrlKey || ev.altKey) return;
-      const t = ev.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
-      ev.preventDefault();
-      input?.focus();
-    });
-
-    page.querySelector('.map__svg')?.setAttribute('aria-label', 'Timeline of works by lead author and year. Select a work to see its citations.');
-    if (dock) dock.hidden = false;
-    panel.hidden = false;
-    apply();
-    const hashTarget = location.hash.slice(1);
-    if (hashTarget && atlas[hashTarget]) select(hashTarget);
-  }
+  import { initAtlasExplorer } from '../../lib/atlas-explorer';
+  initAtlasExplorer();
 </script>
 
 <style>
@@ -536,24 +289,15 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
   .decades__bar { display: block; width: var(--w); min-width: 6px; height: 10px; }
   .decades__n { color: var(--hc-text-primary); font: 500 0.9rem var(--font-ui); font-variant-numeric: tabular-nums; text-align: right; }
 
-  /* Dock */
-  .dockwrap { padding-top: 1.5rem; }
-  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
-  .dock__field { flex: 1 1 260px; display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.8rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-0); color: var(--hc-text-tertiary); }
-  .dock__field:focus-within { border-color: var(--hc-gold); box-shadow: 0 0 0 1px var(--hc-gold); }
-  .dock__input { --hc-focus-width: 0px; flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--hc-text-primary); font: 400 0.95rem var(--font-body); }
+  /* Search controls */
+  .dock { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, auto) auto; gap: 0.75rem; align-items: end; margin-bottom: 1.5rem; }
+  .dock__field { display: flex; align-items: center; gap: 0.6rem; min-height: 48px; padding: 0 0.8rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-xs); background: var(--hc-surface-1); color: var(--hc-text-tertiary); }
+  .dock__field:focus-within { border-color: var(--hc-gold); }
+  .dock__input { --hc-focus-width: 0px; flex: 1; min-width: 0; width: 100%; border: 0; background: none; color: var(--hc-text-primary); font: 400 0.95rem var(--font-body); }
   .dock__input::placeholder { color: var(--hc-text-tertiary); }
-  .dock__kbd { padding: 0.1rem 0.45rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; font: 700 0.78rem var(--font-ui); }
-  .dock__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .chip { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease; }
-  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
-  .chip__n { color: var(--hc-text-tertiary); font-variant-numeric: tabular-nums; }
-  .chip__x { display: none; width: 12px; height: 12px; }
-  .chip[aria-pressed='true'] { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
-  .chip[aria-pressed='true'] .chip__x { display: block; }
-  .swatch { flex: none; width: 12px; height: 12px; border-radius: 2px; background: var(--sw); box-shadow: 0 0 0 1px var(--sw-ring); }
-  .dock__count { margin-left: auto; padding: 0 0.6rem; color: var(--hc-text-tertiary); font: 500 0.88rem var(--font-ui); font-variant-numeric: tabular-nums; }
-  @media (min-width: 1001px) { .dock { position: sticky; top: 4.75rem; z-index: 20; } }
+  .dock__kbd { font: 700 0.8rem var(--font-ui); }
+  .dock__select { display: grid; gap: 0.35rem; color: var(--hc-text-secondary); font: 700 0.75rem var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .dock__select select { width: 100%; max-width: 100%; min-height: 48px; padding: 0.6rem 2rem 0.6rem 0.75rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-xs); color: var(--hc-text-primary); background: var(--hc-surface-1); font: 400 0.85rem var(--font-body); }
 
   /* Section heads */
   .map, .works, .scholars, .note { padding-top: clamp(2.5rem, 5vw, 4rem); scroll-margin-top: 8rem; }
@@ -564,25 +308,18 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
 
   /* Map */
   .map__lead { max-width: 68ch; margin: 0 0 1.5rem; color: var(--hc-text-secondary); line-height: 1.7; }
-  .map__grid { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 10px; align-items: start; }
-  .map__scroll { overflow-x: auto; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-1); }
-  .map__svg { display: block; width: 100%; max-width: none; height: auto; }
-  .map__band { fill: var(--hc-text-primary); opacity: 0.035; }
-  .map__name { fill: var(--hc-text-secondary); font: 500 12.5px var(--font-ui); }
-  .map__year { fill: var(--hc-text-tertiary); font: 500 12px var(--font-ui); }
-  .map__tick { stroke: var(--hc-rule-soft); stroke-width: 1; stroke-dasharray: 2 4; }
-  .node { cursor: default; }
-  .node rect, .node circle, .node path { fill: var(--nb); stroke: color-mix(in srgb, var(--hc-text-primary) 70%, transparent); stroke-width: 1.5; transition: opacity 0.2s ease; }
-  .node[role='button'] { cursor: pointer; }
-  .node:hover rect, .node:hover circle, .node:hover path { stroke: var(--hc-gold); stroke-width: 2.5; }
-  .node.is-selected rect, .node.is-selected circle, .node.is-selected path { stroke: var(--hc-gold-bright); stroke-width: 3.5; }
-  .node.is-related rect, .node.is-related circle, .node.is-related path { stroke: var(--hc-gold); stroke-width: 2.5; }
-  .node.is-faded { opacity: 0.22; }
-  .node.is-filtered { opacity: 0.1; }
-
-  .panel { position: sticky; top: 9rem; padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); }
-  .panel > * { padding: 1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .panel__empty { margin: 0; color: var(--hc-text-secondary); line-height: 1.6; }
+  .explorer { display: grid; grid-template-columns: minmax(17rem, 0.8fr) minmax(0, 1.8fr); align-items: start; gap: 2rem; }
+  .catalogue { min-width: 0; }
+  .catalogue__count { margin: 0 0 0.75rem; color: var(--hc-text-secondary); font: 400 0.85rem/1.5 var(--font-body); }
+  .catalogue__list { max-height: 38rem; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0.2rem; list-style: none; border-top: 1px solid var(--hc-rule); }
+  .catalogue__more { margin-top: 0.75rem; width: 100%; }
+  .focus { min-width: 0; padding: 1.5rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-xs); background: var(--hc-surface-1); }
+  .focus__empty h3 { margin: 0; font: 500 1.5rem/1.4 var(--font-display); }
+  .focus__empty p { color: var(--hc-text-secondary); font-size: 0.95rem; line-height: 1.7; }
+  .focus__guide { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-block: 2rem; padding-top: 1rem; border-top: 1px solid var(--hc-rule); }
+  .focus__guide h4 { margin: 0; color: var(--hc-gold); font: 700 0.8rem var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .focus__guide p { margin-bottom: 0; }
+  .bibliography > summary { min-height: 48px; padding: 0.75rem 0; color: var(--hc-gold); cursor: pointer; font: 500 1rem/1.5 var(--font-body); }
 
   /* Works */
   .list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
@@ -628,13 +365,16 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
   .note__list { display: grid; gap: 0.7rem; max-width: 70ch; margin: 0; padding-left: 1.1rem; color: var(--hc-text-secondary); line-height: 1.65; }
   .note__list strong { color: var(--hc-text-primary); }
 
-  @media (max-width: 1000px) {
-    .map__grid { grid-template-columns: minmax(0, 1fr); }
-    .panel { position: static; }
+  @media (max-width: 900px) {
+    .explorer { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+    .catalogue__list { max-height: 22rem; }
+    .dock { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .dock__field { grid-column: 1 / -1; }
   }
-  @media (max-width: 700px) {
+  @media (max-width: 640px) {
     .sec__rule { display: none; }
-    .dock__count { margin-left: 0; }
+    .focus { padding: 1rem; }
+    .focus__guide { grid-template-columns: 1fr; }
     .work { grid-template-columns: minmax(0, 1fr); }
     .work__year { padding-left: 0; }
     .work__show { justify-self: start; }
@@ -646,19 +386,4 @@ const shape = (w: Work) => (w.type?.includes('edited') ? 'diamond' : ['book', 'm
   @media (prefers-reduced-motion: reduce) {
     .atlas-page * { transition: none !important; }
   }
-</style>
-
-<style is:global>
-  /* Built by script after load, so it never carries the page's scope attribute. */
-  .atlas-page .edge { fill: none; stroke: var(--hc-gold); stroke-width: 1.6; opacity: 0.9; pointer-events: none; }
-  .atlas-page .edge--in { stroke-dasharray: 5 4; }
-  .atlas-page .panel__title { margin: 0; color: var(--hc-text-primary); font: 600 1.08rem/1.35 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
-  .atlas-page .panel__by { margin: 0.4rem 0 0.7rem; color: var(--hc-text-secondary); font-size: 0.9rem; line-height: 1.5; }
-  .atlas-page .panel h4 { margin: 1rem 0 0.35rem; color: var(--hc-text-tertiary); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
-  .atlas-page .panel__list { display: grid; margin: 0; padding: 0; list-style: none; max-height: 13rem; overflow-y: auto; }
-  .atlas-page .panel__in { margin: 0 0 0.6rem; color: var(--hc-text-secondary); font-size: 0.9rem; line-height: 1.5; }
-  .atlas-page .panel__link--inline { display: inline; width: auto; padding: 0; border: 0; color: var(--hc-text-primary); text-decoration: underline; text-underline-offset: 2px; }
-  .atlas-page .panel__none { margin: 0; color: var(--hc-text-tertiary); font-size: 0.9rem; }
-  .atlas-page .panel__link { width: 100%; padding: 0.4rem 0.5rem; border: 0; border-bottom: 1px solid var(--hc-rule-soft); background: none; color: var(--hc-text-primary); font: 400 0.9rem/1.4 var(--font-body); text-align: left; cursor: pointer; }
-  .atlas-page .panel__link:hover { background: rgba(216, 177, 102, 0.08); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
 </style>

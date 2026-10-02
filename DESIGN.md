@@ -130,6 +130,10 @@ for it rather than `--hc-umber` whenever the value is a `color`.
 
 Used by `/projects/quran/` and `/projects/quran/transmission/`. **One hue per reader; his two transmitters are its deep and light shade.** Ten hues, fixed and identical in both themes, each ink checked at AA against its own ground (`q-nafi` teal, `q-abu_jafar` amber, `q-abu_amr` lapis, `q-yaqub` rust, `q-asim` pine, `q-hamza` oxblood, `q-khalaf_ashir` plum, `q-kisai` olive, `q-ibn_amir` slate, `q-ibn_kathir` rose). Classes `shade-0` and `shade-1` set `--bg` and `--ink`; `.sw` draws a swatch. These hues identify people and carry no evaluative meaning, and a name is always printed beside them. Do not reuse them for anything else on those pages.
 
+### Tafsir palette: `tafsir.css`
+
+Used by `/projects/tafsir/` and its sura pages. **One hue per era, not per book.** The library runs to a hundred or more commentaries across fourteen centuries, which hue cannot tell apart, so a book is told apart by its name and death date and its color says only when its author died. Five eras take the site’s own tones: `era-e1` gold (101 to 300 AH), `era-e2` copper (301 to 600), `era-e3` oxblood (601 to 900), `era-e4` sage (901 to 1300), `era-e5` slate (1301 to the present). `--e-bg`/`--e-ink` set a tag (`.e-tag`, AA at 5.4 to 8.3); `--e-line` is the mid-tone for borders and swatches (`.e-sq`) and holds 3:1 or better on both themes. A comment row carries its era as a 5px inline-start border over a 7% tint. Color is chronological and never evaluative; the name is always printed beside it. `tests/tafsir.test.mjs` fails a century that is in no era.
+
 ### Categories
 
 Four article-taxonomy hues, tuned for **12% fills and 30% borders**:
@@ -652,15 +656,18 @@ still resolve to Tool. Card grids use a 10px gap.
 
 ### `/research` atlas
 
-The hadith criticism atlas reuses the masthead, instrument, dock and ruled-list shapes. Its
-one new figure is the **timeline map**: one row per lead author, x by year (the scale widens
-after 1990 because most of the literature is recent), marks by form (circle article or chapter,
-square book or thesis, diamond edited volume). Mark fills are the academic-studies jacket
-colors and stand for a main theme, never for a judgment of a work. Selecting a work draws a
-solid line to what it cites and a dashed line from what cites it, so the two directions differ
-by shape and not only by color. The full list of works below the map is the no-JavaScript
-path, with the same citation relations in a native `<details>`. Map text stays at its designed
-size and the container scrolls on small screens rather than shrinking the SVG below 12px.
+The hadith criticism atlas reuses the masthead, instrument and ruled-list shapes. Its
+entry point is a searchable works catalogue with topic and chronological ordering controls.
+Selecting a work opens a focused citation explorer: the selected bibliography above two
+explicitly labelled lists, **Cites** and **Cited by**. Every connection prints its title,
+author and year. Citations are separate from volume membership. Both citation lists are
+searchable together; long lists expand on request. Catalogue search filters the results,
+without hiding the selected work's citation context. The catalogue starts with 20 results
+and loads more on request. Selection and filters persist in the URL, and browser Back
+restores the previous selection. On phones, the catalogue precedes the selected work and
+the two citation directions stack. The full bibliography preserves all source notes and
+native citation `<details>` as the no-JavaScript path. Existing work anchors open it directly.
+There is no full-network drawing: density grows in the lists rather than in crossing lines.
 
 ### Row hover
 

@@ -63,12 +63,22 @@ def name_table(authorities: dict[str, Any]) -> dict[str, list[str]]:
     # The accusative after "أن" and "روى": أبا شعيب.
     names["susi"].append("أبا شعيب")
     names["susi"].append("أبي شعيب")
+    # The printed source also omits the hamza under the prepositional form: عن ابي شعيب.
+    names["susi"].append("ابي شعيب")
     # Prefixed lam of "for": للدوري, للسوسي; and the kunya أبي عمر of al-Duri.
     names["duri_abu_amr"].append("للدوري")
+    # At-Taysīr p. 3 names Abū ʿUmar among Abū ʿAmr's transmitters via al-Yazīdī.
+    # The p. 3 identification disambiguates this kunya from al-Dūrī's other route.
+    names["duri_abu_amr"].append("أبو عمر")
+    names["duri_abu_amr"].append("أبي عمر")
+    names["duri_abu_amr"].append("ابى عمر")
     names["susi"].append("للسوسي")
     names["duri_kisai"].append("أبي عمر عن الكسائي")
     # "Hamza, from the narration of Khalaf": the transmitter is Khalaf from Hamza.
     names["khalaf_hamza"].append("حمزة من رواية خلف")
+    # At-Taysīr p. 3 identifies its bare "Khalaf" in the seven-reader scope:
+    # عن حمزة رواية خلف وخلاد عن سليم عنه.
+    names["khalaf_hamza"].append("حمزة رواية خلف")
     # "Khalaf for himself and for Hamza": both Khalafs, the second split by an addition.
     names["khalaf_hamza"].append("لنفسه [ولحمزة]")
     # Genitive after "مذهب" in the chapter headings.
@@ -77,6 +87,8 @@ def name_table(authorities: dict[str, Any]) -> dict[str, list[str]]:
     names["kisai"].append("الكسائى")
     # The edition transposes the conjunction in Abu Amr's name on p. 469.
     names["abu_amr"].append("أبو وعمرو")
+    # At-Taysīr writes al-Bazzī with alif maqṣūra in the route note on p. 80.
+    names["bazzi"].append("البزى")
     return names
 
 
@@ -515,9 +527,10 @@ def main() -> int:
                         matches = {**matches, hint: near[hint]}
                 verse, status = lib.choose_verse(matches, hint, cursor.get(sura_no, 1))
                 anchor = {"status": status, "sura": sura_no, "hint": hint}
-                if status == "moved" and item.get("anchor_at_hint"):
+                if status in {"moved", "none"} and item.get("anchor_at_hint"):
                     # A reviewed source locator can specify a variant spelling
-                    # absent at the Cairo verse. Do not bind it to another occurrence.
+                    # absent at the Cairo verse or not found elsewhere. Do not bind
+                    # it to another occurrence or invent a Cairo word ID.
                     anchor = {"status": "weak", "sura": sura_no, "hint": hint,
                               "candidates": sorted(matches), "review_note": item["anchor_at_hint"]}
                 elif verse is not None and (matches[verse]["how"].startswith("word")

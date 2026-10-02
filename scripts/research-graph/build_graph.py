@@ -7,14 +7,30 @@ Outputs: research-graph.json (public, no local paths), library-map.json (interna
 import csv
 import difflib
 import json
+import ntpath
 import os
 import pickle
 import re
 import unicodedata
+from pathlib import Path
 
 import fitz
 
 LIB = os.environ.get("HADITH_LIBRARY", r"C:\Users\Jonathan\Desktop\org\05 Scholarly Library and OCR\01 PDF Library Collections\Islamic Studies")
+
+rename_log = Path(LIB) / "RENAME_LOG.csv"
+renamed_sources = {}
+if rename_log.exists():
+    with rename_log.open(encoding="utf-8-sig", newline="") as source:
+        renamed_sources = {ntpath.basename(row["original_path"]).casefold(): row["new_path"] for row in csv.DictReader(source)}
+
+def source_path(directory, filename):
+    path = Path(directory) / filename
+    if not path.exists() and Path(directory) == Path(LIB):
+        relative = renamed_sources.get(filename.casefold())
+        if relative:
+            path = Path(LIB) / relative.replace("\\", "/")
+    return str(path)
 
 def fold(s):
     s = unicodedata.normalize("NFKD", s or "")
@@ -38,6 +54,9 @@ NEW_DIR = os.environ.get("HADITH_NEWTEXTS_DIR", r"C:\Users\Jonathan\Desktop\newt
 SOURCE_DIRS = {"ocrd": OCR_DIR, "newtexts": NEW_DIR}  # any other value is read from the library folder
 BASE_ONLY = os.environ.get("RG_BASE") == "1"
 extras = [] if BASE_ONLY else json.load(open("extras.json", encoding="utf-8"))["works"]
+ADDITIONS_PATH = Path(__file__).resolve().parents[2] / "docs/research/hadith-graph/library-additions.json"
+additions = [] if BASE_ONLY or not ADDITIONS_PATH.exists() else json.load(open(ADDITIONS_PATH, encoding="utf-8"))["works"]
+extras.extend(additions)
 volumes = {} if BASE_ONLY else json.load(open("chapters.json", encoding="utf-8"))["volumes"]
 cr_extra = {} if BASE_ONLY else json.load(open("crossref_extra.json", encoding="utf-8"))
 
@@ -220,11 +239,13 @@ for x in extras:
     rec = dict(title=smart_title(x["title"]), year=x.get("year"), type=x["type"], venue=x.get("venue", ""), publisher=x.get("publisher"),
                authors=display_authors(x["authors"]), doi=None, crossref_verified=False, editorial=x.get("editorial", []),
                file=x["key"], src_dir=x.get("dir", "ocrd"), pages=0, reviews_file=x.get("reviews"), alias=x.get("alias"), part_of_file=x.get("partOf"), revised=x.get("revised", False))
+    rec["source_spec"] = x
+    rec["license"] = x.get("license", [])
     rec.update(crossref_fields(x["key"]))
     if x.get("doi"):
         # A DOI set by hand wins over the automatic match: it is the original publication (the
         # match can land on a reprint chapter) and was seen in a Crossref record or printed on the work.
-        rec.update(doi=x["doi"], crossref_verified=True)
+        rec.update(doi=x["doi"], crossref_verified=x.get("crossrefVerified", True))
     if x.get("role") == "editor":
         rec["role"] = "editor"
     works.append(rec)
@@ -266,6 +287,29 @@ for w in works:
 # ---------------------------------------------------------------- full text
 cache = "texts.pkl"
 texts = pickle.load(open(cache, "rb")) if os.path.exists(cache) else {}
+
+def read_pdf(path, spec):
+    """Recover a known shifted Latin encoding without changing the source PDF."""
+    with fitz.open(path) as doc:
+        if spec.get("encoding") != "gentium-shift-29":
+            return [page.get_text("text") for page in doc]
+        pages = []
+        for page in doc:
+            lines = []
+            for block in page.get_text("dict")["blocks"]:
+                for line in block.get("lines", []):
+                    spans = []
+                    for span in line["spans"]:
+                        text = span["text"]
+                        # The PDF mixes correctly encoded italic titles/names with
+                        # shifted text. Correct spans contain ordinary lowercase.
+                        if not re.search(r"[a-z]", text):
+                            text = "".join(chr(ord(c) + 29) if 3 <= ord(c) <= 95 and c != " " else c for c in text)
+                            text = text.translate(str.maketrans({"є": "ḥ", "҇": "Ḥ", "Ҹ": "ī", "č": "ā", "ࡃ": "ū", "Ϯ": "fi", "ϸ": "ff"}))
+                        spans.append(text)
+                    lines.append("".join(spans))
+            pages.append("\n".join(lines))
+        return pages
 def md_pages(path):
     """Markdown transcripts carry their page breaks as headings or rules."""
     body = open(path, encoding="utf-8").read()
@@ -275,14 +319,29 @@ def md_pages(path):
 for w in works:
     if w.get("chapter_of") or w["file"] in texts:
         continue
-    path = os.path.join(SOURCE_DIRS.get(w.get("src_dir"), LIB), w["file"])
+    path = source_path(SOURCE_DIRS.get(w.get("src_dir"), LIB), w["file"])
     if path.endswith(".md"):
         texts[w["file"]] = md_pages(path)
         continue
-    d = fitz.open(path)
-    texts[w["file"]] = [d[i].get_text("text") for i in range(d.page_count)]
-    d.close()
+    texts[w["file"]] = read_pdf(path, w.get("source_spec", {}))
 pickle.dump(texts, open(cache, "wb"))
+# Entry excerpts may carry publisher matter and the end of a preceding entry.
+# Blank those portions while preserving original PDF page numbers for evidence.
+for w in works:
+    spec = w.get("source_spec", {})
+    if spec.get("textRange"):
+        first, last = spec["textRange"]
+        pages = list(texts[w["file"]])
+        for i in range(len(pages)):
+            if not first <= i + 1 <= last:
+                pages[i] = ""
+        marker = spec.get("startMarker")
+        if marker:
+            start = pages[first - 1].find(marker)
+            if start < 0:
+                raise ValueError(f"Entry opening not found: {w['file']}")
+            pages[first - 1] = pages[first - 1][start:]
+        texts[w["file"]] = pages
 folded = {f: [squash(fold(t)) for t in pages] for f, pages in texts.items()}
 for w in works:
     if not w.get("chapter_of"):
@@ -395,11 +454,15 @@ def find_edges():
             skip = 0  # a study printed inside a volume starts at its own first page
         else:
             skip = 12 if len(pages) > 150 else (6 if len(pages) > 60 else 0)
+        if a.get("source_spec", {}).get("citationStart"):
+            skip = a["source_spec"]["citationStart"] - 1
         base = a["slice"][1] - 1 if a.get("slice") else 0  # report PDF pages of the containing volume
         joined = " ".join(pages[skip:])
         for b in works:
             if a is b:
                 continue
+            if b["id"] in a.get("source_spec", {}).get("excludeCitationIds", []):
+                continue  # reviewed ambiguous title/author match, not a citation
             # A volume prints its studies' titles in running heads, so a volume and its own
             # studies never count as citing each other.
             if a.get("chapter_of") == b["file"] or b.get("chapter_of") == a["file"] or a.get("part_of_file") == b["file"] or b.get("part_of_file") == a["file"]:
@@ -539,7 +602,7 @@ def public(w):
     return {k: v for k, v in d.items() if v not in (None, [], "")}
 
 out = {
-    "generated": "2026-09-29",
+    "generated": "2026-09-30" if additions else "2026-09-29",
     "note": "Bibliographic data verified against Crossref and each work's own title page. Edges are extracted from the works' own text. No evaluative labels.",
     "works": [public(w) for w in sorted(works, key=lambda w: (w["year"] or 0, w["title"]))],
     "scholars": sorted(scholars.values(), key=lambda s: (-len(s["works"]), s["name"])),

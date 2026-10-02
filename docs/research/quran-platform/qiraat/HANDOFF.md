@@ -1,6 +1,6 @@
 # Qirāʾāt module: hand-off
 
-Updated 2026-09-30, after the rules layer and the deferred statements were entered. Read this first, then `ROADMAP.md`, `farsh/EXTRACTION.md`, `second-witness/README.md` and `../DECISIONS.md` (D-065 to D-072).
+Updated 2026-10-01, after the at-Taysīr p. 168 continuation. Read `taysir/STOPPING-POINT-2026-10-01.md` for the current source-by-source checkpoint, then `ROADMAP.md`, `farsh/EXTRACTION.md`, `second-witness/README.md` and `../DECISIONS.md` (D-065 to D-072).
 This file says where the work stands, how the workflow runs, and what to do next.
 
 ## Standing instructions from the owner
@@ -12,9 +12,31 @@ This file says where the work stands, how the workflow runs, and what to do next
 - No authenticity grading anywhere. Labels are ours, the Arabic is the book's.
 - Nothing from this session has been committed. `git status` shows the module as untracked or modified.
 
-## What the second continuation added (read this before the older sections)
+## Current continuation: source-by-source completion
 
-The build now reports **103 suras, 1,936 positions and 4,849 claims**, plus **142 general rules in 28 chapters with 263 claims** on a new page, `/projects/quran/rules/`. Numbers elsewhere in this file that say 101 suras, 1,833 positions or 3,665 claims are the state before this work.
+The active project objective requires separate, exhaustive documentation of
+the five books already in use, followed by the queued next five. The current
+working source is *at-Taysīr* (5527), still incomplete. Its checked farsh
+batches cover every source page from vol. 1, pp. 72–168 (97 pages); p. 169 is
+the next page. The latest batch is `farsh/taysir/batch-5527-p167-168.json`
+with its `.checked.json` verifier output: 26 reading items, eight tracked
+passages, zero verifier errors or coverage gaps, 24 agreeing anchors and two
+items whose exact source locations are documented without a direct word
+anchor. The full build passes; `src/data/qiraat/index.json` reports 103 suras,
+2,110 positions and 8,270 farsh claims, while the rules index reports 168
+rules in 41 chapters and 322 claims. Current source-specific extraction,
+coverage, unresolved items and continuation instructions are in
+`taysir/STOPPING-POINT-2026-10-01.md`, `taysir/EXTRACTION.md` and
+`taysir/COVERAGE.md`. Do not begin another book until the first five books
+are fully audited; continue *at-Taysīr* at p. 169 after this checkpoint.
+
+## Historical checkpoint (superseded by the current continuation above)
+
+The following counts and page state describe an earlier snapshot and are kept
+as history only. Use the current counts and next actions above and in
+`taysir/STOPPING-POINT-2026-10-01.md`.
+
+The current build reports **103 suras, 2,020 positions and 6,876 farsh claims**, plus **159 general rules in 35 chapters with 299 claims** on `/projects/quran/rules/`. At-Taysīr contributes 916 farsh claims and 35 rule claims, plus one permitted report on p. 104. Its p. 105 batch adds 28 farsh claims; the page’s cross-reference is out of scope, and 6:92 has a reviewed weak anchor documented in `taysir/COVERAGE.md`. The older counts elsewhere in this hand-off describe earlier snapshots.
 
 - **The rules layer (pp. 181 to 281) is entered.** Batches `farsh/rules/batch-5556-rules-p*.json`, written with `scripts/quran/qiraat/rules_kit.py` from generator scripts in `scratch/quran/qiraat/rules/r*.py` (git-ignored; the JSON batches are the record). Each is an item of scope `rule`, filed under sura 0, verified, assembled and built by `build-rules-data.py` into `src/data/qiraat/rules.json`. Pages 268 to 281 (the yāʾāt principles and the dropped yāʾāt) are summary pages recorded as skips (D-075): a check showed every yāʾ and zawāʾid verb in pp. 282 to 620 is inside an item's evidence, and the book's own totals are 214 yāʾāt al-iḍāfa and 122 dropped yāʾāt.
 - **The deferred farsh statements are entered.** Al-Bazzī's thirty-one tashdīd places (which gave Sura 92 its first position), the further places of الرياح, and every disputed-branch statement (Hishām, Warsh, Ibn Wardān, Ibn Dhakwān, Shuʿba, Khallād, Qālūn, Qunbul) went into their original reviews (`farsh/reviews/r*.json`, patched by `scratch/quran/qiraat/reviews/patch_*.py`, then re-applied). Two statements set aside for an Iraqi route that names neither al-Dūrī nor al-Sūsī keep that route in the quotation only.
@@ -32,10 +54,10 @@ The build now reports **103 suras, 1,936 positions and 4,849 claims**, plus **14
 - **Witness comparison (D-079, D-080):** `second-witness/compare-read.json` holds the 200 hand-read differences from al-Mabsūṭ, with source discrepancies in the printed Taḥbīr sentence (12:62, 30:19, 30:50, 41:47, 24:1) and two places where an-Nashr sides with Taḥbīr. `nashr-compare.py` runs the same test against an-Nashr (796 agree, 104 differ, 91 not located; D-082); reading its differences found the misprint ابن كثبر at 6:145, now fixed. an-Nashr is not extracted as claims: it treats the same words (D-080).
 - **Reports** on the sura page now name the transmitter when the entry is not for the whole qāriʾ (Nāfiʿ (Qālūn)).
 
-- **Four books on the positions (D-083, D-084):** claims per book are Taḥbīr 4,175, an-Nashr 886 (438 items), al-Mabsūṭ 662 (383 items) and Ibn Mujāhid's Sabʿa 222 (146 items). 1,326 positions have one book, 381 two, 183 three, 42 four and 4 five (the al-Fātiḥa pilot). The drafters are `draft-nashr-items.py`, `draft-mabsut-items.py` and `draft-saba-items.py`; batches are in `farsh/nashr`, `farsh/mabsut` and `farsh/saba`. The Taysīr is not extracted because Taḥbīr contains it.
+- **Four books on the positions (D-083, D-084; historical snapshot):** claims per book at that stage were Taḥbīr 4,175, an-Nashr 886 (438 items), al-Mabsūṭ 662 (383 items) and Ibn Mujāhid's Sabʿa 222 (146 items). 1,326 positions had one book, 381 two, 183 three, 42 four and 4 five (the al-Fātiḥa pilot). The drafters are `draft-nashr-items.py`, `draft-mabsut-items.py` and `draft-saba-items.py`; batches are in `farsh/nashr`, `farsh/mabsut` and `farsh/saba`. The omission of *at-Taysīr* was a prior scope decision and is superseded by the active source-completion objective above.
 - **an-Nashr as a second book (D-083):** 441 positions carry claims from an-Nashr (`farsh/nashr/batch-22642-agree.json`, drafted by `draft-nashr-items.py` and verified). Only items that agree with Taḥbīr and read completely by rule are entered; the other 355 agreeing items (routes, several places, exceptions) and every difference stay in `second-witness/`. Reading more of them, one by one, is the next Tier-1 step for this book.
 
-- **Routes (D-085, D-086):** `second-witness/route-detail.json` holds 1,888 passages no claim can carry; the 341 that name a narrator below the twenty and belong to a position are shown on the sura pages as quoted `route_notes` (built into `sura-NNN.json` by `build-display-data.py`, rendered in `SuraQiraat.astro`). The route layer that reads the forms per narrator is in place for the passages that state one in so many words (D-087): 448 entries on 193 positions in `qiraat/routes/routes-*.json`, authored with `routes_kit.py` and checked by `verify-routes.py`, shown as "Routes read below the transmitters". The rest of the route detail (form unstated, several places, exceptions, antecedent outside the excerpt) stays in `route-detail.json`.
+- **Routes (D-085, D-086):** `second-witness/route-detail.json` currently holds 1,900 passages no claim can carry, including at-Taysīr's p. 73 regional-route, p. 76 al-Yazīdī, p. 81 route distinctions, p. 82 Qālūn/Abū Nashīṭ clause, p. 91 Hishām-to-Abū-al-Fatḥ chain, and p. 92 Fāris/ʿAbd al-Bāqī/al-Ḥulwānī report; the 341 that name a narrator below the twenty and belong to a position are shown on the sura pages as quoted `route_notes` (built into `sura-NNN.json` by `build-display-data.py`, rendered in `SuraQiraat.astro`). The route layer that reads the forms per narrator is in place for the passages that state one in so many words (D-087): 448 entries on 193 positions in `qiraat/routes/routes-*.json`, authored with `routes_kit.py` and checked by `verify-routes.py`, shown as "Routes read below the transmitters". The rest of the route detail (form unstated, several places, exceptions, antecedent outside the excerpt) stays in `route-detail.json`.
 
 ### Still open after this work
 
@@ -82,6 +104,7 @@ All in `scripts/quran/qiraat/` unless stated.
 - `review_kit.py`: helpers for writing a review (`Review`, `item`, `form`, `A`, `G`, `first_verse`).
 - `apply-farsh-review.py REVIEW.json --out BATCH.json`: merges the review into a batch. An unflagged unit not named in the review is confirmed as drafted. A flagged unit not named is skipped as "unreviewed" and listed, so nothing unread gets through.
 - `verify-farsh-items.py --batch BATCH.json [--write]`: the gate. Checks that every quoted span is an exact substring of the cited page, readers and groups resolve, the lemma is found in the Cairo text, and every stretch of 25 letters or more is either in an item or in `skipped`. Must report `errors 0 gaps 0`.
+- A merged item normally maps each form with `value_of` to an existing target value. If a source explicitly adds a distinct form to that same Qurʾānic feature, set `extend_target_values: true` on that merged item; the assembler adds only its missing `vN` labels before validating the source claim. Use this only for an evidenced new form, never to bypass a mismapped `value_of`.
 - `build-qiraat.py`: runs everything: verifies every batch (top folder and subfolders), assembles per-sura claims, resolves "the rest", builds `src/data/qiraat/sura-NNN.json` and `index.json`. The complete run takes several minutes on this machine.
 - `calibrate-farsh-parser.py`: compares the parser with hand batches. Only needed if someone revisits the parser.
 

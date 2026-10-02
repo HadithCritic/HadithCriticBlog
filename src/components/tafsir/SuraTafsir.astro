@@ -1,0 +1,128 @@
+---
+import names from "../../data/quran-sura-names.json";
+import versesText from "../../data/quran-verses.json";
+import { tafsirPartUrl, versePartsOf, type VersePart } from "../../lib/tafsir-core";
+
+type SuraName = (typeof names)[number];
+interface Props { name: SuraName; part: VersePart }
+
+const { name, part } = Astro.props;
+const verseTexts = versesText as Record<string, { ar: string; en: string }>;
+const verses = Array.from({ length: part.last - part.first + 1 }, (_, i) => {
+  const number = part.first + i;
+  const text = verseTexts[`${name.n}:${number}`];
+  return { number, ar: text?.ar ?? "", en: text?.en ?? "" };
+});
+const parts = versePartsOf(name.verses);
+const previous = names[name.n - 2];
+const next = names[name.n];
+const urlFor = (p: VersePart) => tafsirPartUrl(name.n, p);
+const otherPart = (offset: number) => parts.find((p) => p.index === part.index + offset);
+const previousPart = otherPart(-1);
+const nextPart = otherPart(1);
+---
+
+<main class="reader-sura">
+  <header class="hc-masthead" aria-labelledby="reader-title">
+    <div class="hc-container hc-masthead__inner">
+      <div>
+        <nav class="hc-eyebrow" aria-label="Breadcrumb">
+          <a href="/">Home</a> / <a href="/projects/">Projects</a> / <a href="/projects/tafsir/">Tafsir</a> / <span aria-current="page">Sura {name.n}</span>
+        </nav>
+        <h1 id="reader-title" class="hc-masthead__title">{name.latin} <span class="hc-quran reader-sura__title-ar" lang="ar" dir="rtl">{name.ar}</span></h1>
+        <p class="hc-masthead__lead">
+          Sura {name.n}, {name.verses} verses{part.of > 1 ? `. Part ${part.index} of ${part.of}, verses ${part.first} to ${part.last}` : ""}.
+        </p>
+        <div class="hc-masthead__actions">
+          <a class="hc-btn" href="#verses">Read the verses</a>
+          <a class="hc-back-link hc-back-link--ruled" href="/projects/tafsir/#suras">All suras</a>
+        </div>
+      </div>
+      <aside class="reader-sura__status" aria-label="Reader status">
+        <span class="reader-sura__eyebrow">Reader framework</span>
+        <p>Verse text is shown as the reading anchor.</p>
+        <p class="reader-sura__status-muted">The commentary layer is being redesigned.</p>
+      </aside>
+    </div>
+  </header>
+
+  <div class="hc-container reader-sura__layout">
+    <section class="reader-sura__verses" id="verses" aria-labelledby="verses-title">
+      <header class="reader-sura__section-head">
+        <div>
+          <p class="reader-sura__eyebrow">Sura {name.n}</p>
+          <h2 id="verses-title">{part.of > 1 ? `Verses ${part.first} to ${part.last}` : "Verse text"}</h2>
+        </div>
+        <span>{verses.length} verses</span>
+      </header>
+
+      {part.of > 1 && (
+        <nav class="reader-sura__parts" aria-label="Parts of this sura">
+          {parts.map((p) => <a href={urlFor(p)} aria-current={p.index === part.index ? "page" : undefined}>{p.first}–{p.last}</a>)}
+        </nav>
+      )}
+
+      <ol class="reader-sura__list">
+        {verses.map((verse) => (
+          <li id={`v${verse.number}`}>
+            <a class="reader-sura__ref" href={`#v${verse.number}`} aria-label={`Sura ${name.n}, verse ${verse.number}`}>{name.n}:{verse.number}</a>
+            <div class="reader-sura__languages">
+              <p class="reader-sura__english" lang="en">{verse.en || "English verse text is unavailable."}</p>
+              <p class="reader-sura__arabic hc-quran" lang="ar" dir="rtl">{verse.ar || "نص الآية غير متوفر"}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <nav class="reader-sura__pager" aria-label="Sura navigation">
+        {previousPart
+          ? <a href={urlFor(previousPart)}>Previous: verses {previousPart.first} to {previousPart.last}</a>
+          : previous ? <a href={`/projects/tafsir/sura/${previous.n}/`}>Previous: {previous.n}. {previous.latin}</a> : <span></span>}
+        {nextPart
+          ? <a href={urlFor(nextPart)}>Next: verses {nextPart.first} to {nextPart.last}</a>
+          : next ? <a href={`/projects/tafsir/sura/${next.n}/`}>Next: {next.n}. {next.latin}</a> : <span></span>}
+      </nav>
+    </section>
+
+    <aside class="reader-sura__panel" aria-labelledby="panel-title">
+      <p class="reader-sura__eyebrow">Reading layer</p>
+      <h2 id="panel-title">Commentary space</h2>
+      <p>This area is reserved for the verse-linked reading model. No commentary text or source list is currently loaded.</p>
+      <a href="/projects/tafsir/">Return to reader overview</a>
+    </aside>
+  </div>
+</main>
+
+<style>
+  .reader-sura__title-ar { margin-inline-start: 0.5rem; font-size: 0.78em; }
+  .reader-sura__status { align-self: center; max-width: 22rem; padding: 1.4rem; border-inline-start: 2px solid var(--hc-gold); background: var(--hc-surface-1); }
+  .reader-sura__eyebrow { margin: 0; color: var(--hc-gold); font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .reader-sura__status p { margin: 0.7rem 0 0; color: var(--hc-text-primary); font: 500 0.95rem/1.55 var(--font-body); }
+  .reader-sura__status .reader-sura__status-muted { color: var(--hc-text-secondary); font-weight: 400; }
+  .reader-sura__layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.32fr); align-items: start; gap: clamp(2rem, 5vw, 4.5rem); padding-block: clamp(2.5rem, 6vw, 5rem); }
+  .reader-sura__section-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--hc-rule); }
+  .reader-sura__section-head h2, .reader-sura__panel h2 { margin: 0.3rem 0 0; color: var(--hc-text-primary); font: 500 clamp(1.35rem, 2.5vw, 1.8rem)/1.2 var(--font-display); }
+  .reader-sura__section-head > span { color: var(--hc-text-secondary); font: 500 0.78rem/1.5 var(--font-ui); }
+  .reader-sura__parts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-block: 1rem; }
+  .reader-sura__parts a { padding: 0.45rem 0.7rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); font: 600 0.75rem/1.3 var(--font-ui); text-decoration: none; }
+  .reader-sura__parts a[aria-current="page"] { border-color: var(--hc-gold); color: var(--hc-gold); }
+  .reader-sura__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
+  .reader-sura__list > li { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--hc-rule-soft); scroll-margin-top: 7rem; }
+  .reader-sura__ref { padding-top: 0.2rem; color: var(--hc-gold); font: 600 0.75rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; text-decoration: none; }
+  .reader-sura__languages { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+  .reader-sura__english, .reader-sura__arabic { margin: 0; color: var(--hc-text-primary); font: 400 1rem/1.9 var(--font-body); }
+  .reader-sura__arabic { text-align: right; font-size: 1.3rem; line-height: 2; }
+  .reader-sura__panel { position: sticky; top: calc(var(--site-header-height) + 2rem); padding: 1.4rem; border: 1px solid var(--hc-rule); background: var(--hc-surface-1); }
+  .reader-sura__panel > p:not(.reader-sura__eyebrow) { color: var(--hc-text-secondary); font: 400 0.9rem/1.75 var(--font-body); }
+  .reader-sura__panel a { color: var(--hc-gold); font: 600 0.8rem/1.5 var(--font-ui); text-decoration: none; }
+  .reader-sura__pager { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; }
+  .reader-sura__pager a { color: var(--hc-text-secondary); font: 500 0.8rem/1.5 var(--font-ui); text-decoration: none; }
+  .reader-sura__pager a:hover, .reader-sura__pager a:focus-visible { color: var(--hc-gold); }
+  @media (max-width: 780px) {
+    .reader-sura__layout { grid-template-columns: 1fr; }
+    .reader-sura__panel { position: static; grid-row: 1; }
+    .reader-sura__languages { grid-template-columns: 1fr; gap: 0.3rem; }
+    .reader-sura__arabic { grid-row: 1; }
+    .reader-sura__english { grid-row: 2; }
+  }
+</style>

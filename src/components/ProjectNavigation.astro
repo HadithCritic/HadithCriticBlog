@@ -4,14 +4,15 @@ const { mobile = false } = Astro.props;
 const pathname = Astro.url.pathname.replace(/(.)\/$/, '$1');
 const groups = [
   { title: 'Databases', links: [
-    { title: 'Hadith Corpus', href: '/hadith/' },
-    { title: 'Rijāl Register', href: '/narrators/' },
-    { title: 'Quran', href: '/projects/quran/' }
+    { title: 'Hadith Corpus', href: '/hadith/', description: 'Search the narration collections' },
+    { title: 'Rijāl Register', href: '/narrators/', description: 'Browse narrator biographies' },
+    { title: 'Quran', href: '/projects/quran/', description: 'Explore readings and transmission' },
+    { title: 'Tafsir reader', href: '/projects/tafsir/', description: 'Open the verse-first reading framework' }
   ] },
   { title: 'Research', links: [
-    { title: 'Hadith Criticism Atlas', href: '/research/' },
-    { title: 'Academic Studies', href: '/projects/academic-studies/' },
-    { title: 'Shirk: Endorsed by the Scholars of Islam', href: '/research/shirk-endorsed/' }
+    { title: 'Hadith Criticism Atlas', href: '/research/', description: 'Explore the research network' },
+    { title: 'Academic Studies', href: '/projects/academic-studies/', description: 'Read studies and the ICMA register' },
+    { title: 'Shirk: Endorsed by the Scholars of Islam', href: '/research/shirk-endorsed/', description: 'Read the research study' }
   ] }
 ];
 const isCurrent = (href: string) => {
@@ -28,21 +29,26 @@ const active = pathname === '/projects' || groups.some(group => group.links.some
     <span class="project-nav__indicator" aria-hidden="true"></span>
   </summary>
   <div class="project-nav__panel">
-    <a class="project-nav__all" href="/projects/" aria-current={pathname === '/projects' ? 'page' : undefined}>
-      All projects
-    </a>
     <div class="project-nav__groups">
       {groups.map(group => (
         <div class="project-nav__group">
           <p class="project-nav__heading">{group.title}</p>
           <ul>
             {group.links.map(link => (
-              <li><a href={link.href} aria-current={pathname === link.href.replace(/\/$/, '') ? 'page' : isCurrent(link.href) ? 'location' : undefined}>{link.title}</a></li>
+              <li>
+                <a href={link.href} aria-current={pathname === link.href.replace(/\/$/, '') ? 'page' : isCurrent(link.href) ? 'location' : undefined}>
+                  <span class="project-nav__title">{link.title}</span>
+                  <span class="project-nav__description">{link.description}</span>
+                </a>
+              </li>
             ))}
           </ul>
         </div>
       ))}
     </div>
+    <a class="project-nav__all" href="/projects/" aria-current={pathname === '/projects' ? 'page' : undefined}>
+      <span>All projects</span>
+    </a>
   </div>
 </details>
 
@@ -82,30 +88,75 @@ const active = pathname === '/projects' || groups.some(group => group.links.some
   .project-nav__panel {
     position: absolute;
     z-index: 1;
-    top: calc(100% + 14px);
+    top: calc(100% + 12px);
     left: 50%;
-    width: min(36rem, calc(100vw - 2rem));
+    width: min(42rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - var(--site-header-height) - 2rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     transform: translateX(-50%);
-    padding: 6px;
     border: 1px solid var(--hc-rule-strong);
     border-radius: var(--radius-xs);
     background: var(--hc-surface-1);
     box-shadow: var(--hc-header-shadow);
   }
-  .project-nav__all { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 44px; padding: 0.8rem 1rem; border-bottom: 1px solid var(--hc-rule); color: var(--hc-gold); font: 600 0.9rem/1.4 var(--font-ui); text-decoration: none; }
-  .project-nav__all:hover { background: var(--hc-surface-2); }
-  .project-nav__groups { display: grid; grid-template-columns: 1fr 1.2fr; gap: 1.25rem; padding: 1rem 0.5rem 0.5rem; }
-  .project-nav__heading { margin: 0 0 0.5rem; padding-inline: 0.5rem; color: var(--hc-text-tertiary); font: 600 0.75rem/1.5 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .project-nav__all {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 52px;
+    padding: 0.85rem 1.75rem;
+    border-top: 1px solid var(--hc-rule);
+    background: var(--hc-surface-2);
+    color: var(--hc-gold);
+    font: 700 0.8rem/1.4 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background var(--motion-fast) var(--ease-standard);
+  }
+  .project-nav__all:hover, .project-nav__all:focus-visible { background: var(--hc-surface-3); }
+  .project-nav__groups { display: grid; grid-template-columns: 1fr 1.15fr; padding: 1.25rem; }
+  .project-nav__group { min-width: 0; padding-right: 1rem; }
+  .project-nav__group + .project-nav__group { padding: 0 0 0 1rem; border-left: 1px solid var(--hc-rule-soft); }
+  .project-nav__heading { margin: 0 0 0.5rem; padding-inline: 0.5rem; color: var(--hc-gold); font: 700 0.75rem/1.5 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
   .project-nav__group ul { margin: 0; padding: 0; list-style: none; }
-  .project-nav__group a { display: flex; align-items: center; min-height: 44px; padding: 0.7rem 0.5rem; border-bottom: 1px solid var(--hc-rule-soft); color: var(--hc-text-primary); font: 400 0.9rem/1.5 var(--font-body); text-decoration: none; }
-  .project-nav__group a:hover, .project-nav__group a[aria-current] { box-shadow: inset 2px 0 var(--hc-gold); background: var(--hc-surface-2); color: var(--hc-gold); }
+  .project-nav__group a {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 80px;
+    padding: 0.75rem 0.5rem;
+    border-radius: var(--radius-xs);
+    color: var(--hc-text-primary);
+    font: 500 0.9rem/1.5 var(--font-body);
+    text-decoration: none;
+    transition: background var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
+  }
+  .project-nav__group a:hover, .project-nav__group a:focus-visible, .project-nav__group a[aria-current] { background: var(--hc-surface-2); color: var(--hc-gold); }
+  .project-nav__group a[aria-current] { box-shadow: inset 2px 0 var(--hc-gold); }
+  .project-nav__description { color: var(--hc-text-secondary); font: 400 0.75rem/1.6 var(--font-body); }
   .project-nav--mobile > summary { justify-content: space-between; min-height: 48px; padding: 0.75rem 0.5rem; border-bottom: 1px solid var(--hc-rule-soft); font-size: 0.95rem; }
   .project-nav--mobile .project-nav__indicator { display: none; }
-  .project-nav--mobile .project-nav__panel { position: static; width: auto; transform: none; padding: 0; margin: 0.5rem 0 1rem; border: 0; border-left: 1px solid var(--hc-rule); border-radius: 0; background: transparent; box-shadow: none; }
-  .project-nav--mobile .project-nav__groups { grid-template-columns: 1fr; gap: 1rem; padding: 1rem 0 0 0.5rem; }
-  .project-nav--mobile .project-nav__all { padding-inline: 1rem 0.5rem; }
+  .project-nav--mobile .project-nav__panel { position: static; width: auto; max-height: none; overflow: visible; transform: none; margin: 0.5rem 0 1rem; border-color: var(--hc-rule-soft); box-shadow: none; }
+  .project-nav--mobile .project-nav__groups { grid-template-columns: 1fr; gap: 1rem; padding: 1rem 0.5rem; }
+  .project-nav--mobile .project-nav__group { padding: 0; }
+  .project-nav--mobile .project-nav__group + .project-nav__group { padding-top: 1rem; border-left: 0; border-top: 1px solid var(--hc-rule-soft); }
+  .project-nav--mobile .project-nav__group a { min-height: 48px; padding-block: 0.65rem; }
+  .project-nav--mobile .project-nav__description { display: none; }
+  .project-nav--mobile .project-nav__all { padding-inline: 1rem; }
+  @media (max-width: 640px) {
+    .project-nav__panel { position: fixed; top: auto; left: 1rem; transform: none; }
+    .project-nav__groups { grid-template-columns: 1fr; gap: 1rem; padding: 1rem 0.5rem; }
+    .project-nav__group { padding: 0; }
+    .project-nav__group + .project-nav__group { padding: 1rem 0 0; border-left: 0; border-top: 1px solid var(--hc-rule-soft); }
+    .project-nav__group a { min-height: 68px; }
+  }
   @media (prefers-reduced-motion: reduce) {
-    .project-nav__trigger, .project-nav__chevron, .project-nav__indicator { transition: none; }
+    .project-nav__trigger, .project-nav__chevron, .project-nav__indicator,
+    .project-nav__group a, .project-nav__all { transition: none; }
   }
 </style>
 
@@ -114,6 +165,12 @@ const active = pathname === '/projects' || groups.some(group => group.links.some
   projectMenus.forEach(menu => {
     const trigger = menu.querySelector<HTMLElement>('summary');
     menu.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' && event.target === trigger) {
+        event.preventDefault();
+        menu.open = true;
+        menu.querySelector<HTMLAnchorElement>('a')?.focus();
+        return;
+      }
       if (event.key !== 'Escape' || !menu.open) return;
       event.preventDefault();
       event.stopPropagation();
@@ -131,5 +188,8 @@ const active = pathname === '/projects' || groups.some(group => group.links.some
     projectMenus.forEach(menu => {
       if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
     });
+  });
+  window.matchMedia('(max-width: 980px)').addEventListener('change', () => {
+    projectMenus.forEach(menu => { menu.open = false; });
   });
 </script>

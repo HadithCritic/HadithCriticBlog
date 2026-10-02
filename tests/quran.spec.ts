@@ -12,7 +12,6 @@ const quranRoutes = [
   '/projects/quran/variants/',
   '/projects/quran/relationships/',
   '/projects/quran/concordance/',
-  '/projects/quran/commentary/',
   '/projects/quran/intertexts/',
   '/projects/quran/intertexts/categories/',
   '/projects/quran/manuscripts/',
