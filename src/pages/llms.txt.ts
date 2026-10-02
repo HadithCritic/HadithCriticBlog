@@ -51,7 +51,6 @@ ${sections.join('\n')}
 ## Reference data
 
 - [Rijal Register](${SITE.url}/narrators): Searchable biographical register of ${'20,915'} classical hadith transmitters, with generation, death date, places of activity, teacher and student links, hadith counts, and the reliability verdicts of Ibn Hajar al-Asqalani and al-Dhahabi. Each transmitter has a dossier page at /narrators/{id}.
-- [Shirk Endorsed by the Scholars of Islam](${SITE.url}/research/shirk-endorsed): Long-form research edition with an archival evidence ledger of 99 major scholars, including manuscript scans and full citations.
 - [Resources](${SITE.url}/resources): Primary sources, tools and reference works used across the studies.
 
 ## Optional
