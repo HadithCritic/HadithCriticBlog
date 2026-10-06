@@ -56,7 +56,7 @@ let manifestUrl = '';
 async function corpusManifestUrl(page: Page): Promise<string> {
   if (manifestUrl) return manifestUrl;
   await page.goto('/hadith');
-  await expect(page.locator('.book-card').first()).toBeVisible();
+  await expect(page.locator('.catalog-row').first()).toBeVisible();
   const reported = await page.evaluate(() => {
     const w = window as unknown as { __corpusManifest?: string; __corpusVersion?: string };
     return { manifest: w.__corpusManifest || '', version: w.__corpusVersion || '' };
@@ -122,10 +122,10 @@ test.describe('hadith corpus', () => {
     // The page must agree with the corpus it is serving. Hardcoding a number
     // here would pass against a stale metadata file, which is the bug this is
     // meant to catch.
-    await expect(page.locator('.corpus-stat-card__val').first()).toHaveText(
+    await expect(page.locator('.hc-project-hero__figure').first()).toHaveText(
       m.counts.hadith.toLocaleString()
     );
-    await expect(page.locator('.book-card')).toHaveCount(m.counts.collections);
+    await expect(page.locator('.catalog-row')).toHaveCount(m.counts.collections);
     await expect(page.locator('.corpus-provenance__version')).toHaveText(m.corpusVersion);
     noDatabaseTraffic(urls);
   });

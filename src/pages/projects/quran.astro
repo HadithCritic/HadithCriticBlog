@@ -1,81 +1,100 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { OG } from '../../lib/seo';
+import ResearchHero from "../../components/ResearchHero.astro";
 import names from "../../data/quran-sura-names.json";
 import index from "../../data/qiraat/index.json";
 import silent from "../../data/qiraat/silent-suras.json";
 import authorities from "../../data/qiraat/sura-001.json";
+import QiraatReaderCard from "../../components/qiraat/QiraatReaderCard.astro";
 import "../../styles/qiraat.css";
+import "../../styles/qiraat-ui.css";
+import QiraatSectionHeader from "../../components/qiraat/QiraatSectionHeader.astro";
+import QiraatDefinitionList from "../../components/qiraat/QiraatDefinitionList.astro";
+import QiraatBadge from "../../components/qiraat/QiraatBadge.astro";
 
 /* The hub for the qirāʾāt module: every sura, what has been extracted, and how to read the colors. */
 const bySura = new Map(index.suras.map((entry) => [entry.sura, entry]));
 const silentOf = new Map(Object.entries(silent.suras).map(([n, entry]) => [Number(n), entry]));
 const SILENT_META: Record<string, string> = { none: "No difference stated", rule: "Only a general rule", report: "Only an outside report" };
 const rulesCount = index.rules?.rules ?? 0;
-const wear = new Map(authorities.qaris.flatMap((q) => q.riwayat.map((id, shade) => [id, `q-${q.id} shade-${shade}`] as const)));
-const riwayaOf = new Map(authorities.riwayat.map((r) => [r.id, r]));
+const sevenIds = ["nafi", "ibn_kathir", "abu_amr", "ibn_amir", "asim", "hamza", "kisai"];
+const additionalIds = ["abu_jafar", "yaqub", "khalaf_ashir"];
+const qariOf = new Map(authorities.qaris.map((qari) => [qari.id, qari]));
+const seven = sevenIds.map((id) => qariOf.get(id)!);
+const additional = additionalIds.map((id) => qariOf.get(id)!);
+const regionOf: Record<string, { key: string; label: string }> = {
+  nafi: { key: "medina", label: "Medina" },
+  ibn_kathir: { key: "mecca", label: "Mecca" },
+  abu_amr: { key: "basra", label: "Basra" },
+  ibn_amir: { key: "syria", label: "Syria" },
+  asim: { key: "kufa", label: "Kufa" },
+  hamza: { key: "kufa", label: "Kufa" },
+  kisai: { key: "kufa", label: "Kufa" },
+  abu_jafar: { key: "medina", label: "Medina" },
+  yaqub: { key: "basra", label: "Basra" },
+  khalaf_ashir: { key: "kufa", label: "Kufa" },
+};
+const readers = [
+  ...seven.map((reader) => ({ reader, additional: false, region: regionOf[reader.id] })),
+  ...additional.map((reader) => ({ reader, additional: true, region: regionOf[reader.id] })),
+];
 
-/* Pages of Taḥbīr at-Taysīr's word-by-word section (pp. 282 to 620) that an extraction has covered. */
-const FARSH_PAGES = 620 - 282 + 1;
-const covered = new Set<number>();
-for (const batch of index.batches) {
-  /* The general rules (pp. 181 to 281) are counted on their own page, not against the word-by-word section. */
-  for (let page = Math.max(Number(batch.from), 282); page <= Math.min(Number(batch.to), 620); page += 1) covered.add(page);
-}
-const pct = Math.round((covered.size / FARSH_PAGES) * 100);
 const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
 ---
 
-<BaseLayout
-  title="Quran | HadithCritic Projects"
+<BaseLayout image={OG.quran}
+  title="The Qirāʾāt Variants | HadithCritic Projects"
   description="The ten qirāʾāt set side by side, word by word, sura by sura, with the classical books that report each reading."
 >
-  <div class="qh">
-    <header class="hc-masthead" aria-labelledby="qh-title">
-      <div class="hc-container hc-masthead__inner">
-        <div>
-          <nav class="hc-eyebrow" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/projects/">Projects</a> / <span aria-current="page">Quran</span>
-          </nav>
-          <h1 id="qh-title" class="hc-masthead__title">Quran</h1>
-          <p class="hc-masthead__lead">
-            The ten qirāʾāt, set side by side word by word, with the classical books that report each reading.
-            Every reading is a proposal that no reviewer has checked yet, and every quotation is checked against its page.
-          </p>
-          <div class="hc-masthead__actions">
-            <a class="hc-btn" href="#suras">Choose a sura <span aria-hidden="true">↓</span></a>
-            <a class="hc-btn hc-btn--ghost" href="/projects/quran/rules/">General rules{rulesCount ? ` (${rulesCount})` : ""} <span aria-hidden="true">→</span></a>
-            <a class="hc-btn hc-btn--ghost" href="/projects/quran/transmission/">How the readings were transmitted <span aria-hidden="true">→</span></a>
-            <a class="hc-back-link hc-back-link--ruled" href="#status">Status <span aria-hidden="true">→</span></a>
-          </div>
-        </div>
-
-        <aside class="hc-instrument" aria-label="Coverage at a glance">
-          <div class="hc-instrument__well">
-            <div class="hc-instrument__plate glance">
-              <dl class="glance__figures">
-                <div><dt>Suras</dt><dd class="hc-instrument__figure">{index.suras_with_data}</dd></div>
-                <div><dt>Positions</dt><dd class="hc-instrument__figure">{index.positions.toLocaleString("en-US")}</dd></div>
-                <div><dt>Readings</dt><dd class="hc-instrument__figure">{index.claims.toLocaleString("en-US")}</dd></div>
-              </dl>
-              <p class="glance__of">of 114 suras extracted so far</p>
-              <div class="pbar" role="img" aria-label={`${pct} percent of the word-by-word section of Taḥbīr at-Taysīr has been extracted`}>
-                <i style={`--w:${pct}%`}></i>
-              </div>
-              <p class="glance__of">{covered.size} of {FARSH_PAGES} pages of the main source</p>
-            </div>
-            <p class="hc-instrument__cap">Page coverage includes recorded omissions and rules deferred to a separate layer. Suras without a link have no extracted positions.</p>
-          </div>
-        </aside>
+  <div class="qh q-ui rp-page rp-qiraat">
+    <ResearchHero artwork="qiraat" variant="readings" title="The Qirāʾāt Variants" titleId="qh-title" kicker="A comparative reading register" arabic="القراءات">
+      <p>The ten qirāʾāt, set side by side word by word, with the classical books that report each reading.
+            Every reading is a proposal that no reviewer has checked yet, and every quotation is checked against its page.</p>
+      <div slot="actions"><nav class="q-nav" aria-label="Qur’an project sections">
+            <a href="#readers">Readers <span>10</span></a>
+            <a href="#suras">Sura register <span>114</span></a>
+            <a href="/projects/quran/rules/">General rules <span>{rulesCount}</span></a>
+            <a href="/projects/quran/transmission/">Transmission</a>
+          </nav></div>
+      <figure slot="signature" class="rp-readers">
+        <figcaption class="rp-sig__caption">The ten readers, each with his own hue</figcaption>
+        <ol class="rp-readers__list">
+          {readers.map(({ reader, additional }) => (
+            <li class:list={[`q-${reader.id}`, { "is-added": additional }]}>
+              <span class="sw" aria-hidden="true"></span>
+              <span class="rp-readers__name">{reader.display}</span>
+              <span class="rp-readers__ar" lang="ar" dir="rtl">{reader.name_ar}</span>
+            </li>
+          ))}
+        </ol>
+      </figure>
+      <div slot="stats" class="rp-figures" aria-label="Coverage at a glance">
+        <p><span class="hc-project-hero__figure">{index.suras_with_data}</span> of 114 suras with readings</p>
+        <p><span>{rulesCount}</span> general rules</p>
+        <p><span>10</span> readers and their <span>{authorities.riwayat.length}</span> transmitters</p>
       </div>
-    </header>
+    </ResearchHero>
 
     <div class="hc-container qh-body">
+      <section class="sec" id="readers" aria-labelledby="readers-h">
+        <QiraatSectionHeader id="readers-h">
+          <Fragment slot="title">The ten readers</Fragment>
+          <Fragment slot="count">10</Fragment>
+        </QiraatSectionHeader>
+        <p class="lede">The seven readers associated with Ibn Mujāhid’s list appear first. Ibn al-Jazarī’s ten-reading list adds three more. The distinction marks the history of the lists, not a ranking of readings. <a class="hc-ulink" href="https://en.wikipedia.org/wiki/Qira%27at#The_seven_canonical_qira%27at">Source for the grouping <span aria-hidden="true">↗</span></a></p>
+        <ol class="roster" aria-label="The seven primary and three additional qirāʾāt readers">
+          {readers.map(({ reader, additional, region }, i) => (
+            <li><QiraatReaderCard reader={reader} rank={i + 1} additional={additional} region={region} /></li>
+          ))}
+        </ol>
+      </section>
+
       <section class="sec" id="suras" aria-labelledby="suras-h">
-        <header class="sec__head">
-          <h2 id="suras-h" class="sec__title">The suras</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">114</span>
-        </header>
+        <QiraatSectionHeader id="suras-h">
+          <Fragment slot="title">The suras</Fragment>
+          <Fragment slot="count">114</Fragment>
+        </QiraatSectionHeader>
         <p class="lede">A sura opens once the books have been read for it. The number under each name is how many words in it have a difference among the ten readers.</p>
         <ol class="grid">
           {names.map((sura) => {
@@ -104,11 +123,10 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
       </section>
 
       <section class="sec" id="silent" aria-labelledby="silent-h">
-        <header class="sec__head">
-          <h2 id="silent-h" class="sec__title">Suras with no word-level position</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">{silentOf.size}</span>
-        </header>
+        <QiraatSectionHeader id="silent-h">
+          <Fragment slot="title">Suras with no word-level position</Fragment>
+          <Fragment slot="count">{silentOf.size}</Fragment>
+        </QiraatSectionHeader>
         <p class="lede">
           These suras have no page because the books give them none, not because they have not been read. Taḥbīr prints a heading only for a sura it has something to say about,
           and Ibn Mujāhid often writes that there is no difference in a sura. Each statement below is quoted from the page named.
@@ -121,7 +139,7 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
                 <details>
                   <summary>
                     <b class="silent__n">{n}</b> <span lang="ar" class="hc-quran silent__ar">{sura.ar}</span> {sura.latin}
-                    <span class="silent__tag">{SILENT_META[entry.status]}</span>
+                    <QiraatBadge class="silent__tag">{SILENT_META[entry.status]}</QiraatBadge>
                   </summary>
                   <p class="silent__say">{entry.summary}</p>
                   <ul class="silent__quotes">
@@ -139,38 +157,16 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
         </ul>
       </section>
 
-      <section class="sec" id="readers" aria-labelledby="readers-h">
-        <header class="sec__head">
-          <h2 id="readers-h" class="sec__title">The ten readers</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">10</span>
-        </header>
-        <p class="lede">Each reader has one color, and his two transmitters are its deeper and its lighter shade. A color says who; it never says how a reading ranks.</p>
-        <ul class="roster">
-          {authorities.qaris.map((q) => (
-            <li class={`reader q-${q.id}`}>
-              <p class="reader__name">{q.display} <span lang="ar" class="reader__ar">{q.name_ar}</span></p>
-              <ul class="reader__tx">
-                {q.riwayat.map((id) => (
-                  <li class={wear.get(id)}><span class="reader__chip">{riwayaOf.get(id)!.display}</span></li>
-                ))}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      </section>
-
       <section class="sec" id="status" aria-labelledby="status-h">
-        <header class="sec__head">
-          <h2 id="status-h" class="sec__title">How it is made, and what is checked</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-        </header>
-        <dl class="guide">
+        <QiraatSectionHeader id="status-h">
+          <Fragment slot="title">How it is made, and what is checked</Fragment>
+        </QiraatSectionHeader>
+        <QiraatDefinitionList>
           <div><dt>Source</dt><dd>Ibn al-Jazarī’s <i>Taḥbīr at-Taysīr</i> states the readings of all ten readers word by word, sura by sura. Other classical books are added as second witnesses.</dd></div>
           <div><dt>What the machine checks</dt><dd>That each quoted passage is on the cited page, that every reader named is in the passage, and that the word matches a word of the Cairo text. Nothing is corrected.</dd></div>
           <div><dt>What nobody has checked</dt><dd>Whether a reader was assigned to the right reading. That takes a person reading the passage, and it has not happened yet.</dd></div>
           <div><dt>Labels</dt><dd>The short English labels and the grouping are ours. The Arabic beside them is the book’s. Nothing here grades a reading.</dd></div>
-        </dl>
+        </QiraatDefinitionList>
         <p class="attribution">
           Verse text: Corpus Coranicum, Cairo 1924 edition, TEI export pinned to commit <code>57cb2b7be321</code>, CC BY-SA 4.0. The Qur’an has {totalVerses.toLocaleString("en-US")} verses in 114 suras.
           Quoted readings come from editions in the Maktaba Shamela, cited by page.
@@ -179,67 +175,3 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
     </div>
   </div>
 </BaseLayout>
-
-<style>
-  .qh-body { padding-block: 0 clamp(4rem, 9vw, 7rem); }
-  .sec { padding-top: clamp(2.75rem, 5vw, 4.25rem); scroll-margin-top: 6rem; }
-  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font: 600 clamp(1.4rem, 3vw, 1.8rem)/1.3 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
-  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
-  .lede { max-width: 66ch; margin: 0 0 1.5rem; color: var(--hc-text-secondary); line-height: 1.72; }
-
-  .glance { padding: 1.1rem 1.25rem 1.25rem; }
-  .glance__figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; margin: 0; }
-  .glance__figures div { display: flex; flex-direction: column-reverse; gap: 0.5rem; }
-  .glance__figures div + div { padding-inline-start: 1rem; border-inline-start: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
-  .glance dt { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .glance dd { margin: 0; }
-  .glance__of { margin: 0.9rem 0 0; font: 600 0.85rem/1.4 var(--font-ui); }
-  .pbar { height: 0.6rem; margin-top: 0.5rem; border-radius: 1px; background: color-mix(in srgb, var(--hc-fixed-parchment-ink) 18%, transparent); }
-  .pbar i { display: block; width: var(--w); min-width: 2px; height: 100%; border-radius: 1px; background: var(--hc-fixed-parchment-ink); }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .cell a, .cell > div { display: grid; grid-template-columns: auto 1fr; grid-template-areas: "n ar" "latin latin" "meta meta"; gap: 0.15rem 0.6rem; align-items: baseline; height: 100%; padding: 0.8rem 0.9rem 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-2); color: var(--hc-text-primary); text-decoration: none; transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
-  .cell a:hover { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.08); }
-  .cell--off > div { border-style: dashed; background: transparent; color: var(--hc-text-secondary); }
-  .cell__n { grid-area: n; font: 700 0.85rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; color: var(--hc-gold); }
-  .cell__ar { grid-area: ar; justify-self: end; font-size: 1.5rem; line-height: 1.5; }
-  .cell__latin { grid-area: latin; font: 600 0.98rem/1.3 var(--font-display); }
-  .cell__meta { grid-area: meta; font: 500 0.85rem/1.4 var(--font-ui); color: var(--hc-text-secondary); }
-  .cell__meta b { color: var(--hc-text-primary); font-variant-numeric: tabular-nums lining-nums; }
-
-  .cell__why { color: var(--hc-text-secondary); text-decoration: underline; text-underline-offset: 0.2em; text-decoration-color: var(--hc-rule-strong); }
-  .cell__why:hover { color: var(--hc-gold-bright); }
-
-  .silent { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .silent details { border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .silent summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.9rem; min-height: 2.75rem; padding: 0.7rem 1rem; cursor: pointer; font: 600 1rem/1.4 var(--font-display); color: var(--hc-text-primary); }
-  .silent__n { font: 700 0.85rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; color: var(--hc-gold); }
-  .silent__ar { font: 400 1.3rem/1.5 var(--font-arabic); }
-  .silent__tag { margin-inline-start: auto; padding: 0.15rem 0.6rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.06em; }
-  .silent__say { max-width: 68ch; margin: 0; padding: 0 1rem 0.6rem; color: var(--hc-text-secondary); line-height: 1.7; }
-  .silent__quotes { margin: 0; padding: 0 1rem 0.8rem; list-style: none; }
-  .silent__quotes li { padding: 0.6rem 0 0.7rem; border-top: 1px solid var(--hc-rule-soft); }
-  .silent__ref { margin: 0 0 0.25rem; font-size: 0.9rem; color: var(--hc-text-secondary); }
-  .silent__ar-quote { margin: 0; font: 400 1.25rem/1.9 var(--font-arabic); color: var(--hc-text-primary); }
-
-  .roster { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-  .reader { padding: 0.9rem 1rem 1rem; border-radius: 2px; border: 1px solid var(--hc-rule-soft); border-top: 4px solid var(--d-bg); background: var(--hc-surface-2); }
-  .reader__name { margin: 0 0 0.7rem; font: 600 1.05rem/1.3 var(--font-display); color: var(--hc-text-primary); }
-  .reader__ar { margin-inline-start: 0.4rem; font: 400 1.15rem var(--font-arabic); }
-  .reader__tx { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
-  .reader__chip { display: block; padding: 0.3rem 0.6rem; border-radius: 2px; background: var(--bg); color: var(--ink); font: 600 0.9rem/1.3 var(--font-ui); }
-
-  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 10px; margin: 0; }
-  .guide div { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .guide dt { font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold); }
-  .guide dd { margin: 0.5rem 0 0; color: var(--hc-text-secondary); font-size: 0.96rem; line-height: 1.65; }
-  .attribution { max-width: 70ch; margin: 1.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.85rem; line-height: 1.7; }
-
-  @media (max-width: 480px) {
-    .glance__figures { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    .glance__figures div, .glance__figures div + div { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 0.9rem; padding: 0.35rem 0; border-inline-start: 0; }
-    .glance__figures div + div { border-top: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
-  }
-</style>

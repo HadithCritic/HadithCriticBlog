@@ -1,0 +1,75 @@
+---
+/**
+ * A cited video. The still is a real link to YouTube; with script it is
+ * swapped in place for the privacy-enhanced player, so nothing loads from
+ * YouTube until the reader asks.
+ */
+export interface Props {
+  url: string;
+  title?: string;
+  channel?: string;
+  date?: string;
+}
+
+const { url, title, channel = 'YouTube', date } = Astro.props;
+
+function parseYouTube(raw: string) {
+  try {
+    const source = new URL(raw);
+    if (source.hostname.includes('youtu.be')) {
+      return { id: source.pathname.replace('/', ''), start: source.searchParams.get('t')?.replace('s', '') ?? '' };
+    }
+    return {
+      id: source.searchParams.get('v') ?? source.pathname.split('/embed/')[1] ?? '',
+      start: source.searchParams.get('t')?.replace('s', '') ?? ''
+    };
+  } catch {
+    return { id: raw, start: '' };
+  }
+}
+
+const { id, start } = parseYouTube(url);
+const watchUrl = `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` : ''}`;
+---
+
+<figure class="hc-media">
+  <a class="hc-media__frame" href={watchUrl} data-yt-id={id} data-yt-start={start} aria-label={`Play video${title ? `: ${title}` : ''}`}>
+    <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" width="480" height="360" loading="lazy" decoding="async" />
+    <span class="hc-media__play" aria-hidden="true"></span>
+  </a>
+  <figcaption class="hc-media__caption">
+    <span class="hc-media__kind">Video</span>
+    {title && <span class="hc-media__title">{title}</span>}
+    <span class="hc-media__meta">
+      {channel}{date && <>, {date}</>}
+    </span>
+  </figcaption>
+</figure>
+
+<script>
+  function initVideos() {
+    for (const link of document.querySelectorAll<HTMLAnchorElement>('a.hc-media__frame[data-yt-id]')) {
+      if (link.dataset.ready) continue;
+      link.dataset.ready = '1';
+      link.addEventListener('click', (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        const frame = document.createElement('div');
+        frame.className = 'hc-media__frame';
+        const iframe = document.createElement('iframe');
+        const startAt = link.dataset.ytStart;
+        iframe.src = `https://www.youtube-nocookie.com/embed/${link.dataset.ytId}?autoplay=1&rel=0${startAt ? `&start=${startAt}` : ''}`;
+        iframe.title = link.getAttribute('aria-label') ?? 'YouTube video player';
+        iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        frame.appendChild(iframe);
+        link.replaceWith(frame);
+        iframe.focus();
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initVideos);
+  else initVideos();
+  document.addEventListener('astro:page-load', initVideos);
+</script>

@@ -1,17 +1,33 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { OG } from '../../../lib/seo';
 import data from "../../../data/quran-transmission.json";
+import translations from "../../../data/qiraat-transmission-translations.json";
 import "../../../styles/qiraat.css";
+import "../../../styles/qiraat-ui.css";
+import QiraatSectionHeader from "../../../components/qiraat/QiraatSectionHeader.astro";
+import QiraatDefinitionList from "../../../components/qiraat/QiraatDefinitionList.astro";
+import QiraatBadge from "../../../components/qiraat/QiraatBadge.astro";
+import MarkedNote from "../../../components/qiraat/MarkedNote.astro";
 
 type Witness = { book_id: string; volume: string | null; page: string; quote: string; exact_raw: boolean; note: string | null; hedged: boolean };
 type Person = typeof data.persons[number];
 type Link = { id: string; student: string; teacher: string; firm: boolean; d: string; lineages: string[]; q: string | null; witnesses: Witness[] };
+type Passage = { translation: string; locator?: string; sourceNote?: string; note?: string };
+type LinkTranslation = { passages: Passage[]; untranslated?: string; locator?: string };
 
 const links = data.edges as Link[];
+const linkTranslations = translations.links as Record<string, LinkTranslation>;
 const people = new Map(data.persons.map((person) => [person.id, person]));
 const wear = (person: Person) => (person.q ? `q-${person.q}${person.shade !== null ? ` shade-${person.shade}` : ""}` : "");
 const hasTeachers = new Set(links.map((link) => link.student));
 const pageOf = (link: Link) => [...new Set(link.witnesses.map((w) => `${w.volume ? `vol. ${w.volume}, ` : ""}p. ${w.page}`))].join("; ");
+const linksByStudent = new Map<string, Link[]>();
+for (const link of links) linksByStudent.set(link.student, [...(linksByStudent.get(link.student) ?? []), link]);
+const steps = Array.from({ length: data.columns }, (_, layer) => ({
+  layer,
+  persons: data.persons.filter((person) => person.layer === layer),
+}));
 
 /* Ledger: one block per person who has teachers, by column then name. */
 const blocks = data.persons
@@ -19,162 +35,154 @@ const blocks = data.persons
   .sort((a, b) => a.layer - b.layer || a.latin.localeCompare(b.latin))
   .map((person) => ({ person, links: links.filter((link) => link.student === person.id) }));
 
+const defaultReaderId = data.readers[0].id;
 const readerRules = data.readers
-  .map((q) => `.tx:has(#tx-r-${q.id}:checked) :is(.node, .edge, .lk):not([data-l~="${q.id}"]) { display: none; }`)
+  .map((q) => `.tx[data-selected-reader="${q.id}"] :is(.board__person, .board__teacher, .lk, .lk__list li):not([data-l~="${q.id}"]) { display: none; }`)
   .join("\n");
-const nonFirm = data.counts.links - data.counts.firm;
-/* Notes are English with short Arabic quotations inline; give each Arabic run its own language. */
-const ARABIC_RUN = /([؀-ۿ][؀-ۿ\sً-ٟ،؟]*[؀-ۿ]|[؀-ۿ])/u;
-const runs = (text: string) => text.split(ARABIC_RUN).map((part, index) => ({ part, ar: index % 2 === 1 }));
+/* Notes are English with short Arabic quotations inline; MarkedNote gives
+   each Arabic run its own language. */
 ---
 
-<BaseLayout
+<BaseLayout image={OG.quran}
   title="Transmission of the readings | Quran | HadithCritic Projects"
   description="The chains by which the ten readers and their twenty transmitters are said to have received the Qurʾān, traced to the Prophet, each link cited to Ibn al-Jazarī’s an-Nashr."
 >
-  <div class="tx">
-    <header class="hc-masthead" aria-labelledby="tx-title">
-      <div class="hc-container hc-masthead__inner">
-        <div>
-          <nav class="hc-eyebrow" aria-label="Breadcrumb">
-            <a href="/">Home</a> / <a href="/projects/">Projects</a> / <a href="/projects/quran/">Quran</a> / <span aria-current="page">Transmission</span>
+  <!-- No reader is selected in the HTML: without script every chain is shown,
+       and the script applies the default reader and reveals the control. -->
+  <div class="tx q-ui">
+    <header class="tx-hero" aria-labelledby="tx-title">
+      <div class="hc-container tx-hero__inner">
+        <div class="tx-hero__main">
+          <p class="tx-kicker">Qurʾān · transmission record</p>
+          <h1 id="tx-title">Transmission</h1>
+          <p class="tx-hero__lead">The chains by which the ten readers and their twenty transmitters are said to have received the Qurʾān, traced upward to the Prophet. Every link is cited to Ibn al-Jazarī’s <i>an-Nashr</i> and translated into English.</p>
+          <nav class="tx-nav" aria-label="Transmission page sections">
+            <a href="#diagram">Transmission diagram <span>{data.counts.persons} people</span></a>
+            <a href="#links">Every link <span>{data.counts.links}</span></a>
+            <a href="/projects/quran/">The Qirāʾāt Variants</a>
           </nav>
-          <h1 id="tx-title" class="hc-masthead__title">Transmission</h1>
-          <p class="hc-masthead__lead">
-            The chains by which the ten readers, and the twenty transmitters who carried their readings, are said to have received the Qurʾān, traced upward to the Prophet.
-            Every link is a sentence in Ibn al-Jazarī’s an-Nashr, cited by page. The diagram records what that book says. It does not judge it.
-          </p>
-          <div class="hc-masthead__actions">
-            <a class="hc-btn" href="#diagram">See the diagram <span aria-hidden="true">↓</span></a>
-            <a class="hc-back-link hc-back-link--ruled" href="/projects/quran/"><span aria-hidden="true">←</span> The readings</a>
-          </div>
         </div>
-
-        <aside class="hc-instrument" aria-label="The diagram at a glance">
-          <div class="hc-instrument__well">
-            <dl class="hc-instrument__plate glance">
-              <div><dt>Readers</dt><dd class="hc-instrument__figure">10</dd></div>
-              <div><dt>Transmitters</dt><dd class="hc-instrument__figure">20</dd></div>
-              <div><dt>Links</dt><dd class="hc-instrument__figure">{data.counts.links}</dd></div>
-            </dl>
-            <div class="palette" aria-hidden="true">
-              {data.readers.map((q) => <span class={`palette__pair q-${q.id}`}><i class="sw sw--0"></i><i class="sw sw--1"></i></span>)}
-            </div>
-            <p class="hc-instrument__cap">One color for each reader. His two transmitters are its deeper and lighter shade.</p>
+        <aside class="tx-coverage" aria-label="Transmission record at a glance">
+          <p class="hc-project-hero__aside-label">Documented links</p>
+          <p class="hc-project-hero__figure">{data.counts.links}</p>
+          <p class="hc-project-hero__caption">Across 10 readers and 20 transmitters</p>
+          <p class="tx-coverage__note">The diagram records what <i>an-Nashr</i> says; it does not judge the chains. Color identifies each reader and the transmitters who carried that reading.</p>
+          <div class="glance__palette" aria-label="Color key: one color per reader, with a shade for each transmitter">
+            {data.readers.map((q) => <span class={`palette__pair q-${q.id}`} title={q.display}><i class="sw sw--0"></i><i class="sw sw--1"></i></span>)}
           </div>
         </aside>
       </div>
     </header>
 
     <div class="hc-container dockwrap">
-      <fieldset class="dock">
-        <legend class="dock__label">Follow</legend>
-        <label class="chip">
-          <input class="chip__input" type="radio" name="tx-reader" id="tx-r-all" checked />
-          <span>All ten</span>
-        </label>
-        {data.readers.map((q) => (
-          <label class={`chip q-${q.id}`}>
-            <input class="chip__input" type="radio" name="tx-reader" id={`tx-r-${q.id}`} />
-            <i class="sw" aria-hidden="true"></i><span>{q.display}</span><span class="chip__ar" lang="ar">{q.name_ar}</span>
-          </label>
-        ))}
-      </fieldset>
+      <div class="dock" id="tx-reader-dock" hidden>
+        <label class="dock__label" for="tx-reader-select">Show transmission for</label>
+        <select class="dock__select" id="tx-reader-select" aria-describedby="tx-reader-status">
+          {data.readers.map((q) => <option value={q.id} selected={q.id === defaultReaderId}>{q.display}</option>)}
+        </select>
+        <p class="dock__status" id="tx-reader-status" aria-live="polite">Showing the chain for {data.readers[0].display}.</p>
+      </div>
     </div>
 
     <div class="hc-container tx-body">
       <section class="sec" id="diagram" aria-labelledby="diagram-h">
-        <header class="sec__head">
-          <h2 id="diagram-h" class="sec__title">From the Prophet downward</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">{data.counts.persons}</span>
-        </header>
+        <QiraatSectionHeader id="diagram-h">
+          <Fragment slot="title">From the Prophet downward</Fragment>
+          <Fragment slot="count"><span id="tx-visible-person-count">{data.counts.persons}</span> people</Fragment>
+        </QiraatSectionHeader>
         <p class="lede">
-          Read from left to right: a line runs from a teacher to the person who read on him. A person’s column is the length of the longest chain from the Prophet to him, so he can sit further right than his own teacher’s teachers. Choose a reader above to see only his line.
+          Read left to right, from teacher to student. The diagram rearranges the selected chain to keep each generation legible; the source and translated passage for every link appear in “Every link, with its source” below.
         </p>
         <a class="skip" href="#links">Skip the diagram to the list of every link</a>
 
         <div class="frame">
-          <div class="scroller" role="region" aria-label="Transmission diagram, scrolls sideways" tabindex="0">
-            <svg class="diagram" viewBox={`0 0 ${data.width} ${data.height}`} style={`width:${data.width}px;height:${data.height}px`} role="group" aria-label="Transmission diagram. The list of links below gives the same information as text.">
-              <g class="heads" aria-hidden="true">
-                {data.col_x.map((x, k) => <text x={x + data.node.w / 2} y="22" text-anchor="middle">{k === 0 ? "The Prophet" : `Step ${k}`}</text>)}
-              </g>
-              <g class="edges" aria-hidden="true">
-                {links.map((link) => (
-                  <path class={`edge${link.firm ? "" : " edge--loose"}${link.q ? ` q-${link.q}` : ""}`} d={link.d} data-l={link.lineages.join(" ")} />
-                ))}
-              </g>
-              <g class="nodes">
-                {data.persons.map((person) => {
-                  const inner = (
-                    <>
-                      <rect width={data.node.w} height={data.node.h} rx="3" />
-                      <text class="node__latin" x={data.node.w / 2} y={person.kind === "qari" || person.kind === "riwaya" ? 19 : person.lines.length > 1 ? 19 : 28} text-anchor="middle">
-                        {person.lines.map((line, i) => <tspan x={data.node.w / 2} dy={i === 0 ? 0 : 15}>{line}</tspan>)}
-                      </text>
-                      {(person.kind === "qari" || person.kind === "riwaya") && (
-                        <text class="node__ar" x={data.node.w / 2} y="38" text-anchor="middle" lang="ar" direction="rtl">{person.ar}</text>
+          <div class="board" id="tx-diagram-board" tabindex="0" role="region" aria-label="Transmission steps. Each person is grouped by generation and names the teachers he read on.">
+            {steps.map(({ layer, persons: atStep }) => (
+              <section class="board__step" data-step={layer} aria-labelledby={`step-${layer}`}>
+                <h3 id={`step-${layer}`} class="board__heading">{layer === 0 ? "The Prophet" : `Step ${layer}`}</h3>
+                <ol class="board__people">
+                  {atStep.map((person) => (
+                    <li class={`board__person ${wear(person)} ${person.kind === "prophet" ? "board__person--prophet" : ""}`} data-person-id={person.id} data-l={person.lineages.join(" ")}>
+                      <a class="board__name" href={hasTeachers.has(person.id) ? `#p-${person.id}` : undefined} aria-label={hasTeachers.has(person.id) ? `${person.latin}; jump to sources in the link ledger` : undefined}>
+                        <span title={person.latin}>{person.latin}</span>
+                        {(person.kind === "qari" || person.kind === "riwaya") && <span class="board__ar" lang="ar">{person.ar}</span>}
+                      </a>
+                      {linksByStudent.has(person.id) && (
+                        <ul class="board__teachers">
+                          {linksByStudent.get(person.id)!.map((link) => {
+                            const teacher = people.get(link.teacher)!;
+                            return (
+                              <li class="board__teacher" data-l={link.lineages.join(" ")}>
+                                <span class="board__verb">Read on</span>
+                                {hasTeachers.has(teacher.id) ? <a href={`#p-${teacher.id}`} title={teacher.latin}>{teacher.latin}</a> : <span title={teacher.latin}>{teacher.latin}</span>}
+                                {!link.firm && <span class="board__loose" aria-label="Hedged or not stated as reading">†</span>}
+                              </li>
+                            );
+                          })}
+                        </ul>
                       )}
-                      <title>{person.latin} · {person.ar_full}</title>
-                    </>
-                  );
-                  return (
-                    <g class={`node node--${person.kind} ${wear(person)}`} data-l={person.lineages.join(" ")} transform={`translate(${person.x} ${person.y})`}>
-                      {hasTeachers.has(person.id) ? <a href={`#p-${person.id}`} aria-label={`${person.latin}, step ${person.layer}. Go to his teachers in the list.`}>{inner}</a> : inner}
-                    </g>
-                  );
-                })}
-              </g>
-            </svg>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ))}
           </div>
-
-          <ul class="key" aria-label="How to read the diagram">
-            <li><svg class="key__node" viewBox="0 0 44 22" aria-hidden="true"><rect class="k-prophet" width="44" height="22" rx="3" /></svg>The Prophet, at the left of every chain.</li>
-            <li><span class="key__pair q-nafi" aria-hidden="true"><i class="sw sw--0"></i><i class="sw sw--1"></i></span>A reader in his color; his two transmitters in its lighter shades.</li>
-            <li><svg class="key__node" viewBox="0 0 44 22" aria-hidden="true"><rect class="k-plain q-yaqub" width="44" height="22" rx="3" /></svg>Everyone else. An outline in a reader’s color means the person appears only in that reader’s chain.</li>
-            <li><svg class="key__line" viewBox="0 0 44 10" aria-hidden="true"><path d="M2,5 H42" /></svg>A statement that one person read on the other.</li>
-            <li><svg class="key__line key__line--loose" viewBox="0 0 44 10" aria-hidden="true"><path d="M2,5 H42" /></svg>Dashed: the book hedges it, or describes hearing, letters only or companionship ({nonFirm} of {data.counts.links}).</li>
-          </ul>
+          <div class="board__scroll-control" hidden>
+            <input class="board__scroll-range" id="tx-diagram-scroll" type="range" min="0" max="100" value="0" step="1" aria-label="Scroll through the transmission steps" aria-controls="tx-diagram-board" />
+          </div>
+          <p class="board__note">† The source hedges this link or describes hearing, letters only, or companionship. The page and translated passage for each link are listed below.</p>
         </div>
       </section>
 
       <section class="sec" id="links" aria-labelledby="links-h">
-        <header class="sec__head">
-          <h2 id="links-h" class="sec__title">Every link, with its source</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">{data.counts.links}</span>
-        </header>
-        <p class="lede">Each entry names a person, the teachers the book gives him, and the page. Open “Quoted text” for the sentence itself, in the book’s own wording.</p>
+        <QiraatSectionHeader id="links-h">
+          <Fragment slot="title">Every link, with its source</Fragment>
+          <Fragment slot="count"><span id="tx-visible-link-count">{data.counts.links}</span> links</Fragment>
+        </QiraatSectionHeader>
+        <p class="lede">Each entry names a person, the teachers the book gives him, and the page. English translations, source locators, and notes are shown with each link.</p>
         <div class="ledger">
           {blocks.map(({ person, links: own }) => (
             <article class={`lk ${wear(person)}`} id={`p-${person.id}`} data-l={person.lineages.join(" ")}>
               <h3 class="lk__name">
                 {person.q && <i class={person.shade !== null ? "sw" : "sw sw--0"} aria-hidden="true"></i>}
-                {person.latin} <span class="lk__ar" lang="ar">{person.ar}</span>
+                <span class="lk__latin">{person.latin}</span> <span class="lk__ar" lang="ar">{person.ar}</span>
               </h3>
-              <p class="lk__step">Step {person.layer}</p>
+              <QiraatBadge class="lk__step">Step {person.layer} · {own.length} {own.length === 1 ? "teacher" : "teachers"}</QiraatBadge>
+              <p class="lk__source-label">English translation &amp; source passage</p>
               <ol class="lk__list">
                 {own.map((link) => {
                   const teacher = people.get(link.teacher)!;
                   return (
-                    <li class={link.firm ? "" : "is-loose"}>
+                    <li class={link.firm ? "" : "is-loose"} data-l={link.lineages.join(" ")}>
                       <p class="lk__line">
-                        <span class="lk__verb">read on</span>
+                        <span class="lk__verb">Read on</span>
                         {hasTeachers.has(teacher.id) ? <a href={`#p-${teacher.id}`}>{teacher.latin}</a> : <span>{teacher.latin}</span>}
                         <span class="lk__pg">an-Nashr, {pageOf(link)}</span>
-                        {!link.firm && <span class="lk__flag">hedged or not a reading</span>}
+                        {!link.firm && <QiraatBadge class="lk__flag" tone="hedged">hedged or not a reading</QiraatBadge>}
                       </p>
-                      <details>
-                        <summary>Quoted text{link.witnesses.length > 1 ? ` (${link.witnesses.length})` : ""}</summary>
-                        {link.witnesses.map((w) => (
+                      <div class="lk__more">
+                        <div class="lk__translations">
+                        {linkTranslations[link.id]?.passages.map((passage) => (
                           <div class="lk__quote">
-                            <blockquote lang="ar">{w.quote}</blockquote>
-                            <p>{w.volume ? `Vol. ${w.volume}, ` : ""}p. {w.page}{!w.exact_raw && ". The sentence runs over a page break, so its vowel marks are omitted"}</p>
-                            {w.note && <p>{runs(w.note).map((r) => (r.ar ? <span lang="ar">{r.part}</span> : r.part))}</p>}
+                            <blockquote><MarkedNote text={passage.translation} /></blockquote>
+                            {passage.locator && <p><MarkedNote text={passage.locator} /></p>}
+                            {passage.sourceNote && <p><MarkedNote text={passage.sourceNote} /></p>}
+                            {passage.note && <p><MarkedNote text={passage.note} /></p>}
                           </div>
                         ))}
-                      </details>
+                        {linkTranslations[link.id]?.untranslated && (
+                          <div class="lk__quote">
+                            <p><MarkedNote text={linkTranslations[link.id].untranslated ?? ''} /></p>
+                            <p><MarkedNote text={linkTranslations[link.id].locator ?? ''} /></p>
+                          </div>
+                        )}
+                        {link.witnesses.filter((w) => w.note && !linkTranslations[link.id]?.passages.some((p) => p.note && p.note.replace(/\*/g, "").trim() === w.note!.trim())).map((w) => (
+                          <div class="lk__quote">
+                            <p><b>Index note:</b> <MarkedNote text={w.note!} /></p>
+                          </div>
+                        ))}
+                        </div>
+                      </div>
                     </li>
                   );
                 })}
@@ -185,121 +193,104 @@ const runs = (text: string) => text.split(ARABIC_RUN).map((part, index) => ({ pa
       </section>
 
       <section class="sec" id="guide" aria-labelledby="guide-h">
-        <header class="sec__head">
-          <h2 id="guide-h" class="sec__title">How to read this</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-        </header>
-        <dl class="guide">
+        <QiraatSectionHeader id="guide-h">
+          <Fragment slot="title">How to read this</Fragment>
+        </QiraatSectionHeader>
+        <QiraatDefinitionList>
           <div><dt>One book</dt><dd>Every link comes from an-Nashr. Other books may give other teachers, and where they do this page does not show it yet.</dd></div>
           <div><dt>Read on</dt><dd>The book’s phrase for a student reciting to a teacher. Where it says something else, such as hearing or transmitting letters, the link is dashed and its note says so.</dd></div>
           <div><dt>Joined entries</dt><dd>Some chains are given in another reader’s entry. Where we matched a name in one entry to a person in another, the link’s note says so.</dd></div>
           <div><dt>Two people, two names</dt><dd>Khalaf and al-Dūrī each appear twice, once for each reading they carried, and are kept as separate people because the book presents them that way.</dd></div>
           <div><dt>Review</dt><dd>No link has been reviewed. Each is checked only for one thing: that the quoted words appear on the cited page.</dd></div>
-        </dl>
-        <p class="attribution">Quotations are from an edition in the Maktaba Shamela, cited by page. Latin spellings of names are ours.</p>
+        </QiraatDefinitionList>
+        <p class="attribution">Translated passages are from an edition in the Maktaba Shamela, cited by page. Latin spellings of names are ours.</p>
       </section>
     </div>
   </div>
+
+  <script>
+    const readerSelect = document.getElementById("tx-reader-select") as HTMLSelectElement | null;
+    const transmission = document.querySelector(".tx") as HTMLElement | null;
+
+    if (readerSelect && transmission) {
+      const status = document.getElementById("tx-reader-status");
+      const personCount = document.getElementById("tx-visible-person-count");
+      const linkCount = document.getElementById("tx-visible-link-count");
+      const board = transmission.querySelector<HTMLElement>(".board");
+      const scrollRange = document.getElementById("tx-diagram-scroll") as HTMLInputElement | null;
+      const scrollControl = transmission.querySelector<HTMLElement>(".board__scroll-control");
+
+      const syncScrollControl = () => {
+        if (!board || !scrollRange || !scrollControl) return;
+        const max = board.scrollWidth - board.clientWidth;
+        scrollRange.max = String(max);
+        scrollRange.value = String(board.scrollLeft);
+        scrollRange.setAttribute("aria-valuetext", `${max ? Math.round(board.scrollLeft / max * 100) : 0}%`);
+        scrollControl.hidden = max <= 0;
+      };
+      scrollRange?.addEventListener("input", () => {
+        if (board && scrollRange) board.scrollLeft = Number(scrollRange.value);
+      });
+      board?.addEventListener("scroll", syncScrollControl, { passive: true });
+      if (board) new ResizeObserver(syncScrollControl).observe(board);
+
+      const updateTransmission = () => {
+        const readerId = readerSelect.value;
+        const readerName = readerSelect.selectedOptions[0]?.textContent?.trim() ?? "the selected reader";
+        transmission.dataset.selectedReader = readerId;
+
+        const activePeople = [...transmission.querySelectorAll<HTMLElement>(".board__person")]
+          .filter((person) => person.dataset.l?.split(" ").includes(readerId));
+        const activeLinks = [...transmission.querySelectorAll<HTMLElement>(".board__teacher")]
+          .filter((link) => link.dataset.l?.split(" ").includes(readerId));
+        const people = activePeople.length;
+        const links = activeLinks.length;
+        board?.querySelectorAll<HTMLElement>(".board__step").forEach((step) => {
+          step.style.display = [...step.querySelectorAll<HTMLElement>(".board__person")]
+            .some((person) => getComputedStyle(person).display !== "none") ? "" : "none";
+        });
+        if (personCount) personCount.textContent = String(people);
+        if (linkCount) linkCount.textContent = String(links);
+        if (status) status.textContent = `Showing ${readerName}’s chain: ${people} people and ${links} links.`;
+        syncScrollControl();
+      };
+
+      readerSelect.addEventListener("change", updateTransmission);
+      updateTransmission();
+      const dock = document.getElementById("tx-reader-dock");
+      if (dock) dock.hidden = false;
+    }
+  </script>
 
   <style is:inline set:html={readerRules}></style>
 </BaseLayout>
 
 <style>
-  .tx-body { padding-block: 0 clamp(4rem, 9vw, 7rem); }
-  .sec { padding-top: clamp(2.75rem, 5vw, 4.25rem); scroll-margin-top: 9rem; }
-  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font: 600 clamp(1.4rem, 3vw, 1.8rem)/1.3 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
-  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
-  .lede { max-width: 66ch; margin: 0 0 1rem; color: var(--hc-text-secondary); line-height: 1.72; }
-
-  .glance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; margin: 0; padding: 1.1rem 1.25rem 1.25rem; }
-  .glance div { display: flex; flex-direction: column-reverse; gap: 0.5rem; }
-  .glance div + div { padding-inline-start: 1rem; border-inline-start: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
-  .glance dt { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .glance dd { margin: 0; }
-  .palette { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin: 0.8rem 0.4rem 0; }
-  .palette__pair { display: grid; gap: 2px; }
-  .palette__pair .sw { width: 100%; height: 1.1rem; }
-
-  .dockwrap { padding-top: 1.5rem; }
-  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; padding: 6px 6px 6px 1rem; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
-  .dock__label { float: inline-start; margin-inline-end: 0.5rem; padding: 0; font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
-  .chip { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease; }
-  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
-  .chip__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; appearance: none; background: none; border: 0; border-radius: inherit; cursor: pointer; }
-  .chip:has(:checked) { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
-  .chip__ar { font-size: 1.05rem; line-height: 1; }
-  @media (min-width: 1001px) { .dockwrap { position: sticky; top: 4.75rem; z-index: 20; } }
-  @media (max-width: 1000px) { .dock { flex-wrap: nowrap; overflow-x: auto; } .chip { flex: none; } }
-
-  .skip { display: inline-block; margin-bottom: 0.75rem; color: var(--hc-gold); font: 600 0.81rem/1.6 var(--font-ui); letter-spacing: 0.06em; }
-  .frame { padding: 8px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-1); box-shadow: inset 0 0 0 5px var(--hc-surface-1), inset 0 0 0 6px var(--hc-rule-soft); }
-  .scroller { overflow: auto; max-height: 78vh; }
-  .diagram { display: block; max-width: none; }
-  .heads text { fill: var(--hc-text-tertiary); font: 700 12px var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-
-  /* Lines: neutral, or the reader's shade when the person is in one reader's line only. */
-  .edge { fill: none; stroke: var(--hc-text-tertiary); stroke-width: 1.5; opacity: 0.7; vector-effect: non-scaling-stroke; }
-  .edge[class*="q-"] { stroke: var(--s-bg); opacity: 0.95; }
-  :global([data-theme="light"]) .edge[class*="q-"] { stroke: var(--d-bg); }
-  .edge--loose { stroke-dasharray: 5 4; }
-
-  .node rect { fill: var(--hc-surface-2); stroke: var(--hc-rule-strong); stroke-width: 1; }
-  .node text { fill: var(--hc-text-primary); }
-  .node a { cursor: pointer; }
-  .node a:hover rect { stroke: var(--hc-gold); stroke-width: 2; }
-  .node__latin { font: 600 14px var(--font-body); }
-  .node__ar { font: 400 16px var(--font-arabic); }
-  .node--prophet rect, .k-prophet { fill: var(--hc-fixed-parchment); stroke: var(--hc-fixed-parchment-ink); }
-  .node--prophet text { fill: var(--hc-fixed-parchment-ink); }
-  .node--qari rect { fill: var(--d-bg); stroke: none; }
-  .node--qari text { fill: var(--d-ink); }
-  .node--riwaya rect { fill: var(--bg); stroke: none; }
-  .node--riwaya text { fill: var(--ink); }
-  .node--other[class*="q-"] rect { stroke: var(--s-bg); stroke-width: 2; }
-  :global([data-theme="light"]) .node--other[class*="q-"] rect { stroke: var(--d-bg); }
-
-  .key { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.7rem 1.5rem; margin: 0; padding: 1rem 0.9rem 0.6rem; list-style: none; color: var(--hc-text-secondary); font-size: 0.9rem; line-height: 1.5; }
-  .key li { display: flex; gap: 0.7rem; align-items: center; }
-  .key__pair { flex: none; display: inline-flex; gap: 2px; }
-  .key__pair .sw { width: 1.1rem; height: 1.1rem; }
-  .key__node { flex: none; width: 2.75rem; }
-  .key__node rect { fill: var(--hc-surface-2); stroke: var(--hc-rule-strong); }
-  .key__node .k-prophet { fill: var(--hc-fixed-parchment); stroke: var(--hc-fixed-parchment-ink); }
-  .key__node .k-plain { stroke: var(--s-bg); stroke-width: 2; }
-  .key__line { flex: none; width: 2.75rem; }
-  .key__line path { fill: none; stroke: var(--hc-text-secondary); stroke-width: 2; }
-  .key__line--loose path { stroke-dasharray: 5 4; }
-
-  .ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .lk { padding: 1rem 1.1rem 0.6rem; border: 1px solid var(--hc-rule-soft); border-inline-start: 4px solid var(--bg, var(--hc-rule-strong)); border-radius: 2px; background: var(--hc-surface-1); scroll-margin-top: 9rem; }
-  .lk:target { border-color: var(--hc-gold); background: var(--hc-surface-2); }
-  .lk__name { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0; font: 600 1.05rem/1.35 var(--font-display); color: var(--hc-text-primary); }
-  .lk__ar { font-size: 1.15rem; color: var(--hc-text-secondary); }
-  .lk__step { margin: 0.2rem 0 0.6rem; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
-  .lk__list { margin: 0; padding: 0; list-style: none; }
-  .lk__list li { padding: 0.55rem 0; border-top: 1px solid var(--hc-rule-soft); }
-  .lk__line { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; align-items: baseline; margin: 0; color: var(--hc-text-primary); font-size: 0.96rem; line-height: 1.5; }
-  .lk__line a { color: var(--hc-gold); text-decoration: underline; text-underline-offset: 0.2em; }
-  .lk__verb { font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
-  .lk__pg { color: var(--hc-text-secondary); font-size: 0.88rem; }
-  .lk__flag { padding: 0 0.4rem; border: 1px dashed var(--hc-text-tertiary); border-radius: 2px; color: var(--hc-text-secondary); font: 600 0.75rem/1.6 var(--font-ui); }
-  .lk details summary { min-height: 1.75rem; cursor: pointer; color: var(--hc-gold); font: 600 0.75rem/1.6 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .lk__quote { padding: 0.4rem 0 0.5rem; }
-  .lk__quote blockquote { margin: 0; font-size: 1.15rem; line-height: var(--leading-arabic); color: var(--hc-text-primary); }
-  .lk__quote p { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--hc-text-tertiary); }
-
-  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 10px; margin: 0; }
-  .guide div { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .guide dt { font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold); }
-  .guide dd { margin: 0.5rem 0 0; color: var(--hc-text-secondary); font-size: 0.96rem; line-height: 1.65; }
-  .attribution { max-width: 70ch; margin: 1.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.85rem; line-height: 1.7; }
-
-  @media (max-width: 900px) { .ledger { grid-template-columns: minmax(0, 1fr); } }
-  @media (max-width: 480px) {
-    .glance { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    .glance div, .glance div + div { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 0.9rem; padding: 0.35rem 0; border-inline-start: 0; }
-    .glance div + div { border-top: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
+  .tx-hero { position: relative; border-bottom: 1px solid var(--hc-rule-soft); background: var(--hc-surface-0); }
+  .tx-hero::before { position: absolute; inset: 0 auto 0 max(0px, calc((100% - var(--hc-container)) / 2)); width: 1px; background: var(--hc-rule-soft); content: ""; }
+  .tx-hero__inner { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 21rem); gap: clamp(2.5rem, 8vw, 8rem); align-items: end; padding-block: clamp(3rem, 7vw, 6rem) 2rem; }
+  .tx-kicker { margin: 0 0 0.45rem; color: var(--hc-gold); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; }
+  .tx-hero h1 { max-width: 11ch; margin: 0; color: var(--hc-text-primary); font: 500 clamp(3.4rem, 8vw, 6.8rem)/0.98 var(--font-display); letter-spacing: -0.065em; }
+  .tx-hero__lead { max-width: 62ch; margin: 1.35rem 0 2rem; color: var(--hc-text-secondary); font-size: 1.02rem; line-height: 1.7; }
+  .tx-nav { display: flex; flex-wrap: wrap; gap: 0 1.4rem; border-top: 1px solid var(--hc-rule-soft); }
+  .tx-nav a { display: flex; align-items: center; gap: 0.55rem; padding: 0.75rem 0; color: var(--hc-text-primary); font: 500 0.84rem/1.35 var(--font-ui); text-decoration: none; }
+  .tx-nav a:hover { color: var(--hc-gold-bright); }
+  .tx-nav a span { color: var(--hc-text-tertiary); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+  .tx-coverage { padding: 1.1rem 0 0.35rem; border-top: 1px solid var(--hc-rule-strong); }
+  .tx-coverage__note { max-width: 34ch; margin: 0.8rem 0 0; color: var(--hc-text-tertiary); font-size: 0.82rem; line-height: 1.6; }
+  .glance__palette { margin-top: 1rem; }
+  .palette__pair { display: inline-flex; gap: 2px; margin-inline-end: 4px; vertical-align: middle; }
+  .palette__pair .sw { width: 0.55rem; height: 0.8rem; border-radius: 0; box-shadow: none; }
+  @media (max-width: 900px) {
+    .tx-hero__inner { grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem); gap: 2rem; }
+  }
+  @media (max-width: 760px) {
+    .tx-hero::before { display: none; }
+    .tx-hero__inner { grid-template-columns: 1fr; gap: 2rem; }
+    .tx-coverage { max-width: 26rem; }
+  }
+  @media (max-width: 540px) {
+    .tx-hero h1 { font-size: clamp(3rem, 16vw, 4.8rem); }
+    .glance__palette { overflow: hidden; max-width: 100%; }
   }
 </style>

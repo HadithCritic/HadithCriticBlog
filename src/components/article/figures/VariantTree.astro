@@ -1,0 +1,199 @@
+---
+// A compact transmission map: shared report, common transmitter, then variants.
+export interface VariantBranch {
+  name: string;
+  from?: string;
+  quote: string;
+  sources: string;
+}
+
+export interface Props {
+  title: string;
+  root: string;
+  bottleneck: string;
+  branches: VariantBranch[];
+  ariaLabel?: string;
+}
+
+const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
+---
+
+<figure class="variant-tree" aria-label={ariaLabel || title}>
+  <figcaption class="variant-tree__heading">
+    <span class="variant-tree__eyebrow">Transmission variants</span>
+    <span class="variant-tree__title">{title}</span>
+  </figcaption>
+
+  <div class="variant-tree__trunk">
+    <span class="variant-tree__root">{root}</span>
+    <span class="variant-tree__connector" aria-hidden="true"></span>
+    <span class="variant-tree__bottleneck">
+      <span class="variant-tree__bottleneck-tag">Common transmitter</span>
+      <span class="variant-tree__bottleneck-name">{bottleneck}</span>
+    </span>
+  </div>
+
+  <ol class="variant-tree__branches">
+    {branches.map((branch, index) => (
+      <li class="variant-tree__branch">
+        <div class="variant-tree__branch-heading">
+          <span class="variant-tree__branch-index">{String(index + 1).padStart(2, '0')}</span>
+          <span class="variant-tree__name">{branch.name}</span>
+          {branch.from && <span class="variant-tree__from">via {branch.from}</span>}
+        </div>
+        <blockquote class="variant-tree__quote">{branch.quote}</blockquote>
+        <p class="variant-tree__sources">{branch.sources}</p>
+      </li>
+    ))}
+  </ol>
+</figure>
+
+<style>
+  .variant-tree {
+    margin: clamp(2rem, 4vw, 3rem) 0;
+    padding: 1rem 0 0;
+    border-top: 1px solid var(--hc-rule-soft);
+    color: var(--hc-text-primary);
+  }
+
+  .variant-tree__heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .variant-tree__eyebrow,
+  .variant-tree__bottleneck-tag {
+    color: var(--hc-text-tertiary);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .variant-tree__title {
+    color: var(--hc-text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .variant-tree__trunk {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 2.2rem;
+    padding: 0 0 0.75rem;
+  }
+
+  .variant-tree__root {
+    color: var(--hc-text-primary);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .variant-tree__connector {
+    flex: 0 1 3rem;
+    min-width: 1rem;
+    border-top: 1px solid var(--hc-rule-strong);
+  }
+
+  .variant-tree__bottleneck {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.6rem;
+    padding-inline-start: 0.75rem;
+    border-inline-start: 2px solid var(--hc-gold-dim);
+  }
+
+  .variant-tree__bottleneck-name {
+    color: var(--hc-gold-soft);
+    font-size: 0.94rem;
+    font-weight: 600;
+  }
+
+  .variant-tree__branches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    column-gap: 2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Each branch carries its own top rule, so a branch that wraps onto a new
+     row lines up with the ones above it. */
+  .variant-tree__branch {
+    min-width: 0;
+    padding: 0.8rem 0 0.6rem;
+    border-top: 1px solid var(--hc-rule-soft);
+  }
+
+  .variant-tree__branch-heading {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.55rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .variant-tree__branch-index {
+    color: var(--hc-gold-dim);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .variant-tree__name {
+    color: var(--hc-text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .variant-tree__from {
+    color: var(--hc-text-tertiary);
+    font-size: 0.8rem;
+  }
+
+  .variant-tree__quote {
+    margin: 0 0 0.45rem;
+    color: var(--hc-text-secondary);
+    font-size: 0.91rem;
+    line-height: 1.5;
+  }
+
+  .variant-tree__sources {
+    margin: 0;
+    color: var(--hc-text-tertiary);
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  @media (max-width: 640px) {
+    .variant-tree__trunk {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .variant-tree__connector {
+      flex: 0 0 0.9rem;
+      min-width: 0;
+      margin-inline-start: 0.25rem;
+      border-top: 0;
+      border-inline-start: 1px solid var(--hc-rule-strong);
+    }
+
+    .variant-tree__branch,
+    .variant-tree__branch + .variant-tree__branch {
+      padding: 0.75rem 0 0.4rem;
+      border-inline-start: 0;
+    }
+
+    .variant-tree__branch + .variant-tree__branch {
+      border-top: 1px solid var(--hc-rule-soft);
+    }
+  }
+</style>

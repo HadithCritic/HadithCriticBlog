@@ -1,0 +1,24 @@
+---
+/**
+ * An English note with Arabic quoted inline. Each Arabic run is given
+ * lang="ar", so screen readers switch voice and the Arabic face applies, and
+ * *asterisked* phrases are set in italic, as the notes are written.
+ */
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+const ARABIC_RUN = /([؀-ۿ][؀-ۿ\sً-ٟ،؟]*[؀-ۿ]|[؀-ۿ])/u;
+const segments = text.split(/(\*[^*]+\*)/g).flatMap((chunk, index) => {
+  const em = index % 2 === 1;
+  const body = em ? chunk.slice(1, -1) : chunk;
+  return body.split(ARABIC_RUN).map((part, i) => ({ part, ar: i % 2 === 1, em }));
+});
+---
+
+{segments.map((s) =>
+  s.ar
+    ? s.em ? <em><span lang="ar">{s.part}</span></em> : <span lang="ar">{s.part}</span>
+    : s.em ? <em>{s.part}</em> : s.part
+)}

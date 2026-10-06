@@ -12,6 +12,9 @@ import { slashRedirects } from './scripts/lib/slash-redirects.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 
+/** Where Vite's dependency scanner looks for imports, in every environment. */
+const DEP_SCAN_ENTRIES = ['src/**/*.{astro,ts,tsx,js,mjs}'];
+
 // https://astro.build/config
 // Static by default (blog articles + Pagefind stay prerendered). Silsilah search/browse
 // routes opt into on-demand rendering with `export const prerender = false` and read D1.
@@ -63,7 +66,40 @@ export default defineConfig({
     // docs/static-corpus.md.
     plugins: [corpusDevServer()],
     optimizeDeps: {
+      entries: DEP_SCAN_ENTRIES,
       exclude: ['astro:content']
+    },
+    // Astro gives its `astro` and `prerender` environments no scan entries, and
+    // Vite's fallback is every **/*.html under the project root. The root holds
+    // review builds (dist-*, scratch/) running to ~180,000 files, so the scan
+    // outlived the module runner's 60s startup limit, the server died before it
+    // wrote a dependency cache, and every start began the scan again. Pinning
+    // the entries to src/ makes the scan proportional to the source.
+    environments: {
+      // The logger Astro injects is found only after the first request, which
+      // re-bundled and reloaded mid-start. Foreground runs use the console
+      // logger, the detached `astro dev` daemon the JSON one.
+      ssr: { optimizeDeps: { include: ['astro/logger/console', 'astro/logger/json'] } },
+      astro: { optimizeDeps: { entries: DEP_SCAN_ENTRIES } },
+      prerender: { optimizeDeps: { entries: DEP_SCAN_ENTRIES } }
+    },
+    server: {
+      // The same trees, kept out of the file watcher. public/data/quran is
+      // 12,000 immutable release files that never change under a dev session.
+      watch: {
+        ignored: [
+          '**/dist/**',
+          '**/dist-*/**',
+          '**/local-archive/**',
+          '**/scratch/**',
+          '**/output/**',
+          '**/tmp/**',
+          '**/test-results/**',
+          '**/playwright-report/**',
+          '**/.hallmark/**',
+          '**/public/data/quran/**'
+        ]
+      }
     }
   }
 });

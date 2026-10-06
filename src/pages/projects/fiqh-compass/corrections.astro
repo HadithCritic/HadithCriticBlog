@@ -1,0 +1,166 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import FiqhCompassNav from "../../../components/FiqhCompassNav.astro";
+
+const crumbs = [
+  { name: "Home", url: "/" },
+  { name: "Projects", url: "/projects/" },
+  { name: "Fiqh Compass", url: "/projects/fiqh-compass/" },
+  { name: "Corrections", url: "/projects/fiqh-compass/corrections/" },
+];
+---
+
+<BaseLayout
+  title="Corrections and source notes | Fiqh Compass"
+  description="Send a source-based correction, citation, translation note, or technical report to the Fiqh Compass project."
+  canonical="/projects/fiqh-compass/corrections/"
+  crumbs={crumbs}
+>
+  <main class="fiqh-compass fc-corrections-page">
+    <FiqhCompassNav current="corrections" />
+    <header class="fc-corrections-hero hc-container">
+      <p class="fc-kicker">Editorial desk · source-based corrections</p>
+      <h1>Help us make the record more precise.</h1>
+      <p>Send a correction about a proposed question, source citation, edition, translation, profile entry, or a technical issue. A submission is a lead for editorial review, not an automatic change to the research or a ruling.</p>
+      <p class="fc-corrections-ar" lang="ar" dir="rtl">أرسل تصحيحًا موثقًا أو ملاحظة على مصدر أو ترجمة أو مشكلة تقنية. تخضع جميع الملاحظات للمراجعة قبل تعديل أي محتوى.</p>
+    </header>
+
+    <section class="fc-corrections-layout hc-container" aria-labelledby="correction-form-title">
+      <aside class="fc-corrections-notes">
+        <p class="fc-kicker">Before you submit</p>
+        <h2>Useful reports include a locator.</h2>
+        <ul>
+          <li>Book title, edition, volume, and printed page or manuscript folio.</li>
+          <li>A stable catalogue or source URL when available.</li>
+          <li>What should be corrected and why the evidence supports it.</li>
+        </ul>
+        <p>Your quiz answers stay in this browser. This form does not read, attach, or send them. Please do not paste quiz answers or sensitive personal information here.</p>
+        <p>Submissions are processed by Web3Forms, a third-party form service. HadithCritic has not independently verified the retention setting for this form. Review <a href="https://web3forms.com/privacy" rel="noreferrer">Web3Forms’ privacy information</a> before sending material you consider sensitive.</p>
+      </aside>
+
+      <form id="fc-correction-form" class="fc-correction-form" action="https://api.web3forms.com/submit" method="POST">
+        <input type="hidden" name="access_key" value="bc77362d-17bc-4833-a036-cf11648e0053" />
+        <input type="hidden" name="subject" value="Fiqh Compass correction submission" />
+        <input type="hidden" name="from_name" value="Fiqh Compass Correction Form" />
+        <input type="checkbox" name="botcheck" class="fc-correction-trap" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+        <h2 id="correction-form-title">Correction details</h2>
+        <label>
+          <span>What is this about? <span aria-hidden="true">*</span></span>
+          <select name="category" required>
+            <option value="">Choose a category</option>
+            <option value="Issue dossier">Issue dossier or fiqh question</option>
+            <option value="Question wording">Quiz question wording</option>
+            <option value="Source or edition">Source, edition, or citation</option>
+            <option value="Translation">Translation or transliteration</option>
+            <option value="Profile metadata">Profile or catalog metadata</option>
+            <option value="Technical or accessibility">Technical or accessibility issue</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+        <label>
+          <span>Issue ID or page reference <span class="fc-optional">Optional</span></span>
+          <input name="record_reference" type="text" maxlength="80" autocomplete="off" placeholder="For example: FC-03 or a page URL" />
+        </label>
+        <label>
+          <span>Source citation or URL <span class="fc-optional">Optional</span></span>
+          <input name="source_reference" type="text" maxlength="500" autocomplete="url" placeholder="Work, edition, volume/page, or URL" />
+        </label>
+        <label>
+          <span>Your correction or note <span aria-hidden="true">*</span></span>
+          <textarea name="message" rows="7" minlength="20" maxlength="5000" required placeholder="Describe the issue and how the cited evidence bears on it."></textarea>
+          <small>20–5,000 characters. Quote only what is needed to identify the issue.</small>
+        </label>
+        <label>
+          <span>Email <span class="fc-optional">Optional</span></span>
+          <input name="email" type="email" maxlength="254" autocomplete="email" placeholder="Only if you would like a reply" />
+        </label>
+        <button class="fc-correction-submit" type="submit">Send correction <span aria-hidden="true">→</span></button>
+        <p id="fc-correction-status" class="fc-correction-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="fc-correction-process hc-container" id="process" aria-labelledby="correction-process-title">
+      <p class="fc-kicker">Review process</p>
+      <h2 id="correction-process-title">A submission starts a review; it does not change a result.</h2>
+      <ol>
+        <li><strong>Classify the report.</strong> Separate source or attribution concerns from wording, translation, metadata, scoring, and technical issues.</li>
+        <li><strong>Check the evidence.</strong> For textual claims, verify the work and edition, the printed or manuscript locator, the Arabic passage, its context, and any translation before proposing a change.</li>
+        <li><strong>Record the outcome.</strong> A report may be accepted, declined with a reason, or left pending when evidence or qualified review is not available. Material changes to a released item belong in its change record.</li>
+      </ol>
+      <p>We do not promise an individual response. If you provide an email address, it is used only when a reply is useful. Do not include quiz answers; they are not needed to review a source correction.</p>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("#fc-correction-form");
+  const status = document.querySelector<HTMLParagraphElement>("#fc-correction-status");
+  const category = form?.elements.namedItem("category") as HTMLSelectElement | null;
+  const record = form?.elements.namedItem("record_reference") as HTMLInputElement | null;
+
+  if (category && record) {
+    const params = new URLSearchParams(window.location.search);
+    const kinds: Record<string, string> = {
+      issue: "Issue dossier",
+      question: "Question wording",
+      source: "Source or edition",
+      translation: "Translation",
+      profile: "Profile metadata",
+      technical: "Technical or accessibility",
+    };
+    const kind = params.get("kind");
+    const reference = params.get("record");
+    if (kind && kinds[kind]) category.value = kinds[kind];
+    if (reference && /^[A-Za-z0-9._/#?-]{1,80}$/.test(reference)) record.value = reference;
+  }
+
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity() || !status) return;
+    const button = form.querySelector<HTMLButtonElement>("button[type='submit']");
+    if (button) button.disabled = true;
+    status.textContent = "Sending your correction…";
+    try {
+      const response = await fetch(form.action, { method: "POST", body: new FormData(form), headers: { Accept: "application/json" } });
+      const result = await response.json().catch(() => ({})) as { success?: boolean; message?: string };
+      if (!response.ok || result.success !== true) throw new Error(result.message || "Submission failed.");
+      form.reset();
+      status.textContent = "Thank you. Your correction was sent for editorial review.";
+    } catch {
+      status.textContent = "We could not confirm delivery. Your correction was not recorded here; please try again later.";
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+</script>
+
+<style>
+  .fiqh-compass.fc-corrections-page { --fc-bg: var(--hc-surface-0); --fc-ink: var(--hc-text-primary); --fc-text: var(--hc-text-secondary); --fc-muted: var(--hc-text-tertiary); --fc-line: var(--hc-rule-soft); --fc-paper: var(--hc-surface-2); color: var(--fc-ink); background: var(--fc-bg); padding-bottom: clamp(4rem, 8vw, 7rem); }
+  .fc-corrections-hero { padding-block: clamp(3rem, 7vw, 5.5rem) 2.5rem; }
+  .fc-corrections-hero h1 { max-width: 17ch; margin: 0; font: 500 clamp(2.4rem, 5vw, 4.25rem)/1.08 var(--font-display); letter-spacing: -0.045em; text-wrap: balance; }
+  .fc-corrections-hero > p:not(.fc-kicker) { max-width: 72ch; margin: 1rem 0 0; color: var(--fc-text); line-height: 1.7; }
+  .fc-corrections-ar { color: var(--fc-muted); font-family: var(--font-arabic); }
+  .fc-corrections-layout { display: grid; grid-template-columns: minmax(14rem, 0.75fr) minmax(0, 1.25fr); align-items: start; gap: clamp(2rem, 7vw, 6rem); }
+  .fc-corrections-notes { padding-top: 0.4rem; }
+  .fc-corrections-notes h2, .fc-correction-form h2 { margin: 0; font: 500 clamp(1.5rem, 2.5vw, 2rem)/1.2 var(--font-display); }
+  .fc-corrections-notes ul { display: grid; gap: 0.7rem; padding-left: 1.2rem; color: var(--fc-text); line-height: 1.55; }
+  .fc-corrections-notes p:not(.fc-kicker) { color: var(--fc-muted); font-size: 0.84rem; line-height: 1.65; }
+  .fc-corrections-notes a { color: var(--fc-ink); text-decoration-thickness: 1px; text-underline-offset: 0.18em; }
+  .fc-correction-form { display: grid; gap: 1rem; padding: clamp(1rem, 3vw, 2rem); border: 1px solid var(--fc-line); border-radius: 0.2rem; background: var(--fc-paper); }
+  .fc-correction-form label { display: grid; gap: 0.4rem; color: var(--fc-ink); font: 600 0.84rem/1.45 var(--font-ui); }
+  .fc-correction-form input:not([type="checkbox"]), .fc-correction-form select, .fc-correction-form textarea { width: 100%; min-height: 2.9rem; padding: 0.7rem 0.8rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-bg); color: var(--fc-ink); font: 400 1rem/1.5 var(--font-reading); }
+  .fc-correction-form textarea { min-height: 10rem; resize: vertical; }
+  .fc-correction-form small, .fc-optional { color: var(--fc-muted); font: 400 0.76rem/1.5 var(--font-ui); }
+  .fc-correction-submit { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 3rem; padding: 0.75rem 1rem; border: 1px solid var(--hc-gold); background: var(--hc-gold); color: var(--hc-text-inverse); font: 600 0.9rem/1.4 var(--font-ui); cursor: pointer; }
+  .fc-correction-submit:disabled { opacity: 0.65; cursor: wait; }
+  .fc-correction-status { min-height: 1.5em; margin: 0; color: var(--fc-text); font-size: 0.85rem; }
+  .fc-correction-trap { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .fc-correction-process { padding-top: clamp(3rem, 7vw, 5rem); }
+  .fc-correction-process h2 { max-width: 31ch; margin: 0; font: 500 clamp(1.7rem, 3vw, 2.5rem)/1.2 var(--font-display); }
+  .fc-correction-process ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; margin: 1.4rem 0 0; padding: 1.2rem 0; border-block: 1px solid var(--fc-line); color: var(--fc-text); line-height: 1.6; }
+  .fc-correction-process li { padding-right: 1rem; }
+  .fc-correction-process strong { display: block; color: var(--fc-ink); font-family: var(--font-display); }
+  .fc-correction-process > p:last-child { max-width: 72ch; color: var(--fc-muted); font-size: 0.84rem; line-height: 1.65; }
+  @media (max-width: 760px) { .fc-corrections-layout { grid-template-columns: minmax(0, 1fr); } .fc-correction-process ol { grid-template-columns: minmax(0, 1fr); } }
+</style>

@@ -14,6 +14,8 @@ export interface Category {
   name: string;
   slug: string;
   blurb: string;
+  /** One line for an index of branches, where the blurb would not fit. */
+  summary: string;
   /** Entity names for schema `about`. Helps engines place the topic. */
   about: string[];
 }
@@ -21,6 +23,7 @@ export interface Category {
 export const CATEGORIES: Category[] = [
   {
     name: 'Origins & Early History',
+    summary: 'Early Islamic history, specific events, and broad origins.',
     slug: 'origins-early-history',
     blurb:
       'Source-critical studies of how the earliest Islamic reports were formed, circulated and recorded, covering the first two centuries of transmission, the emergence of written compilations, and the historical context in which prophetic traditions took shape.',
@@ -28,6 +31,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     name: 'Transmission & Narrators',
+    summary: 'Isnād politics, common links, and specific narrators.',
     slug: 'transmission-narrators',
     blurb:
       "Isnad criticism and rijal analysis: how individual transmitters were graded, where chains break down, and what isnad-cum-matn analysis reveals about the origin of specific reports. Includes case studies of named narrators and the classical science of 'ilm al-rijal itself.",
@@ -35,6 +39,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     name: 'Theology & Epistemology',
+    summary: 'Quranic authority, law, abrogation, and probability.',
     slug: 'theology-epistemology',
     blurb:
       'What hadith literature can and cannot establish as knowledge. Studies on the epistemic status of solitary reports, the Quranic standard for verification, the relationship between scripture and tradition, and the theological consequences of accepting reports on authority.',
@@ -42,6 +47,7 @@ export const CATEGORIES: Category[] = [
   },
   {
     name: 'Prophecies & Eschatology',
+    summary: 'Mahdi reports, apocalyptic claims, black banners, and dynastic memory.',
     slug: 'prophecies-eschatology',
     blurb:
       'Examination of predictive traditions and end-times material: apocalyptic reports, Mahdi traditions, and prophecies whose transmission history places their formation after the events they claim to foretell.',

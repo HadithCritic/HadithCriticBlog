@@ -154,6 +154,10 @@ chunk is warm. That has not been confirmed on the real domain. Until it is:
   hostname and redeploy. No code changes.
 
 R2 needs CORS, because a cross-origin range request is not sent otherwise.
+The rules admit the two production hostnames only, so a page served from
+`localhost` cannot read R2. The dev server therefore always reads its own
+`/data/corpus/` middleware, even though `.env` carries the production
+`PUBLIC_CORPUS_BASE_URL`; `PUBLIC_CORPUS_DEV_BASE_URL` overrides that in dev.
 `publish-corpus.mjs --target r2 --cors` sets it: `GET`/`HEAD`, `range` allowed,
 `content-range` and `accept-ranges` exposed.
 

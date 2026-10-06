@@ -37,7 +37,7 @@ import { COLLECTION_CARDS } from './og-cards';
  * `/blogs/x` with a 307 to `/blogs/x/`. A canonical or structured-data URL
  * without the slash therefore names a redirect rather than the page, so every
  * page URL is normalized here. Paths whose last segment has an extension
- * (`/rss.xml`, `/og/x.png`) are files and are left alone.
+ * (`/rss.xml`, `/og/x.jpg`) are files and are left alone.
  */
 export function withTrailingSlash(url: string): string {
   const parsed = new URL(url, SITE.url);
@@ -52,19 +52,38 @@ const abs = (path: string) => withTrailingSlash(new URL(path, SITE.url).href);
  * Social preview cards.
  *
  * Generated at build time by scripts/build-og-images.mjs and committed under
- * public/og. Two families so a pasted link is identifiable before it is read:
- * corpus links get a collection masthead, rijal links get the isnad chain
- * ornament. See that script for why these are static rather than rendered per
- * record on demand.
+ * public/og as 1200x630 JPEGs. Each section has its own card built from the
+ * page's engraving and signature instrument, so a pasted link says which part
+ * of the site it is before anyone reads it. Articles keep their own
+ * illustrated thumbnails. See the script for why these are static.
  */
+const CATEGORY_CARDS = new Set([
+  'origins-early-history',
+  'transmission-narrators',
+  'prophecies-eschatology',
+  'theology-epistemology'
+]);
+
 export const OG = {
-  default: '/og/default.png',
-  corpus: '/og/hadith.png',
-  register: '/og/narrators.png',
+  default: '/og/default.jpg',
+  blogs: '/og/blogs.jpg',
+  projects: '/og/projects.jpg',
+  academia: '/og/academia.jpg',
+  youtube: '/og/youtube.jpg',
+  contact: '/og/contact.jpg',
+  resources: '/og/resources.jpg',
+  corpus: '/og/hadith.jpg',
+  register: '/og/narrators.jpg',
+  quran: '/og/quran.jpg',
+  tafsir: '/og/tafsir.jpg',
+  atlas: '/og/atlas.jpg',
+  icma: '/og/icma.jpg',
+  category: (slug?: string | null) =>
+    slug && CATEGORY_CARDS.has(slug) ? `/og/category/${slug}.jpg` : OG.blogs,
   /** Falls back to the corpus card for a collection added after the cards were generated. */
   collection: (slug?: string | null) =>
-    slug && COLLECTION_CARDS.has(slug) ? `/og/collection/${slug}.png` : OG.corpus,
-  narrator: (generation?: string | null) => `/og/narrator/${generationSlug(generation)}.png`
+    slug && COLLECTION_CARDS.has(slug) ? `/og/collection/${slug}.jpg` : OG.corpus,
+  narrator: (generation?: string | null) => `/og/narrator/${generationSlug(generation)}.jpg`
 } as const;
 
 /**

@@ -1,0 +1,56 @@
+---
+import type { ArticleEntry } from '../lib/article-index';
+import { searchText } from '../lib/article-index';
+import { isNewPost } from '../lib/new-badge';
+
+/**
+ * One study in the archive ledger: folio numeral, branch, title, abstract,
+ * date and reading time, and the study's own small engraving.
+ *
+ * The title link is stretched over the row, so the whole entry opens the
+ * study while only the title is its accessible name. `.bi-row__match` is
+ * filled by the archive search with the passage that matched.
+ */
+interface Props {
+  entry: ArticleEntry;
+  /** Hubs list a single branch, so the branch mark would only repeat. */
+  showCategory?: boolean;
+}
+
+const { entry, showCategory = true } = Astro.props;
+const { post, folio, dateLabel, dateISO, minutes, artwork, thumb } = entry;
+---
+
+<li
+  class:list={['bi-row', artwork && 'bi-row--illustrated']}
+  data-id={post.id}
+  data-category={post.data.category}
+  data-timestamp={post.data.date.valueOf()}
+  data-search={searchText(post)}
+>
+  <article class="bi-entry">
+    <p class="bi-entry__folio" aria-hidden="true">
+      <span>No.</span>
+      <span class="bi-entry__num">{folio}</span>
+    </p>
+    <div class="bi-entry__body">
+      <p class="bi-entry__cat">
+        {showCategory && <span class="hc-cat" data-category={post.data.category}>{post.data.category}</span>}
+        <span class="hc-meta bi-entry__meta">
+          <time datetime={dateISO}>{dateLabel}</time>
+          <span>{minutes} min read</span>
+          <span class="sr-only">Folio {folio}</span>
+        </span>
+        {isNewPost(post.data.date) && <span class="hc-new">New</span>}
+      </p>
+      <h3 class="bi-entry__title">
+        <a href={`/blogs/${post.id}/`} class="bi-row__link">{post.data.title}</a>
+      </h3>
+      {post.data.description && <p class="bi-row__desc">{post.data.description}</p>}
+      <div class="bi-row__match" hidden></div>
+    </div>
+    {thumb && (
+      <img class="bi-entry__thumb" src={thumb} alt="" width="160" height="107" loading="lazy" decoding="async" />
+    )}
+  </article>
+</li>

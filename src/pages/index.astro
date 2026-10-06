@@ -2,10 +2,17 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { getCollection } from "astro:content";
 import { isNewPost } from "../lib/new-badge";
+import { categoryByName, categorySlug } from "../lib/categories";
 import { CORPUS_META } from "../lib/corpus-config";
-import "../styles/project-showcase.css";
+import { blogArtwork } from "../data/blog-artwork";
+import { academicStudies } from "../data/academic-studies";
+import qiraatIndex from "../data/qiraat/index.json";
+import researchGraph from "../data/research-graph.json";
+import names from "../data/quran-sura-names.json";
+import "../styles/home.css";
 
 const GENERIC_THUMB = "/images/blog_thumbnails/tn.generic.webp";
+const LEDGER_SIZE = 5;
 
 const allPosts = await getCollection(
   "articles",
@@ -14,109 +21,43 @@ const allPosts = await getCollection(
 const posts = allPosts.sort(
   (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
 );
-
-const categoryDescriptions: Record<string, string> = {
-  "Origins & Early History":
-    "Early Islamic history, specific events, and broad origins.",
-  "Prophecies & Eschatology":
-    "Mahdi reports, apocalyptic claims, black banners, and dynastic memory.",
-  "Transmission & Narrators":
-    "Isnād politics, common links, and specific narrators.",
-  "Theology & Epistemology":
-    "Quranic authority, law, abrogation, and probability.",
-  Blog: "Site notes, announcements, and shorter reflections.",
-};
+type Post = (typeof posts)[number];
 
 const categoryCounts = new Map<string, number>();
 for (const post of posts) {
-  categoryCounts.set(
-    post.data.category,
-    (categoryCounts.get(post.data.category) ?? 0) + 1,
-  );
-}
-
-const categoryTopPosts = new Map<string, typeof posts>();
-for (const post of posts) {
-  const list = categoryTopPosts.get(post.data.category) ?? [];
-  if (list.length < 3) {
-    list.push(post);
-    categoryTopPosts.set(post.data.category, list);
-  }
+  categoryCounts.set(post.data.category, (categoryCounts.get(post.data.category) ?? 0) + 1);
 }
 
 const categories = [...categoryCounts.entries()]
   .sort((a, b) => b[1] - a[1])
-  .map(([name, count]) => {
-    const previewPosts = categoryTopPosts.get(name) ?? [];
-    return {
-      name,
-      count,
-      description: categoryDescriptions[name] ?? "",
-      previewPosts,
-      topPost: previewPosts[0] ?? null,
-    };
-  });
+  .map(([name, count]) => ({
+    name,
+    count,
+    href: categoryByName(name) ? `/blogs/category/${categorySlug(name)}/` : "/blogs/",
+    /* One line per branch; the hubs carry the long blurbs. */
+    description: categoryByName(name)?.summary ?? "",
+    /* The featured study already leads the section, so each branch previews
+       its most recent other study. */
+    latest: posts.find((post) => post !== posts[0] && post.data.category === name) ?? null,
+  }));
+
+/* The featured study leads the archive, so the contents list starts after it. */
+const ledgerPosts = posts.slice(1);
+const ledgerCount = (name: string) => ledgerPosts.filter((post) => post.data.category === name).length;
 
 const featured = posts[0];
-const featuredThumb = featured?.data.thumbnail ?? GENERIC_THUMB;
+const featuredArt = blogArtwork[featured.id];
+const featuredSrc = featuredArt?.src ?? featured.data.thumbnail ?? GENERIC_THUMB;
 
 const formatDate = (date: Date) =>
-  date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
-const folioOf = (post: (typeof posts)[number]) =>
-  String(posts.length - posts.indexOf(post)).padStart(3, "0");
-
-const calcReadingMinutes = (post?: (typeof posts)[number]) => {
-  if (!post) return 1;
-  const rawBody = post.body || "";
-  const words = rawBody.replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
+  date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+const folioOf = (post: Post) => String(posts.length - posts.indexOf(post)).padStart(3, "0");
+const readingMinutes = (post: Post) => {
+  const words = (post.body || "").replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 };
-
-const featuredReadingMinutes = calcReadingMinutes(featured);
-const corpusStats = CORPUS_META.counts;
-
-const previewDataMap: Record<string, any> = {
-  all: {
-    id: featured.id,
-    href: `/blogs/${featured.id}/`,
-    title: featured.data.title,
-    description: featured.data.description,
-    category: featured.data.category,
-    date: formatDate(featured.data.date),
-    rawDate: featured.data.date.toISOString().slice(0, 10),
-    isNew: isNewPost(featured.data.date),
-    thumbnail: featuredThumb,
-    readingMinutes: featuredReadingMinutes,
-    folio: folioOf(featured),
-    tags: (featured.data.tags || []).slice(0, 4),
-    badgeText: "Latest Investigation",
-  },
-};
-
-for (const cat of categories) {
-  if (cat.topPost) {
-    previewDataMap[cat.name] = {
-      id: cat.topPost.id,
-      href: `/blogs/${cat.topPost.id}/`,
-      title: cat.topPost.data.title,
-      description: cat.topPost.data.description,
-      category: cat.topPost.data.category,
-      date: formatDate(cat.topPost.data.date),
-      rawDate: cat.topPost.data.date.toISOString().slice(0, 10),
-      isNew: isNewPost(cat.topPost.data.date),
-      thumbnail: cat.topPost.data.thumbnail ?? GENERIC_THUMB,
-      readingMinutes: calcReadingMinutes(cat.topPost),
-      folio: folioOf(cat.topPost),
-      tags: (cat.topPost.data.tags || []).slice(0, 4),
-      badgeText: `Lead Study // ${cat.name}`,
-    };
-  }
-}
+const thumbOf = (post: Post) => blogArtwork[post.id]?.thumbnail ?? post.data.thumbnail ?? GENERIC_THUMB;
 
 const videos = [
   { id: "HWHjCfaPn_0", thumb: "https://i.ytimg.com/vi/HWHjCfaPn_0/maxresdefault.jpg" },
@@ -126,3018 +67,419 @@ const videos = [
   { id: "boG5JTD5yXU", thumb: "https://i.ytimg.com/vi/boG5JTD5yXU/maxresdefault.jpg" },
   { id: "MLaRB6uGhAk", thumb: "/images/yt tn/yt-MLaRB6uGhAk.webp" },
 ];
+
+/* Every figure below is read from the data each project is built from. */
+const n = (value: number) => value.toLocaleString("en-US");
+const icmaCount = academicStudies.filter((study) => study.category === "icma").length;
+const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
+
+const databases = [
+  {
+    href: "/hadith/",
+    art: "corpus",
+    kind: "Textual corpus",
+    arabic: "الحديث",
+    title: "Hadith Corpus",
+    desc: "Narrations in facing Arabic and English, searchable across every compilation, with each chain linked to its transmitters.",
+    figures: [`${n(CORPUS_META.counts.hadith)} narrations`, `${CORPUS_META.counts.collections} collections`],
+    action: "Search the corpus",
+  },
+  {
+    href: "/narrators/",
+    art: "rijal",
+    kind: "Biographical register",
+    arabic: "الرجال",
+    title: "Rijāl Register",
+    desc: "Classical transmitters with dates, teachers and students, and every critic’s statement attributed to its author.",
+    figures: [`${n(CORPUS_META.counts.narrators)} transmitters`, `${n(CORPUS_META.counts.criticismStatements)} statements`],
+    action: "Browse the register",
+  },
+  {
+    href: "/projects/quran/",
+    art: "qiraat",
+    kind: "Variant readings",
+    arabic: "القراءات",
+    title: "The Qirāʾāt Variants",
+    desc: "The ten readings set side by side, word by word, with the classical books that report each one.",
+    figures: ["10 readers", `${qiraatIndex.suras_with_data} of 114 suras`],
+    action: "Compare the readings",
+  },
+  {
+    href: "/projects/tafsir/",
+    art: "tafsir",
+    kind: "Verse-first reader",
+    arabic: "التفسير",
+    title: "Tafsir Reader",
+    desc: "A reading framework built around the verse as its stable unit, organized sura by sura.",
+    figures: ["114 suras", `${n(totalVerses)} verses`],
+    action: "Open the reader",
+  },
+];
+
+const research = [
+  {
+    href: "/projects/islamic-studies-atlas/",
+    art: "atlas",
+    kind: "Research network",
+    arabic: "الدراسات",
+    title: "Islamic Studies Atlas",
+    desc: "Modern scholarship on ḥadīth criticism, with the citations between works traced one study at a time.",
+    figures: [`${researchGraph.works.length} works`, `${researchGraph.scholars.length} scholars`],
+    action: "Explore the atlas",
+  },
+  {
+    href: "/projects/academic-studies/",
+    art: "icma",
+    kind: "Isnād-cum-matn studies",
+    arabic: "الإسناد والمتن",
+    title: "The ICMA Register",
+    desc: "Studies that trace a tradition to its common link and date it, grouped by research family.",
+    figures: [`${icmaCount} studies`, "Common link and dating on every entry"],
+    action: "Browse the register",
+  },
+];
 ---
 
 <BaseLayout title="HadithCritic | Verification Over Reputation">
-  <link slot="head" rel="preload" as="image" href="/images/asset1.webp" />
-  <section class="hero-section" data-motion="hero">
-    <div class="hero-media" aria-hidden="true"></div>
-    <div class="hc-container">
-      <div class="hero-content">
-        <h1 class="hero-title">
-          Tracing the origins of <span class="hero-title-accent">early traditions.</span>
+  <div class="home hc-plate">
+    <section class="home-hero" aria-labelledby="home-title">
+      <img
+        class="home-hero__art"
+        src="/images/platform/home.webp"
+        srcset="/images/platform/home-1086.webp 1086w, /images/platform/home.webp 2172w"
+        sizes="(max-width: 640px) 100vw, 72vw"
+        width="2172"
+        height="724"
+        alt=""
+        fetchpriority="high"
+      />
+      <div class="hc-container home-hero__inner">
+        <h1 id="home-title" class="home-hero__title">
+          Tracing the origins of{" "}
+          <span class="home-hero__accent">early traditions.</span>
         </h1>
-        <p class="hero-subtitle">
-          Textual criticism, transmission forensics, and source verification—recovering early Islamic history through rigorous evidentiary research.
+        <span class="hc-ornament home-hero__ornament" aria-hidden="true"></span>
+        <p class="home-hero__lede">
+          Textual criticism, transmission forensics, and source verification:
+          recovering early Islamic history through rigorous evidentiary research.
         </p>
-        <div class="hero-actions">
-          <a href="/blogs/" class="hc-btn hero-btn-primary">
-            Browse the archive <span aria-hidden="true">&rarr;</span>
-          </a>
-          <a href="/academia/" class="hc-btn hc-btn--ghost hero-btn-ghost">Read the research</a>
+        <div class="home-hero__actions">
+          <a href="/blogs/" class="hc-btn">Browse the archive <span aria-hidden="true">→</span></a>
+          <a href="/academia/" class="hc-btn hc-btn--ghost">Read the research</a>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section
-    data-motion="reveal"
-    class="hc-section archive-journal-section"
-    aria-labelledby="archive-journal-title"
-  >
-    <div class="hc-container">
-      <header class="journal-header">
-        <div>
-          <h2 id="archive-journal-title" class="hc-title hc-title--md">
-            From the <em>archive</em>
-          </h2>
-          <p class="hc-copy journal-header-copy">
-            Essays and research notes on transmission, prophecy reports, Quranic
-            authority, epistemology, and scriptural history.
-          </p>
-        </div>
-        <a href="/blogs/" class="hc-btn hc-btn--ghost">
-          Browse all {posts.length} entries <span aria-hidden="true">→</span>
-        </a>
-      </header>
-
-      <div class="archive-preview-container">
-        <!-- Live Filter Status Banner (reveals when category is active) -->
-        <div class="archive-filter-banner" id="archive-filter-banner" hidden>
-          <div class="filter-banner__left">
-            <span class="filter-banner__dot" aria-hidden="true"></span>
-            <span class="filter-banner__label">Filtering by Branch:</span>
-            <strong class="filter-banner__cat" id="filter-banner-cat">Category Name</strong>
-            <span class="filter-banner__count" id="filter-banner-count">(N Studies)</span>
-          </div>
-          <div class="filter-banner__actions">
-            <a href="/blogs/" class="filter-banner__explore-btn" id="filter-banner-explore-link">
-              Browse All in Category <span aria-hidden="true">→</span>
-            </a>
-            <button type="button" class="filter-banner__reset-btn" id="filter-banner-reset-btn" aria-label="Reset filter to show overall latest">
-              Reset <span aria-hidden="true">✕</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="journal-feature-grid">
-          <a
-            href={`/blogs/${featured.id}/`}
-            class="journal-feature-card"
-            id="journal-feature-card"
-            data-category={featured.data.category}
-          >
-            <div class="journal-feature-media">
-              <img
-                src={featuredThumb}
-                alt={`Cover illustration for ${featured.data.title}`}
-                class="journal-feature-img"
-                id="journal-feature-img"
-                loading="eager"
-                decoding="async"
-              />
-            </div>
-            <div class="journal-feature-copy">
-              <div class="journal-feature-kicker">
-                <div class="journal-feature-badge" id="journal-feature-badge">
-                  <span class="feature-badge__dot"></span>
-                  <span class="feature-badge__text">Latest Investigation</span>
-                </div>
-                <div class="journal-feature-folio-tag" id="journal-feature-folio">
-                  <span class="folio-tag__prefix">FOLIO</span>
-                  <span class="folio-tag__val">HC-{folioOf(featured)}</span>
-                </div>
-              </div>
-              <div class="journal-feature-top">
-                <span
-                  class="journal-category"
-                  id="journal-feature-cat"
-                  data-category={featured.data.category}
-                >
-                  {featured.data.category}
-                </span>
-                <time
-                  class="journal-feature-date"
-                  id="journal-feature-date"
-                  datetime={featured.data.date.toISOString().slice(0, 10)}
-                >
-                  {formatDate(featured.data.date)}
-                </time>
-                <span class="journal-feature-readtime" id="journal-feature-readtime">
-                  <svg class="readtime-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                  <span>{featuredReadingMinutes} min read</span>
-                </span>
-                {
-                  isNewPost(featured.data.date) && (
-                    <span class="new-badge" id="journal-feature-new">New</span>
-                  )
-                }
-              </div>
-              <h3 id="journal-feature-title">{featured.data.title}</h3>
-              <p id="journal-feature-desc">{featured.data.description}</p>
-              <div class="journal-feature-tags" id="journal-feature-tags">
-                {
-                  featured.data.tags && featured.data.tags.slice(0, 4).map((tag: string) => (
-                    <span class="journal-tag">#{tag}</span>
-                  ))
-                }
-              </div>
-              <div class="journal-meta">
-                <span class="journal-meta-cta">
-                  Read the investigation <span class="journal-meta-arrow" aria-hidden="true">→</span>
-                </span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Archive Filter Instruction Bar -->
-          <div class="archive-categories-intro">
-            <div class="categories-intro-heading">
-              <span class="intro-glyph" aria-hidden="true">✦</span>
-              <span class="intro-title">Filter by Research Branch</span>
-            </div>
-            <p class="intro-hint">Select a dossier below to preview branch investigations</p>
-          </div>
-
-          <nav class="journal-categories" aria-label="Browse entries by category">
-            {
-              categories.map((category, catIdx) => (
-                <div
-                  class="journal-category-tile dossier-folder"
-                  data-category={category.name}
-                  data-cat-index={catIdx}
-                  role="button"
-                  tabindex="0"
-                  aria-pressed="false"
-                  aria-label={`Filter archive preview by ${category.name}, ${category.count} ${category.count === 1 ? 'Study' : 'Studies'}`}
-                >
-                  <!-- Archival Dossier Header -->
-                  <div class="dossier-tab-header">
-                    <span class="dossier-tab-tag">
-                      <span class="dossier-code">DOSSIER // 0{catIdx + 1}</span>
-                    </span>
-                    <span class="dossier-category-pill">
-                      <span class="journal-category-dot" />
-                      <span>{category.count} {category.count === 1 ? 'Study' : 'Studies'}</span>
-                    </span>
-                  </div>
-
-                  <div class="dossier-body">
-                    <h3 class="journal-category-title">{category.name}</h3>
-                  </div>
-
-                  <!-- Desktop Manuscript Slips (Peek Preview) -->
-                  {category.previewPosts.length > 0 && (
-                    <div class="dossier-slips-pocket" aria-hidden="true">
-                      {category.previewPosts.map((preview, pIdx) => (
-                        <div class={`dossier-slip dossier-slip--${pIdx + 1}`}>
-                          <span class="dossier-slip-folio">No. {folioOf(preview)}</span>
-                          <span class="dossier-slip-title">{preview.data.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <!-- Mobile Compact Slip (clean single-line reference without clipping) -->
-                  {category.previewPosts[0] && (
-                    <div class="dossier-mobile-peek" aria-hidden="true">
-                      <span class="mobile-peek-label">Lead:</span>
-                      <span class="mobile-peek-title">{category.previewPosts[0].data.title}</span>
-                    </div>
-                  )}
-
-                  <div class="journal-category-foot">
-                    <span class="dossier-filter-hint">
-                      <span class="hint-filter-text">Filter Preview</span>
-                      <span class="hint-active-text">Active Filter</span>
-                    </span>
-                    <a
-                      href={`/blogs?category=${encodeURIComponent(category.name)}`}
-                      class="journal-category-foot-link"
-                      tabindex="0"
-                      aria-label={`Open full archive for ${category.name}`}
-                    >
-                      <span>Explore</span>
-                      <span class="foot-glyph" aria-hidden="true">→</span>
-                    </a>
-                  </div>
-                </div>
-              ))
-            }
-          </nav>
-        </div>
-
-        <script is:inline id="archive-preview-payloads" type="application/json" set:html={JSON.stringify(previewDataMap)} />
-      </div>
-
-      <div class="home-ledger-wrap">
-        <div class="home-ledger-header">
-          <div class="home-ledger-header-copy">
-            <div class="home-ledger-kicker">
-              <span class="home-ledger-kicker-dot" aria-hidden="true"></span>
-              <span class="home-ledger-kicker-text">Chronological Dispatches</span>
-              <span class="home-ledger-kicker-count">{posts.length} Studies</span>
-            </div>
-            <h3 class="home-ledger-title">Latest studies &amp; analysis</h3>
-            <p class="home-ledger-subtitle">
-              Recent critical investigations into transmission chains and early texts.
+    <section class="home-archive" aria-labelledby="archive-title">
+      <div class="hc-container">
+        <header class="home-head">
+          <div class="home-head__main">
+            <h2 id="archive-title" class="home-head__title">From the <span>archive</span></h2>
+            <p class="home-head__note">
+              Essays and research notes on transmission, prophecy reports, Quranic
+              authority, epistemology, and scriptural history.
             </p>
           </div>
-          <div
-            class="home-ledger-filters"
-            role="group"
-            aria-label="Filter latest studies by category"
-          >
-            <div class="home-filter-magnet-pill" aria-hidden="true"></div>
-            <button
-              type="button"
-              class="home-filter-tab is-active"
-              data-home-filter="all"
-              data-total-count={posts.length}
-            >
-              <span class="home-tab__dot" aria-hidden="true"></span>
-              <span>All ({posts.length})</span>
-            </button>
-            {
-              categories.map((c) => (
-                <button
-                  type="button"
-                  class="home-filter-tab"
-                  data-home-filter={c.name}
-                  data-category={c.name}
-                  data-total-count={c.count}
-                >
-                  <span class="home-tab__dot" aria-hidden="true" />
-                  <span>
-                    {c.name} ({c.count})
-                  </span>
-                </button>
-              ))
-            }
+          <a href="/blogs/" class="home-head__link">
+            Browse all {posts.length} entries <span aria-hidden="true">→</span>
+          </a>
+        </header>
+
+        <article class="home-feature hc-parchment" data-category={featured.data.category}>
+          <div class="home-feature__copy">
+            <p class="home-feature__meta">
+              <span class="home-feature__label">Latest investigation</span>
+              <span class="home-cat" data-category={featured.data.category}>{featured.data.category}</span>
+              <time datetime={isoDate(featured.data.date)}>{formatDate(featured.data.date)}</time>
+              <span>{readingMinutes(featured)} min read</span>
+              {isNewPost(featured.data.date) && <span class="home-new">New</span>}
+            </p>
+            <h3 class="home-feature__title">
+              <a href={`/blogs/${featured.id}/`} class="home-feature__link">{featured.data.title}</a>
+            </h3>
+            {featured.data.description && <p class="home-feature__desc">{featured.data.description}</p>}
+            <p class="home-feature__foot">
+              <span class="home-feature__folio">Folio {folioOf(featured)}</span>
+              <span class="home-feature__cta" aria-hidden="true">Read the investigation <span>→</span></span>
+            </p>
           </div>
-        </div>
+          <figure class="home-feature__plate">
+            <img
+              src={featuredSrc}
+              srcset={featuredArt?.srcset}
+              sizes="(max-width: 800px) 100vw, 40vw"
+              width={featuredArt?.width ?? 1536}
+              height={featuredArt?.height ?? 1024}
+              alt={featuredArt?.alt ?? ""}
+              loading="eager"
+              decoding="async"
+            />
+          </figure>
+        </article>
+
+        <nav class="home-branches" aria-label="Research branches">
+          <ul>
+            {categories.map((category) => (
+              <li class="home-branch" data-category={category.name}>
+                <p class="home-branch__head">
+                  <a href={category.href} class="home-branch__name">{category.name}</a>
+                  <span class="home-branch__count">{category.count} {category.count === 1 ? "study" : "studies"}</span>
+                </p>
+                <p class="home-branch__desc">{category.description}</p>
+                {category.latest && (
+                  <p class="home-branch__latest">
+                    <span class="home-branch__latest-label">Recent</span>{" "}
+                    <a href={`/blogs/${category.latest.id}/`}>{category.latest.data.title}</a>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
+    </section>
+
+    <section class="home-contents" aria-labelledby="contents-title">
+      <div class="hc-container home-contents__grid">
+        <header class="home-contents__head">
+          <h2 id="contents-title" class="home-head__title">Latest studies <span>&amp;</span> analysis</h2>
+          <p class="home-head__note">Recent critical investigations into transmission chains and early texts.</p>
+
+          <!-- Filtering is a script enhancement; without it the branch links above
+               lead to each category's full index. -->
+          <div class="home-ledger-filters" role="group" aria-label="Filter latest studies by category" hidden>
+            <button type="button" class="home-filter-tab is-active" data-home-filter="all" aria-pressed="true">
+              <span class="home-filter-tab__name">All branches</span>
+              <span class="home-filter-tab__n">{ledgerPosts.length}</span>
+            </button>
+            {categories.map((category) => (
+              <button
+                type="button"
+                class="home-filter-tab"
+                data-home-filter={category.name}
+                data-category={category.name}
+                data-href={category.href}
+                aria-pressed="false"
+              >
+                <span class="home-filter-tab__name">{category.name}</span>
+                <span class="home-filter-tab__n">{ledgerCount(category.name)}</span>
+              </button>
+            ))}
+          </div>
+
+          <p class="home-contents__status">
+            <span id="home-ledger-count-label">Showing {Math.min(LEDGER_SIZE, ledgerPosts.length)} of {ledgerPosts.length} earlier studies</span>
+            <a href="/blogs/" id="home-ledger-cta" class="home-head__link">Open the full archive <span aria-hidden="true">→</span></a>
+          </p>
+        </header>
 
         <ol class="home-ledger" id="home-ledger">
-          {
-            posts.map((post, index) => (
-              <li
-                class="home-ledger-row"
-                data-category={post.data.category}
-                hidden={index >= 5}
-              >
-                <a href={`/blogs/${post.id}/`} class="home-ledger-link">
-                  <div class="home-ledger-folio">
-                    <span class="home-ledger-no">
-                      <span class="folio-glyph" aria-hidden="true">◈</span>
-                      <span>No. {folioOf(post)}</span>
-                    </span>
-                    <time datetime={post.data.date.toISOString().slice(0, 10)}>
-                      {formatDate(post.data.date)}
-                    </time>
-                    <span class="home-ledger-readtime">
-                      <svg class="readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                      <span>{calcReadingMinutes(post)} min read</span>
-                    </span>
-                  </div>
-                  <div class="home-ledger-body">
-                    <div class="home-ledger-top">
-                      <span
-                        class="home-ledger-cat"
-                        data-category={post.data.category}
-                      >
-                        <span class="home-ledger-cat-dot" aria-hidden="true"></span>
-                        {post.data.category}
-                      </span>
-                      {isNewPost(post.data.date) && (
-                        <span class="new-badge">New</span>
-                      )}
-                    </div>
-                    <h4 class="home-ledger-heading">{post.data.title}</h4>
-                    {post.data.description && (
-                      <p class="home-ledger-desc">
-                        {post.data.description}
-                      </p>
-                    )}
-                  </div>
-                  <div class="home-ledger-action" aria-hidden="true">
-                    <span class="home-ledger-action-label">Read folio</span>
-                    <div class="home-ledger-arrow">
-                      <svg
-                        width="15"
-                        height="15"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                      </svg>
-                    </div>
-                  </div>
-                </a>
-              </li>
-            ))
-          }
+          {ledgerPosts.map((post, index) => (
+            <li class="home-ledger-row" data-category={post.data.category} hidden={index >= LEDGER_SIZE}>
+              <article class="home-entry">
+                <p class="home-entry__folio" aria-hidden="true">
+                  <span>No.</span>
+                  <span class="home-entry__num">{folioOf(post)}</span>
+                </p>
+                <div class="home-entry__body">
+                  <p class="home-entry__cat">
+                    <span class="home-cat" data-category={post.data.category}>{post.data.category}</span>
+                    {isNewPost(post.data.date) && <span class="home-new">New</span>}
+                  </p>
+                  <h3 class="home-entry__title">
+                    <a href={`/blogs/${post.id}/`} class="home-entry__link">{post.data.title}</a>
+                  </h3>
+                  {post.data.description && <p class="home-entry__desc">{post.data.description}</p>}
+                  <p class="home-entry__meta">
+                    <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+                    <span>{readingMinutes(post)} min read</span>
+                    <span class="sr-only">Folio {folioOf(post)}</span>
+                  </p>
+                </div>
+                <div class="home-entry__aside">
+                  <img src={thumbOf(post)} alt="" width="160" height="160" loading="lazy" decoding="async" />
+                  <span class="home-entry__go" aria-hidden="true">Read <span>→</span></span>
+                </div>
+              </article>
+            </li>
+          ))}
         </ol>
-
-        <div class="home-ledger-footer">
-          <div class="home-ledger-footer-status">
-            <span class="home-ledger-footer-dot" aria-hidden="true"></span>
-            <span id="home-ledger-count-label">Showing 5 of {posts.length} investigations</span>
-          </div>
-          <a href="/blogs/" class="hc-btn hc-btn--ghost home-ledger-cta-btn" id="home-ledger-cta">
-            Explore All {posts.length} Studies in Archive <span
-              aria-hidden="true">→</span
-            >
-          </a>
-        </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section
-    data-motion="reveal"
-    class="hc-section youtube-preview-section"
-    aria-labelledby="lectures-title"
-  >
-    <div class="hc-container">
-      <header class="journal-header">
-        <div>
-          <h2 id="lectures-title" class="hc-title hc-title--md">
-            Lectures in <em>video</em>
-          </h2>
-          <p class="hc-copy journal-header-copy">
-            Deep dives into transmission history and source criticism, in visual
-            form.
-          </p>
-        </div>
-        <a href="/youtube/" class="hc-btn hc-btn--ghost">
-          Visit the channel <span aria-hidden="true">→</span>
-        </a>
-      </header>
+    <section class="home-lectures" aria-labelledby="lectures-title">
+      <div class="hc-container">
+        <header class="home-head">
+          <div class="home-head__main">
+            <h2 id="lectures-title" class="home-head__title">Lectures in <span>video</span></h2>
+            <p class="home-head__note">Deep dives into transmission history and source criticism, in visual form.</p>
+          </div>
+          <a href="/youtube/" class="home-head__link">Visit the channel <span aria-hidden="true">→</span></a>
+        </header>
 
-      <div class="youtube-grid">
-        {
-          videos.map((vid) => (
-            <button
-              type="button"
-              class="yt-lite"
+        <div class="youtube-grid">
+          {videos.map((vid, index) => (
+            <a
+              href={`https://www.youtube.com/watch?v=${vid.id}`}
+              class:list={["yt-lite", index === 0 && "yt-lite--lead"]}
               data-video-id={vid.id}
               aria-label="Play video lecture"
             >
-              <img
-                src={vid.thumb}
-                alt=""
-                width="800"
-                height="450"
-                loading="lazy"
-                decoding="async"
-              />
+              <img src={vid.thumb} alt="" width="800" height="450" loading="lazy" decoding="async" />
               <span class="yt-play" aria-hidden="true">
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M8 5.5v13l11-6.5z" />
-                </svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
               </span>
-              <span class="yt-label" aria-hidden="true">
-                Watch
-              </span>
-            </button>
-          ))
-        }
-      </div>
-    </div>
-  </section>
-
-  <section
-    class="hc-section projects-section"
-    aria-labelledby="projects-title"
-    data-motion="reveal"
-  >
-    <div class="hc-container">
-      <header class="journal-header">
-        <div>
-          <h2 id="projects-title" class="hc-title hc-title--md">
-            Large-scale <em>projects</em>
-          </h2>
-          <p class="hc-copy journal-header-copy">
-            Research infrastructure for source criticism, transmission analysis, and manuscript verification.
-          </p>
-        </div>
-        <a href="/projects/" class="hc-btn hc-btn--ghost">
-          See all projects <span aria-hidden="true">→</span>
-        </a>
-      </header>
-
-      <div class="projects-renovation">
-        <div class="projects-live-grid">
-          <!-- Hadith corpus feature -->
-          <a href="/hadith/" class="project-showcase project-showcase--hadith">
-            <img
-              class="project-showcase__art"
-              src="/images/hadith-corpus-art.webp"
-              alt=""
-              aria-hidden="true"
-              width="1536"
-              height="1024"
-              loading="lazy"
-              decoding="async"
-            />
-            <span class="project-showcase__content">
-              <span class="project-showcase__eyebrow">Textual corpus</span>
-              <span class="project-showcase__heading">
-                <span class="project-showcase__title">Hadith Corpus</span>
-                <span class="project-showcase__ar" dir="rtl" lang="ar">المكنز الحديثي الشامل</span>
-              </span>
-              <span class="project-showcase__desc">
-                Search {corpusStats.hadith.toLocaleString("en-GB")} narrations across {corpusStats.collections} collections. Read Arabic and English texts alongside their linked transmission chains.
-              </span>
-              <span class="project-showcase__stats" aria-label="Hadith corpus figures">
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.hadith.toLocaleString("en-GB")}</span>
-                  <span class="project-showcase__label">Narrations</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.collections}</span>
-                  <span class="project-showcase__label">Collections</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.chainLinks.toLocaleString("en-GB")}</span>
-                  <span class="project-showcase__label">Chain links</span>
-                </span>
-              </span>
-              <span class="project-showcase__footer">
-                <span class="project-showcase__note">Arabic and English search</span>
-                <span class="project-showcase__cta">Search the corpus</span>
-              </span>
-            </span>
-          </a>
-
-          <!-- Rijal transmitter register feature -->
-          <a href="/narrators/" class="project-showcase project-showcase--rijal">
-            <img
-              class="project-showcase__art"
-              src="/images/rijal-register-art.webp"
-              alt=""
-              aria-hidden="true"
-              width="1672"
-              height="941"
-              loading="lazy"
-              decoding="async"
-            />
-            <span class="project-showcase__content">
-              <span class="project-showcase__eyebrow">Biographical register</span>
-              <span class="project-showcase__heading">
-                <span class="project-showcase__title">Rijāl Register</span>
-                <span class="project-showcase__ar" dir="rtl" lang="ar">طبقات الرواة والرجال</span>
-              </span>
-              <span class="project-showcase__desc">
-                Trace named transmitters through teacher and student links. Consult biographical records and criticism attributed to its classical sources.
-              </span>
-              <span class="project-showcase__stats" aria-label="Transmitter register figures">
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.narrators.toLocaleString("en-GB")}</span>
-                  <span class="project-showcase__label">Named transmitters</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.narratorsDated.toLocaleString("en-GB")}</span>
-                  <span class="project-showcase__label">With dates</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">{corpusStats.criticismStatements.toLocaleString("en-GB")}</span>
-                  <span class="project-showcase__label">Source statements</span>
-                </span>
-              </span>
-              <span class="project-showcase__footer">
-                <span class="project-showcase__note">No in-house reliability rating</span>
-                <span class="project-showcase__cta">Browse transmitters</span>
-              </span>
-            </span>
-          </a>
-          <!-- Quranic textual variants feature -->
-          <a href="/projects/quran/" class="project-showcase">
-            <img
-              class="project-showcase__art"
-              src="/images/quran-variants-art-v2.webp"
-              alt=""
-              aria-hidden="true"
-              width="1672"
-              height="941"
-              loading="lazy"
-              decoding="async"
-            />
-            <span class="project-showcase__content">
-              <span class="project-showcase__eyebrow">Textual documentation</span>
-              <span class="project-showcase__heading">
-                <span class="project-showcase__title">Quran</span>
-                <span class="project-showcase__ar" dir="rtl" lang="ar">القرآن</span>
-              </span>
-              <span class="project-showcase__desc">
-                Documented cases of variant Quranic wording, readings, and other textual differences, with the sources and context for each case.
-              </span>
-              <span class="project-showcase__stats" aria-label="Quran project scope">
-                <span class="project-showcase__stat"><span class="project-showcase__number">Text</span><span class="project-showcase__label">Word variants</span></span>
-                <span class="project-showcase__stat"><span class="project-showcase__number">Readings</span><span class="project-showcase__label">Qirāʾāt</span></span>
-                <span class="project-showcase__stat"><span class="project-showcase__number">Sources</span><span class="project-showcase__label">Case records</span></span>
-              </span>
-              <span class="project-showcase__footer">
-                <span class="project-showcase__note">Source-based textual cases</span>
-                <span class="project-showcase__cta">Explore Quran cases</span>
-              </span>
-            </span>
-          </a>
-          <!-- Academic studies feature -->
-          <a href="/projects/academic-studies/" class="project-showcase">
-            <img
-              class="project-showcase__art"
-              src="/images/academic-studies-art.webp"
-              alt=""
-              aria-hidden="true"
-              width="1536"
-              height="1024"
-              loading="lazy"
-              decoding="async"
-            />
-            <span class="project-showcase__content">
-              <span class="project-showcase__eyebrow">Academic scholarship</span>
-              <span class="project-showcase__heading">
-                <span class="project-showcase__title">Academic Studies</span>
-                <span class="project-showcase__ar" dir="rtl" lang="ar">الدراسات الأكاديمية</span>
-              </span>
-              <span class="project-showcase__desc">
-                Explore isnād-cum-matn monographs examining early transmission, textual origins, and the formation of Islamic literature.
-              </span>
-              <span class="project-showcase__stats" aria-label="Academic studies figures">
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">27</span>
-                  <span class="project-showcase__label">Monographs</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">7</span>
-                  <span class="project-showcase__label">Research families</span>
-                </span>
-                <span class="project-showcase__stat">
-                  <span class="project-showcase__number">1st–3rd C.</span>
-                  <span class="project-showcase__label">Termini</span>
-                </span>
-              </span>
-              <span class="project-showcase__footer">
-                <span class="project-showcase__note">Monographs by research family</span>
-                <span class="project-showcase__cta">Explore the studies</span>
-              </span>
-            </span>
-          </a>
+            </a>
+          ))}
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
+    <section class="home-projects" aria-labelledby="projects-title">
+      <div class="hc-container">
+        <header class="home-head">
+          <div class="home-head__main">
+            <h2 id="projects-title" class="home-head__title">Large-scale <span>projects</span></h2>
+            <p class="home-head__note">
+              Research infrastructure for source criticism, transmission analysis, and manuscript verification.
+            </p>
+          </div>
+          <a href="/projects/" class="home-head__link">See all projects <span aria-hidden="true">→</span></a>
+        </header>
 
-  <section class="hc-section closing-banner-section" data-motion="reveal">
-    <div class="hc-container">
-      <div class="closing-banner">
-        <div class="closing-copy">
-          <h2 class="hc-title hc-title--md">
-            Truth is sought through evidence and transmitted with integrity.
-          </h2>
-          <p class="closing-lead">
-            Questions, corrections, collaboration, and source submissions are
-            welcome.
-          </p>
-          <a href="/contact/" class="hc-btn">Write to HadithCritic</a>
+        <div class="home-suite">
+          <h3 class="home-suite__label">Databases <span>Reference instruments, read in your browser</span></h3>
+          <ul class="home-suite__grid home-suite__grid--databases">
+            {databases.map((project) => (
+              <li>
+                <a href={project.href} class={`home-project home-project--${project.art}`}>
+                  <img class="home-project__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
+                  <span class="home-project__kind">
+                    {project.kind}
+                    <span class="home-project__ar" lang="ar" dir="rtl">{project.arabic}</span>
+                  </span>
+                  <span class="home-project__title">{project.title}</span>
+                  <span class="home-project__desc">{project.desc}</span>
+                  <span class="home-project__figures">
+                    {project.figures.map((figure) => <span>{figure}</span>)}
+                  </span>
+                  <span class="home-project__action">{project.action} <span aria-hidden="true">→</span></span>
+                </a>
+              </li>
+            ))}
+          </ul>
+
+          <h3 class="home-suite__label">Research <span>Maps and registers of the scholarship</span></h3>
+          <ul class="home-suite__grid home-suite__grid--research">
+            {research.map((project) => (
+              <li>
+                <a href={project.href} class={`home-project home-project--wide home-project--${project.art}`}>
+                  <img class="home-project__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
+                  <span class="home-project__kind">
+                    {project.kind}
+                    <span class="home-project__ar" lang="ar" dir="rtl">{project.arabic}</span>
+                  </span>
+                  <span class="home-project__title">{project.title}</span>
+                  <span class="home-project__desc">{project.desc}</span>
+                  <span class="home-project__figures">
+                    {project.figures.map((figure) => <span>{figure}</span>)}
+                  </span>
+                  <span class="home-project__action">{project.action} <span aria-hidden="true">→</span></span>
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
+
+    <section class="home-closing" aria-labelledby="closing-title">
+      <div class="hc-container">
+        <div class="closing-banner hc-parchment">
+          <figure class="closing-banner__plate">
+            <img src="/images/editorial/contact-hero-1086.webp" alt="" width="1086" height="362" loading="lazy" decoding="async" />
+          </figure>
+          <div class="closing-banner__copy">
+            <h2 id="closing-title" class="closing-banner__title">
+              Truth is sought through evidence and transmitted with integrity.
+            </h2>
+            <p class="closing-banner__lead">
+              Questions, corrections, collaboration, and source submissions are welcome.
+            </p>
+          </div>
+          <a href="/contact/" class="closing-banner__action">Write to HadithCritic <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+    </section>
+  </div>
 </BaseLayout>
-
-<style>
-  /* Hero */
-
-  /* The hero ground is a single flat surface colour. The illustration sits on
-     its own masked layer (.hero-media) rather than as a background layer here,
-     because a background image cannot be masked independently of the gradients
-     stacked with it — which is what produced the visible vertical seam where
-     `background-size: contain` ended.
-
-     The two grounds also did not match: asset1.webp letterboxes to a warm
-     rgb(12,12,10) while --hc-surface-0 is a cool rgb(15,15,16), so the join
-     shifted hue as well as value. Masking the illustration's edges to nothing
-     makes the exact black irrelevant in both themes. */
-  .hero-section {
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule);
-    background-color: var(--hc-surface-0);
-    background-image: radial-gradient(
-      circle at 18% 44%,
-      rgba(216, 177, 102, 0.08),
-      transparent 28%
-    );
-    overflow: hidden;
-    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(2rem, 3.5vw, 2.75rem);
-  }
-
-  .hero-media {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background-image: url("/images/asset1.webp");
-    background-size: contain;
-    background-position: right center;
-    background-repeat: no-repeat;
-    pointer-events: none;
-    /* Dissolve every edge into the ground. The horizontal stops reproduce the
-       weighting of the scrim this replaced (2% / 4% / 32% / 82% / 92% visible),
-       so the illustration keeps its original prominence behind the headline —
-       the difference is that it now fades to nothing on the left instead of
-       ending on a vertical line, and the vertical mask does the same top and
-       bottom. */
-    --hero-fade-y: 10%;
-    -webkit-mask-image:
-      linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(0, 0, 0, 0.04) 28%,
-        rgba(0, 0, 0, 0.32) 46%,
-        rgba(0, 0, 0, 0.82) 72%,
-        rgba(0, 0, 0, 0.92) 100%
-      ),
-      linear-gradient(
-        180deg,
-        transparent 0%,
-        #000 var(--hero-fade-y),
-        #000 calc(100% - var(--hero-fade-y)),
-        transparent 100%
-      );
-    mask-image:
-      linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(0, 0, 0, 0.04) 28%,
-        rgba(0, 0, 0, 0.32) 46%,
-        rgba(0, 0, 0, 0.82) 72%,
-        rgba(0, 0, 0, 0.92) 100%
-      ),
-      linear-gradient(
-        180deg,
-        transparent 0%,
-        #000 var(--hero-fade-y),
-        #000 calc(100% - var(--hero-fade-y)),
-        transparent 100%
-      );
-    -webkit-mask-composite: source-in;
-    mask-composite: intersect;
-  }
-
-  :global([data-theme="light"]) .hero-media {
-    background-image: url("/images/asset1-light.webp");
-  }
-
-  /* Without mask support the illustration would render at full strength across
-     the whole hero and swamp the headline, so it is withheld entirely. The
-     layer is decorative and aria-hidden, so nothing is lost but the picture. */
-  @supports not ((mask-image: linear-gradient(#000, #000)) or
-                 (-webkit-mask-image: linear-gradient(#000, #000))) {
-    .hero-media {
-      display: none;
-    }
-  }
-
-  :global([data-theme="light"]) .hero-section {
-    background-color: var(--hc-surface-0);
-    background-image: radial-gradient(
-      circle at 18% 44%,
-      rgba(176, 126, 44, 0.08),
-      transparent 28%
-    );
-  }
-
-  .hero-section::before {
-    content: "";
-    position: absolute;
-    inset: 18px;
-    border: 1px solid rgba(216, 177, 102, 0.16);
-    pointer-events: none;
-    z-index: 3;
-  }
-
-  :global([data-theme="light"]) .hero-section::before {
-    border-color: rgba(176, 126, 44, 0.22);
-  }
-
-  .hero-section::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background:
-      linear-gradient(
-        180deg,
-        rgba(15, 15, 16, 0.1),
-        rgba(15, 15, 16, 0.02) 45%,
-        rgba(15, 15, 16, 0.5)
-      ),
-      radial-gradient(
-        circle at 75% 58%,
-        rgba(216, 177, 102, 0.1),
-        transparent 30%
-      );
-    pointer-events: none;
-  }
-
-  :global([data-theme="light"]) .hero-section::after {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(251, 249, 244, 0.05),
-        rgba(251, 249, 244, 0.02) 45%,
-        rgba(251, 249, 244, 0.45)
-      ),
-      radial-gradient(
-        circle at 75% 58%,
-        rgba(176, 126, 44, 0.06),
-        transparent 30%
-      );
-  }
-
-  .hero-section .hc-container {
-    position: relative;
-    z-index: 2;
-  }
-
-  .hero-content {
-    max-width: 780px;
-    padding: clamp(1rem, 2vw, 2rem) 0;
-  }
-
-  .hero-title {
-    margin: 0 0 0.85rem;
-    font-family: var(--font-display, serif);
-    font-size: clamp(2.21rem, 5.5vw, 3.82rem);
-    font-weight: 400;
-    line-height: 0.98;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary, #f5f2eb);
-    animation: rise 0.8s var(--ease) 70ms both;
-  }
-
-  .hero-title-accent {
-    font-style: italic;
-    color: var(--hc-gold, #c8a755);
-  }
-
-  .hero-subtitle {
-    margin: 0 0 1.75rem;
-    font-family: var(--font-body, serif);
-    font-size: clamp(1rem, 1.25vw, 1.15rem);
-    line-height: 1.65;
-    color: var(--hc-text-secondary, #b5b0a5);
-    max-width: 56ch;
-    animation: rise 0.8s var(--ease) 140ms both;
-  }
-
-  :global([data-theme="light"]) .hero-subtitle {
-    color: var(--hc-text-secondary);
-  }
-
-  .hero-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    animation: rise 0.8s var(--ease) 200ms both;
-  }
-
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(18px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Shared section header */
-
-  .journal-header {
-    display: flex;
-    align-items: end;
-    justify-content: space-between;
-    gap: 2rem;
-    margin-bottom: clamp(2rem, 4vw, 3.25rem);
-  }
-
-  .journal-header > div {
-    max-width: 720px;
-  }
-
-  .journal-header .hc-title em {
-    font-style: italic;
-    color: var(--hc-gold);
-  }
-
-  .journal-header-copy {
-    margin: 0.85rem 0 0;
-    max-width: 56ch;
-  }
-
-  /* Featured study & Archive Preview */
-
-  .archive-preview-container {
-    position: relative;
-    margin-top: 0.5rem;
-  }
-
-  /* Live Filter Status Banner */
-  .archive-filter-banner[hidden] {
-    display: none;
-  }
-
-  .archive-filter-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.75rem 1.15rem;
-    margin-bottom: 1.25rem;
-    border-radius: var(--radius-sm);
-    background: linear-gradient(
-      90deg,
-      rgba(216, 177, 102, 0.12) 0%,
-      var(--hc-surface-1) 100%
-    );
-    border: 1px solid rgba(216, 177, 102, 0.35);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-    animation: bannerFadeSlide 240ms ease forwards;
-  }
-
-  @keyframes bannerFadeSlide {
-    from {
-      opacity: 0;
-      transform: translateY(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .filter-banner__left {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-wrap: wrap;
-  }
-
-  .filter-banner__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-  }
-
-  .filter-banner__label {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-text-tertiary);
-    font-weight: 600;
-  }
-
-  .filter-banner__cat {
-    font-family: var(--font-display);
-    font-size: 0.98rem;
-    color: var(--hc-gold);
-    font-weight: 600;
-  }
-
-  .filter-banner__count {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .filter-banner__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .filter-banner__explore-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    text-decoration: none;
-    color: var(--hc-gold);
-    padding: 0.3rem 0.75rem;
-    border-radius: var(--radius-pill);
-    background: rgba(216, 177, 102, 0.12);
-    border: 1px solid rgba(216, 177, 102, 0.3);
-    transition: background 180ms ease, border-color 180ms ease;
-  }
-
-  .filter-banner__explore-btn:hover {
-    background: rgba(216, 177, 102, 0.22);
-    border-color: var(--hc-gold);
-  }
-
-  .filter-banner__reset-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-pill);
-    color: var(--hc-text-secondary);
-    padding: 0.3rem 0.65rem;
-    cursor: pointer;
-    transition: background 180ms ease, color 180ms ease;
-  }
-
-  .filter-banner__reset-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--hc-text-primary);
-  }
-
-  .journal-feature-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-
-  .journal-feature-card {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    align-items: center;
-    gap: clamp(1.25rem, 2vw, 2rem);
-    padding: clamp(1rem, 1.6vw, 1.4rem);
-    overflow: hidden;
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    border: 1px solid var(--cat-border, var(--hc-rule));
-    background:
-      radial-gradient(
-        800px circle at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
-        rgba(216, 177, 102, 0.08),
-        transparent 45%
-      ),
-      linear-gradient(
-        135deg,
-        var(--cat-bg, var(--hc-surface-1)) 0%,
-        var(--hc-surface-0) 100%
-      );
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
-    transition:
-      border-color 300ms ease,
-      box-shadow 300ms ease,
-      transform 300ms var(--ease),
-      opacity 200ms ease;
-  }
-
-  .journal-feature-card.is-transitioning {
-    opacity: 0.38;
-    transform: scale(0.995);
-  }
-
-  .journal-feature-card:hover {
-    border-color: var(--cat-color, var(--hc-gold));
-    box-shadow:
-      0 20px 50px rgba(0, 0, 0, 0.3),
-      0 0 24px var(--cat-bg, rgba(216, 177, 102, 0.18));
-    transform: translateY(-2px);
-  }
-
-  .journal-feature-media {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #080808;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--hc-rule-soft);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    overflow: hidden;
-  }
-
-  .journal-feature-img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-    display: block;
-    transition: transform 400ms var(--ease);
-  }
-
-  .journal-feature-card:hover .journal-feature-img {
-    transform: scale(1.02);
-  }
-
-  .journal-feature-kicker {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    margin-bottom: 0.1rem;
-  }
-
-  .journal-feature-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.25rem 0.65rem;
-    border-radius: var(--radius-pill);
-    background: rgba(20, 19, 18, 0.9);
-    border: 1px solid rgba(216, 177, 102, 0.45);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .feature-badge__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-  }
-
-  .journal-feature-folio-tag {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: 4px;
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-  }
-
-  .folio-tag__prefix {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-    letter-spacing: 0.08em;
-    font-weight: 600;
-  }
-
-  .folio-tag__val {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--hc-gold);
-  }
-
-  .journal-feature-copy {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.85rem;
-  }
-
-  .journal-feature-top {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.65rem;
-  }
-
-  .journal-category {
-    display: inline-flex;
-    width: fit-content;
-    padding: 0.22rem 0.65rem;
-    border: 1px solid var(--cat-border, var(--hc-rule));
-    border-radius: var(--radius-pill);
-    color: var(--cat-color, var(--hc-gold-soft));
-    background: var(--cat-bg, rgba(216, 177, 102, 0.08));
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
-    font-weight: 700;
-  }
-
-  .journal-feature-date {
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .journal-feature-readtime {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .readtime-icon {
-    color: var(--hc-gold);
-    opacity: 0.85;
-  }
-
-  .new-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.16rem 0.55rem;
-    border-radius: var(--radius-pill);
-    background: rgba(224, 90, 71, 0.14);
-    border: 1px solid rgba(224, 90, 71, 0.4);
-    color: var(--cat-prophecies-text);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .journal-feature-copy h3 {
-    margin: 0;
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    font-size: clamp(1.38rem, 2.2vw, 1.85rem);
-    line-height: 1.18;
-    text-wrap: balance;
-    transition: color 250ms ease;
-  }
-
-  .journal-feature-card:hover h3 {
-    color: var(--cat-color, var(--hc-gold-soft));
-  }
-
-  .journal-feature-copy > p {
-    color: var(--hc-text-secondary);
-    margin: 0;
-    font-size: 1.02rem;
-    line-height: 1.62;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .journal-feature-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.38rem;
-  }
-
-  .journal-tag {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-    background: var(--hc-surface-2);
-    padding: 0.12rem 0.48rem;
-    border-radius: 4px;
-    border: 1px solid var(--hc-rule-soft);
-    transition: color 180ms ease, border-color 180ms ease;
-  }
-
-  .journal-feature-card:hover .journal-tag {
-    border-color: var(--cat-border, var(--hc-rule));
-  }
-
-  .journal-meta {
-    margin-top: auto;
-    padding-top: 0.4rem;
-  }
-
-  .journal-meta-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--cat-color, var(--hc-gold));
-    font-family: var(--font-ui);
-    font-size: 0.88rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    transition: gap 200ms ease;
-  }
-
-  .journal-feature-card:hover .journal-meta-cta {
-    gap: 0.75rem;
-  }
-
-  .journal-meta-arrow {
-    transition: transform 200ms ease;
-  }
-
-  .journal-feature-card:hover .journal-meta-arrow {
-    transform: translateX(4px);
-  }
-
-  /* Category Filter Introduction */
-  .archive-categories-intro {
-    margin-top: 1.75rem;
-    margin-bottom: 0.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .categories-intro-heading {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .intro-glyph {
-    color: var(--hc-gold);
-    font-size: 0.82rem;
-  }
-
-  .intro-title {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-secondary);
-  }
-
-  .intro-hint {
-    margin: 0;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  /* Category tiles deck - Archival Dossier Folders */
-
-  .journal-categories {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.15rem;
-    margin-top: 0.75rem;
-  }
-
-  .journal-category-tile {
-    cursor: pointer;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: clamp(0.95rem, 1.4vw, 1.2rem);
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    border: 1px solid var(--cat-border, var(--hc-rule));
-    border-top: 3px solid var(--cat-color, var(--hc-gold));
-    background:
-      radial-gradient(
-        400px circle at var(--card-spotlight-x, 50%) var(--card-spotlight-y, 50%),
-        var(--cat-bg, rgba(216, 177, 102, 0.1)),
-        transparent 50%
-      ),
-      linear-gradient(
-        180deg,
-        var(--cat-bg, rgba(216, 177, 102, 0.08)) 0%,
-        var(--hc-surface-1) 32%,
-        var(--hc-surface-0) 100%
-      );
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-    overflow: hidden;
-    transition:
-      border-color 220ms ease,
-      box-shadow 220ms ease,
-      transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background 220ms ease;
-  }
-
-  .journal-category-tile:hover {
-    border-color: var(--cat-color, var(--hc-gold));
-    box-shadow:
-      0 14px 32px rgba(0, 0, 0, 0.25),
-      0 0 20px var(--cat-bg, rgba(216, 177, 102, 0.15));
-    transform: translateY(-3px);
-  }
-
-  .journal-category-tile.is-active {
-    border-color: var(--cat-color, var(--hc-gold));
-    box-shadow:
-      0 16px 36px rgba(0, 0, 0, 0.32),
-      0 0 24px var(--cat-bg, rgba(216, 177, 102, 0.25));
-    background: linear-gradient(
-      180deg,
-      var(--cat-bg, rgba(216, 177, 102, 0.2)) 0%,
-      var(--hc-surface-2) 32%,
-      var(--hc-surface-1) 100%
-    );
-    transform: translateY(-3px);
-  }
-
-  .dossier-tab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.85rem;
-    gap: 0.4rem;
-  }
-
-  .dossier-tab-tag {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    color: var(--hc-text-tertiary);
-    text-transform: uppercase;
-  }
-
-  .dossier-category-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.18rem 0.52rem;
-    border-radius: var(--radius-pill);
-    background: var(--cat-bg, rgba(216, 177, 102, 0.1));
-    border: 1px solid var(--cat-border, var(--hc-rule));
-    color: var(--cat-color, var(--hc-gold));
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .journal-category-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--cat-color, var(--hc-gold));
-    box-shadow: 0 0 6px var(--cat-color, var(--hc-gold));
-  }
-
-  .dossier-body {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .journal-category-title {
-    margin: 0 0 0.5rem;
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.15rem, 1.4vw, 1.28rem);
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-    min-height: 2.6rem;
-    transition: color 220ms ease;
-  }
-
-  .journal-category-tile:hover .journal-category-title,
-  .journal-category-tile.is-active .journal-category-title {
-    color: var(--cat-color, var(--hc-gold-soft));
-  }
-
-  .journal-category-desc {
-    margin: 0 0 0.75rem;
-    color: var(--hc-text-secondary);
-    font-size: 0.88rem;
-    line-height: 1.48;
-  }
-
-  /* Interior Manuscript Slips Pocket */
-  .dossier-slips-pocket {
-    position: relative;
-    margin: 0.4rem 0 0.85rem;
-    height: 58px;
-  }
-
-  .dossier-slip {
-    position: absolute;
-    left: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.55rem;
-    border-radius: var(--radius-sm);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-    transition:
-      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      border-color 200ms ease,
-      opacity 200ms ease,
-      box-shadow 200ms ease;
-  }
-
-  .dossier-slip-folio {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.75rem;
-    color: var(--hc-gold);
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-
-  .dossier-slip-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.2;
-    font-size: 0.75rem;
-  }
-
-  .dossier-slip--1 {
-    top: 0;
-    z-index: 3;
-    transform: translateY(0) scale(1);
-  }
-
-  .dossier-slip--2 {
-    top: 6px;
-    z-index: 2;
-    transform: translateY(6px) scale(0.96);
-    background: var(--hc-surface-1);
-    opacity: 0.85;
-  }
-
-  .dossier-slip--3 {
-    top: 12px;
-    z-index: 1;
-    transform: translateY(12px) scale(0.92);
-    background: var(--hc-surface-0);
-    opacity: 0.65;
-  }
-
-  .journal-category-tile:hover .dossier-slip--1,
-  .journal-category-tile.is-active .dossier-slip--1 {
-    transform: translateY(-8px) scale(1);
-    border-color: var(--cat-border, var(--hc-rule-strong));
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
-    color: var(--hc-text-primary);
-  }
-
-  .journal-category-tile:hover .dossier-slip--2,
-  .journal-category-tile.is-active .dossier-slip--2 {
-    transform: translateY(2px) scale(0.97);
-    opacity: 0.95;
-    border-color: var(--cat-border, var(--hc-rule));
-  }
-
-  .journal-category-tile:hover .dossier-slip--3,
-  .journal-category-tile.is-active .dossier-slip--3 {
-    transform: translateY(12px) scale(0.94);
-    opacity: 0.8;
-  }
-
-  /* Mobile Compact Peek - hidden on desktop */
-  .dossier-mobile-peek {
-    display: none;
-  }
-
-  .journal-category-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    margin-top: auto;
-  }
-
-  .dossier-filter-hint {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--hc-text-tertiary);
-    font-weight: 600;
-  }
-
-  .hint-active-text {
-    display: none;
-  }
-
-  .journal-category-tile.is-active .hint-filter-text {
-    display: none;
-  }
-
-  .journal-category-tile.is-active .hint-active-text {
-    display: inline;
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .journal-category-foot-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.32rem;
-    text-decoration: none;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--cat-color, var(--hc-gold));
-    padding: 0.18rem 0.48rem;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--cat-border, var(--hc-rule-soft));
-    transition: background 180ms ease, border-color 180ms ease;
-  }
-
-  .journal-category-foot-link:hover {
-    background: var(--cat-bg, rgba(216, 177, 102, 0.16));
-    border-color: var(--cat-color, var(--hc-gold));
-  }
-
-  .journal-category-foot .foot-glyph {
-    transition: transform 200ms ease;
-  }
-
-  .journal-category-tile:hover .journal-category-foot .foot-glyph {
-    transform: translateX(3px);
-  }
-
-  /* Latest entries ledger */
-
-  .home-ledger-wrap {
-    margin-top: clamp(2.5rem, 5vw, 4rem);
-  }
-
-  .home-ledger-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    flex-wrap: wrap;
-    gap: 1.25rem;
-    margin-bottom: 1.75rem;
-  }
-
-  .home-ledger-header-copy {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .home-ledger-kicker {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.55rem;
-  }
-
-  .home-ledger-kicker-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px rgba(216, 177, 102, 0.7);
-  }
-
-  .home-ledger-kicker-text {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .home-ledger-kicker-count {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-    padding: 0.08rem 0.45rem;
-    border-radius: var(--radius-pill);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-  }
-
-  .home-ledger-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.02em;
-    font-size: clamp(1.42rem, 2.5vw, 1.85rem);
-    color: var(--hc-text-primary);
-  }
-
-  .home-ledger-subtitle {
-    margin: 0.35rem 0 0;
-    color: var(--hc-text-secondary);
-    font-size: 1.02rem;
-    line-height: 1.5;
-  }
-
-  .home-ledger-filters {
-    position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .home-filter-magnet-pill {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 0;
-    border-radius: var(--radius-pill);
-    pointer-events: none;
-    z-index: 1;
-    opacity: 0;
-    transition:
-      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background-color 180ms ease,
-      box-shadow 180ms ease,
-      opacity 120ms ease;
-  }
-
-  /* Unique Category Color System for Home Filters .
-     As in blogs/index.astro, the --home-tab-active-bg fills stay theme-fixed
-     because the active label is a fixed near-black. */
-  .home-filter-tab[data-home-filter="all"] {
-    --home-tab-color: var(--hc-gold);
-    --home-tab-bg: rgba(200, 155, 75, 0.12);
-    --home-tab-border: rgba(200, 155, 75, 0.35);
-    --home-tab-active-bg: #c89b4b;
-    --home-tab-active-text: #141312;
-  }
-
-  .home-filter-tab[data-category="Origins & Early History"],
-  .home-filter-tab[data-home-filter="Origins & Early History"] {
-    --home-tab-color: var(--cat-history-text);
-    --home-tab-bg: rgba(212, 139, 82, 0.12);
-    --home-tab-border: rgba(212, 139, 82, 0.35);
-    --home-tab-active-bg: #c4783d;
-    --home-tab-active-text: #ffffff;
-  }
-
-  .home-filter-tab[data-category="Prophecies & Eschatology"],
-  .home-filter-tab[data-home-filter="Prophecies & Eschatology"] {
-    --home-tab-color: var(--cat-prophecies-text);
-    --home-tab-bg: rgba(224, 90, 71, 0.12);
-    --home-tab-border: rgba(224, 90, 71, 0.35);
-    --home-tab-active-bg: #c94532;
-    --home-tab-active-text: #ffffff;
-  }
-
-  .home-filter-tab[data-category="Theology & Epistemology"],
-  .home-filter-tab[data-home-filter="Theology & Epistemology"] {
-    --home-tab-color: var(--cat-theology-text);
-    --home-tab-bg: rgba(79, 168, 108, 0.12);
-    --home-tab-border: rgba(79, 168, 108, 0.35);
-    --home-tab-active-bg: #3f8e58;
-    --home-tab-active-text: #ffffff;
-  }
-
-  .home-filter-tab[data-category="Transmission & Narrators"],
-  .home-filter-tab[data-home-filter="Transmission & Narrators"] {
-    --home-tab-color: var(--cat-philosophy-text);
-    --home-tab-bg: rgba(96, 143, 214, 0.12);
-    --home-tab-border: rgba(96, 143, 214, 0.35);
-    --home-tab-active-bg: #4f78b8;
-    --home-tab-active-text: #ffffff;
-  }
-
-  .home-filter-tab {
-    position: relative;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.38rem 0.85rem;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--home-tab-border, var(--hc-rule));
-    background: var(--hc-surface-1);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-    transition: all 180ms ease;
-  }
-
-  .home-tab__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--home-tab-color, var(--hc-gold));
-    display: inline-block;
-    flex-shrink: 0;
-    transition: transform 180ms ease;
-  }
-
-  .home-filter-tab:hover {
-    color: var(--home-tab-color, var(--hc-text-primary));
-    border-color: var(--home-tab-color, var(--hc-rule-strong));
-    background: var(--home-tab-bg, var(--hc-surface-2));
-  }
-
-  .home-filter-tab:hover .home-tab__dot {
-    transform: scale(1.25);
-  }
-
-  .home-filter-tab.is-active {
-    color: var(--home-tab-active-text, #ffffff);
-    background: var(--home-tab-active-bg, var(--hc-gold));
-    border-color: var(--home-tab-active-bg, var(--hc-gold));
-    font-weight: 700;
-    box-shadow: 0 2px 10px
-      color-mix(in srgb, var(--home-tab-active-bg) 40%, transparent);
-  }
-
-  .home-ledger-filters[data-magnet-ready="true"] .home-filter-tab.is-active {
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
-  }
-
-  .home-filter-tab.is-active .home-tab__dot {
-    background: currentColor;
-  }
-
-  .home-ledger {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .home-ledger-row {
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    transition:
-      background 280ms ease,
-      border-bottom-color 240ms ease,
-      box-shadow 240ms ease;
-  }
-
-  .home-ledger-row[data-category="Origins & Early History"] {
-    --cat-color: var(--cat-history-text);
-  }
-
-  .home-ledger-row[data-category="Prophecies & Eschatology"] {
-    --cat-color: var(--cat-prophecies-text);
-  }
-
-  .home-ledger-row[data-category="Theology & Epistemology"] {
-    --cat-color: var(--cat-theology-text);
-  }
-
-  .home-ledger-row[data-category="Transmission & Narrators"] {
-    --cat-color: var(--cat-philosophy-text);
-  }
-
-  .home-ledger-row:hover {
-    background: radial-gradient(
-      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 10%, rgba(20, 19, 18, 0.65)) 0%,
-      rgba(15, 14, 13, 0.4) 55%,
-      transparent 85%
-    );
-    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 35%, var(--hc-rule));
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
-      0 10px 28px -10px rgba(0, 0, 0, 0.45);
-  }
-
-  :global([data-theme="light"]) .home-ledger-row:hover {
-    background: radial-gradient(
-      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 14%, rgba(245, 240, 230, 0.8)) 0%,
-      rgba(240, 234, 222, 0.45) 55%,
-      transparent 85%
-    );
-    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 25%, transparent),
-      0 6px 20px -6px rgba(0, 0, 0, 0.08);
-  }
-
-  .home-ledger-link {
-    display: grid;
-    grid-template-columns: 155px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: clamp(1.2rem, 2.5vw, 2.4rem);
-    padding: clamp(1.15rem, 1.6vw, 1.45rem) clamp(0.75rem, 1.2vw, 1.35rem);
-    text-decoration: none;
-    border-radius: var(--radius-sm);
-  }
-
-  .home-ledger-folio {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-  }
-
-  .home-ledger-no {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.18rem 0.55rem;
-    border-radius: 4px;
-    background: rgba(216, 177, 102, 0.05);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-gold);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-family: var(--font-mono, monospace);
-    width: fit-content;
-    transition: all 220ms ease;
-  }
-
-  .folio-glyph {
-    font-size: 0.75rem;
-    color: var(--cat-color, var(--hc-gold));
-    opacity: 0.45;
-    transform: scale(0.9);
-    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease, color 200ms ease;
-  }
-
-  .home-ledger-row:hover .home-ledger-no {
-    background: rgba(216, 177, 102, 0.12);
-    border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
-    color: var(--hc-gold-bright, #ffffff);
-    box-shadow: 0 0 12px rgba(216, 177, 102, 0.2);
-  }
-
-  .home-ledger-row:hover .folio-glyph {
-    opacity: 1;
-    transform: scale(1.15) rotate(45deg);
-    color: var(--cat-color, var(--hc-gold));
-  }
-
-  .home-ledger-folio time {
-    color: var(--hc-text-tertiary);
-    font-size: 0.82rem;
-  }
-
-  .home-ledger-readtime {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-  }
-
-  .home-ledger-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    min-width: 0;
-  }
-
-  .home-ledger-top {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-  }
-
-  .home-ledger-cat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    min-height: 22px;
-    padding: 0.12rem 0.55rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-pill);
-    color: var(--hc-gold-soft);
-    background: rgba(216, 177, 102, 0.06);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    white-space: nowrap;
-  }
-
-  .home-ledger-cat-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-
-  .home-ledger-cat[data-category="Origins & Early History"] {
-    color: var(--cat-history-text);
-    background: rgba(212, 139, 82, 0.12);
-    border-color: rgba(212, 139, 82, 0.32);
-  }
-
-  .home-ledger-cat[data-category="Prophecies & Eschatology"] {
-    color: var(--cat-prophecies-text);
-    background: rgba(224, 90, 71, 0.12);
-    border-color: rgba(224, 90, 71, 0.32);
-  }
-
-  .home-ledger-cat[data-category="Theology & Epistemology"] {
-    color: var(--cat-theology-text);
-    background: rgba(79, 168, 108, 0.12);
-    border-color: rgba(79, 168, 108, 0.32);
-  }
-
-  .home-ledger-cat[data-category="Transmission & Narrators"] {
-    color: var(--cat-philosophy-text);
-    background: rgba(96, 143, 214, 0.12);
-    border-color: rgba(96, 143, 214, 0.32);
-  }
-
-  .home-ledger-heading {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.24rem, 1.7vw, 1.45rem);
-    line-height: 1.22;
-    letter-spacing: -0.015em;
-    color: var(--hc-text-primary);
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    text-underline-offset: 6px;
-    text-decoration-thickness: 1.5px;
-    transition: color 200ms ease, text-decoration-color 260ms ease;
-  }
-
-  .home-ledger-row:hover .home-ledger-heading {
-    color: var(--hc-gold-soft);
-    text-decoration-color: var(--cat-color, var(--hc-gold));
-  }
-
-  .home-ledger-desc {
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    color: var(--hc-text-secondary);
-    font-size: 0.94rem;
-    line-height: 1.55;
-  }
-
-  .home-ledger-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-shrink: 0;
-  }
-
-  .home-ledger-action-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--cat-color, var(--hc-gold));
-    opacity: 0;
-    transform: translateX(6px);
-    transition: opacity 220ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    white-space: nowrap;
-    pointer-events: none;
-  }
-
-  .home-ledger-arrow {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 38px;
-    border: 1px solid var(--hc-rule);
-    border-radius: 50%;
-    color: var(--hc-gold);
-    background: var(--hc-surface-1);
-    transition: all 220ms ease;
-  }
-
-  .home-ledger-row:hover .home-ledger-action-label {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .home-ledger-row:hover .home-ledger-arrow {
-    color: var(--hc-fixed-black, #141312);
-    border-color: var(--cat-color, var(--hc-gold));
-    background: var(--cat-color, var(--hc-gold));
-    transform: translateX(3px);
-    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 50%, transparent);
-  }
-
-  .home-ledger-footer {
-    margin-top: 2.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding: 1.1rem 1.4rem;
-    border-radius: var(--radius-sm);
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-soft);
-  }
-
-  :global([data-theme="light"]) .home-ledger-footer {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-rule);
-  }
-
-  .home-ledger-footer-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .home-ledger-footer-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px rgba(216, 177, 102, 0.6);
-  }
-
-  .home-ledger-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-  }
-
-  /* Video lectures */
-
-  .youtube-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
-  }
-
-  .yt-lite {
-    position: relative;
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-md);
-    background: var(--hc-surface-1);
-    transition:
-      border-color 300ms ease,
-      box-shadow 300ms ease,
-      transform 300ms var(--ease);
-  }
-
-  .yt-lite::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: linear-gradient(
-      180deg,
-      rgba(15, 15, 16, 0) 50%,
-      rgba(15, 15, 16, 0.7) 100%
-    );
-    pointer-events: none;
-    opacity: 0.6;
-    transition: opacity 300ms ease;
-  }
-
-  .yt-lite:hover {
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-    transform: translateY(-4px);
-  }
-
-  .yt-lite:hover::after {
-    opacity: 0.9;
-  }
-
-  .yt-lite img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: saturate(0.92);
-    transition:
-      transform 450ms var(--ease),
-      filter 250ms ease;
-  }
-
-  .yt-lite:hover img {
-    transform: scale(1.05);
-    filter: saturate(1.1) contrast(1.05);
-  }
-
-  .yt-play {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2;
-    display: grid;
-    place-items: center;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    color: var(--hc-fixed-parchment);
-    background: color-mix(in srgb, var(--hc-fixed-black) 60%, transparent);
-    border: 1px solid rgba(216, 177, 102, 0.3);
-    backdrop-filter: blur(8px);
-    transition:
-      background 300ms ease,
-      color 300ms ease,
-      transform 300ms var(--ease),
-      border-color 300ms ease,
-      box-shadow 300ms ease;
-  }
-
-  .yt-play svg {
-    margin-left: 3px;
-  }
-
-  .yt-lite:hover .yt-play {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse);
-    border-color: var(--hc-gold);
-    transform: translate(-50%, -50%) scale(1.12);
-    box-shadow: 0 0 25px rgba(216, 177, 102, 0.35);
-  }
-
-  .yt-label {
-    position: absolute;
-    bottom: 12px;
-    right: 12px;
-    z-index: 2;
-    background: color-mix(in srgb, var(--hc-fixed-black) 85%, transparent);
-    color: var(--hc-gold-soft);
-    border: 1px solid rgba(216, 177, 102, 0.2);
-    border-radius: var(--radius-pill);
-    padding: 0.25rem 0.65rem;
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    backdrop-filter: blur(4px);
-    opacity: 0;
-    transform: translateY(10px);
-    transition:
-      opacity 300ms ease,
-      transform 300ms var(--ease);
-  }
-
-  .yt-lite:hover .yt-label {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .yt-lite iframe {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
-
-  /* Hallmark · pre-emit critique: P5 H5 E4 S5 R4 V5 */
-  /* Projects Section — illustrated archive panels */
-
-  .projects-renovation {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .projects-section .journal-header .hc-btn {
-    flex-shrink: 0;
-    white-space: nowrap;
-  }
-
-  /* Closing band */
-
-  .closing-banner {
-    position: relative;
-    min-height: 320px;
-    overflow: hidden;
-    background:
-      linear-gradient(
-        90deg,
-        rgba(78, 38, 18, 0.96) 0%,
-        rgba(78, 38, 18, 0.88) 38%,
-        rgba(78, 38, 18, 0.25) 68%,
-        rgba(78, 38, 18, 0) 100%
-      ),
-      url("/images/asset2.webp");
-    background-size: cover;
-    background-position: right center;
-    background-repeat: no-repeat;
-    display: grid;
-    align-items: center;
-  }
-
-  .closing-copy {
-    width: min(58%, 720px);
-    margin-right: auto;
-    padding: clamp(2rem, 5vw, 4rem);
-  }
-
-  .closing-copy .hc-title {
-    color: var(--hc-text-primary);
-    font-size: clamp(1.61rem, 3.2vw, 2.55rem);
-  }
-
-  .closing-lead {
-    margin: 1.15rem 0 2rem;
-    color: var(--hc-fixed-muted);
-    font-size: 1.14rem;
-    line-height: 1.65;
-    max-width: 44ch;
-  }
-
-  :global([data-theme="light"]) .closing-banner {
-    background:
-      linear-gradient(
-        90deg,
-        rgba(251, 249, 244, 0.98) 0%,
-        rgba(242, 236, 224, 0.94) 42%,
-        rgba(251, 249, 244, 0.4) 75%,
-        rgba(251, 249, 244, 0.1) 100%
-      ),
-      url("/images/asset2-light.webp");
-    background-size: cover;
-    background-position: right center;
-    background-repeat: no-repeat;
-    border: 1px solid var(--hc-rule);
-  }
-
-  :global([data-theme="light"]) .closing-lead {
-    color: var(--hc-text-secondary);
-  }
-
-  /* Responsive */
-
-  @media (max-width: 1024px) {
-    .journal-feature-grid,
-    .journal-feature-card {
-      grid-template-columns: 1fr;
-    }
-
-    .journal-feature-media {
-      min-height: auto;
-      aspect-ratio: 16 / 9;
-      width: 100%;
-    }
-
-    .youtube-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 900px) {
-    .projects-live-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .project-showcase {
-      min-height: 25rem;
-    }
-
-    .project-showcase__content {
-      min-height: 22.8rem;
-    }
-
-    .project-showcase__art {
-      width: 74%;
-      opacity: 0.78;
-    }
-
-    .journal-categories {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .home-ledger-link {
-      grid-template-columns: 140px minmax(0, 1fr) auto;
-      gap: 1.2rem;
-      padding: 1.05rem 0.6rem;
-      align-items: center;
-    }
-
-    .home-ledger-action-label {
-      display: none;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .project-showcase {
-      min-height: 25rem;
-      padding: 1.1rem;
-    }
-
-    .project-showcase__content {
-      min-height: 22.8rem;
-    }
-
-    .project-showcase__art {
-      width: 100%;
-      opacity: 0.58;
-      -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
-      mask-image: linear-gradient(90deg, transparent 0%, #000 42%, #000 100%);
-    }
-
-    .project-showcase::before {
-      background:
-        linear-gradient(90deg, var(--showcase-ink) 0%, color-mix(in srgb, var(--showcase-ink) 86%, transparent) 57%, color-mix(in srgb, var(--showcase-ink) 42%, transparent) 100%),
-        linear-gradient(0deg, color-mix(in srgb, var(--showcase-ink) 78%, transparent) 0%, transparent 54%);
-    }
-
-    .project-showcase__desc {
-      max-width: 34ch;
-    }
-
-    .project-showcase__stat {
-      padding-inline: 0.45rem;
-    }
-
-    .project-showcase__number {
-      font-size: 1rem;
-    }
-
-    .journal-categories {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.75rem;
-    }
-    .hero-section {
-      min-height: auto;
-      /* Add safe area compensation for notched devices */
-      padding-top: max(4rem, calc(2rem + var(--sat, 0px)));
-    }
-
-    /* On narrow screens the illustration sits behind the copy rather than
-       beside it, so the fade runs vertically instead of horizontally.
-
-       The layer is pinned to the illustration's own box (asset1.webp is
-       1916x821, so at full width it occupies 100/2.334 = 42.9vw) rather than
-       to the full hero. Masking the hero height instead would spread the
-       fade-in across the whole image and never reach full opacity. */
-    .hero-media {
-      inset: 0 0 auto 0;
-      height: 42.9vw;
-      background-position: center top;
-      opacity: 0.55;
-      -webkit-mask-image: linear-gradient(
-        180deg,
-        transparent 0%,
-        #000 26%,
-        #000 58%,
-        rgba(0, 0, 0, 0.4) 82%,
-        transparent 100%
-      );
-      mask-image: linear-gradient(
-        180deg,
-        transparent 0%,
-        #000 26%,
-        #000 58%,
-        rgba(0, 0, 0, 0.4) 82%,
-        transparent 100%
-      );
-      -webkit-mask-composite: source-over;
-      mask-composite: add;
-    }
-
-    .hero-section::before {
-      inset: 10px;
-    }
-
-    .hero-content {
-      padding-block: 4rem 3.25rem;
-    }
-
-    .hero-content .hc-title--xl {
-      font-size: clamp(2.29rem, 14vw, 3.1rem);
-      line-height: 1.03;
-    }
-
-    .hero-divider {
-      margin-block: 1.55rem 1rem;
-    }
-
-    .hero-subtitle {
-      max-width: 100%;
-      margin-bottom: 1.5rem;
-      font-size: 1.12rem;
-      line-height: 1.65;
-    }
-
-    .hero-actions {
-      gap: 0.75rem;
-    }
-
-    .hero-actions .hc-btn,
-    .journal-header .hc-btn,
-    .closing-copy .hc-btn {
-      width: 100%;
-    }
-
-    .journal-header {
-      display: block;
-    }
-
-    .journal-header .hc-btn {
-      margin-top: 1.25rem;
-    }
-
-    .archive-filter-banner {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.65rem;
-      padding: 0.75rem 0.9rem;
-    }
-
-    .filter-banner__actions {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-
-    .journal-feature-card {
-      grid-template-columns: 1fr;
-      padding: 0.85rem;
-      gap: 1rem;
-      min-height: auto;
-    }
-
-    .journal-feature-media {
-      min-height: auto;
-      aspect-ratio: 16 / 9;
-      width: 100%;
-      border-radius: var(--radius-sm);
-    }
-
-    .journal-feature-copy {
-      padding: 0.25rem 0.2rem 0.5rem;
-      gap: 0.75rem;
-    }
-
-    .journal-feature-copy h3 {
-      font-size: clamp(1.28rem, 5.2vw, 1.55rem);
-      line-height: 1.2;
-    }
-
-    .journal-feature-copy > p {
-      -webkit-line-clamp: 2;
-      font-size: 0.94rem;
-      line-height: 1.55;
-    }
-
-    .journal-feature-tags {
-      gap: 0.3rem;
-    }
-
-    .journal-tag {
-      font-size: 0.75rem;
-      padding: 0.1rem 0.4rem;
-    }
-
-    .journal-category-tile {
-      padding: 0.85rem 0.75rem;
-    }
-
-    .journal-category-title {
-      font-size: 0.98rem;
-      line-height: 1.22;
-      min-height: auto;
-      margin-bottom: 0.35rem;
-    }
-
-    .journal-category-desc {
-      display: none;
-    }
-
-    .dossier-tab-header {
-      margin-bottom: 0.5rem;
-      gap: 0.3rem;
-    }
-
-    .dossier-tab-tag {
-      font-size: 0.75rem;
-    }
-
-    .dossier-category-pill {
-      padding: 0.12rem 0.38rem;
-      font-size: 0.75rem;
-    }
-
-    .dossier-slips-pocket {
-      display: none;
-    }
-
-    .dossier-mobile-peek {
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.28rem 0.45rem;
-      background: var(--hc-surface-2);
-      border: 1px solid var(--hc-rule-soft);
-      border-radius: 4px;
-      margin: 0.35rem 0 0.55rem;
-      font-family: var(--font-ui);
-      font-size: 0.75rem;
-      color: var(--hc-text-secondary);
-    }
-
-    .mobile-peek-label {
-      color: var(--hc-gold);
-      font-weight: 700;
-      flex-shrink: 0;
-      font-size: 0.75rem;
-    }
-
-    .mobile-peek-title {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 0.75rem;
-    }
-
-    .journal-category-foot {
-      padding-top: 0.5rem;
-      font-size: 0.75rem;
-    }
-
-    .dossier-filter-hint {
-      font-size: 0.75rem;
-    }
-
-    .journal-category-foot-link {
-      padding: 0.15rem 0.42rem;
-      font-size: 0.75rem;
-    }
-
-    .home-ledger-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-
-    .home-ledger-filters {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-      padding: 4px 2px 8px;
-    }
-
-    .home-ledger-filters::-webkit-scrollbar {
-      display: none;
-    }
-
-    .youtube-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .home-ledger-link {
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-      padding: 1.1rem 0.6rem;
-      align-items: stretch;
-      min-width: 0;
-    }
-
-    .home-ledger-folio {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding-bottom: 0.4rem;
-      border-bottom: 1px dashed var(--hc-rule-soft);
-      gap: 0.5rem;
-    }
-
-    .home-ledger-no {
-      font-size: 0.75rem;
-    }
-
-    .home-ledger-folio time {
-      font-size: 0.75rem;
-      color: var(--hc-text-tertiary);
-    }
-
-    .home-ledger-readtime {
-      font-size: 0.75rem;
-    }
-
-    .home-ledger-body {
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      min-width: 0;
-    }
-
-    .home-ledger-title {
-      font-size: clamp(1.45rem, 8vw, 1.57rem);
-      overflow-wrap: break-word;
-      word-break: break-word;
-    }
-
-    .home-ledger-heading {
-      font-size: 1.05rem;
-      line-height: 1.25;
-    }
-
-    .home-ledger-desc {
-      font-size: 0.85rem;
-      line-height: 1.45;
-      -webkit-line-clamp: 2;
-    }
-
-    .home-ledger-action {
-      display: none;
-    }
-
-    .home-ledger-footer {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.85rem;
-      padding: 1rem;
-      text-align: center;
-    }
-
-    .home-ledger-footer-status {
-      justify-content: center;
-      font-size: 0.78rem;
-    }
-
-    .home-ledger-cta-btn {
-      justify-content: center;
-      width: 100%;
-    }
-
-    .home-ledger-cat {
-      max-width: 100%;
-      white-space: normal;
-      line-height: 1.25;
-      text-align: left;
-    }
-
-    .closing-banner {
-      background:
-        linear-gradient(
-          0deg,
-          rgba(78, 38, 18, 0.96) 0%,
-          rgba(78, 38, 18, 0.86) 55%,
-          rgba(78, 38, 18, 0.3) 100%
-        ),
-        url("/images/asset2.webp");
-      background-size: cover;
-      background-position: center top;
-    }
-
-    .closing-copy {
-      width: 100%;
-      margin-right: 0;
-      padding-top: 9rem;
-    }
-
-  }
-</style>
 
 <script>
   function initHome() {
-    // YouTube Lite Player
-    for (const button of document.querySelectorAll<HTMLButtonElement>(
-      ".yt-lite",
-    )) {
-      button.addEventListener(
-        "click",
-        () => {
-          const id = button.dataset.videoId;
-          if (!id) return;
-          const iframe = document.createElement("iframe");
-          iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
-          iframe.title = "YouTube video player";
-          iframe.allow =
-            "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-          iframe.allowFullscreen = true;
-          button.replaceChildren(iframe);
-        },
-        { once: true },
-      );
+    /* Lite YouTube player. Each tile is a real link to the video; with script
+       it is swapped for the privacy-enhanced embed in place. */
+    for (const link of document.querySelectorAll<HTMLAnchorElement>("a.yt-lite")) {
+      if (link.dataset.ready) continue;
+      link.dataset.ready = "1";
+      link.addEventListener("click", (event) => {
+        const id = link.dataset.videoId;
+        if (!id || event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        const frame = document.createElement("div");
+        frame.className = link.className;
+        frame.dataset.videoId = id;
+        const iframe = document.createElement("iframe");
+        iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+        iframe.title = "YouTube video player";
+        iframe.allow =
+          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+        iframe.allowFullscreen = true;
+        frame.appendChild(iframe);
+        link.replaceWith(frame);
+        iframe.focus();
+      });
     }
 
-    // Home Ledger Filter Tabs - Show first 5 blogs of each category
-    const filterContainer = document.querySelector<HTMLElement>(".home-ledger-filters");
-    const filterMagnetPill = filterContainer?.querySelector<HTMLElement>(".home-filter-magnet-pill");
-    const filterTabs =
-      document.querySelectorAll<HTMLButtonElement>(".home-filter-tab");
-    const ledgerRows = [
-      ...document.querySelectorAll<HTMLLIElement>(".home-ledger-row"),
-    ];
+    /* Contents filter. The group ships hidden and is revealed here, so a reader
+       without script never meets a control that does nothing. */
+    const group = document.querySelector<HTMLElement>(".home-ledger-filters");
+    if (!group || group.dataset.ready) return;
+    group.dataset.ready = "1";
+    group.hidden = false;
 
-    ledgerRows.forEach((row) => {
-      row.addEventListener("mousemove", (e) => {
-        const rect = row.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        row.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
-        row.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
-      });
-    });
-    const ctaBtn = document.getElementById("home-ledger-cta");
+    const tabs = [...group.querySelectorAll<HTMLButtonElement>(".home-filter-tab")];
+    const rows = [...document.querySelectorAll<HTMLLIElement>(".home-ledger-row")];
+    const label = document.getElementById("home-ledger-count-label");
+    const cta = document.getElementById("home-ledger-cta") as HTMLAnchorElement | null;
+    const SIZE = 5;
 
-    const updateMagnetPill = (tab: HTMLElement) => {
-      if (!filterMagnetPill || !filterContainer || !tab) return;
-      const cRect = filterContainer.getBoundingClientRect();
-      const tRect = tab.getBoundingClientRect();
-      const left = tRect.left - cRect.left;
-      const top = tRect.top - cRect.top;
-      filterMagnetPill.style.transform = `translate(${left}px, ${top}px)`;
-      filterMagnetPill.style.width = `${tRect.width}px`;
-      filterMagnetPill.style.height = `${tRect.height}px`;
-      filterMagnetPill.style.opacity = "1";
-      const activeBg = getComputedStyle(tab).getPropertyValue('--home-tab-active-bg').trim() || 'var(--hc-gold)';
-      filterMagnetPill.style.backgroundColor = activeBg;
-      filterMagnetPill.style.boxShadow = `0 2px 10px color-mix(in srgb, ${activeBg} 40%, transparent)`;
-    };
-
-    if (filterContainer && filterMagnetPill) {
-      filterContainer.setAttribute("data-magnet-ready", "true");
-      const initialActive = filterContainer.querySelector<HTMLButtonElement>(".home-filter-tab.is-active");
-      if (initialActive) updateMagnetPill(initialActive);
-      window.addEventListener("resize", () => {
-        const active = filterContainer.querySelector<HTMLButtonElement>(".home-filter-tab.is-active");
-        if (active) updateMagnetPill(active);
-      }, { passive: true });
-    }
-
-    const countLabel = document.getElementById("home-ledger-count-label");
-
-    const applyFilter = (filter: string, totalCount?: string) => {
-      let count = 0;
-      ledgerRows.forEach((row) => {
-        const rowCategory = row.dataset.category ?? "";
-        const matches = filter === "all" || rowCategory === filter;
-        if (matches && count < 5) {
-          row.hidden = false;
-          row.style.opacity = "1";
-          count++;
-        } else {
-          row.hidden = true;
-        }
-      });
-
-      if (countLabel) {
-        if (filter === "all") {
-          countLabel.textContent = `Showing ${count} of ${ledgerRows.length} investigations`;
-        } else {
-          countLabel.textContent = `Showing ${count} of ${totalCount || count} in ${filter}`;
-        }
+    const apply = (tab: HTMLButtonElement) => {
+      const filter = tab.dataset.homeFilter ?? "all";
+      let shown = 0;
+      let total = 0;
+      for (const row of rows) {
+        const matches = filter === "all" || row.dataset.category === filter;
+        if (matches) total += 1;
+        row.hidden = !(matches && shown < SIZE);
+        if (!row.hidden) shown += 1;
       }
-
-      if (ctaBtn) {
-        if (filter === "all") {
-          ctaBtn.setAttribute("href", "/blogs");
-          ctaBtn.innerHTML =
-            'Explore All Studies in Archive <span aria-hidden="true">→</span>';
-        } else {
-          ctaBtn.setAttribute(
-            "href",
-            `/blogs?category=${encodeURIComponent(filter)}`,
-          );
-          ctaBtn.innerHTML = `Explore All in ${filter} <span aria-hidden="true">→</span>`;
-        }
+      for (const other of tabs) {
+        const active = other === tab;
+        other.classList.toggle("is-active", active);
+        other.setAttribute("aria-pressed", String(active));
+      }
+      if (label) {
+        label.textContent = filter === "all"
+          ? `Showing ${shown} of ${total} earlier studies`
+          : `Showing ${shown} of ${total} in ${filter}`;
+      }
+      if (cta) {
+        cta.href = tab.dataset.href ?? "/blogs/";
+        cta.firstChild!.textContent = filter === "all" ? "Open the full archive " : `All of ${filter} `;
       }
     };
 
-    filterTabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const filter = tab.dataset.homeFilter ?? "all";
-        const totalCount = tab.dataset.totalCount;
-        filterTabs.forEach((t) => t.classList.toggle("is-active", t === tab));
-        updateMagnetPill(tab);
-        applyFilter(filter, totalCount);
-      });
-    });
-
-    // --- Archive Feature & Dossier Filter Controller ---
-    const initArchiveFeature = () => {
-      const card = document.getElementById("journal-feature-card") as HTMLAnchorElement | null;
-      const banner = document.getElementById("archive-filter-banner");
-      const bannerCat = document.getElementById("filter-banner-cat");
-      const bannerCount = document.getElementById("filter-banner-count");
-      const bannerExplore = document.getElementById("filter-banner-explore-link") as HTMLAnchorElement | null;
-      const bannerReset = document.getElementById("filter-banner-reset-btn");
-      const payloadEl = document.getElementById("archive-preview-payloads");
-      if (!card || !payloadEl) return;
-
-      let payloads: Record<string, any> = {};
-      try {
-        payloads = JSON.parse(payloadEl.textContent || "{}");
-      } catch {
-        return;
-      }
-
-      const categoryFolders = document.querySelectorAll<HTMLElement>(".journal-category-tile.dossier-folder");
-      let activeFilter: string | null = null;
-
-      // Mouse-tracking spotlight on preview card
-      card.addEventListener("mousemove", (e) => {
-        const rect = card.getBoundingClientRect();
-        const x = ((e.clientX - rect.left) / rect.width) * 100;
-        const y = ((e.clientY - rect.top) / rect.height) * 100;
-        card.style.setProperty("--spotlight-x", `${x.toFixed(1)}%`);
-        card.style.setProperty("--spotlight-y", `${y.toFixed(1)}%`);
-      });
-
-      // Mouse-tracking spotlight on category folder cards
-      categoryFolders.forEach((folder) => {
-        folder.addEventListener("mousemove", (e) => {
-          const rect = folder.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          folder.style.setProperty("--card-spotlight-x", `${x.toFixed(1)}%`);
-          folder.style.setProperty("--card-spotlight-y", `${y.toFixed(1)}%`);
-        });
-      });
-
-      const updatePreview = (catName: string | null) => {
-        const data = (catName && payloads[catName]) ? payloads[catName] : payloads["all"];
-        if (!data) return;
-
-        card.classList.add("is-transitioning");
-
-        setTimeout(() => {
-          card.href = data.href;
-          card.setAttribute("data-category", data.category);
-
-          const img = document.getElementById("journal-feature-img") as HTMLImageElement | null;
-          if (img) {
-            img.src = data.thumbnail;
-            img.alt = `Cover illustration for ${data.title}`;
-          }
-
-          const badge = document.getElementById("journal-feature-badge");
-          if (badge) {
-            const text = badge.querySelector<HTMLElement>(".feature-badge__text");
-            if (text) text.textContent = data.badgeText || "Investigation";
-          }
-
-          const folio = document.getElementById("journal-feature-folio");
-          if (folio) {
-            const val = folio.querySelector<HTMLElement>(".folio-tag__val");
-            if (val) val.textContent = `HC-${data.folio}`;
-          }
-
-          const catEl = document.getElementById("journal-feature-cat");
-          if (catEl) {
-            catEl.textContent = data.category;
-            catEl.setAttribute("data-category", data.category);
-          }
-
-          const dateEl = document.getElementById("journal-feature-date");
-          if (dateEl) {
-            dateEl.textContent = data.date;
-            dateEl.setAttribute("datetime", data.rawDate);
-          }
-
-          const readTime = document.getElementById("journal-feature-readtime");
-          if (readTime) {
-            const span = readTime.querySelector("span");
-            if (span) span.textContent = `${data.readingMinutes} min read`;
-          }
-
-          const newBadge = document.getElementById("journal-feature-new");
-          if (newBadge) {
-            newBadge.style.display = data.isNew ? "inline-flex" : "none";
-          }
-
-          const titleEl = document.getElementById("journal-feature-title");
-          if (titleEl) titleEl.textContent = data.title;
-
-          const descEl = document.getElementById("journal-feature-desc");
-          if (descEl) descEl.textContent = data.description;
-
-          const tagsEl = document.getElementById("journal-feature-tags");
-          if (tagsEl) {
-            tagsEl.innerHTML = (data.tags || [])
-              .map((t: string) => `<span class="journal-tag">#${t}</span>`)
-              .join("");
-          }
-
-          card.classList.remove("is-transitioning");
-        }, 140);
-
-        if (catName && catName !== "all" && payloads[catName]) {
-          if (banner && bannerCat && bannerExplore) {
-            banner.hidden = false;
-            bannerCat.textContent = catName;
-            if (bannerCount) {
-              const folder = [...categoryFolders].find((f) => f.dataset.category === catName);
-              const countPill = folder?.querySelector(".dossier-category-pill span:last-child");
-              bannerCount.textContent = countPill ? `(${countPill.textContent})` : "";
-            }
-            bannerExplore.href = `/blogs?category=${encodeURIComponent(catName)}`;
-            bannerExplore.innerHTML = `Browse All in ${catName} <span aria-hidden="true">→</span>`;
-          }
-        } else {
-          if (banner) banner.hidden = true;
-        }
-
-        categoryFolders.forEach((folder) => {
-          const isActive = folder.dataset.category === catName;
-          folder.classList.toggle("is-active", isActive);
-          folder.setAttribute("aria-pressed", isActive ? "true" : "false");
-        });
-      };
-
-      categoryFolders.forEach((folder) => {
-        folder.addEventListener("click", (e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest(".journal-category-foot-link")) {
-            return;
-          }
-          e.preventDefault();
-          const cat = folder.dataset.category ?? "";
-          if (activeFilter === cat) {
-            activeFilter = null;
-            updatePreview(null);
-          } else {
-            activeFilter = cat;
-            updatePreview(cat);
-          }
-        });
-
-        folder.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            const target = e.target as HTMLElement;
-            if (target.closest(".journal-category-foot-link")) return;
-            e.preventDefault();
-            folder.click();
-          }
-        });
-      });
-
-      if (bannerReset) {
-        bannerReset.addEventListener("click", () => {
-          activeFilter = null;
-          updatePreview(null);
-        });
-      }
-    };
-
-    initArchiveFeature();
+    for (const tab of tabs) tab.addEventListener("click", () => apply(tab));
   }
 
   if (document.readyState === "loading") {

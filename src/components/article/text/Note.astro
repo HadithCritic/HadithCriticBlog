@@ -1,0 +1,38 @@
+---
+/**
+ * The argument's own apparatus: a thesis, a conclusion, or a context note.
+ * One primitive, three registers, each set by typography and rules rather
+ * than a box (see src/styles/article.css, "Notes"):
+ *
+ *   claim    the statement the article argues, between two gold rules
+ *   verdict  the conclusion it reaches, the one shaded field in the system
+ *   context  background the argument leans on, an indented marginal note
+ *
+ * Authors use the named wrappers (ClaimBox, VerdictBox, ContextNote).
+ */
+export interface Props {
+  kind: 'claim' | 'verdict' | 'context';
+  title: string;
+  /** A short qualifier set beside the label, e.g. "Provisional". */
+  status?: string;
+  /** Context notes only: start closed, as a native disclosure. */
+  collapsible?: boolean;
+}
+
+const { kind, title, status, collapsible = false } = Astro.props;
+---
+
+{collapsible ? (
+  <details class={`hc-note hc-note--${kind}`}>
+    <summary class="hc-note__label">{title}</summary>
+    <div class="hc-note__body"><slot /></div>
+  </details>
+) : (
+  <div class={`hc-note hc-note--${kind}`} role="note" aria-label={title}>
+    <p class="hc-note__label">
+      <span>{title}</span>
+      {status && <span class="hc-note__status">{status}</span>}
+    </p>
+    <div class="hc-note__body"><slot /></div>
+  </div>
+)}

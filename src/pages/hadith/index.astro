@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { OG } from '../../lib/seo';
+import ResearchHero from "../../components/ResearchHero.astro";
 import { CORPUS_META } from '../../lib/corpus-config';
 
 /**
@@ -19,64 +21,36 @@ import { CORPUS_META } from '../../lib/corpus-config';
  */
 
 const books = CORPUS_META.collections;
+/* The largest collection sets the scale of every bar in the catalogue. */
+const largest = Math.max(...books.map((b) => b.hadith_count));
 const stats = {
   narrations: CORPUS_META.counts.hadith,
   collections: CORPUS_META.counts.collections,
   transmitters: CORPUS_META.counts.narrators
 };
 
-/** How many result cards get a staggered reveal before the delay is capped. */
-const REVEAL_CAP = 8;
 ---
 
-<BaseLayout
+<BaseLayout image={OG.corpus}
   title="Hadith Corpus & Textual Archive | HadithCritic"
   description={`Search ${stats.narrations.toLocaleString()} textual records across ${stats.collections} compilations in facing Arabic and English. Transmitters linked to biographical registers with descriptive apparatus.`}
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith Corpus', url: '/hadith/' }]}
 >
-  <div class="corpus-page">
-    <!-- Academic Hero & Archival Plate -->
-    <header class="corpus-hero">
-      <div class="wrap">
-        <div class="corpus-hero__plate">
-          <div class="corpus-hero__eyebrow-row">
-            <span class="corpus-docket-badge">Corpus Attestation Archive</span>
-            <span class="corpus-docket-status">Descriptive Critical Edition</span>
-          </div>
-
-          <h1 class="corpus-title">
-            The Hadith Research <span class="corpus-title__accent">Corpus</span>
-          </h1>
-
-          <p class="corpus-lead">
-            A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.
-          </p>
-
-          <div class="corpus-stat-grid" aria-label="Corpus Metadata Overview">
-            <div class="corpus-stat-card">
-              <span class="corpus-stat-card__val">{stats.narrations.toLocaleString()}</span>
-              <span class="corpus-stat-card__label">Archived Reports</span>
-              <span class="corpus-stat-card__desc">Bilingual Primary Texts</span>
-            </div>
-            <div class="corpus-stat-card">
-              <span class="corpus-stat-card__val">{stats.collections}</span>
-              <span class="corpus-stat-card__label">Compilations</span>
-              <span class="corpus-stat-card__desc">Canonical & Early Sources</span>
-            </div>
-            <div class="corpus-stat-card">
-              <span class="corpus-stat-card__val">{stats.transmitters.toLocaleString()}</span>
-              <span class="corpus-stat-card__label">Transmitters</span>
-              <span class="corpus-stat-card__desc">Biographical Index Links</span>
-            </div>
-            <div class="corpus-stat-card corpus-stat-card--accent">
-              <span class="corpus-stat-card__val">Empirical</span>
-              <span class="corpus-stat-card__label">Evaluation Model</span>
-              <span class="corpus-stat-card__desc">Unbiased Historical Data</span>
-            </div>
-          </div>
-        </div>
+  <div class="corpus-page rp-page rp-corpus">
+    <ResearchHero artwork="corpus" variant="corpus" title="The Hadith Research Corpus" titleId="corpus-title" kicker="Corpus Attestation Archive" arabic="الحديث">
+      <p>A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.</p>
+      <div slot="actions">
+        <a class="hc-btn" href="#corpus-q">Search the archive</a>
+        <a class="hc-btn hc-btn--ghost" href="#collections-heading">Browse the collections</a>
       </div>
-    </header>
+      <dl slot="signature" class="rp-card hc-parchment" aria-label="Corpus catalogue card">
+        <div class="rp-card__head"><dt>Catalogue card</dt><dd>Build {CORPUS_META.corpusVersion}</dd></div>
+        <div class="rp-card__lead"><dt>Narrations</dt><dd class="hc-project-hero__figure">{stats.narrations.toLocaleString()}</dd></div>
+        <div><dt>Compilations</dt><dd>{stats.collections}</dd></div>
+        <div><dt>Named transmitters</dt><dd>{stats.transmitters.toLocaleString()}</dd></div>
+        <div><dt>Chain links</dt><dd>{CORPUS_META.counts.chainLinks.toLocaleString()}</dd></div>
+      </dl>
+    </ResearchHero>
 
     <div class="wrap corpus-body">
       <section class="corpus-console" aria-label="Textual Search Console">
@@ -99,6 +73,7 @@ const REVEAL_CAP = 8;
                 autocomplete="off"
                 spellcheck="false"
               />
+              <label class="sr-only" for="corpus-q">Search the hadith corpus</label>
               <button type="submit" class="hc-searchbar__submit console-box__submit">
                 <span>Search Archive</span>
               </button>
@@ -163,28 +138,21 @@ const REVEAL_CAP = 8;
           </p>
         </div>
 
-        <div class="corpus-books-grid">
+        <ol class="catalog-ledger">
           {books.map((b, i) => (
-            <article class="book-card hc-reveal" style={`--reveal-delay:${Math.min(i, REVEAL_CAP)}`}>
-              <a class="book-card__link" href={`/hadith/collection/${b.slug}/`}>
-                <div class="book-card__header">
-                  <span class="book-card__index">Vol. {String(i + 1).padStart(2, '0')}</span>
-                  <span class="book-card__count">{b.hadith_count.toLocaleString()} Narrations</span>
-                </div>
-                <div class="book-card__body">
-                  <h3 class="book-card__title-en">{b.title_en}</h3>
-                  {b.title_ar && (
-                    <p class="book-card__title-ar" lang="ar" dir="rtl">{b.title_ar}</p>
-                  )}
-                </div>
-                <div class="book-card__footer">
-                  <span class="book-card__browse">Browse Edition</span>
-                  <span class="book-card__arrow">→</span>
-                </div>
+            <li class="catalog-row" style={`--share:${(b.hadith_count / largest).toFixed(4)}`}>
+              <a class="catalog-row__link" href={`/hadith/collection/${b.slug}/`}>
+                <span class="catalog-row__no">{String(i + 1).padStart(2, '0')}</span>
+                <span class="catalog-row__titles">
+                  <span class="catalog-row__en">{b.title_en}</span>
+                  {b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}
+                </span>
+                <span class="catalog-row__count">{b.hadith_count.toLocaleString()} <span>narrations</span></span>
+                <span class="catalog-row__bar" aria-hidden="true"><span></span></span>
               </a>
-            </article>
+            </li>
           ))}
-        </div>
+        </ol>
       </section>
 
       <!--
@@ -223,121 +191,6 @@ const REVEAL_CAP = 8;
     background: var(--hc-surface-0);
     min-height: 100vh;
     padding-bottom: clamp(4rem, 8vw, 7rem);
-  }
-
-  /* ── Hero & Archival Plate ─────────────────────────────────── */
-  .corpus-hero {
-    padding: clamp(2.5rem, 5vw, 4.5rem) 0 clamp(1.5rem, 3vw, 2.5rem);
-    border-bottom: 1px solid var(--hc-rule);
-    background: radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--hc-gold) 4%, transparent) 0%, transparent 60%);
-  }
-
-  .corpus-hero__plate {
-    position: relative;
-    max-width: 72rem;
-    margin: 0 auto;
-  }
-
-  .corpus-hero__eyebrow-row {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .corpus-docket-badge {
-    padding: 0.25rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .corpus-docket-status {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(2.3rem, 5vw, 3.8rem);
-    font-weight: 500;
-    line-height: 1.12;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-title__accent {
-    color: var(--hc-gold);
-    font-style: italic;
-  }
-
-  .corpus-lead {
-    max-width: 68ch;
-    margin: 1.25rem 0 2rem;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ── Metric Grid ───────────────────────────────────────────── */
-  .corpus-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 1rem;
-    margin-top: 2rem;
-  }
-
-  .corpus-stat-card {
-    display: flex;
-    flex-direction: column;
-    padding: 1.25rem 1.4rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-  }
-
-  .corpus-stat-card--accent {
-    border-color: color-mix(in srgb, var(--hc-gold) 35%, var(--hc-rule-soft));
-  }
-
-  .corpus-stat-card__val {
-    font-family: var(--font-display);
-    font-size: 1.85rem;
-    font-weight: 600;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-stat-card--accent .corpus-stat-card__val {
-    color: var(--hc-gold);
-  }
-
-  .corpus-stat-card__label {
-    margin-top: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-stat-card__desc {
-    margin-top: 0.2rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
   }
 
   /* ── Search Console ────────────────────────────────────────── */
@@ -532,116 +385,6 @@ const REVEAL_CAP = 8;
     color: var(--hc-text-secondary);
   }
 
-  .corpus-books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
-    gap: 1.25rem;
-  }
-
-  .book-card {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    transition: transform var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
-  }
-
-  .book-card:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    transform: translateY(-2px);
-  }
-
-  .book-card__link {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 1.35rem 1.5rem;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .book-card__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.85rem;
-  }
-
-  .book-card__index {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .book-card__count {
-    padding: 0.2rem 0.5rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-gold);
-  }
-
-  .book-card__body {
-    flex: 1;
-    margin-bottom: 1.25rem;
-  }
-
-  .book-card__title-en {
-    margin: 0 0 0.35rem;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 500;
-    line-height: 1.35;
-    color: var(--hc-text-primary);
-    transition: color var(--motion-fast) ease;
-  }
-
-  .book-card:hover .book-card__title-en {
-    color: var(--hc-gold);
-  }
-
-  .book-card__title-ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1.2rem;
-    line-height: 1.8;
-    color: var(--hc-gold-dim);
-    direction: rtl;
-  }
-
-  .book-card__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 0.85rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-    transition: color var(--motion-fast) ease;
-  }
-
-  .book-card:hover .book-card__footer {
-    color: var(--hc-gold);
-  }
-
-  .book-card__arrow {
-    transition: transform var(--motion-fast) var(--ease-standard);
-  }
-
-  .book-card:hover .book-card__arrow {
-    transform: translateX(4px);
-  }
-
   @media (max-width: 780px) {
     .console-box__options {
       flex-direction: column;
@@ -658,7 +401,7 @@ const REVEAL_CAP = 8;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .book-card, .book-card__arrow, .console-box__submit {
+    .console-box__submit {
       transition: none;
       transform: none;
     }
@@ -1088,28 +831,7 @@ const REVEAL_CAP = 8;
 
 <style is:global>
   /* Hallmark · genre: editorial · macrostructure: reference catalogue · design-system: DESIGN.md · designed-as-app */
-  .corpus-page .corpus-hero__plate { background: transparent; border: 0; box-shadow: none; }
-  .corpus-page .corpus-stat-grid { gap: 0; border-block: 1px solid var(--hc-rule); }
-  .corpus-page .corpus-stat-card,
-  .corpus-page .corpus-stat-card--accent {
-    min-height: 0; padding: 1.1rem 1rem; border: 0; border-right: 1px solid var(--hc-rule-soft);
-    border-radius: 0; background: transparent; box-shadow: none;
-  }
-  .corpus-page .corpus-stat-card:last-child { border-right: 0; }
-  .corpus-page .corpus-stat-card__desc { max-width: 18ch; }
   .corpus-page .corpus-console,
   .corpus-page .console-box { box-shadow: none; }
   .corpus-page .corpus-index__header { align-items: end; }
-  .corpus-page .corpus-books-grid { gap: 0 1.5rem; border-top: 1px solid var(--hc-rule); }
-  .corpus-page .book-card {
-    border: 0; border-bottom: 1px solid var(--hc-rule-soft); border-radius: 0;
-    background: transparent; box-shadow: none; transition: background-color var(--motion-fast) var(--ease-standard);
-  }
-  .corpus-page .book-card:hover { transform: none; background: color-mix(in srgb, var(--hc-surface-1) 55%, transparent); }
-  .corpus-page .book-card__count { border-radius: var(--radius-xs); }
-  .corpus-page .book-card__footer { border-top-color: var(--hc-rule-soft); }
-  @media (max-width: 900px) {
-    .corpus-page .corpus-stat-card:nth-child(2) { border-right: 0; }
-    .corpus-page .corpus-stat-card:nth-child(n+3) { border-top: 1px solid var(--hc-rule-soft); }
-  }
 </style>

@@ -64,7 +64,7 @@ function heroMarkup(detail: NarratorDetail): string {
       <div class="rijal-hero__top">
         <a class="rijal-back" href="/narrators/">
           <span class="rijal-back__arrow">←</span>
-          <span>Rijāl Register</span>
+          <span>Rijal Register</span>
         </a>
         <span class="rijal-id-pill">Transmitter #${detail.id}</span>
       </div>
@@ -599,7 +599,7 @@ function degraded(badge: string, id: number, title: string, body: string): strin
       <h1 class="rijal-degraded__title">${escapeHtml(title)}</h1>
       <p class="rijal-degraded__text">${escapeHtml(body)}</p>
       <div class="rijal-degraded__actions">
-        <a class="rijal-btn" href="/narrators/">← Return to Rijāl Register</a>
+        <a class="rijal-btn" href="/narrators/">← Return to Rijal Register</a>
         <a class="rijal-btn rijal-btn--gold" href="/hadith/?narrator=${id}">Search Narrations for #${id}</a>
       </div>
     </div>`;

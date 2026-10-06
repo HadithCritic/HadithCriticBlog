@@ -6,7 +6,7 @@ const busy = graph.works.find((work: { id: string }) => work.id === 'schacht-195
 const incoming = graph.edges.filter((edge: { type: string; to: string }) => edge.type === 'cites' && edge.to === busy.id);
 
 test('citation directions, expansion and connection search match the source graph', async ({ page }) => {
-  await page.goto(`/research/?work=${busy.id}#map`);
+  await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
   await expect(page.locator('.focus__title')).toHaveText(busy.title);
   const citedBy = page.getByRole('region', { name: 'Cited by', exact: true });
   await expect(citedBy.locator('h4')).toHaveText(`Cited by (${incoming.length})`);
@@ -23,7 +23,7 @@ test('citation directions, expansion and connection search match the source grap
 });
 
 test('search and topic filters preserve the selected citation context', async ({ page }) => {
-  await page.goto(`/research/?work=${busy.id}#map`);
+  await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
   await expect(page.locator('[data-catalogue] > li')).toHaveCount(20);
   await page.locator('[data-more]').click();
   await expect(page.locator('[data-catalogue] > li')).toHaveCount(40);
@@ -40,7 +40,7 @@ test('search and topic filters preserve the selected citation context', async ({
 });
 
 test('following a citation supports browser Back, reload and bibliography anchors', async ({ page }) => {
-  await page.goto(`/research/?work=${busy.id}#map`);
+  await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
   const related = page.locator('.connections__entry').first();
   const target = await related.getAttribute('data-explore');
   await related.click();
@@ -56,7 +56,7 @@ test('following a citation supports browser Back, reload and bibliography anchor
 
 test('phone layouts keep connection navigation readable and in the viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 740 });
-  await page.goto('/research/#map');
+  await page.goto('/projects/islamic-studies-atlas/#map');
   await page.locator('[data-catalogue] a').first().click();
   await expect(page.locator('.focus__title')).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -71,7 +71,7 @@ test('phone layouts keep connection navigation readable and in the viewport', as
 test('without JavaScript the bibliography preserves every work and its citation links', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
-  await page.goto('/research/');
+  await page.goto('/projects/islamic-studies-atlas/');
   await expect(page.locator('[data-work]')).toHaveCount(graph.works.length);
   await expect(page.locator('[data-bibliography]')).toHaveAttribute('open', '');
   const row = page.locator(`[id="${busy.id}"]`);

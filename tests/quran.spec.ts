@@ -518,34 +518,37 @@ test.describe('Quran page: transmission diagram', () => {
 
   test('draws every person and link and gives each link a quoted source in the list', async ({ page }) => {
     await page.goto('/projects/quran/transmission/');
-    await expect(page.locator('.node')).toHaveCount(transmission.persons.length);
-    await expect(page.locator('.edge')).toHaveCount(transmission.edges.length);
+    await expect(page.locator('.board__person')).toHaveCount(transmission.persons.length);
+    await expect(page.locator('.board__teacher')).toHaveCount(transmission.edges.length);
     const blocks = await page.locator('.lk').count();
     expect(blocks).toBeGreaterThan(0);
-    await expect(page.locator('.lk summary')).toHaveCount(transmission.edges.length);
-    const hrefs = await page.locator('.node a').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
+    await expect(page.locator('.lk__list > li')).toHaveCount(transmission.edges.length);
+    const hrefs = await page.locator('.board__name[href]').evaluateAll((links) => links.map((link) => link.getAttribute('href')));
     for (const href of hrefs.slice(0, 12)) await expect(page.locator(href as string)).toHaveCount(1);
   });
 
-  test('following one reader narrows the diagram to his line, with scripting off', async ({ browser }) => {
+  test('following one reader narrows the diagram to his line', async ({ page }) => {
+    await page.goto('/projects/quran/transmission/');
+    const visible = (selector: string) =>
+      page.locator(selector).evaluateAll((nodes) => nodes.filter((n) => getComputedStyle(n).display !== 'none').length);
+    const select = page.locator('#tx-reader-select');
+    await expect(select).toBeVisible();
+    await select.selectOption('nafi');
+    const nafi = await visible('.board__person');
+    expect(nafi).toBeGreaterThan(5);
+    expect(nafi).toBeLessThan(transmission.persons.length);
+    await select.selectOption('ibn_kathir');
+    expect(await visible('.board__person')).toBeGreaterThan(5);
+    expect(await visible('.board__person[data-person-id="warsh"]')).toBe(0);
+  });
+
+  test('with scripting off every chain is shown and no dead control is offered', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
     await page.goto('/projects/quran/transmission/');
-    const visible = async (selector: string) => {
-      const items = page.locator(selector);
-      let count = 0;
-      for (let index = 0; index < (await items.count()); index += 1) if (await items.nth(index).isVisible()) count += 1;
-      return count;
-    };
-    const all = await visible('.node');
-    await page.locator('label:has(#tx-r-nafi)').click();
-    const focused = await visible('.node');
-    expect(focused).toBeGreaterThan(5);
-    expect(focused).toBeLessThan(all);
-    expect(await page.locator('.node--riwaya.q-nafi').evaluateAll((nodes) => nodes.filter((n) => getComputedStyle(n).display !== 'none').length)).toBe(2);
-    expect(await page.locator('.node--riwaya.q-ibn_kathir').evaluateAll((nodes) => nodes.filter((n) => getComputedStyle(n).display !== 'none').length)).toBe(0);
-    await page.locator('label:has(#tx-r-all)').click();
-    expect(await visible('.node')).toBe(all);
+    await expect(page.locator('#tx-reader-select')).toBeHidden();
+    const shown = await page.locator('.board__person').evaluateAll((nodes) => nodes.filter((n) => getComputedStyle(n).display !== 'none').length);
+    expect(shown).toBe(transmission.persons.length);
     await context.close();
   });
 

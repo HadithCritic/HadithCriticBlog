@@ -91,14 +91,6 @@ export function initNarratorRegister(): void {
     else history.replaceState(null, '', url);
   }
 
-  const gradeTone = (g: string) => {
-    const s = (g || '').toLowerCase();
-    if (s.startsWith('thiqa') || s.startsWith('saduq')) return 'is-trusted';
-    if (s.startsWith("da'if") || s.startsWith('daif') || s.startsWith('matruk')) return 'is-weak';
-    if (s.startsWith('majhul') || s.startsWith('maqbul') || s.startsWith('unrated')) return 'is-unknown';
-    return '';
-  };
-
   function rowMarkup(r: NarratorRow, index: number): string {
     const meta = [
       r.generation,
@@ -119,7 +111,6 @@ export function initNarratorRegister(): void {
       .join('<span class="reg-sep" aria-hidden="true">·</span>');
 
     const picked = selected.has(r.id);
-    const gradeCls = gradeTone(r.grade);
 
     return `
       <li class="reg-row">
@@ -137,7 +128,7 @@ export function initNarratorRegister(): void {
           </span>
           <span class="reg-meta">${meta}</span>
         </a>
-        <span class="reg-grade ${gradeCls}">${esc(r.grade || 'Unrated')}</span>
+        <span class="reg-grade">${esc(r.grade || 'Unrated')}</span>
         <span class="reg-counts">${counts}</span>
       </li>`;
   }

@@ -1,0 +1,27 @@
+---
+/**
+ * A post on X, quoted statically: no third-party widget, so it renders the
+ * same for every reader whether or not x.com is reachable.
+ */
+import ExternalSource from './ExternalSource.astro';
+
+export interface Props {
+  url: string;
+  author?: string;
+  handle?: string;
+  date?: string;
+  text?: string;
+}
+
+const { url, author = 'X', date, text } = Astro.props;
+const handle = Astro.props.handle ?? (() => {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean)[0] ?? '';
+  } catch {
+    return '';
+  }
+})();
+const publisher = handle ? `${author} (@${handle}) on X` : `${author} on X`;
+---
+
+<ExternalSource url={url} publisher={publisher} title={text} quoted={Boolean(text)} date={date} kind="Cited post" linkLabel="View the post" />

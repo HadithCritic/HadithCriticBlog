@@ -45,7 +45,7 @@ let corpusVersion: string | null = null;
 test.beforeEach(async ({ page }) => {
   if (corpusVersion === null) {
     await page.goto('/hadith');
-    await expect(page.locator('.book-card').first()).toBeVisible();
+    await expect(page.locator('.catalog-row').first()).toBeVisible();
     corpusVersion = await page.evaluate(
       () => (window as unknown as { __corpusVersion?: string }).__corpusVersion || ''
     );
@@ -59,10 +59,10 @@ test.beforeEach(async ({ page }) => {
 
 test('the corpus reports the totals the release was cut with', async ({ page }) => {
   await page.goto('/hadith');
-  await expect(page.locator('.corpus-stat-card__val').first()).toHaveText(
+  await expect(page.locator('.rp-card__lead dd')).toHaveText(
     EXPECTED.hadith.toLocaleString()
   );
-  await expect(page.locator('.book-card')).toHaveCount(EXPECTED.collections);
+  await expect(page.locator('.catalog-row')).toHaveCount(EXPECTED.collections);
   await page.goto('/narrators');
   await expect(page.locator('[data-register-status]')).toContainText(
     `${EXPECTED.narrators.toLocaleString()} transmitters`,

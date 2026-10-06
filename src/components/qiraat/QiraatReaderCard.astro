@@ -1,0 +1,65 @@
+---
+import displayData from "../../data/qiraat/sura-001.json";
+import QiraatBadge from "./QiraatBadge.astro";
+
+type Reader = (typeof displayData.qaris)[number];
+type Props = { reader: Reader; rank: number; additional?: boolean; region: { key: string; label: string } };
+
+const { reader, rank, additional = false, region } = Astro.props;
+const riwayaOf = new Map(displayData.riwayat.map((riwaya) => [riwaya.id, riwaya]));
+---
+
+<article class:list={["reader-card", `reader-card--${region.key}`, { "reader-card--additional": additional }]}>
+  <div class="reader-card__topline">
+    <span class="reader-card__number">{String(rank).padStart(2, "0")}</span>
+    <span class="reader-card__region"><i aria-hidden="true"></i>{region.label}</span>
+    {additional && <QiraatBadge class="reader-card__extra" tone="added">Added</QiraatBadge>}
+    <a class="reader-card__profile" href={`/projects/quran/readers/${reader.id}/`} aria-label={`Read the profile of ${reader.display}`}>
+      Profile
+    </a>
+  </div>
+  <a class="reader-card__identity" href={`/projects/quran/readers/${reader.id}/`}>
+    <span class="reader-card__name">{reader.display}</span>
+    <span class="reader-card__ar hc-quran" lang="ar" dir="rtl">{reader.name_ar}</span>
+  </a>
+  <div class="reader-card__transmissions">
+    <span class="reader-card__label">Transmitted by</span>
+    <ul aria-label={`Transmissions of ${reader.display}`}>
+      {reader.riwayat.map((id) => {
+        const riwaya = riwayaOf.get(id)!;
+        return <li><a href={`/projects/quran/transmission/#p-${id}`}>{riwaya.display}</a></li>;
+      })}
+    </ul>
+  </div>
+</article>
+
+<style>
+  .reader-card { min-width: 0; height: 100%; display: flex; flex-direction: column; padding: var(--q-space-2); border: 1px solid var(--q-border); border-top: 2px solid var(--region-color); border-radius: var(--q-radius); background: var(--q-panel); color: var(--q-ink); transition: border-color var(--q-duration) var(--q-ease); }
+  .reader-card:focus-within, .reader-card:hover { border-color: var(--q-caption); border-top-color: var(--region-color); }
+  .reader-card__topline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-space-1); min-height: 24px; }
+  .reader-card__number { color: var(--q-caption); font: 600 var(--q-caption-size)/var(--q-label-leading) var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .reader-card__region { display: inline-flex; align-items: center; gap: var(--q-space-1); color: var(--q-muted); font: 400 var(--q-caption-size)/var(--q-label-leading) var(--font-ui); }
+  .reader-card__region i { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--region-color); }
+  .reader-card__profile { margin-inline-start: auto; color: var(--q-muted); font: 400 var(--q-caption-size)/var(--q-label-leading) var(--font-ui); text-decoration: none; }
+  .reader-card__profile:hover { color: var(--q-accent); }
+  .reader-card__identity { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: var(--q-space-1); margin-block: var(--q-space-3); color: inherit; text-decoration: none; }
+  .reader-card__name { font: 500 var(--q-name-size)/1.4 var(--font-display); }
+  .reader-card__ar { color: var(--q-muted); font: 400 var(--q-arabic-size)/var(--q-arabic-leading) var(--font-arabic); }
+  .reader-card__identity:hover .reader-card__name { color: var(--q-accent); }
+  .reader-card__transmissions { margin-top: auto; padding-top: var(--q-space-2); border-top: 1px solid var(--q-border); }
+  .reader-card__label { color: var(--q-caption); font: 600 var(--q-label-size)/var(--q-label-leading) var(--font-ui); letter-spacing: var(--q-label-tracking); text-transform: uppercase; }
+  .reader-card__transmissions ul { display: grid; gap: var(--q-space-1); margin: var(--q-space-1) 0 0; padding: 0; list-style: none; }
+  .reader-card__transmissions li { font: 400 var(--q-body-size)/1.5 var(--font-body); }
+  .reader-card__transmissions a { color: var(--q-ink); text-decoration-color: var(--q-border); text-underline-offset: .2em; }
+  .reader-card__transmissions a:hover { color: var(--q-accent); }
+  .reader-card--basra { --region-color: #738591; }
+  .reader-card--kufa { --region-color: #967b7f; }
+  .reader-card--medina { --region-color: #7e9383; }
+  .reader-card--mecca { --region-color: #918d87; }
+  .reader-card--syria { --region-color: #958b73; }
+  @media (max-width: 780px) {
+    .reader-card__identity { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .reader-card__name { grid-column: 1; grid-row: 2; }
+    .reader-card__ar { grid-column: 1; grid-row: 1; }
+  }
+</style>
