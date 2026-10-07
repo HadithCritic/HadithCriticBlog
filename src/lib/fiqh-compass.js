@@ -1,4 +1,4 @@
-import { axes, contentVersion, questions } from "../data/fiqh-compass.ts";
+import { answerOptions, axes, contentVersion, questions } from "../data/fiqh-compass.ts";
 import { fiqhCompassPublicEvidence } from "../data/fiqh-compass-evidence.ts";
 import { selectPublicEvidence } from "./fiqh-compass-evidence.js";
 import { scoreAxes } from "./fiqh-compass-scoring.js";
@@ -103,6 +103,11 @@ if (form instanceof HTMLElement) {
     rows.replaceChildren();
     const axisScores = new Map(scoreAxes(axes, questions, answers).map((entry) => [entry.axisId, entry]));
     const publishedEvidence = await selectPublicEvidence(fiqhCompassPublicEvidence);
+    const answerLabel = new Map(answerOptions.map((option) => [option.value, option.label]));
+
+    // Until a reviewed passage is cleared for display, say so once rather than under every axis.
+    const evidenceNote = results.querySelector("[data-evidence-note]");
+    if (evidenceNote instanceof HTMLElement) evidenceNote.hidden = publishedEvidence.length > 0;
 
     for (const axis of axes) {
       const axisQuestions = questions.filter((question) => question.axis === axis.id);
@@ -145,55 +150,70 @@ if (form instanceof HTMLElement) {
       note.textContent = axis.note;
       row.append(note);
 
+      // The statements behind this coordinate, with the answer given to each.
+      const basis = document.createElement("details");
+      basis.className = "fc-result-basis";
+      const basisSummary = document.createElement("summary");
+      basisSummary.textContent = "Your answers on this dimension";
+      basis.append(basisSummary);
+      const basisList = document.createElement("ol");
+      for (const question of axisQuestions) {
+        const item = document.createElement("li");
+        const prompt = document.createElement("p");
+        prompt.textContent = question.prompt;
+        const given = document.createElement("p");
+        given.className = "fc-result-basis__answer";
+        const value = answers[question.id];
+        given.textContent = value === undefined ? "Skipped" : answerLabel.get(value) ?? value;
+        item.append(prompt, given);
+        basisList.append(item);
+      }
+      basis.append(basisList);
+      row.append(basis);
+
+      const evidenceEntries = publishedEvidence.filter((entry) => entry.axisIds.includes(axis.id));
+      if (!evidenceEntries.length) {
+        rows.append(row);
+        continue;
+      }
       const evidenceDisclosure = document.createElement("details");
       evidenceDisclosure.className = "fc-evidence-disclosure";
       const evidenceSummary = document.createElement("summary");
       evidenceSummary.textContent = "Source evidence and review status";
       evidenceDisclosure.append(evidenceSummary);
-      const evidenceEntries = publishedEvidence.filter((entry) => entry.axisIds.includes(axis.id));
-      if (!evidenceEntries.length) {
-        const empty = document.createElement("p");
-        empty.textContent = "No reviewed historical source passage is cleared for display on this dimension yet. This result summarizes only your responses to draft questions; it does not compare you with a jurist or school.";
-        evidenceDisclosure.append(empty);
-        const browse = document.createElement("a");
-        browse.href = "/projects/fiqh-compass/profiles/";
-        browse.textContent = "See the current profile research status";
-        evidenceDisclosure.append(browse);
-      } else {
-        const attributionLabels = {
-          author_argument: "Author’s argument",
-          author_ruling: "Author’s ruling",
-          quoted_view: "Quoted view",
-          reported_view: "Reported view",
-          editorial_inference: "Editorial inference",
-        };
-        for (const evidence of evidenceEntries) {
-          const article = document.createElement("article");
-          article.className = "fc-evidence-entry";
-          const citation = document.createElement("p");
-          citation.className = "fc-evidence-citation";
-          citation.textContent = `${evidence.authorLabel}, ${evidence.workTitle}, ${evidence.editionLabel}, ${evidence.printedLocator} (digital locator: ${evidence.digitalLocator})`;
-          article.append(citation);
-          const type = document.createElement("p");
-          type.textContent = `Attribution: ${attributionLabels[evidence.attributionType]}. Review finding: ${evidence.finding.replaceAll("_", " ")}.`;
-          article.append(type);
-          const arabic = document.createElement("blockquote");
-          arabic.lang = "ar";
-          arabic.dir = "rtl";
-          arabic.textContent = evidence.arabicText;
-          article.append(arabic);
-          const translation = document.createElement("blockquote");
-          translation.lang = "en";
-          translation.textContent = evidence.englishText;
-          article.append(translation);
-          for (const [label, values] of [["Scope", [evidence.scopeNote]], ["Qualifications", evidence.qualifications], ["Counterevidence", evidence.counterEvidence], ["Unresolved", evidence.unresolved]]) {
-            if (!values.length) continue;
-            const section = document.createElement("p");
-            section.textContent = `${label}: ${values.join(" ")}`;
-            article.append(section);
-          }
-          evidenceDisclosure.append(article);
+      const attributionLabels = {
+        author_argument: "Author’s argument",
+        author_ruling: "Author’s ruling",
+        quoted_view: "Quoted view",
+        reported_view: "Reported view",
+        editorial_inference: "Editorial inference",
+      };
+      for (const evidence of evidenceEntries) {
+        const article = document.createElement("article");
+        article.className = "fc-evidence-entry";
+        const citation = document.createElement("p");
+        citation.className = "fc-evidence-citation";
+        citation.textContent = `${evidence.authorLabel}, ${evidence.workTitle}, ${evidence.editionLabel}, ${evidence.printedLocator} (digital locator: ${evidence.digitalLocator})`;
+        article.append(citation);
+        const type = document.createElement("p");
+        type.textContent = `Attribution: ${attributionLabels[evidence.attributionType]}. Review finding: ${evidence.finding.replaceAll("_", " ")}.`;
+        article.append(type);
+        const arabic = document.createElement("blockquote");
+        arabic.lang = "ar";
+        arabic.dir = "rtl";
+        arabic.textContent = evidence.arabicText;
+        article.append(arabic);
+        const translation = document.createElement("blockquote");
+        translation.lang = "en";
+        translation.textContent = evidence.englishText;
+        article.append(translation);
+        for (const [label, values] of [["Scope", [evidence.scopeNote]], ["Qualifications", evidence.qualifications], ["Counterevidence", evidence.counterEvidence], ["Unresolved", evidence.unresolved]]) {
+          if (!values.length) continue;
+          const section = document.createElement("p");
+          section.textContent = `${label}: ${values.join(" ")}`;
+          article.append(section);
         }
+        evidenceDisclosure.append(article);
       }
       row.append(evidenceDisclosure);
       rows.append(row);
@@ -247,6 +267,7 @@ if (form instanceof HTMLElement) {
   nextButton?.addEventListener("click", advance);
 
   const reset = () => {
+    if (countAnswered() > 0 && !window.confirm("Clear every answer and start the quiz again?")) return;
     window.clearTimeout(advanceTimer);
     answers = {};
     activeIndex = 0;

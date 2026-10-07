@@ -370,15 +370,19 @@ for (const theme of THEMES) {
         }
         await page.locator('[data-compass-results]:not([hidden])').waitFor({ state: 'visible' });
         const resultRows = await page.locator('.fc-result-row').count();
-        const evidenceDisclosures = page.locator('.fc-evidence-disclosure');
-        const evidenceDisclosureCount = await evidenceDisclosures.count();
+        // Every row carries the answers behind it; evidence disclosures appear only on
+        // axes with a cleared passage, and a single note stands in while there are none.
+        const disclosures = page.locator('.fc-result-basis, .fc-evidence-disclosure');
+        const basisCount = await page.locator('.fc-result-basis').count();
+        const evidenceDisclosureCount = await page.locator('.fc-evidence-disclosure').count();
+        const evidenceNoteShown = await page.locator('[data-evidence-note]:not([hidden])').count();
         const noScoreRows = await page.locator('.fc-result-meta').filter({ hasText: 'No scored answers' }).count();
         const meters = await page.locator('.fc-meter').count();
         const expectsNoScore = QUIZ_RESULTS_EMPTY || QUIZ_RESULTS_UNKNOWN;
-        if (resultRows !== 12 || evidenceDisclosureCount !== 12 || (expectsNoScore && (noScoreRows !== 12 || meters !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12))) {
-          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${evidenceDisclosureCount} evidence disclosures, ${noScoreRows} without scores, ${meters} meters`);
+        if (resultRows !== 12 || basisCount !== 12 || (evidenceDisclosureCount === 0 && evidenceNoteShown !== 1) || (expectsNoScore && (noScoreRows !== 12 || meters !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12))) {
+          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${basisCount} answer lists, ${evidenceDisclosureCount} evidence disclosures, ${noScoreRows} without scores, ${meters} meters`);
         }
-        await evidenceDisclosures.evaluateAll((elements) => elements.forEach((element) => { element.open = true; }));
+        await disclosures.evaluateAll((elements) => elements.forEach((element) => { element.open = true; }));
         await settle(page);
       }
     } catch (error) {

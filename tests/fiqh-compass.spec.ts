@@ -83,18 +83,26 @@ test('quiz resumes locally and excludes uncertain answers from provisional coord
   );
   await expect(results.locator('[role="img"][aria-label^="Sources of binding law: 100 out of 100"]')).toBeVisible();
   await expect(results.locator('.fc-result-meta').filter({ hasText: 'No scored answers' })).toHaveCount(11);
-  const evidenceDisclosure = results.locator('.fc-evidence-disclosure').first();
-  await expect(results.locator('.fc-evidence-disclosure')).toHaveCount(12);
-  await evidenceDisclosure.locator('summary').click();
-  await expect(evidenceDisclosure).toContainText('No reviewed historical source passage is cleared for display');
-  await expect(evidenceDisclosure).toContainText('does not compare you with a jurist or school');
-  await expect(evidenceDisclosure.locator('[lang="ar"]')).toHaveCount(0);
+  // With no reviewed passage cleared, the limit is stated once, not under every axis.
+  await expect(results.locator('.fc-evidence-disclosure')).toHaveCount(0);
+  const evidenceNote = results.locator('[data-evidence-note]');
+  await expect(evidenceNote).toBeVisible();
+  await expect(evidenceNote).toContainText('No reviewed historical source passage is cleared for display');
+  await expect(evidenceNote).toContainText('does not compare you with a jurist or a school');
+  await expect(results.locator('[lang="ar"]')).toHaveCount(0);
+  // Each axis shows the statements and answers behind it.
+  const basis = results.locator('.fc-result-basis');
+  await expect(basis).toHaveCount(12);
+  await basis.first().locator('summary').click();
+  await expect(basis.first()).toContainText('Strongly disagree');
   expect(nonGetRequests).toEqual([]);
 
   await page.reload();
   await expect(page.locator('[data-compass-results]')).toBeVisible();
   await expect(page.locator('[data-result-count]')).toContainText('2 included in axis scores');
 
+  // Restarting with answers recorded asks first.
+  page.once('dialog', (dialog) => dialog.accept());
   await page.locator('[data-compass-reset]').last().click();
   await expect(page.locator('[data-compass-quiz]')).toBeVisible();
   await expect(page.locator('[data-question-position]')).toHaveText('Question 1 of 24');
