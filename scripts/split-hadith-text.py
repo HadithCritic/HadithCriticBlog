@@ -323,16 +323,7 @@ def main() -> int:
     parser.add_argument("--book", action="append", default=[])
     args = parser.parse_args()
     db = sqlite3.connect(MASTER)
-    db.execute(
-        """CREATE TABLE IF NOT EXISTS hadith_text_parts (
-             hadith_id INTEGER PRIMARY KEY REFERENCES hadith(id),
-             lead_end INTEGER NOT NULL,
-             notes_start INTEGER NOT NULL,
-             page_start TEXT,
-             page_end TEXT,
-             flags TEXT
-           )"""
-    )
+    db.executescript((ROOT / "migrations" / "0009_create_hadith_text_parts.sql").read_text(encoding="utf-8"))
     books = db.execute(
         "SELECT b.id, b.slug, count(h.id) AS n FROM hadith_book b JOIN hadith h ON h.book_id = b.id GROUP BY b.id ORDER BY n"
     ).fetchall()

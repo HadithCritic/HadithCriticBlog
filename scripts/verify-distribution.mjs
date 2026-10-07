@@ -46,7 +46,8 @@ const STRUCTURED_TABLES = new Set([
   'hadith_kitab',
   'hadith_bab',
   'hadith_structure',
-  'hadith_reference'
+  'hadith_reference',
+  'hadith_text_parts'
 ]);
 
 const COUNTED_TABLES = [
@@ -56,6 +57,7 @@ const COUNTED_TABLES = [
   'hadith_bab',
   'hadith_structure',
   'hadith_reference',
+  'hadith_text_parts',
   'hadith_book',
   'hadith_chain',
   'hadith_gloss',
@@ -184,6 +186,20 @@ const PROBES = [
            WHERE h.id = ?`,
     args: [237072],
     expect: (rows) => rows.length === 1 && rows[0].kitab_ordinal === 1 && rows[0].source_marker === '[1/217]'
+  },
+  {
+    name: 'text parts: lead, narration, notes and page for a narration',
+    requires: 'hadith_text_parts',
+    sql: `SELECT p.lead_end, p.notes_start, p.page_start, p.page_end, length(h.text_ar) AS n
+            FROM hadith_text_parts p JOIN hadith h ON h.id = p.hadith_id WHERE p.hadith_id = ?`,
+    args: [237072],
+    expect: (rows) =>
+      rows.length === 1 &&
+      rows[0].lead_end > 0 &&
+      rows[0].lead_end < rows[0].notes_start &&
+      rows[0].notes_start < rows[0].n &&
+      rows[0].page_start === '1/219' &&
+      rows[0].page_end === '1/220'
   },
   {
     name: 'narrator filter over hadith',
