@@ -464,11 +464,14 @@ function degraded(badge: string, title: string, body: string): string {
 
 
 interface KitabEntry { n: number; title_ar: string; title_en: string | null; first: number; last: number }
+interface StructureFile { shape?: 'kitab' | 'companion' | 'flat'; kitabs: KitabEntry[] }
 
 /**
- * The kitab a record belongs to, from the collection's structure file (built
- * from the Ifta' Sunnah platform's table of contents). Collections without one
- * simply show no kitab line.
+ * The book a record belongs to, from the collection's structure file (built
+ * from the Ifta' Sunnah platform's table of contents), linked to its page. A
+ * musnad's sections are named rather than numbered as books, and a collection
+ * with no books above its chapters shows no line. Collections without a file
+ * simply show nothing.
  */
 async function fillKitab(detail: HadithDetail): Promise<void> {
   const id = Number(detail.hadith.id);
@@ -476,13 +479,18 @@ async function fillKitab(detail: HadithDetail): Promise<void> {
   try {
     const response = await fetch(`/data/collection-structure/${encodeURIComponent(slug)}.json`);
     if (!response.ok) return;
-    const structure = (await response.json()) as { kitabs: KitabEntry[] };
+    const structure = (await response.json()) as StructureFile;
+    if (structure.shape === 'flat') return;
     const kitab = structure.kitabs.find((k) => id >= k.first && id <= k.last);
     if (!kitab) return;
     const href = `/hadith/collection/${encodeURIComponent(slug)}/kitab/${kitab.n}/`;
+    const title = toPlainText(kitab.title_en || '');
+    const isSection = structure.shape === 'companion';
+    // "Book 24 · The Book of Zakat", or for a musnad section its name alone.
+    const label = isSection ? title || kitab.title_ar : `Book ${kitab.n}${title ? ` · ${title}` : ''}`;
     const en = document.querySelector<HTMLElement>('[data-kitab-en]');
     if (en) {
-      en.innerHTML = `<a href="${href}">Book ${kitab.n}${kitab.title_en ? ` · ${escapeHtml(kitab.title_en)}` : ''}</a>`;
+      en.innerHTML = `<a href="${href}">${escapeHtml(label)}</a>`;
       en.hidden = false;
     }
     const ar = document.querySelector<HTMLElement>('[data-kitab-ar]');
@@ -492,17 +500,19 @@ async function fillKitab(detail: HadithDetail): Promise<void> {
     }
     const cite = document.querySelector<HTMLElement>('[data-kitab-cite]');
     if (cite) {
-      cite.textContent = `, Book ${kitab.n}${kitab.title_en ? ` (${kitab.title_en})` : ''}`;
+      cite.textContent = isSection ? `, ${title || kitab.title_ar}` : `, Book ${kitab.n}${title ? ` (${title})` : ''}`;
       cite.hidden = false;
     }
     const row = document.querySelector<HTMLElement>('[data-kitab-row]');
     const ref = document.querySelector<HTMLElement>('[data-kitab-ref]');
     if (row && ref) {
-      ref.innerHTML = `<a href="${href}">Book ${kitab.n}${kitab.title_en ? `, ${escapeHtml(kitab.title_en)}` : ''}</a> <span lang="ar" dir="rtl">${escapeHtml(kitab.title_ar)}</span>`;
+      const term = row.querySelector('dt');
+      if (term && isSection) term.textContent = 'Section';
+      ref.innerHTML = `<a href="${href}">${escapeHtml(isSection ? label : `Book ${kitab.n}${title ? `, ${title}` : ''}`)}</a> <span lang="ar" dir="rtl">${escapeHtml(kitab.title_ar)}</span>`;
       row.hidden = false;
     }
   } catch {
-    // The record is complete without its kitab line.
+    // The record is complete without its book line.
   }
 }
 

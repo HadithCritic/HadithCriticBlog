@@ -330,6 +330,46 @@ test.describe('collection edition', () => {
     );
     await context.close();
   });
+
+  test('lists its books, each linked to its page', async ({ page }) => {
+    await page.goto('/hadith/collection/musannaf-ibn-abi-shaybah/');
+    const first = page.locator('.edition-books__list a').first();
+    await expect(first).toHaveAttribute('href', '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1/');
+    await expect(first).toContainText('The Book of Purification');
+  });
+});
+
+test.describe('book page', () => {
+  const URL = '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1/';
+
+  test('reads a chapter from the corpus when it is opened', async ({ page }) => {
+    await page.goto(URL);
+    await expect(page.locator('h1')).toContainText('The Book of Purification');
+    await expect(page.locator('.kb-nav a[aria-current="page"]')).toContainText('Purification');
+
+    const chapter = page.locator('details.kb-chapter').first();
+    await chapter.locator('summary').click();
+    const card = chapter.locator('.kb-card-record', { has: page.locator('a[href="/hadith/237072/"]') });
+    await expect(card).toBeVisible({ timeout: CORPUS_TIMEOUT });
+    // No authenticity grade on a card: its label is the number and nothing else.
+    await expect(card.locator('.kb-card-record__meta')).toHaveText('Hadith 1');
+  });
+
+  test('works without script: chapters, books and the edition links are real markup', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto(URL);
+    await expect(page.locator('details.kb-chapter')).not.toHaveCount(0);
+    await expect(page.locator('details.kb-chapter').first().locator('.kb-chapter__fallback a')).toHaveAttribute(
+      'href',
+      '/hadith/collection/musannaf-ibn-abi-shaybah/?page=1'
+    );
+    await expect(page.locator('.kb-pager a[rel="next"]')).toHaveAttribute(
+      'href',
+      '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/2/'
+    );
+    await context.close();
+  });
 });
 
 test.describe('narrator register', () => {

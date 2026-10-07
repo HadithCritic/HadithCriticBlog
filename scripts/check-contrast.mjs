@@ -71,6 +71,7 @@ const ROUTES = [
   '/',
   '/hadith',
   '/hadith/collection/sahih-al-bukhari',
+  '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1',
   '/hadith/5',
   '/narrators',
   '/narrators/484',
@@ -297,6 +298,8 @@ const PROBE = `(() => {
  */
 const CORPUS_CONTENT = [
   [/^\/hadith\/\d+/, '.edition-hero, .hadith-degraded'],
+  // A book page renders its narrations only when a chapter is opened; see awaitCorpus.
+  [/^\/hadith\/collection\/[^/]+\/kitab\//, '.kb-card-record, .kb-status--error'],
   [/^\/hadith\/collection\//, '.narration-record, .coll-error, .coll-empty'],
   [/^\/hadith(\?|$)/, '.catalog-row, .corpus-record-card'],
   [/^\/narrators\/compare/, '.compare-table, .compare-empty'],
@@ -307,6 +310,14 @@ const CORPUS_CONTENT = [
 async function awaitCorpus(page, route) {
   const match = CORPUS_CONTENT.find(([pattern]) => pattern.test(route));
   if (!match) return true;
+  // A book page is prerendered with its chapters closed; open the first so its
+  // parchment cards exist to be measured.
+  if (/\/kitab\//.test(route)) {
+    await page.evaluate(() => {
+      const first = document.querySelector('details.kb-chapter');
+      if (first) first.open = true;
+    });
+  }
   try {
     // Generous: a cold corpus has to fetch the wasm module and walk the b-tree
     // over the network before the first row exists.

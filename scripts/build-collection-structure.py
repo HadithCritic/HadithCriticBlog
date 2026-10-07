@@ -30,6 +30,8 @@ import sqlite3
 import sys
 from bisect import bisect_left, bisect_right
 from concurrent.futures import ProcessPoolExecutor
+
+from companion_names import Register
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -54,7 +56,36 @@ def norm(title: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
-def build(toc: dict, db: sqlite3.Connection, books_by_title: dict, titles_en: dict) -> dict:
+MUSNAD_HEADING = re.compile(r"مسند|حديث|أحاديث|ما روى|ما أسند|رضي الله")
+
+
+def collection_shape(kitabs: list[dict]) -> str:
+    """How a collection's top level is organised: "kitab" (books of topics,
+    each with chapters), "companion" (a musnad, by Companion or group), or
+    "flat" (the top level is itself the chapters)."""
+    if not kitabs:
+        return "flat"
+    if sum(1 for k in kitabs if MUSNAD_HEADING.search(k["title_ar"])) > len(kitabs) * 0.4:
+        return "companion"
+    if sum(1 for k in kitabs if len(k["chapters"]) > 1) >= len(kitabs) * 0.5:
+        return "kitab"
+    return "flat"
+
+
+def flatten(kitabs: list[dict], collection_ar: str) -> dict:
+    """A flat collection becomes one book whose chapters are its top-level headings."""
+    chapters = [
+        {"n": i + 1, "title_ar": k["title_ar"], "title_en": k["title_en"], "first": k["first"], "last": k["last"], "count": k["count"]}
+        for i, k in enumerate(kitabs)
+    ]
+    return {
+        "n": 1, "toc_id": None, "title_ar": collection_ar, "title_en": None, "english_basis": None,
+        "first": kitabs[0]["first"], "last": kitabs[-1]["last"], "count": sum(k["count"] for k in kitabs),
+        "chapters": chapters,
+    }
+
+
+def build(toc: dict, db: sqlite3.Connection, books_by_title: dict, titles_en: dict, register=None) -> dict:
     book = books_by_title.get(norm(toc["title"] or ""))
     if not book:
         return {"platform_book_id": toc["platformBookId"], "title": toc["title"], "status": "no corpus collection with this title"}
@@ -102,6 +133,22 @@ def build(toc: dict, db: sqlite3.Connection, books_by_title: dict, titles_en: di
         })
     placed = sum(k["count"] for k in kitabs)
     unplaced = len(records) - placed
+    shape = collection_shape(kitabs)
+    for kitab in kitabs:
+        # Curated English where HadithCritic has translated the heading;
+        # otherwise the corpus's own English for it, the rendering the
+        # narration pages show, and say which.
+        if kitab["title_en"]:
+            kitab["english_basis"] = "curated"
+        else:
+            kitab["title_en"] = kitab["chapters"][0]["title_en"] or None
+            kitab["english_basis"] = "corpus" if kitab["title_en"] else None
+        if shape == "companion" and register is not None:
+            companion = register.find(kitab["title_ar"])
+            if companion:
+                kitab["companion"] = {"narrator_id": companion[0], "name_en": companion[1]}
+    if shape == "flat":
+        kitabs = [flatten(kitabs, title_ar)]
     # The placement rests on heading nodes and narrations sharing one id
     # sequence, so a heading id that is also a narration id breaks it.
     id_set = set(ids)
@@ -120,12 +167,17 @@ def build(toc: dict, db: sqlite3.Connection, books_by_title: dict, titles_en: di
             "fetched": toc["fetched"],
             "method": "Each narration is placed under the nearest kitab and bab node at or before its mainId in the platform's table of contents.",
         },
+        "shape": shape,
         "kitabs": kitabs,
     }
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / f"{slug}.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     # The record pages only need each kitab's range and titles.
-    compact = {"slug": slug, "kitabs": [{k: v for k, v in kitab.items() if k in ("n", "title_ar", "title_en", "first", "last")} for kitab in kitabs]}
+    compact = {
+        "slug": slug,
+        "shape": shape,
+        "kitabs": [{k: v for k, v in kitab.items() if k in ("n", "title_ar", "title_en", "first", "last")} for kitab in kitabs],
+    }
     PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
     (PUBLIC_DIR / f"{slug}.json").write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return {"slug": slug, "platform_book_id": toc["platformBookId"], "records": len(records), "placed": placed,
@@ -141,7 +193,7 @@ def build_file(path: Path) -> dict:
     books_by_title = {norm(r[3]): r for r in db.execute("SELECT id, slug, title_en, title_ar FROM hadith_book")}
     titles_en_raw = json.loads(TITLES_EN.read_text(encoding="utf-8")) if TITLES_EN.exists() else {}
     titles_en = {title_key(k): v for k, v in titles_en_raw.items() if not k.startswith("_")}
-    summary = build(json.loads(path.read_text(encoding="utf-8")), db, books_by_title, titles_en)
+    summary = build(json.loads(path.read_text(encoding="utf-8")), db, books_by_title, titles_en, Register(db))
     db.close()
     return summary
 
