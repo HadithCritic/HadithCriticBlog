@@ -123,6 +123,12 @@ export function initAtlasExplorer() {
     header.appendChild(title);
     header.appendChild(element('p', 'focus__by', metadata(entry)));
     if (entry.v) header.appendChild(element('p', 'focus__venue', entry.v));
+    if (entry.p) {
+      const inside = element('p', 'focus__venue', 'Printed inside ');
+      inside.appendChild(workLink(entry.p, 'focus__inline'));
+      if (entry.page) inside.appendChild(document.createTextNode(`, beginning on page ${entry.page}`));
+      header.appendChild(inside);
+    }
     header.appendChild(element('p', 'focus__topics', entry.themes.join(' · ')));
     const actions = element('div', 'focus__actions');
     const full = element('a', 'hc-back-link hc-back-link--ruled', 'Bibliography and source notes');
@@ -137,6 +143,20 @@ export function initAtlasExplorer() {
       actions.appendChild(doi);
     }
     header.appendChild(actions);
+    if (entry.s.length) {
+      const site = element('div', 'focus__site');
+      site.appendChild(element('p', 'focus__site-label', 'On HadithCritic'));
+      const list = element('ul', 'focus__site-list');
+      entry.s.forEach(link => {
+        const li = element('li', '');
+        const a = element('a', 'hc-back-link', link.label);
+        a.href = link.slug ? `/blogs/${link.slug}/` : link.href;
+        li.appendChild(a);
+        list.appendChild(li);
+      });
+      site.appendChild(list);
+      header.appendChild(site);
+    }
     body.appendChild(header);
 
     const filterLabel = element('label', 'connections__search', 'Search this work’s connections');
@@ -192,11 +212,6 @@ export function initAtlasExplorer() {
     body.appendChild(connections);
     renderConnections();
 
-    if (entry.p) {
-      const inside = element('div', 'focus__volume');
-      inside.appendChild(element('p', 'focus__volume-label', `Printed inside${entry.page ? `, beginning on page ${entry.page}` : ''}`)); inside.appendChild(workLink(entry.p, 'connections__entry'));
-      body.appendChild(inside);
-    }
     if (entry.k.length) {
       const studies = element('details', 'focus__volume');
       studies.appendChild(element('summary', '', `Studies printed inside this volume (${entry.k.length})`));

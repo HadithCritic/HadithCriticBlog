@@ -46,18 +46,23 @@ const sectionHead = (id: string, title: string, sub: string) => `
 const deathLine = (detail: NarratorDetail) =>
   detail.deathHijri ? `${detail.deathHijri} AH / ${detail.deathGregorian} CE` : 'Date not recorded';
 
-function heroMarkup(detail: NarratorDetail): string {
+/** The register stores at most this many teachers and students per transmitter. */
+const RELATION_CAP = 40;
+
+const relationLabel = (people: unknown[] | undefined, noun: string) =>
+  (people?.length ?? 0) >= RELATION_CAP ? `${noun}, most frequent ${RELATION_CAP}` : noun;
+
+function heroMarkup(dossier: NarratorDossier): string {
+  const { detail } = dossier;
   const badges = [
     detail.generation
       ? `<span class="rijal-badge rijal-badge--gen">${escapeHtml(detail.generation)}</span>`
       : '',
-    detail.tabaqaNumber ? `<span class="rijal-badge">Ṭabaqa ${detail.tabaqaNumber}</span>` : '',
-    ...(detail.flags || []).map(
-      (f) => `<span class="rijal-badge rijal-badge--flag">${escapeHtml(f)}</span>`
-    )
+    detail.tabaqaNumber ? `<span class="rijal-badge">Ṭabaqa ${detail.tabaqaNumber}</span>` : ''
   ].join('');
 
   const place = detail.deathPlace ? ` (${detail.deathPlace})` : '';
+  const narrations = dossier.transmissionCount || detail.hadithCount || 0;
 
   return `
     <header class="rijal-hero">
@@ -78,25 +83,23 @@ function heroMarkup(detail: NarratorDetail): string {
         }
       </div>
 
-      <div class="rijal-badges">${badges}</div>
+      ${badges ? `<div class="rijal-badges">${badges}</div>` : ''}
 
       <div class="rijal-facts-grid">
         <div class="rijal-fact-card">
-          <span class="rijal-fact-label">Death Notice</span>
+          <span class="rijal-fact-label">Died</span>
           <span class="rijal-fact-val">${escapeHtml(deathLine(detail) + place)}</span>
         </div>
         <div class="rijal-fact-card">
-          <span class="rijal-fact-label">Recorded Narrations</span>
-          <span class="rijal-fact-val rijal-fact-val--num">${
-            detail.hadithCount ? detail.hadithCount.toLocaleString() : '0'
-          }</span>
+          <span class="rijal-fact-label">Narrations in the corpus</span>
+          <span class="rijal-fact-val rijal-fact-val--num">${narrations.toLocaleString()}</span>
         </div>
         <div class="rijal-fact-card">
-          <span class="rijal-fact-label">Teachers</span>
+          <span class="rijal-fact-label">${relationLabel(detail.teachers, 'Teachers')}</span>
           <span class="rijal-fact-val rijal-fact-val--num">${detail.teachers?.length || 0}</span>
         </div>
         <div class="rijal-fact-card">
-          <span class="rijal-fact-label">Students</span>
+          <span class="rijal-fact-label">${relationLabel(detail.students, 'Students')}</span>
           <span class="rijal-fact-val rijal-fact-val--num">${detail.students?.length || 0}</span>
         </div>
       </div>
@@ -108,7 +111,7 @@ function verdictsSection(detail: NarratorDetail): string {
     ['Ibn Ḥajar al-ʿAsqalānī', detail.rankIbnHajarEn, detail.rankIbnHajar],
     ['al-Dhahabī', detail.rankDhahabiEn, detail.rankDhahabi],
     ['Ṭabaqa (Taqrīb al-Tahdhīb)', detail.tabaqaEn, detail.tabaqa],
-    ['Creedal Attribution', detail.madhhabEn, detail.madhhab]
+    ['Creedal attribution', detail.madhhabEn, detail.madhhab]
   ];
   const present = rows.filter(([, en, ar]) => en || ar);
   if (!present.length) return '';
@@ -117,8 +120,8 @@ function verdictsSection(detail: NarratorDetail): string {
     <section class="rijal-section" aria-labelledby="sec-verdicts">
       ${sectionHead(
         'sec-verdicts',
-        'Scholarly Verdicts',
-        'Evaluative classifications recorded by major bio-bibliographers, with facing English translation and Arabic phrasing.'
+        'Summary entries',
+        'Short entries from the standard handbooks, each under the scholar or work it comes from. The English translates the Arabic printed with it.'
       )}
       <div class="rijal-verdicts-grid">
         ${present
@@ -135,21 +138,6 @@ function verdictsSection(detail: NarratorDetail): string {
     </section>`;
 }
 
-function deathNoticeSection(detail: NarratorDetail): string {
-  if (!detail.deathDate) return '';
-  return `
-    <section class="rijal-section" aria-labelledby="sec-death">
-      ${sectionHead(
-        'sec-death',
-        'Death Notice',
-        'Preserved verbatim from the biographical manuscripts, noting variant dates and locations.'
-      )}
-      <div class="rijal-quote-card">
-        <p class="rijal-arabic-quote" dir="rtl" lang="ar">${escapeHtml(detail.deathDate)}</p>
-      </div>
-    </section>`;
-}
-
 function presenceSection(detail: NarratorDetail): string {
   if (!detail.books?.length) return '';
   const maxBook = detail.books[0]?.count || 1;
@@ -158,10 +146,9 @@ function presenceSection(detail: NarratorDetail): string {
   const positions = detail.positions?.length
     ? `
       <div class="rijal-position-block">
-        <h3 class="rijal-subhead">Position in the Transmission Chain</h3>
+        <h3 class="rijal-subhead">Position in the chain</h3>
         <p class="rijal-note">
-          Position 0 denotes the earliest tier (Companion/Successor); higher positions indicate
-          transmitters nearer to the compiler.
+          Position 0 is the earliest name in a chain; higher positions are nearer the compiler.
         </p>
         <div class="rijal-bars-card rijal-bars-card--sub">
           <ul class="rijal-bars rijal-bars--compact">
@@ -169,7 +156,7 @@ function presenceSection(detail: NarratorDetail): string {
               .map(
                 (p) => `
               <li class="rijal-bar">
-                <span class="rijal-bar__label">Tier ${p.pos}</span>
+                <span class="rijal-bar__label">Position ${p.pos}</span>
                 <div class="rijal-bar__track">
                   <div class="rijal-bar__fill rijal-bar__fill--alt" style="width:${Math.max(
                     3,
@@ -189,8 +176,8 @@ function presenceSection(detail: NarratorDetail): string {
     <section class="rijal-section" aria-labelledby="sec-presence">
       ${sectionHead(
         'sec-presence',
-        'Presence in Canonical Collections',
-        'Distribution of narrations across corpus works. Bars represent relative volume.'
+        'Presence in the corpus',
+        'Narrations naming this transmitter, by collection, largest first. The second chart counts position in the chains.'
       )}
       <div class="rijal-bars-card">
         <ul class="rijal-bars">
@@ -224,8 +211,8 @@ function transmissionsSection(dossier: NarratorDossier): string {
     <section class="rijal-section" aria-labelledby="sec-transmissions">
       ${sectionHead(
         'sec-transmissions',
-        'Recorded Hadith Narrations',
-        `${transmissionCount.toLocaleString()} narrations in the corpus cite this transmitter. Below are key attestations ordered by parallel frequency.`
+        'Narrations',
+        `${transmissionCount.toLocaleString()} narrations in the corpus name this transmitter. These are the ones with the most recorded parallels.`
       )}
 
       <div class="rijal-transmissions-list">
@@ -237,7 +224,7 @@ function transmissionsSection(dossier: NarratorDossier): string {
               <span class="rijal-tcard__src">${escapeHtml(t.book_en)} № ${escapeHtml(
                 t.hadith_num
               )}</span>
-              <span class="rijal-tcard__pill">Tier ${t.pos} of ${t.narrator_count}</span>
+              <span class="rijal-tcard__pill">Position ${t.pos} of ${t.narrator_count}</span>
             </div>
             ${
               t.matn_en
@@ -261,7 +248,7 @@ function transmissionsSection(dossier: NarratorDossier): string {
 
       <div class="rijal-view-more">
         <a class="rijal-btn rijal-btn--gold" href="/hadith/?narrator=${detail.id}">
-          View All ${transmissionCount.toLocaleString()} Narrations in Corpus →
+          Search all ${transmissionCount.toLocaleString()} narrations →
         </a>
       </div>
     </section>`;
@@ -275,8 +262,8 @@ function attestedFormsSection(dossier: NarratorDossier): string {
     <section class="rijal-section" aria-labelledby="sec-forms">
       ${sectionHead(
         'sec-forms',
-        'Attested Name Spellings in Isnāds',
-        'Documented variations in chain formulas. Biographical indices map these variations to ensure consistent identity resolution.'
+        'Name forms in the chains',
+        'How the chains in the corpus write this name, most frequent first. The register maps each form to this entry.'
       )}
       <div class="rijal-forms-grid">
         ${forms
@@ -285,7 +272,7 @@ function attestedFormsSection(dossier: NarratorDossier): string {
           <div class="rijal-form-card">
             <div class="rijal-form-card__top">
               <span lang="ar" dir="rtl" class="rijal-form-card__ar">${escapeHtml(f.surface)}</span>
-              ${f.is_display === 1 ? '<span class="rijal-form-tag">Register Canonical</span>' : ''}
+              ${f.is_display === 1 ? '<span class="rijal-form-tag">Register form</span>' : ''}
             </div>
             <span class="rijal-form-card__n">${f.n_mentions.toLocaleString()} attestations</span>
           </div>`
@@ -303,8 +290,8 @@ function chainsSection(dossier: NarratorDossier, linkable: Set<number>): string 
     <section class="rijal-section" aria-labelledby="sec-chains">
       ${sectionHead(
         'sec-chains',
-        'Representative Isnād Chains',
-        'Transmission trajectories illustrating the path from origin to final compilation. This transmitter is highlighted in gold.'
+        'Sample chains',
+        'A few complete chains through this transmitter, earliest name first. The transmitter of this dossier is marked.'
       )}
       <div class="rijal-chains-container">
         ${detail.sampleChains
@@ -346,8 +333,9 @@ function chainsSection(dossier: NarratorDossier, linkable: Set<number>): string 
     </section>`;
 }
 
-function criticismSection(criticism: Criticism | null): string {
-  if (!criticism) return '';
+function criticismSection(criticism: Criticism | null, flags: string[]): string {
+  if (!criticism && !flags.length) return '';
+  if (!criticism) return flagsMarkup(flags, 'sec-criticism');
 
   const critics = [...criticism.critics].sort((a, b) => b.statements.length - a.statements.length);
 
@@ -371,14 +359,15 @@ function criticismSection(criticism: Criticism | null): string {
     <section class="rijal-section" aria-labelledby="sec-criticism">
       ${sectionHead(
         'sec-criticism',
-        'Jarḥ &amp; Taʿdīl Apparatus',
-        `${criticism.statementCount.toLocaleString()} authoritative statements recorded across ${
+        'Jarḥ and taʿdīl statements',
+        `${criticism.statementCount.toLocaleString()} statements by ${
           criticism.criticCount
-        } traditional critics.`
+        } critics, each printed in the critic's wording with its citation. The category beside a statement is the source dataset's classification of that statement, not a verdict on the transmitter.`
       )}
 
-      <div class="rijal-tally-bar">${tally}</div>
+      <div class="rijal-tally-bar" aria-label="Statements by category">${tally}</div>
       ${phenomena}
+      ${flags.length ? flagsInline(flags) : ''}
 
       <div class="rijal-critics-stack">
         ${critics
@@ -420,13 +409,33 @@ function criticismSection(criticism: Criticism | null): string {
     </section>`;
 }
 
+/** Flags the register attaches to a transmitter, printed as its own labels and nothing more. */
+function flagsInline(flags: string[]): string {
+  return `
+    <p class="rijal-flags">
+      <span class="rijal-flags__label">Register flags</span>
+      ${flags.map((f) => `<span class="rijal-phenom-tag">${escapeHtml(f)}</span>`).join('')}
+    </p>`;
+}
+
+function flagsMarkup(flags: string[], id: string): string {
+  return `
+    <section class="rijal-section" aria-labelledby="${id}">
+      ${sectionHead(id, 'Register flags', 'Labels the source register attaches to this entry. No statements by named critics are recorded for this entry.')}
+      ${flagsInline(flags)}
+    </section>`;
+}
+
 function nomenclatureSection(detail: NarratorDetail): string {
+  const journey = detail.placesEn?.length ? detail.placesEn : detail.placesAr || [];
   const nameRows: [string, string][] = [
     ['Full name', detail.fullName],
-    ['Kunyah', detail.kunya],
+    ['Kunya', detail.kunya],
     ['Nickname', detail.nickname],
     ['Lineage', detail.lineage],
-    ['Relations', detail.relation]
+    ['Relations', detail.relation],
+    ['Death, as recorded', detail.deathDate],
+    ['Places', journey.join(' · ')]
   ];
   const present = nameRows.filter(([, v]) => v);
   if (!present.length && !detail.aliases?.length) return '';
@@ -448,8 +457,8 @@ function nomenclatureSection(detail: NarratorDetail): string {
       <div class="rijal-aliases-block">
         <details class="rijal-aliases-details">
           <summary class="rijal-aliases-summary">
-            <span class="rijal-subhead">Recorded Alias Forms (${detail.aliasCount})</span>
-            <span class="rijal-aliases-hint">${detail.aliases.length.toLocaleString()} forms · expand register</span>
+            <span class="rijal-subhead">Other recorded forms (${detail.aliasCount})</span>
+            <span class="rijal-aliases-hint">${detail.aliases.length.toLocaleString()} forms</span>
           </summary>
           <div class="rijal-aliases-wrap">
             ${detail.aliases
@@ -470,37 +479,10 @@ function nomenclatureSection(detail: NarratorDetail): string {
     <section class="rijal-section" aria-labelledby="sec-genealogy">
       ${sectionHead(
         'sec-genealogy',
-        'Nomenclature &amp; Lineage',
-        'Complete genealogical, tribal, and kunyah designations documented in biographical dictionaries.'
+        'Name, lineage and places',
+        'As given in the source register. Arabic entries are printed as recorded; dates may carry the variants the sources report.'
       )}
       <div class="rijal-names-card">${dl}${aliases}</div>
-    </section>`;
-}
-
-function placesSection(detail: NarratorDetail): string {
-  const journey = detail.placesEn?.length ? detail.placesEn : detail.placesAr || [];
-  if (!journey.length) return '';
-
-  return `
-    <section class="rijal-section" aria-labelledby="sec-places">
-      ${sectionHead(
-        'sec-places',
-        'Geographic Travels &amp; Residence',
-        'Documented regions of scholarly travel (ṭalab al-ʿilm) and residence.'
-      )}
-      <div class="rijal-journey-card">
-        <div class="rijal-journey-flow">
-          ${journey
-            .map(
-              (p, idx) => `
-            <div class="rijal-journey-stop">
-              <span class="rijal-journey-name" dir="auto">${escapeHtml(p)}</span>
-              ${idx < journey.length - 1 ? '<span class="rijal-journey-arrow">→</span>' : ''}
-            </div>`
-            )
-            .join('')}
-        </div>
-      </div>
     </section>`;
 }
 
@@ -512,7 +494,7 @@ function networkSection(detail: NarratorDetail, linkable: Set<number>): string {
   const card = (title: string, people: typeof teachers) => `
     <div class="rijal-network-card">
       <div class="rijal-net-hdr">
-        <h3 class="rijal-net-title">${title}</h3>
+        <h3 class="rijal-net-title">${relationLabel(people, title)}</h3>
         <span class="rijal-net-count">${people.length}</span>
       </div>
       <ul class="rijal-net-list">
@@ -538,8 +520,8 @@ function networkSection(detail: NarratorDetail, linkable: Set<number>): string {
     <section class="rijal-section" aria-labelledby="sec-network">
       ${sectionHead(
         'sec-network',
-        'Transmission Network',
-        'Primary scholarly lineages determined by isnād adjacency across the corpus.'
+        'Teachers and students',
+        'Names directly above or below this transmitter in the corpus chains, with the number of chains they share. Adjacency in a chain is not proof that one heard from the other.'
       )}
       <div class="rijal-network-grid">
         ${card('Teachers', teachers)}
@@ -555,29 +537,25 @@ export function renderNarratorDossier(dossier: NarratorDossier): string {
   const linkable = new Set(Object.keys(dossier.chainNames).map(Number));
 
   const sections = [
-    heroMarkup(detail),
-    verdictsSection(detail),
-    deathNoticeSection(detail),
+    heroMarkup(dossier),
+    nomenclatureSection(detail),
     presenceSection(detail),
     transmissionsSection(dossier),
-    attestedFormsSection(dossier),
+    networkSection(detail, linkable),
     chainsSection(dossier, linkable),
-    criticismSection(dossier.criticism),
-    nomenclatureSection(detail),
-    placesSection(detail),
-    networkSection(detail, linkable)
+    attestedFormsSection(dossier),
+    verdictsSection(detail),
+    criticismSection(dossier.criticism, detail.flags || [])
   ];
   const sectionLinks = ([
-    ['sec-verdicts', 'Scholarly verdicts'],
-    ['sec-death', 'Death notice'],
-    ['sec-presence', 'Collections'],
+    ['sec-genealogy', 'Name and lineage'],
+    ['sec-presence', 'In the corpus'],
     ['sec-transmissions', 'Narrations'],
-    ['sec-forms', 'Name forms'],
+    ['sec-network', 'Teachers and students'],
     ['sec-chains', 'Sample chains'],
-    ['sec-criticism', 'Jarḥ &amp; taʿdīl'],
-    ['sec-genealogy', 'Lineage'],
-    ['sec-places', 'Places'],
-    ['sec-network', 'Network']
+    ['sec-forms', 'Name forms'],
+    ['sec-verdicts', 'Summary entries'],
+    ['sec-criticism', 'Jarḥ and taʿdīl']
   ] as [string, string][]).filter(([id]) =>
     sections.some((section) => section.includes(`id="${id}"`))
   );
@@ -599,7 +577,7 @@ function degraded(badge: string, id: number, title: string, body: string): strin
       <h1 class="rijal-degraded__title">${escapeHtml(title)}</h1>
       <p class="rijal-degraded__text">${escapeHtml(body)}</p>
       <div class="rijal-degraded__actions">
-        <a class="rijal-btn" href="/narrators/">← Return to Rijāl Register</a>
+        <a class="rijal-btn" href="/narrators/">← Return to the Rijāl Register</a>
         <a class="rijal-btn rijal-btn--gold" href="/hadith/?narrator=${id}">Search Narrations for #${id}</a>
       </div>
     </div>`;

@@ -1,0 +1,287 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { answerOptions, axes, questions, contentVersion } from "../../../data/fiqh-compass";
+
+const crumbs = [
+  { name: "Home", url: "/" },
+  { name: "Projects", url: "/projects/" },
+  { name: "Fiqh Compass", url: "/projects/fiqh-compass/" },
+  { name: "Quiz", url: "/projects/fiqh-compass/quiz/" },
+];
+---
+
+<BaseLayout
+  title="Fiqh Compass Quiz | HadithCritic Projects"
+  description={`Answer ${questions.length} draft statements across twelve provisional dimensions of Islamic legal reasoning, then see which historical figures stand closest, with the passages each placement rests on.`}
+  canonical="/projects/fiqh-compass/quiz/"
+  crumbs={crumbs}
+  standalone
+>
+  <div class="fc-quiz-app">
+    <header class="fc-quiz-header">
+      <div class="fc-quiz-header__inner">
+        <a class="fc-quiz-brand" href="/projects/fiqh-compass/" aria-label="Back to the Fiqh Compass project overview">
+          <img class="fc-quiz-brand__mark" src="/images/HC.webp" alt="" width="42" height="42" />
+          <span><small>HADITHCRITIC · RESEARCH PROJECT</small><strong>Fiqh Compass</strong></span>
+        </a>
+        <button class="fc-restart-top" type="button" data-compass-reset>Restart</button>
+      </div>
+    </header>
+
+    <section class="fc-quiz-main" id="quiz" data-compass-quiz aria-labelledby="quiz-title">
+      <div class="fc-quiz-intro">
+        <p class="fc-kicker">{questions.length} draft statements · {axes.length} dimensions</p>
+        <h1 id="quiz-title">Consider each statement.</h1>
+        <p>With JavaScript enabled, your progress stays in this browser. You can skip a statement, go back, or leave the quiz and resume later.</p>
+      </div>
+
+      <div class="fc-quiz-form" data-compass-form>
+        <div class="fc-progress-row">
+          <span data-question-position aria-live="polite">Question 1 of {questions.length}</span>
+          <span data-answered-percent>0% answered</span>
+        </div>
+        <div class="fc-progress-track" role="progressbar" aria-label="Quiz completion" aria-valuemin="0" aria-valuemax={questions.length} aria-valuenow="0" aria-valuetext={`0 of ${questions.length} answered`} data-progress-track>
+          <div class="fc-progress-segments" aria-hidden="true" style={`--segments: ${questions.length}`}>
+            {questions.map((_, index) => <span data-progress-segment={index}></span>)}
+          </div>
+        </div>
+
+        <div class="fc-question-stack">
+          {questions.map((question, index) => {
+            const axis = axes.find((item) => item.id === question.axis)!;
+            return (
+              <fieldset class="fc-question-card" id={`question-${question.id}`} data-question data-question-index={index}>
+                <legend class="fc-question-card__sr-legend">Question {index + 1}: {question.prompt}</legend>
+                <div class="fc-question-heading">
+                  <span class="fc-question-card__number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+                  <span class="fc-axis-chip"><span class="fc-axis-chip__id">{axis.id}</span>{axis.title}</span>
+                  <span class="fc-question-card__prompt">{question.prompt}</span>
+                  <details class="fc-axis-help">
+                    <summary>What does this dimension mean?</summary>
+                    <p>{axis.note}</p>
+                    <p class="fc-axis-help__range"><span>{axis.low}</span><span aria-hidden="true">↔</span><span>{axis.high}</span></p>
+                  </details>
+                </div>
+                <div class="fc-answer-options" role="radiogroup" aria-label="Choose your response">
+                  {answerOptions.map((option) => {
+                    const inputId = `${question.id}-${option.value.replace(/[^a-z0-9]+/gi, "-")}`;
+                    const polarity = option.value === "0" ? "neutral" : /^-?\d+$/.test(option.value) && Number(option.value) > 0 ? "agree" : /^-?\d+$/.test(option.value) ? "disagree" : "unknown";
+                    const symbol = polarity === "agree" ? "✓" : polarity === "disagree" ? "×" : polarity === "neutral" ? "−" : "?";
+                    return (
+                      <label class={`fc-answer-option fc-answer-option--${polarity}`} for={inputId}>
+                        <input id={inputId} type="radio" name={question.id} value={option.value} />
+                        <span class="fc-answer-option__symbol" aria-hidden="true">{symbol}</span>
+                        <span>{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            );
+          })}
+        </div>
+
+        <p class="fc-quiz-status" data-compass-status role="status" aria-live="polite"></p>
+        <div class="fc-quiz-controls">
+          <button type="button" class="fc-nav-button fc-nav-button--back" data-compass-back disabled><span aria-hidden="true">←</span> Back</button>
+          <label class="fc-auto-advance"><input type="checkbox" data-compass-auto-advance checked /><span class="fc-auto-advance__switch" aria-hidden="true"></span><span>Advance on answer</span></label>
+          <button type="button" class="fc-nav-button fc-nav-button--next" data-compass-next>Next <span aria-hidden="true">→</span></button>
+        </div>
+      </div>
+      <p class="fc-noscript">JavaScript is off, so all questions are shown together and an automatic summary cannot be calculated. Your selections stay on this page and are not sent or saved.</p>
+    </section>
+
+    <section class="fc-quiz-results" id="quiz-results" data-compass-results aria-labelledby="results-title" hidden>
+      <header class="fc-results-header">
+        <div>
+          <p class="fc-kicker">Your answers · {contentVersion}</p>
+          <h1 id="results-title" tabindex="-1">A provisional map of your responses.</h1>
+          <p class="fc-results-count" data-result-count></p>
+        </div>
+        <div class="fc-results-actions">
+          <button type="button" class="fc-nav-button fc-nav-button--back" data-compass-review>Review answers</button>
+          <button type="button" class="fc-nav-button fc-nav-button--back" data-compass-print>Print summary</button>
+        </div>
+      </header>
+      <aside class="fc-results-caveat">
+        <strong>How to read this result</strong>
+        <p>Each coordinate applies the response direction to the answered draft items on that axis. Unknown, not-applicable, and skipped answers are excluded. One or two draft answers are limited coverage; a coordinate is not a probability, an identity, or a measure of correctness.</p>
+      </aside>
+      <section class="fc-figures" data-figure-results aria-label="Closest historical figures"></section>
+      <h2 class="fc-results-subhead">Your answers, dimension by dimension</h2>
+      <div class="fc-result-list" data-axis-results></div>
+      <details class="fc-scoring-note">
+        <summary>How is the provisional coordinate calculated?</summary>
+        <p>For each answered applicable statement, the five agreement responses map to −2 through +2, then the item’s direction is applied. The mean is mapped to a 0–100 display using 50 + 25 × mean. Skipped, “I am not sure,” and “Not applicable” responses do not enter the mean. A blank axis has no coordinate.</p>
+      </details>
+      <p class="fc-results-privacy">Your answers remain in this browser. They are not sent to HadithCritic.</p>
+      <div class="fc-results-footer">
+        <a href="/projects/fiqh-compass/" class="fc-nav-button fc-nav-button--back">Back to project overview</a>
+        <a href="/projects/fiqh-compass/corrections/?kind=question" class="fc-nav-button fc-nav-button--back">Report a question issue</a>
+        <button type="button" class="fc-nav-button fc-nav-button--next" data-compass-reset>Start over <span aria-hidden="true">→</span></button>
+      </div>
+    </section>
+
+    <footer class="fc-quiz-footer"><a href="/projects/fiqh-compass/">Fiqh Compass project overview</a><span>Prototype · not a fatwa or school identifier</span></footer>
+  </div>
+</BaseLayout>
+
+<script>
+  import "../../../lib/fiqh-compass.js";
+</script>
+
+<style>
+  :global(body.standalone-page) { background: var(--hc-surface-0); color: var(--hc-text-primary); background-image: none; }
+  :global(body.standalone-page::before) { display: none; }
+  .fc-quiz-app { --q-bg: var(--hc-surface-0); --q-paper: var(--hc-surface-2); --q-ink: var(--hc-text-primary); --q-text: var(--hc-text-secondary); --q-muted: var(--hc-text-tertiary); --q-line: var(--hc-rule-soft); --q-line-strong: var(--hc-rule); --q-green: var(--hc-gold); --q-gold: var(--hc-gold); min-height: 100vh; background: var(--q-bg); color: var(--q-ink); }
+  .fc-quiz-header { border-top: 3px solid var(--hc-gold); border-bottom: 1px solid var(--q-line); background: var(--hc-surface-1); }
+  .fc-quiz-header__inner { width: min(100% - 2.5rem, 64rem); min-height: 4.4rem; margin-inline: auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .fc-quiz-brand { display: flex; align-items: center; gap: 0.75rem; color: var(--q-ink); text-decoration: none; }
+  .fc-quiz-brand__mark { display: block; width: 2.1rem; height: 2.1rem; object-fit: contain; }
+  .fc-quiz-brand strong, .fc-quiz-brand small { display: block; }
+  .fc-quiz-brand strong { font: 600 1.05rem/1.2 var(--font-display); }
+  .fc-quiz-brand small { margin-bottom: 0.1rem; color: var(--hc-gold); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.09em; }
+  .fc-restart-top { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1rem; border: 1px solid var(--q-line-strong); border-radius: 0.12rem; background: transparent; color: var(--q-text); font: 600 0.83rem/1.3 var(--font-ui); cursor: pointer; }
+  .fc-restart-top:hover { border-color: var(--hc-gold); color: var(--q-ink); }
+  :global(.fc-result-basis) { grid-column: 1 / -1; margin-top: 0.75rem; }
+  :global(.fc-result-basis summary) { display: inline-flex; align-items: center; min-height: 2.5rem; color: var(--q-text); font: 600 0.82rem/1.4 var(--font-ui); cursor: pointer; }
+  :global(.fc-result-basis ol) { display: grid; gap: 0.7rem; margin: 0.35rem 0 0; padding-left: 1.2rem; }
+  :global(.fc-result-basis li p) { margin: 0; color: var(--q-ink); font-size: 0.9rem; line-height: 1.55; }
+  :global(.fc-result-basis .fc-result-basis__answer) { margin-top: 0.2rem; color: var(--hc-gold); font: 600 0.8rem/1.4 var(--font-ui); }
+  .fc-results-subhead { margin: 2.2rem 0 0.8rem; color: var(--q-ink); font: 600 1.25rem/1.3 var(--font-display); }
+  :global(.fc-figures) { margin: 0 0 1rem; }
+  :global(.fc-figures__title) { margin: 0 0 0.5rem; color: var(--hc-text-primary); font: 600 1.25rem/1.3 var(--font-display); }
+  :global(.fc-figures__lede), :global(.fc-figures__few), :global(.fc-figures__empty) { max-width: 70ch; margin: 0 0 0.9rem; color: var(--hc-text-secondary); font-size: 0.86rem; line-height: 1.6; }
+  :global(.fc-figures__stability) { margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-inline-start: 2px solid var(--hc-gold-dim); background: var(--hc-surface-1); color: var(--hc-text-primary); font: 500 0.85rem/1.5 var(--font-ui); }
+  :global(.fc-figures__list) { display: grid; gap: 0.9rem; }
+  :global(.fc-figure) { padding: 1rem 1.1rem; border: 1px solid var(--hc-rule-soft); background: var(--hc-surface-1); }
+  :global(.fc-figure__name) { margin: 0; color: var(--hc-text-primary); font: 600 1.1rem/1.3 var(--font-display); }
+  :global(.fc-figure__meta) { margin: 0.15rem 0 0; color: var(--hc-text-tertiary); font: 500 0.78rem/1.4 var(--font-ui); }
+  :global(.fc-figure__score) { margin: 0.45rem 0 0.6rem; color: var(--hc-text-primary); font: 600 0.88rem/1.4 var(--font-ui); }
+  :global(.fc-figure__axes) { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+  :global(.fc-figure__axes li) { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 0.75rem; padding: 0.35rem 0; border-top: 1px solid var(--hc-rule-soft); color: var(--hc-text-secondary); font: 400 0.8rem/1.45 var(--font-ui); }
+  :global(.fc-figure__axis) { color: var(--hc-text-primary); }
+  :global(.fc-figure__relation) { color: var(--hc-text-tertiary); text-align: end; }
+  :global(.fc-figure__sources), :global(.fc-figures__more), :global(.fc-figures-axis) { margin-top: 0.6rem; }
+  :global(.fc-figures__more) { margin-block: 0.9rem; }
+  :global(.fc-figures__more > .fc-figure) { margin-top: 0.75rem; }
+  :global(.fc-figures-axis) { grid-column: 1 / -1; }
+  :global(.fc-figure__sources > summary), :global(.fc-figures__more > summary), :global(.fc-figures-axis > summary) { display: inline-flex; align-items: center; min-height: 2.5rem; color: var(--hc-text-secondary); font: 600 0.82rem/1.4 var(--font-ui); cursor: pointer; }
+  :global(.fc-source) { margin: 0.4rem 0 0.9rem; padding-top: 0.6rem; border-top: 1px solid var(--hc-rule-soft); }
+  :global(.fc-source__statement) { margin: 0; color: var(--hc-text-primary); font-size: 0.88rem; line-height: 1.55; }
+  :global(.fc-source__ar) { margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-inline-start: 2px solid var(--hc-gold-dim); background: var(--hc-surface-2); color: var(--hc-text-primary); font: 400 1.12rem/1.9 "Noto Naskh Arabic", var(--font-critical); }
+  :global(.fc-source__cite) { margin: 0; color: var(--hc-text-tertiary); font: 400 0.75rem/1.5 var(--font-ui); }
+  .fc-quiz-main, .fc-quiz-results { width: min(100% - 2.5rem, 47rem); margin: 0 auto; padding-block: clamp(2.2rem, 6vw, 4.5rem) 5rem; }
+  .fc-quiz-intro { margin-bottom: 2rem; }
+  .fc-kicker { margin: 0 0 0.6rem; color: var(--q-gold); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.13em; text-transform: uppercase; }
+  .fc-quiz-intro h1, .fc-results-header h1 { max-width: 22ch; margin: 0; color: var(--q-ink); font: 600 clamp(2rem, 4vw, 2.9rem)/1.08 var(--font-editorial); letter-spacing: -0.01em; text-wrap: balance; }
+  .fc-quiz-intro > p:last-child { max-width: 64ch; margin: 0.7rem 0 0; color: var(--q-text); font-size: 0.92rem; line-height: 1.6; }
+  .fc-progress-row { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; color: var(--q-text); font: 500 0.78rem/1.45 var(--font-ui); }
+  :global(html:not(.js)) .fc-progress-row, :global(html:not(.js)) .fc-progress-track, :global(html:not(.js)) .fc-quiz-controls { display: none; }
+  :global(html.js) .fc-noscript { display: none; }
+  :global(html.js) [data-question] { display: none; }
+  :global(html.js) [data-question][data-active="true"] { display: block; }
+  .fc-progress-track { height: 0.42rem; margin-bottom: 0.9rem; }
+  .fc-progress-segments { display: grid; grid-template-columns: repeat(var(--segments, 24), minmax(0, 1fr)); gap: 1px; height: 100%; }
+  .fc-progress-segments span { border-radius: 999px; background: var(--hc-surface-3); transition: background 150ms ease; }
+  .fc-progress-segments span.is-current { background: var(--hc-text-tertiary); }
+  .fc-progress-segments span.is-answered { background: var(--q-green); }
+  .fc-question-card { --q-paper: var(--hc-fixed-parchment); --q-ink: var(--hc-fixed-parchment-ink); --q-text: #4e4842; --q-muted: #58534c; --q-line: rgba(92, 66, 34, 0.24); --q-line-strong: rgba(92, 66, 34, 0.42); --q-green: var(--hc-fixed-parchment-ink); --q-gold: var(--hc-fixed-parchment-ink); position: relative; min-width: 0; margin: 0; padding: clamp(1.1rem, 3vw, 1.8rem); border: 1px solid rgba(216, 177, 102, 0.72); border-radius: 0.12rem; background: var(--hc-fixed-parchment); box-shadow: 0 1.1rem 2.5rem rgba(0, 0, 0, 0.28); }
+  .fc-question-card[hidden], .fc-quiz-results[hidden] { display: none; }
+  .fc-question-card__sr-legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+  .fc-question-heading { display: grid; position: relative; gap: 0.9rem; padding: 0 0 1.15rem; }
+  .fc-question-card__number { position: absolute; top: -0.5rem; right: 0; color: #8c7958; font: 700 clamp(4rem, 11vw, 6.5rem)/0.9 var(--font-display); pointer-events: none; }
+  .fc-axis-chip { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-self: start; gap: 0.5rem; min-height: 2rem; padding: 0.2rem 0.75rem; border: 1px solid color-mix(in srgb, var(--q-gold) 24%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--q-gold) 8%, var(--q-paper)); color: var(--q-ink); font: 600 0.75rem/1.35 var(--font-ui); }
+  .fc-axis-chip__id { color: var(--q-gold); font-size: 0.75rem; letter-spacing: 0.06em; }
+  .fc-question-card__prompt { position: relative; z-index: 1; max-width: 56ch; color: var(--hc-fixed-parchment-ink); font: 600 clamp(1.25rem, 2.8vw, 1.8rem)/1.38 var(--font-critical); text-wrap: pretty; }
+  .fc-axis-help { position: relative; z-index: 1; color: var(--q-text); }
+  .fc-axis-help summary { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--q-muted); font: 500 0.76rem/1.45 var(--font-ui); cursor: pointer; }
+  .fc-axis-help summary::marker { color: var(--q-gold); }
+  .fc-axis-help p { max-width: 65ch; margin: 0.65rem 0 0; font-size: 0.85rem; line-height: 1.6; }
+  .fc-axis-help__range { display: flex; justify-content: space-between; gap: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--q-line); color: var(--q-muted); font-size: 0.75rem !important; }
+  .fc-answer-options { display: grid; gap: 0.55rem; }
+  .fc-answer-option { display: grid; grid-template-columns: 1.7rem minmax(0, 1fr) 1rem; align-items: center; gap: 0.65rem; min-height: 3.15rem; padding: 0.45rem 0.75rem; border: 1px solid var(--q-line); border-radius: 0.12rem; color: var(--hc-fixed-parchment-ink); font: 600 0.9rem/1.4 var(--font-ui); cursor: pointer; transition: border-color 140ms ease, background 140ms ease; }
+  .fc-answer-option:hover { border-color: var(--hc-fixed-parchment-ink); background: var(--hc-fixed-parchment-deep); }
+  .fc-answer-option input { grid-column: 3; grid-row: 1; width: 1rem; height: 1rem; margin: 0; accent-color: var(--hc-fixed-parchment-ink); }
+  .fc-answer-option__symbol { display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border: 1px solid #b8a57f; border-radius: 50%; background: #f2ebdc; color: var(--hc-fixed-parchment-ink); font: 700 0.8rem/1 var(--font-ui); }
+  .fc-answer-option:has(input:checked) { border-color: var(--q-green); background: color-mix(in srgb, var(--q-green) 7%, var(--q-paper)); }
+  .fc-quiz-status { min-height: 1.35rem; margin: 0.6rem 0 0; color: var(--q-text); font: 500 0.78rem/1.5 var(--font-ui); }
+  .fc-quiz-controls { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 1rem; margin-top: 0.75rem; }
+  .fc-nav-button { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; min-height: 2.75rem; padding: 0 1rem; border: 1px solid var(--q-line); border-radius: var(--radius-xs); background: transparent; color: var(--q-ink); font: 600 0.82rem/1.3 var(--font-ui); text-decoration: none; }
+  .fc-nav-button:hover:not(:disabled) { border-color: var(--q-green); background: color-mix(in srgb, var(--q-green) 5%, var(--q-bg)); }
+  .fc-nav-button:disabled { color: var(--q-muted); cursor: not-allowed; }
+  .fc-nav-button--next { justify-self: end; min-width: 5.6rem; border-color: var(--hc-gold); background: var(--hc-gold); color: var(--hc-text-inverse); }
+  .fc-nav-button--next:hover:not(:disabled) { border-color: var(--hc-gold-bright); background: var(--hc-gold-bright); color: var(--hc-text-inverse); }
+  .fc-auto-advance { display: inline-flex; align-items: center; gap: 0.55rem; color: var(--q-text); font: 500 0.76rem/1.3 var(--font-ui); cursor: pointer; white-space: nowrap; }
+  .fc-auto-advance input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .fc-auto-advance__switch { position: relative; width: 2.2rem; height: 1.22rem; border-radius: 999px; background: var(--hc-surface-3); transition: background 150ms ease; }
+  .fc-auto-advance__switch::after { position: absolute; top: 0.15rem; left: 0.15rem; width: 0.92rem; height: 0.92rem; border-radius: 50%; background: var(--hc-fixed-parchment); content: ""; transition: transform 150ms ease; }
+  .fc-auto-advance input:checked + .fc-auto-advance__switch { background: var(--q-green); }
+  .fc-auto-advance input:checked + .fc-auto-advance__switch::after { transform: translateX(0.98rem); }
+  .fc-auto-advance input:focus-visible + .fc-auto-advance__switch { outline: 2px solid var(--q-gold); outline-offset: 3px; }
+  .fc-results-header { display: flex; justify-content: space-between; align-items: end; gap: 1.5rem; }
+  .fc-results-count { margin: 0.55rem 0 0; color: var(--q-text); font: 500 0.85rem/1.4 var(--font-ui); }
+  .fc-results-actions, .fc-results-footer { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+  .fc-results-caveat { margin: 1.7rem 0; padding: 1rem 1.2rem; border-block: 1px solid var(--q-line); background: var(--hc-surface-1); color: var(--q-text); }
+  .fc-results-caveat strong { color: var(--q-ink); font: 600 0.9rem/1.4 var(--font-display); }
+  .fc-results-caveat p { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.65; }
+  .fc-result-list { border-top: 1px solid var(--q-line); }
+  :global(.fc-result-row) { display: grid; grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.2fr); gap: 0.35rem 1.5rem; padding: 1.15rem 0; border-bottom: 1px solid var(--q-line); }
+  :global(.fc-result-row h2) { margin: 0; color: var(--q-ink); font: 600 1rem/1.4 var(--font-display); }
+  :global(.fc-result-meta) { grid-column: 1; margin: 0; color: var(--q-muted); font: 400 0.77rem/1.5 var(--font-ui); }
+  :global(.fc-meter) { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) 6rem minmax(0, 1fr); gap: 0.7rem; align-items: center; }
+  :global(.fc-meter__label) { color: var(--q-text); font-size: 0.75rem; line-height: 1.4; }
+  :global(.fc-meter__label--high) { text-align: right; }
+  :global(.fc-meter__track) { position: relative; height: 3px; background: var(--q-line-strong); }
+  :global(.fc-meter__track::before) { position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border: 1px solid var(--q-muted); border-radius: 50%; background: var(--q-bg); content: ""; transform: translate(-50%, -50%); }
+  :global(.fc-meter__marker) { position: absolute; top: 50%; width: 13px; height: 13px; border: 2px solid var(--q-bg); border-radius: 50%; background: var(--q-green); box-shadow: 0 0 0 1px var(--q-green); transform: translate(-50%, -50%); }
+  :global(.fc-result-note) { grid-column: 1 / -1; margin: 0.35rem 0 0; color: var(--q-text); font-size: 0.83rem; line-height: 1.55; }
+  :global(.fc-evidence-disclosure) { grid-column: 1 / -1; margin-top: 0.35rem; border-top: 1px solid var(--q-line); color: var(--q-text); font-size: 0.82rem; line-height: 1.6; }
+  :global(.fc-evidence-disclosure > summary) { width: fit-content; padding: 0.65rem 0; color: var(--q-ink); font: 600 0.8rem/1.45 var(--font-ui); cursor: pointer; text-underline-offset: 0.18em; }
+  :global(.fc-evidence-disclosure > p) { max-width: 72ch; margin: 0.35rem 0 0.7rem; }
+  :global(.fc-evidence-disclosure > a) { display: inline-block; margin-bottom: 0.8rem; color: var(--q-ink); text-underline-offset: 0.18em; }
+  :global(.fc-evidence-entry) { margin: 0.25rem 0 1rem; padding: 0.8rem 0; border-top: 1px solid var(--q-line); }
+  :global(.fc-evidence-entry > p) { margin: 0.45rem 0; }
+  :global(.fc-evidence-entry .fc-evidence-citation) { color: var(--q-ink); font-weight: 600; }
+  :global(.fc-evidence-entry blockquote) { margin: 0.65rem 0; padding: 0.65rem 0.9rem; border-inline-start: 2px solid var(--hc-gold); background: var(--q-paper); color: var(--q-ink); }
+  :global(.fc-evidence-entry blockquote[lang="ar"]) { font-family: "Noto Naskh Arabic", var(--font-critical); font-size: 1.15rem; line-height: 1.9; }
+  .fc-scoring-note { margin-top: 1.5rem; padding: 0.9rem 0; border-block: 1px solid var(--q-line); }
+  .fc-scoring-note summary { color: var(--q-ink); font: 600 0.88rem/1.45 var(--font-ui); cursor: pointer; }
+  .fc-scoring-note p, .fc-results-privacy { color: var(--q-text); font-size: 0.82rem; line-height: 1.65; }
+  .fc-results-footer { justify-content: space-between; margin-top: 1.5rem; }
+  .fc-quiz-footer { display: flex; justify-content: space-between; gap: 1rem; width: min(100% - 2.5rem, 47rem); margin: 0 auto; padding: 1rem 0 1.5rem; border-top: 1px solid var(--q-line); color: var(--q-muted); font: 500 0.75rem/1.4 var(--font-ui); }
+  .fc-quiz-footer a { color: var(--q-ink); }
+  .fc-noscript { width: min(100% - 2.5rem, 47rem); margin: 1rem auto; padding: 0.8rem 1rem; border: 1px solid var(--q-line-strong); border-top: 2px solid var(--hc-gold); background: var(--hc-surface-1); color: var(--q-text); }
+  @media (max-width: 700px) {
+    .fc-quiz-controls { grid-template-columns: 1fr auto; gap: 0.75rem; }
+    .fc-auto-advance { grid-column: 1 / -1; grid-row: 1; justify-self: center; }
+    .fc-quiz-controls .fc-nav-button--back { grid-column: 1; grid-row: 2; justify-self: start; }
+    .fc-quiz-controls .fc-nav-button--next { grid-column: 2; grid-row: 2; }
+    .fc-results-header { align-items: flex-start; flex-direction: column; }
+  }
+  @media (max-width: 560px) {
+    .fc-quiz-header__inner, .fc-quiz-main, .fc-quiz-results, .fc-quiz-footer { width: min(100% - 1.25rem, 47rem); }
+    .fc-quiz-header__inner { min-height: 3.9rem; }
+    .fc-quiz-brand small { font-size: 0.75rem; }
+    .fc-restart-top { min-height: 2.45rem; padding-inline: 0.75rem; font-size: 0.76rem; }
+    .fc-question-card { padding: 1rem 0.8rem; }
+    .fc-question-card__number { font-size: 4rem; }
+    .fc-question-card__prompt { font-size: 1.15rem; }
+    .fc-answer-option { min-height: 3rem; font-size: 0.84rem; }
+    .fc-results-actions .fc-nav-button { flex: 1; }
+    :global(.fc-result-row) { grid-template-columns: minmax(0, 1fr); gap: 0.45rem; }
+    :global(.fc-meter) { grid-column: 1; grid-row: auto; }
+    :global(.fc-result-meta) { grid-column: 1; }
+    .fc-quiz-footer { flex-direction: column; gap: 0.35rem; }
+    :global(.fc-figure__axes li) { grid-template-columns: minmax(0, 1fr) auto; }
+    :global(.fc-figure__values) { grid-column: 1; grid-row: 2; }
+    :global(.fc-figure__relation) { grid-row: 1 / span 2; align-self: center; }
+  }
+  @media (prefers-reduced-motion: reduce) { .fc-progress-segments span, .fc-answer-option, .fc-auto-advance__switch, .fc-auto-advance__switch::after { transition: none; } }
+  @media print {
+    :global(body.standalone-page) { background: var(--hc-fixed-parchment); }
+    .fc-quiz-header, .fc-quiz-footer, .fc-quiz-intro, .fc-quiz-controls, .fc-results-actions, .fc-results-footer { display: none !important; }
+    .fc-quiz-results { width: 100%; padding: 0; }
+    :global(.fc-result-row), .fc-results-caveat { break-inside: avoid; }
+  }
+</style>

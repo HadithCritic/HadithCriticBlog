@@ -150,6 +150,16 @@ type Worker = Awaited<ReturnType<typeof createDbWorker>>;
 
 let workerPromise: Promise<Worker> | null = null;
 let structuredSchemaPromise: Promise<boolean> | null = null;
+let textPartsSchemaPromise: Promise<boolean> | null = null;
+let narratorDiacPromise: Promise<boolean> | null = null;
+
+/** Whether this release stores vocalized narrator name forms, checked once. */
+function narratorDiacColumn(): Promise<boolean> {
+  narratorDiacPromise ??= queryOne<{ n: number }>(
+    `SELECT count(*) AS n FROM pragma_table_info('hadith_narrator') WHERE name = 'surface_diac'`
+  ).then((row) => Number(row?.n ?? 0) > 0);
+  return narratorDiacPromise;
+}
 
 /**
  * Prove the host answers range requests before trusting a byte of it.
@@ -548,6 +558,21 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
   const hadith = await queryOne<HadithRecord>(detailSql, [id]);
   if (!hadith) return null;
 
+  // Releases from 2026-10-07 split each text into lead, narration and notes.
+  if (!textPartsSchemaPromise) {
+    textPartsSchemaPromise = queryOne<{ n: number }>(
+      `SELECT count(*) AS n FROM sqlite_master
+        WHERE type = 'table' AND name = 'hadith_text_parts'`
+    ).then((row) => Number(row?.n ?? 0) > 0);
+  }
+  if (await textPartsSchemaPromise) {
+    const parts = await queryOne<Pick<HadithRecord, 'lead_end' | 'notes_start' | 'page_start' | 'page_end'>>(
+      'SELECT lead_end, notes_start, page_start, page_end FROM hadith_text_parts WHERE hadith_id = ?',
+      [id]
+    );
+    if (parts) Object.assign(hadith, parts);
+  }
+
   const [chain, rawSubjects, glosses, sourceNarrators, references] = await Promise.all([
     query<ChainNode>(
       `SELECT c.path_idx, c.pos, c.narrator_id, c.name, n.name_en, n.death_hijri
@@ -564,15 +589,18 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
       'SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?',
       [id]
     ),
-    supportsStructure
-      ? query<HadithNarratorSurface>(
-          `SELECT hn.pos, hn.narrator_id, hn.surface, hn.surface_diac, n.name_en, n.name_ar
-             FROM hadith_narrator hn
-             LEFT JOIN narrator n ON n.id = hn.narrator_id
-            WHERE hn.hadith_id = ? ORDER BY hn.pos`,
-          [id]
-        )
-      : Promise.resolve([] as HadithNarratorSurface[]),
+    // Every release carries the name forms; only the structured pilot added their
+    // vocalized copy. Gating the list on hadith_structure hid it on every record.
+    narratorDiacColumn().then((hasDiac) =>
+      query<HadithNarratorSurface>(
+        `SELECT hn.pos, hn.narrator_id, hn.surface,
+                ${hasDiac ? 'hn.surface_diac' : 'NULL AS surface_diac'}, n.name_en, n.name_ar
+           FROM hadith_narrator hn
+           LEFT JOIN narrator n ON n.id = hn.narrator_id
+          WHERE hn.hadith_id = ? ORDER BY hn.pos`,
+        [id]
+      )
+    ),
     supportsStructure
       ? query<HadithReference>(
           `SELECT r.reference_ordinal, r.edition_id, r.volume, r.page, r.source_marker,
@@ -595,6 +623,58 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
     subjects: [...new Map(rawSubjects.map((s) => [String(s.label_en).trim(), s])).values()],
     glosses
   };
+}
+
+export interface HadithNeighbour {
+  id: number;
+  hadith_num: string | null;
+}
+
+/**
+ * The narrations either side of one record in its collection, in the order the
+ * collection edition lists them (by id within the book). Two seeks on the same
+ * (book_id, id) path the edition pager already uses.
+ */
+export async function getHadithNeighbours(
+  bookId: number,
+  id: number
+): Promise<{ prev: HadithNeighbour | null; next: HadithNeighbour | null }> {
+  const [prev, next] = await Promise.all([
+    queryOne<HadithNeighbour>(
+      'SELECT h.id, h.hadith_num FROM hadith h WHERE h.book_id = ? AND h.id < ? ORDER BY h.id DESC LIMIT 1',
+      [bookId, id]
+    ),
+    queryOne<HadithNeighbour>(
+      'SELECT h.id, h.hadith_num FROM hadith h WHERE h.book_id = ? AND h.id > ? ORDER BY h.id LIMIT 1',
+      [bookId, id]
+    )
+  ]);
+  return { prev: prev ?? null, next: next ?? null };
+}
+
+/**
+ * The narrations of one chapter, which the collection structure gives as an id
+ * range within a collection. Read a page at a time by seeking past the last id,
+ * so a chapter of several thousand reports costs no more per page than one of
+ * three.
+ */
+export async function getRecordsInRange(params: {
+  bookId: number;
+  first: number;
+  last: number;
+  after?: number | null;
+  size?: number;
+}): Promise<HadithRecord[]> {
+  const size = Math.min(100, Math.max(1, params.size || 25));
+  const from = params.after ? params.after + 1 : params.first;
+  return query<HadithRecord>(
+    `SELECT h.id, h.hadith_num, h.chapter_en, h.chapter_ar, h.matn_en, h.text_en,
+            h.matn_ar, h.text_ar, h.narrator_count, h.parallel_count
+       FROM hadith h
+      WHERE h.book_id = ? AND h.id BETWEEN ? AND ?
+      ORDER BY h.id LIMIT ?`,
+    [params.bookId, from, params.last, size]
+  );
 }
 
 /* -------------------------------------------------------------------------- */

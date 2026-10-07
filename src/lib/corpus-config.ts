@@ -41,9 +41,19 @@ export const CORPUS_VERSION: string =
  */
 const DEFAULT_PROD_BASE = 'https://data.hadithcriticblog.com/';
 
-const RAW_BASE: string =
-  import.meta.env.PUBLIC_CORPUS_BASE_URL ||
-  (import.meta.env.PROD ? DEFAULT_PROD_BASE : '/data/corpus/');
+/**
+ * The dev server always reads its own middleware unless told otherwise with
+ * `PUBLIC_CORPUS_DEV_BASE_URL`.
+ *
+ * Vite loads `.env` in dev as well as in a build, and `.env` carries the
+ * production `PUBLIC_CORPUS_BASE_URL` for the build and publish scripts. Dev
+ * inherited it, asked R2 for the corpus from http://localhost:4321, and R2's
+ * CORS rules admit only the two production hostnames, so every corpus page in
+ * dev said the corpus could not be loaded while production was fine.
+ */
+const RAW_BASE: string = import.meta.env.DEV
+  ? import.meta.env.PUBLIC_CORPUS_DEV_BASE_URL || '/data/corpus/'
+  : import.meta.env.PUBLIC_CORPUS_BASE_URL || DEFAULT_PROD_BASE;
 
 /**
  * A built site may not fall back to serving the corpus from its own origin.

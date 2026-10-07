@@ -1,0 +1,72 @@
+---
+import '../styles/house.css';
+
+/**
+ * Masthead for the front-of-house pages, in the homepage's language: an
+ * engraving masked into a black field, Cormorant display type, the ornament
+ * rule and a lede.
+ *
+ * `aside` holds whatever the page sets beside its title (a contents list, a
+ * cover, a channel card); `register` holds a strip of the page's own figures.
+ * A page that needs a different shape of hero builds its own from house.css
+ * rather than bending this one.
+ */
+interface Props {
+  title: string;
+  /** Set after the title in gold, as the homepage sets "early traditions." */
+  accent?: string;
+  titleId: string;
+  kicker?: string;
+  kickerHref?: string;
+  /** Path of the 2172px engraving; a 1086px sibling named `-1086` is expected. */
+  art?: string;
+  /** object-position for the engraving on wide and narrow screens. */
+  focus?: string;
+  focusMobile?: string;
+  /** Character measure of the title. */
+  measure?: string;
+  class?: string;
+}
+
+const { title, accent, titleId, kicker, kickerHref, art, focus, focusMobile, measure, class: className } = Astro.props;
+const small = art?.replace(/\.webp$/, '-1086.webp');
+const style = [
+  focus && `--hero-focus:${focus}`,
+  focusMobile && `--hero-focus-mobile:${focusMobile}`,
+  measure && `--hero-measure:${measure}`
+].filter(Boolean).join(';');
+---
+
+<header class:list={['hc-hero', className]} aria-labelledby={titleId} style={style || undefined}>
+  {art && (
+    <img
+      class="hc-hero__art"
+      src={art}
+      srcset={`${small} 1086w, ${art} 2172w`}
+      sizes="(max-width: 720px) 100vw, 64vw"
+      width="2172"
+      height="724"
+      alt=""
+      fetchpriority="high"
+    />
+  )}
+  <div class="hc-container hc-hero__inner">
+    <div class="hc-hero__copy">
+      {kicker && (
+        <p class="hc-hero__kicker">{kickerHref ? <a href={kickerHref}>{kicker}</a> : kicker}</p>
+      )}
+      <h1 id={titleId} class="hc-hero__title">
+        {title}{accent && <Fragment>{' '}<span>{accent}</span></Fragment>}
+      </h1>
+      <span class="hc-ornament hc-hero__ornament" aria-hidden="true"></span>
+      <slot />
+      {Astro.slots.has('actions') && <div class="hc-hero__actions"><slot name="actions" /></div>}
+    </div>
+    {Astro.slots.has('aside') && <div class="hc-hero__aside"><slot name="aside" /></div>}
+  </div>
+  {Astro.slots.has('register') && (
+    <div class="hc-hero__register">
+      <div class="hc-container"><slot name="register" /></div>
+    </div>
+  )}
+</header>

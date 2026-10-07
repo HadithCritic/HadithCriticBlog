@@ -35,6 +35,21 @@ import {
   resolveMasterDb
 } from './lib/corpus-dist.mjs';
 
+/*
+ * Tables only a structured release carries (the Ibn Abi Shaybah pilot). A
+ * release built from a master without them is still valid: corpus-client.ts
+ * checks for hadith_structure once and reads these fields only when present.
+ * They are counted, and their probe run, exactly when the master has them.
+ */
+const STRUCTURED_TABLES = new Set([
+  'hadith_edition',
+  'hadith_kitab',
+  'hadith_bab',
+  'hadith_structure',
+  'hadith_reference',
+  'hadith_text_parts'
+]);
+
 const COUNTED_TABLES = [
   'hadith',
   'hadith_edition',
@@ -42,6 +57,7 @@ const COUNTED_TABLES = [
   'hadith_bab',
   'hadith_structure',
   'hadith_reference',
+  'hadith_text_parts',
   'hadith_book',
   'hadith_chain',
   'hadith_gloss',
@@ -158,6 +174,7 @@ const PROBES = [
   },
   {
     name: 'structured source record: hierarchy, vocalization, and page evidence',
+    requires: 'hadith_structure',
     sql: `SELECT h.id, h.text_ar_diac, h.matn_ar_diac, k.ordinal AS kitab_ordinal,
                  b.ordinal AS bab_ordinal, r.source_marker, e.year_hijri
             FROM hadith h
@@ -169,6 +186,20 @@ const PROBES = [
            WHERE h.id = ?`,
     args: [237072],
     expect: (rows) => rows.length === 1 && rows[0].kitab_ordinal === 1 && rows[0].source_marker === '[1/217]'
+  },
+  {
+    name: 'text parts: lead, narration, notes and page for a narration',
+    requires: 'hadith_text_parts',
+    sql: `SELECT p.lead_end, p.notes_start, p.page_start, p.page_end, length(h.text_ar) AS n
+            FROM hadith_text_parts p JOIN hadith h ON h.id = p.hadith_id WHERE p.hadith_id = ?`,
+    args: [237072],
+    expect: (rows) =>
+      rows.length === 1 &&
+      rows[0].lead_end > 0 &&
+      rows[0].lead_end < rows[0].notes_start &&
+      rows[0].notes_start < rows[0].n &&
+      rows[0].page_start === '1/219' &&
+      rows[0].page_end === '1/220'
   },
   {
     name: 'narrator filter over hadith',
@@ -289,8 +320,15 @@ async function main() {
   const dist = new DatabaseSync(build.db, { readOnly: true });
 
   try {
+    const masterHas = (table) =>
+      master.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?").get(table).n === 1;
+    if (!masterHas('hadith_structure')) {
+      console.log('\n  The master has no structured tables; their counts and probe are skipped.');
+    }
+
     console.log('\n  Row counts');
     for (const table of COUNTED_TABLES) {
+      if (STRUCTURED_TABLES.has(table) && !masterHas(table)) continue;
       const a = master.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
       const b = dist.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
       note(a === b, `${table}: ${Number(b).toLocaleString()}`);
@@ -298,6 +336,7 @@ async function main() {
 
     console.log('\n  Query behaviour');
     for (const probe of PROBES) {
+      if (probe.requires && !masterHas(probe.requires)) continue;
       let masterRows;
       let distRows;
       try {

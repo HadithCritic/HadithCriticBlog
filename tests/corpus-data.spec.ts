@@ -45,7 +45,7 @@ let corpusVersion: string | null = null;
 test.beforeEach(async ({ page }) => {
   if (corpusVersion === null) {
     await page.goto('/hadith');
-    await expect(page.locator('.book-card').first()).toBeVisible();
+    await expect(page.locator('.catalog-row').first()).toBeVisible();
     corpusVersion = await page.evaluate(
       () => (window as unknown as { __corpusVersion?: string }).__corpusVersion || ''
     );
@@ -59,10 +59,10 @@ test.beforeEach(async ({ page }) => {
 
 test('the corpus reports the totals the release was cut with', async ({ page }) => {
   await page.goto('/hadith');
-  await expect(page.locator('.corpus-stat-card__val').first()).toHaveText(
+  await expect(page.locator('.rp-card__lead dd')).toHaveText(
     EXPECTED.hadith.toLocaleString()
   );
-  await expect(page.locator('.book-card')).toHaveCount(EXPECTED.collections);
+  await expect(page.locator('.catalog-row')).toHaveCount(EXPECTED.collections);
   await page.goto('/narrators');
   await expect(page.locator('[data-register-status]')).toContainText(
     `${EXPECTED.narrators.toLocaleString()} transmitters`,
@@ -98,11 +98,11 @@ test('the sample narration keeps its identity, chain and apparatus', async ({ pa
   await expect(page).toHaveTitle(new RegExp(EXPECTED.sampleReference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   // Two branches, and the chain that ends at the compiler.
-  await expect(page.locator('.isnad-path-card')).toHaveCount(2);
-  await expect(page.locator('.role-pill--compiler').first()).toBeVisible();
+  await expect(page.locator('.hr-chain-block')).toHaveCount(2);
+  await expect(page.locator('.hr-chain__label').first()).toHaveText('Chain 1 of 2');
   await expect(
-    page.locator(`.ladder-card__name[href="/narrators/${EXPECTED.malikId}/"]`).first()
-  ).toBeVisible();
+    page.locator(`.hr-chain__compiler a[href="/narrators/${EXPECTED.malikId}/"]`).first()
+  ).toHaveText(EXPECTED.malikName);
 
   // All four sections, which only this record's shape produces.
   for (const anchor of ['matn-heading', 'report-heading', 'isnad-heading', 'apparatus-heading']) {

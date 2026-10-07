@@ -1,492 +1,362 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import { OG } from "../lib/seo";
 import { CORPUS_META } from "../lib/corpus-config";
 import { academicStudies } from "../data/academic-studies";
 import { studyFamily } from "../data/icma-families";
-import { graph, layoutTimeline } from "../lib/research-graph";
+import researchGraph from "../data/research-graph.json";
+import qiraatIndex from "../data/qiraat/index.json";
+import { totalEntries, works as tafsirWorkList } from "../lib/tafsir";
+import "../styles/projects.css";
 
+/* Every figure on this page is read from the data the project is built from. */
+const n = (value: number) => value.toLocaleString("en-US");
 const corpus = CORPUS_META.counts;
-const n = (value: number) => value.toLocaleString("en-GB");
+const icma = academicStudies.filter((study) => study.category === "icma");
+const icmaFamilies = new Set(icma.map((study) => studyFamily[study.slug] ?? "network")).size;
+const citations = researchGraph.edges.filter((edge) => edge.type === "cites").length;
+const tafsirPassages = totalEntries();
+const tafsirWorks = tafsirWorkList.length;
+const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
-const icmaStudies = academicStudies.filter((study) => study.category === "icma");
-const families = new Set(icmaStudies.map((study) => studyFamily[study.slug] ?? "network")).size;
-const atlasCitations = graph.data.edges.filter((edge) => edge.type === "cites").length;
-
-/* Each project takes a ground from the palette used on the studies register; every
-   ink/background and accent/background pair clears WCAG AA, so cards read the same in both themes. */
-type Brand = { bg: string; ink: string; accent: string };
-const BRAND = {
-  house: { bg: "#17140f", ink: "#f2ebdc", accent: "#e2c38a" },
-  teal: { bg: "#0b4f6c", ink: "#f2fafd", accent: "#a6dcf0" },
-  green: { bg: "#1f5140", ink: "#eff8f2", accent: "#b0dcc0" },
-  navy: { bg: "#1e3670", ink: "#eff2fc", accent: "#b4c6f5" },
-  oxblood: { bg: "#6b1f30", ink: "#fdf1f2", accent: "#f5b8c2" },
-  rust: { bg: "#a3401c", ink: "#fff7f1", accent: "#ffd6bd" },
-  plum: { bg: "#51306b", ink: "#f7f0fc", accent: "#dcc4f0" },
-} satisfies Record<string, Brand>;
-
-type Stat = { value: string; label: string };
-type Project = {
-  id: string;
-  kind: string;
-  title: string;
-  ar?: string;
-  desc: string;
+interface Entry {
+  label: string;
   href: string;
-  cta: string;
-  note: string;
-  brand: Brand;
-  art?: { src: string; width: number; height: number; focus?: string };
-  motif?: "graph";
-  wide?: boolean;
-  stats: Stat[];
-};
-type Section = { id: string; name: string; title: string; projects: Project[] };
+}
 
-const sections: Section[] = [
+interface Project {
+  id: string;
+  href: string;
+  art?: string;
+  kind: string;
+  arabic?: string;
+  title: string;
+  desc: string;
+  figures: string[];
+  entries: Entry[];
+  action: string;
+  scope: string;
+  status: string;
+}
+
+const lead: Project = {
+  id: "hadith-corpus",
+  href: "/hadith/",
+  art: "corpus",
+  kind: "Textual corpus",
+  arabic: "الحديث",
+  title: "Hadith Corpus",
+  desc: "Narrations in facing Arabic and English, searchable across every compilation by matn, isnād or topic, with each chain linked to its transmitters in the Rijāl Register. No authenticity grade is added.",
+  figures: [`${n(corpus.hadith)} narrations`, `${corpus.collections} collections`, `${n(corpus.chainLinks)} chain links`],
+  entries: [
+    { label: "Search the narrations", href: "/hadith/" },
+    { label: "Browse the collections", href: "/hadith/#collections-heading" },
+    { label: "Open Ṣaḥīḥ al-Bukhārī", href: "/hadith/collection/sahih-al-bukhari/" },
+  ],
+  action: "Search the corpus",
+  scope: `${n(corpus.hadith)} narrations in ${corpus.collections} collections`,
+  status: "Live",
+};
+
+const databases: Project[] = [
   {
-    id: "databases",
-    name: "Databases",
-    title: "Searchable databases.",
-    projects: [
-      {
-        id: "hadith-corpus",
-        kind: "Textual corpus",
-        title: "Hadith Corpus",
-        ar: "المكنز الحديثي الشامل",
-        desc: `Search ${n(corpus.hadith)} narrations across ${corpus.collections} collections. Read Arabic and English texts alongside their linked transmission chains.`,
-        href: "/hadith/",
-        cta: "Search the corpus",
-        note: "Arabic and English search",
-        brand: BRAND.house,
-        art: { src: "/images/hadith-corpus-art.webp", width: 1536, height: 1024, focus: "70% 42%" },
-        stats: [
-          { value: n(corpus.hadith), label: "Narrations" },
-          { value: String(corpus.collections), label: "Collections" },
-          { value: n(corpus.chainLinks), label: "Chain links" },
-        ],
-      },
-      {
-        id: "narrator-biographies",
-        kind: "Biographical register",
-        title: "Rijāl Register",
-        ar: "طبقات الرواة والرجال",
-        desc: "Trace named transmitters through teacher and student links. Consult biographical records and criticism attributed to classical sources.",
-        href: "/narrators/",
-        cta: "Browse transmitters",
-        note: "No in-house reliability rating",
-        brand: BRAND.teal,
-        art: { src: "/images/rijal-register-art.webp", width: 1672, height: 941, focus: "52% 30%" },
-        stats: [
-          { value: n(corpus.narrators), label: "Named transmitters" },
-          { value: n(corpus.narratorsDated), label: "With dates" },
-          { value: n(corpus.criticismStatements), label: "Source statements" },
-        ],
-      },
-      {
-        id: "quran-textual-variants",
-        kind: "Textual documentation",
-        title: "Quran",
-        ar: "القرآن",
-        desc: "Documented cases of variant Quranic wording, readings, and other textual differences, with the sources and context for each case.",
-        href: "/projects/quran/",
-        cta: "Explore Quran cases",
-        note: "Source-based textual cases",
-        brand: BRAND.green,
-        art: { src: "/images/quran-variants-art-v2.webp", width: 1672, height: 941 },
-        stats: [
-          { value: "Text", label: "Word variants" },
-          { value: "Readings", label: "Qirāʾāt" },
-          { value: "Sources", label: "Case records" },
-        ],
-      },
-      {
-        id: "tafsir-reader",
-        kind: "Reader framework",
-        title: "Tafsir reader",
-        ar: "التفسير",
-        desc: "A verse-first reader framework under structural revision. Source commentary texts are not currently included.",
-        href: "/projects/tafsir/",
-        cta: "Open the reader framework",
-        note: "Structure in progress",
-        brand: BRAND.plum,
-        stats: [
-          { value: "114", label: "Suras" },
-          { value: "Verse", label: "Reading anchor" },
-          { value: "Arabic + English", label: "Verse text" },
-        ],
-      },
+    id: "narrator-biographies",
+    href: "/narrators/",
+    art: "rijal",
+    kind: "Biographical register",
+    arabic: "الرجال",
+    title: "Rijāl Register",
+    desc: "Classical transmitters with dates, teachers and students, and every critic’s statement attributed to the critic who made it.",
+    figures: [`${n(corpus.narrators)} transmitters`, `${n(corpus.criticismStatements)} statements`],
+    entries: [
+      { label: "Browse the register", href: "/narrators/" },
+      { label: "Compare two transmitters", href: "/narrators/compare/" },
     ],
+    action: "Browse the register",
+    scope: `${n(corpus.narrators)} transmitters, ${n(corpus.criticismStatements)} attributed statements`,
+    status: "Live",
   },
   {
-    id: "research",
-    name: "Research",
-    title: "Research and editions.",
-    projects: [
-      {
-        id: "hadith-criticism-atlas",
-        kind: "Research atlas",
-        title: "Hadith Criticism Atlas",
-        desc: "Modern scholarship on ḥadīth criticism, laid out by author and year, with the citations between works. Select a work to see what it cites and what cites it.",
-        href: "/research/",
-        cta: "Open the atlas",
-        note: "Citations traced to the works' own text",
-        brand: BRAND.navy,
-        motif: "graph",
-        wide: true,
-        stats: [
-          { value: String(graph.data.works.length), label: "Works" },
-          { value: String(graph.data.scholars.length), label: "Scholars" },
-          { value: String(atlasCitations), label: "Citations traced" },
-        ],
-      },
-      {
-        id: "academic-studies",
-        kind: "Academic scholarship",
-        title: "Academic Studies",
-        ar: "الدراسات الأكاديمية",
-        desc: "Explore isnād-cum-matn monographs examining early transmission, textual origins, and the formation of Islamic literature.",
-        href: "/projects/academic-studies/",
-        cta: "Explore the studies",
-        note: "Monographs by research family",
-        brand: BRAND.oxblood,
-        art: { src: "/images/academic-studies-art.webp", width: 1536, height: 1024, focus: "75% 78%" },
-        stats: [
-          { value: String(icmaStudies.length), label: "Monographs" },
-          { value: String(families), label: "Research families" },
-          { value: "1st–3rd C.", label: "Termini" },
-        ],
-      },
-      {
-        id: "shirk-documentation",
-        kind: "Critical edition",
-        title: "Shirk: Endorsed by the Scholars of Islam",
-        ar: "&#1606;&#1602;&#1608;&#1604; &#1575;&#1604;&#1593;&#1604;&#1605;&#1575;&#1569; &#1601;&#1610; &#1575;&#1604;&#1578;&#1608;&#1587;&#1604; &#1608;&#1575;&#1604;&#1575;&#1587;&#1578;&#1594;&#1575;&#1579;&#1577;",
-        desc: "Explore classical Sunni source material on tawassul, intercession, and istighāthah, gathered across four legal schools and supported by primary manuscript scans.",
-        href: "/research/shirk-endorsed/",
-        cta: "Read the critical edition",
-        note: "Ten centuries of source material",
-        brand: BRAND.rust,
-        art: { src: "/images/shirk-edition-art.webp", width: 1536, height: 1024, focus: "72% 40%" },
-        stats: [
-          { value: "99", label: "Authorities" },
-          { value: "4", label: "Legal schools" },
-          { value: "207", label: "Manuscript scans" },
-        ],
-      },
+    id: "quran-textual-variants",
+    href: "/projects/quran/",
+    art: "qiraat",
+    kind: "Variant readings",
+    arabic: "القراءات",
+    title: "The Qirāʾāt Variants",
+    desc: "The ten readings set side by side, word by word, with the classical books that report each one and the page each quotation comes from.",
+    figures: ["10 readers", `${qiraatIndex.suras_with_data} of 114 suras`, `${rulesCount} general rules`],
+    entries: [
+      { label: "The ten readers", href: "/projects/quran/#readers" },
+      { label: "Sura register", href: "/projects/quran/#suras" },
+      { label: "General rules", href: "/projects/quran/rules/" },
+      { label: "Transmission", href: "/projects/quran/transmission/" },
     ],
+    action: "Compare the readings",
+    scope: `10 readers, ${qiraatIndex.suras_with_data} of 114 suras`,
+    status: "Machine-checked; readings await human review",
+  },
+  {
+    id: "tafsir-reader",
+    href: "/projects/tafsir/",
+    art: "tafsir",
+    kind: "Verse-first reader",
+    arabic: "التفسير",
+    title: "Tafsir Reader",
+    desc: "The earliest commentaries, from Mujāhid to al-Ṭabarī’s Jāmiʿ al-bayān, set under the verse each passage comments on, with the volume and page of the printed edition.",
+    figures: [`${n(tafsirPassages)} passages`, `${tafsirWorks} works`, "114 suras"],
+    entries: [
+      { label: "Choose a sura", href: "/projects/tafsir/#suras" },
+      { label: "Begin at al-Fātiḥa", href: "/projects/tafsir/sura/1/" },
+    ],
+    action: "Open the reader",
+    scope: `${n(tafsirPassages)} passages from ${tafsirWorks} works, 114 suras`,
+    status: "Placements proposed; none reviewed",
   },
 ];
 
-const all = sections.flatMap((section) => section.projects);
-const kinds = ["Corpus", "Register", "Variants", "Reader framework", "Atlas", "Studies", "Edition"];
+const research: Project[] = [
+  {
+    id: "hadith-criticism-atlas",
+    href: "/projects/islamic-studies-atlas/",
+    art: "atlas",
+    kind: "Research network",
+    arabic: "الدراسات",
+    title: "Islamic Studies Atlas",
+    desc: "Modern scholarship on ḥadīth criticism, laid out by author and year. Select a work to see what it cites and what cites it.",
+    figures: [`${researchGraph.works.length} works`, `${researchGraph.scholars.length} scholars`, `${n(citations)} citations`],
+    entries: [
+      { label: "Explore the citations", href: "/projects/islamic-studies-atlas/#map" },
+      { label: "Bibliography", href: "/projects/islamic-studies-atlas/#works" },
+      { label: "Scholars", href: "/projects/islamic-studies-atlas/#scholars" },
+    ],
+    action: "Explore the atlas",
+    scope: `${researchGraph.works.length} works, ${researchGraph.scholars.length} scholars, ${n(citations)} citations`,
+    status: "Live",
+  },
+  {
+    id: "academic-studies",
+    href: "/projects/academic-studies/",
+    art: "icma",
+    kind: "Isnād-cum-matn studies",
+    arabic: "الإسناد والمتن",
+    title: "The ICMA Register",
+    desc: "Studies that trace a tradition to its common link and date it, grouped by research family.",
+    figures: [`${icma.length} studies`, `${icmaFamilies} research families`],
+    entries: [
+      { label: "Browse the register", href: "/projects/academic-studies/#register" },
+      { label: "The monograph series", href: "/academia/#series" },
+    ],
+    action: "Browse the register",
+    scope: `${icma.length} studies in ${icmaFamilies} families`,
+    status: "Live",
+  },
+];
 
-/* The atlas card's art is the atlas itself: every work placed by year and lead author,
-   and the citations that point at the most cited works. */
-const timeline = layoutTimeline(graph);
-const rows = timeline.nodes.map((node) => node.y);
-const spanX = Math.max(...timeline.nodes.map((node) => node.x)) - Math.min(...timeline.nodes.map((node) => node.x));
-const squash = (spanX * 0.5) / (Math.max(...rows) - Math.min(...rows));
-const raw = new Map(timeline.nodes.map((node) => [node.id, { x: node.x, y: node.y * squash }]));
-const xs = [...raw.values()].map((p) => p.x);
-const ys = [...raw.values()].map((p) => p.y);
-const PAD = 14;
-const box = { x: Math.min(...xs) - PAD, y: Math.min(...ys) - PAD, w: Math.max(...xs) - Math.min(...xs) + PAD * 2, h: Math.max(...ys) - Math.min(...ys) + PAD * 2 };
-const topCited = new Set(
-  [...graph.citedBy.entries()]
-    .sort((a, b) => b[1].length - a[1].length)
-    .slice(0, 4)
-    .map(([id]) => id),
-);
-const motifEdges = graph.data.edges
-  .filter((edge) => edge.type === "cites" && topCited.has(edge.to))
-  .map((edge) => {
-    const a = raw.get(edge.from)!;
-    const b = raw.get(edge.to)!;
-    const lift = Math.max(24, Math.abs(a.y - b.y) * 0.4);
-    return `M${a.x.toFixed(1)} ${a.y.toFixed(1)}C${(a.x + lift).toFixed(1)} ${a.y.toFixed(1)} ${(b.x - lift).toFixed(1)} ${b.y.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-  });
-const motifNodes = [...raw.entries()].map(([id, p]) => ({ id, ...p, hub: topCited.has(id) }));
+const prototype: Project = {
+  id: "fiqh-compass-quiz",
+  href: "/projects/fiqh-compass/",
+  kind: "Research prototype",
+  arabic: "بوصلة الفقه",
+  title: "Fiqh Compass",
+  desc: "Twelve dimensions of legal reasoning explored through a guided questionnaire, then compared with historical figures on the dimensions you share, each placement citing its passage. Not a school identity or a religious ruling.",
+  figures: ["96 draft statements", "12 dimensions"],
+  entries: [
+    { label: "Take the quiz", href: "/projects/fiqh-compass/quiz/" },
+    { label: "Methodology and safeguards", href: "/projects/fiqh-compass/methodology/" },
+  ],
+  action: "Explore the prototype",
+  scope: "96 draft statements, 12 dimensions, 20 historical figures",
+  status: "Prototype (M1)",
+};
 
-const cardStyle = (brand: Brand) => `--c-bg:${brand.bg};--c-ink:${brand.ink};--c-accent:${brand.accent}`;
+const all = [lead, ...databases, ...research, prototype];
+const kinds = ["Database", "Database", "Database", "Database", "Research", "Research", "Prototype"];
 ---
 
 <BaseLayout
+  image={OG.projects}
   title="Projects | HadithCritic"
-  description="Ongoing research projects, digital tools, and collaborative initiatives at HadithCritic."
+  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants, a tafsir reader, the Islamic Studies Atlas, the ICMA Register and the Fiqh Compass prototype."
 >
-  <div class="projects-page">
-    <header class="hc-masthead" aria-labelledby="projects-hero-title" data-motion="hero">
-      <div class="hc-container hc-masthead__inner">
-        <div>
-          <p class="hc-eyebrow">Digital infrastructure</p>
-          <h1 id="projects-hero-title" class="hc-masthead__title">Tools for Reading Transmission</h1>
-          <p class="hc-masthead__lead">
-            Ongoing research initiatives, digital infrastructure, and collaborative analytical tools built to examine hadith transmission, legal theory, and source history.
-          </p>
-        </div>
+  <div class="hc-page hc-plate pj-page">
+    <PageHero
+      title="Research tools"
+      accent="and registers"
+      titleId="pj-title"
+      kicker="Projects"
+      art="/images/editorial/projects-hero.webp"
+      focus="72% center"
+      measure="11ch"
+    >
+      <p class="hc-hero__lede">
+        Four reference databases that run in your browser, two registers of the scholarship, and one
+        research prototype. Every figure here is counted from the project's own data.
+      </p>
+      <Fragment slot="actions">
+        <a href="#databases" class="hc-btn">See the databases</a>
+        <a href="#glance" class="hc-btn hc-btn--ghost">All projects at a glance</a>
+      </Fragment>
+      <Fragment slot="register">
+        <span><strong>{all.length}</strong> projects</span>
+        <span><strong>{n(corpus.hadith)}</strong> narrations</span>
+        <span><strong>{n(corpus.narrators)}</strong> transmitters</span>
+        <span><strong>{researchGraph.works.length}</strong> works in the atlas</span>
+      </Fragment>
+    </PageHero>
 
-        <aside class="hc-instrument" aria-label="Projects at a glance">
-          <div class="hc-instrument__well">
-            <dl class="hc-instrument__plate reg__plate">
-              <div class="reg__figure">
-                <dt>Narrations</dt>
-                <dd class="hc-instrument__figure">{n(corpus.hadith)}</dd>
-              </div>
-              <div class="reg__figure">
-                <dt>Named transmitters</dt>
-                <dd class="hc-instrument__figure">{n(corpus.narrators)}</dd>
-              </div>
-            </dl>
-
-            <p class="hc-instrument__cap" id="reg-cap">Jump to a project</p>
-            <ol class="reg__rows" aria-labelledby="reg-cap">
-              {all.map((project, i) => (
-                <li>
-                  <a class="reg__row" href={`#${project.id}`}>
-                    <span class="reg__no" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
-                    <span class="reg__title">{project.title}</span>
-                    <span class="reg__kind">{kinds[i]}</span>
-                    <span class="reg__go" aria-hidden="true">→</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
+    <!-- Databases -->
+    <section class="hc-band hc-band--soft pj-databases" id="databases" aria-labelledby="databases-title">
+      <div class="hc-container">
+        <header class="hc-head">
+          <div class="hc-head__main">
+            <h2 id="databases-title" class="hc-head__title">Reference <span>databases</span></h2>
+            <p class="hc-head__note">
+              Each runs in your browser from published data files, with no database server between you
+              and the sources.
+            </p>
           </div>
-        </aside>
-      </div>
-    </header>
+        </header>
 
-    <div class="catalog hc-container">
-      <nav class="rail" aria-label="Project sections">
-        <ul class="rail__list">
-          {sections.map((section) => (
-            <li><a href={`#${section.id}`} class="rail__link" data-spy={section.id}>{section.name}</a></li>
+        <article class="pj-lead" id={lead.id}>
+          <img class="pj-lead__art" src={`/images/platform/${lead.art}.webp`} srcset={`/images/platform/${lead.art}-1086.webp 1086w, /images/platform/${lead.art}.webp 2172w`} sizes="(max-width: 860px) 100vw, 60vw" alt="" width="2172" height="724" loading="eager" decoding="async" />
+          <div class="pj-lead__copy">
+            <p class="pj-kind">{lead.kind} <span lang="ar" dir="rtl">{lead.arabic}</span></p>
+            <h3 class="pj-lead__title"><a href={lead.href}>{lead.title}</a></h3>
+            <p class="pj-desc">{lead.desc}</p>
+            <ul class="hc-figures pj-figures">{lead.figures.map((figure) => <li>{figure}</li>)}</ul>
+            <nav class="pj-entries" aria-label={`Inside the ${lead.title}`}>
+              <ul>{lead.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
+            </nav>
+          </div>
+        </article>
+
+        <ul class="pj-grid pj-grid--three">
+          {databases.map((project) => (
+            <li>
+              <article class="pj-panel" id={project.id}>
+                <img class="pj-panel__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
+                <p class="pj-kind">{project.kind} <span lang="ar" dir="rtl">{project.arabic}</span></p>
+                <h3 class="pj-panel__title"><a href={project.href}>{project.title}</a></h3>
+                <p class="pj-desc">{project.desc}</p>
+                <ul class="hc-figures pj-figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
+                <nav class="pj-entries" aria-label={`Inside ${project.title}`}>
+                  <ul>{project.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
+                </nav>
+              </article>
+            </li>
           ))}
-          <li><a href="#collaborate" class="rail__link" data-spy="collaborate">Collaborate</a></li>
         </ul>
-      </nav>
-
-      <div class="sections">
-        {sections.map((section, sectionIndex) => (
-          <section id={section.id} class="sec" aria-labelledby={`heading-${section.id}`}>
-            <header class="sec__head">
-              <h2 id={`heading-${section.id}`} class="sec__title">{section.title}</h2>
-              <span class="sec__rule" aria-hidden="true"></span>
-              <span class="sec__name">{section.name}</span>
-              <span class="sec__count">{section.projects.length}</span>
-            </header>
-
-            <ul class="grid">
-              {section.projects.map((project) => (
-                <li class={project.wide ? "cell cell--wide" : "cell"}>
-                  <a id={project.id} href={project.href} class={`card${project.wide ? " card--wide" : ""}`} style={cardStyle(project.brand)}>
-                    {project.art && (
-                      <span class="card__art" aria-hidden="true">
-                        <img src={project.art.src} alt="" width={project.art.width} height={project.art.height} loading={sectionIndex === 0 ? "eager" : "lazy"} decoding="async" style={project.art.focus ? `object-position:${project.art.focus}` : undefined} />
-                      </span>
-                    )}
-                    {project.motif === "graph" && (
-                      <svg class="card__motif" viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
-                        <g class="motif__edges">
-                          {motifEdges.map((d) => <path d={d} />)}
-                        </g>
-                        <g class="motif__nodes">
-                          {motifNodes.map((node) => <circle cx={node.x.toFixed(1)} cy={node.y.toFixed(1)} r={node.hub ? 6.5 : 3.6} class={node.hub ? "is-hub" : undefined} />)}
-                        </g>
-                      </svg>
-                    )}
-
-                    <span class="card__body">
-                      <span class="card__top">
-                        <span class="card__kind">{project.kind}</span>
-                        <span class="card__go" aria-hidden="true">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9" /></svg>
-                        </span>
-                      </span>
-                      <span class="card__title">{project.title}</span>
-                      {project.ar && <span class="card__ar" dir="rtl" lang="ar" set:html={project.ar}></span>}
-                      <span class="card__desc">{project.desc}</span>
-                    </span>
-
-                    <span class="card__ticket">
-                      <span class="card__stats">
-                        {project.stats.map((stat) => (
-                          <span class="card__stat">
-                            <span class="card__value">{stat.value}</span>
-                            <span class="card__label">{stat.label}</span>
-                          </span>
-                        ))}
-                      </span>
-                      <span class="card__foot">
-                        <span class="card__note">{project.note}</span>
-                        <span class="card__cta">{project.cta} <span aria-hidden="true">→</span></span>
-                      </span>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-
-        <section id="collaborate" class="sec cta" aria-labelledby="projects-cta-title">
-          <div class="cta__tray">
-            <div class="cta__well">
-              <div class="cta__copy">
-                <p class="hc-eyebrow">Collaboration &amp; open archive</p>
-                <h2 id="projects-cta-title" class="cta__title">Contribute to the archive.</h2>
-                <p class="cta__text">
-                  HadithCritic projects are developed for source-level research and digital humanities. If you work in Islamic manuscript studies, hadith criticism, or computational philology, collaboration is welcome.
-                </p>
-              </div>
-              <div class="cta__side">
-                <a href="/contact/" class="hc-btn">Send a proposal <span aria-hidden="true">→</span></a>
-                <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer" class="hc-btn hc-btn--ghost">
-                  View GitHub repository <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span>
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
-    </div>
+    </section>
+
+    <!-- Research registers -->
+    <section class="hc-band pj-research" id="research" aria-labelledby="research-title">
+      <div class="hc-container">
+        <header class="hc-head">
+          <div class="hc-head__main">
+            <h2 id="research-title" class="hc-head__title">Registers of <span>the scholarship</span></h2>
+            <p class="hc-head__note">Maps of modern research on ḥadīth, and of HadithCritic's own isnād-cum-matn studies.</p>
+          </div>
+        </header>
+        <ul class="pj-grid pj-grid--two">
+          {research.map((project) => (
+            <li>
+              <article class="pj-panel pj-panel--wide" id={project.id}>
+                <img class="pj-panel__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
+                <p class="pj-kind">{project.kind} <span lang="ar" dir="rtl">{project.arabic}</span></p>
+                <h3 class="pj-panel__title"><a href={project.href}>{project.title}</a></h3>
+                <p class="pj-desc">{project.desc}</p>
+                <ul class="hc-figures pj-figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
+                <nav class="pj-entries" aria-label={`Inside ${project.title}`}>
+                  <ul>{project.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
+                </nav>
+              </article>
+            </li>
+          ))}
+        </ul>
+
+        <article class="pj-proto" id={prototype.id}>
+          <svg class="pj-proto__motif" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
+            <circle cx="120" cy="120" r="96" />
+            <circle cx="120" cy="120" r="70" />
+            {Array.from({ length: 12 }, (_, index) => {
+              const angle = (index * Math.PI) / 6;
+              return <line x1={120 + Math.cos(angle) * 73} y1={120 + Math.sin(angle) * 73} x2={120 + Math.cos(angle) * 94} y2={120 + Math.sin(angle) * 94} />;
+            })}
+            <path d="M120 62 136 120 120 178 104 120Z" />
+            <circle class="pj-proto__hub" cx="120" cy="120" r="5" />
+          </svg>
+          <div class="pj-proto__copy">
+            <p class="pj-kind">{prototype.kind} <span lang="ar" dir="rtl">{prototype.arabic}</span></p>
+            <h3 class="pj-panel__title"><a href={prototype.href}>{prototype.title}</a></h3>
+            <p class="pj-desc">{prototype.desc}</p>
+          </div>
+          <div class="pj-proto__side">
+            <ul class="hc-figures pj-figures">{prototype.figures.map((figure) => <li>{figure}</li>)}</ul>
+            <nav class="pj-entries" aria-label={`Inside ${prototype.title}`}>
+              <ul>{prototype.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
+            </nav>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- At a glance -->
+    <section class="hc-band hc-band--warm pj-glance" id="glance" aria-labelledby="glance-title">
+      <div class="hc-container">
+        <header class="hc-head">
+          <div class="hc-head__main">
+            <h2 id="glance-title" class="hc-head__title">At a <span>glance</span></h2>
+            <p class="hc-head__note">What each project holds, and how far along it is.</p>
+          </div>
+        </header>
+        <div class="pj-table-wrap">
+          <table class="pj-table">
+            <thead>
+              <tr>
+                <th scope="col">No.</th>
+                <th scope="col">Project</th>
+                <th scope="col">Kind</th>
+                <th scope="col">Holds</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {all.map((project, index) => (
+                <tr>
+                  <td class="pj-table__no">{String(index + 1).padStart(2, "0")}</td>
+                  <th scope="row"><a class="pj-table__name" href={project.href}>{project.title}</a> <a class="pj-table__jump" href={`#${project.id}`}>Details</a></th>
+                  <td>{kinds[index]}</td>
+                  <td>{project.scope}</td>
+                  <td class="pj-table__status">{project.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="hc-band pj-closing" aria-labelledby="pj-closing-title">
+      <div class="hc-container">
+        <div class="hc-closing hc-parchment">
+          <figure class="hc-closing__plate" style="--plate-focus: 70% center">
+            <img src="/images/editorial/projects-hero-1086.webp" alt="" width="1086" height="362" loading="lazy" decoding="async" />
+          </figure>
+          <div class="hc-closing__copy">
+            <h2 id="pj-closing-title" class="hc-closing__title">Contribute to the projects.</h2>
+            <p class="hc-closing__lead">
+              The projects are developed for source-level research and digital humanities. If you work in
+              Islamic manuscript studies, hadith criticism or computational philology, collaboration is welcome.
+            </p>
+          </div>
+          <div class="hc-closing__actions">
+            <a href="/contact/?topic=Collaboration#contact-form" class="hc-ink-btn">Propose a collaboration <span aria-hidden="true">→</span></a>
+            <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer" class="hc-ink-btn hc-ink-btn--ghost">Source on GitHub <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </BaseLayout>
-
-<script>
-  const page = document.querySelector<HTMLElement>(".projects-page");
-  const links = [...(page?.querySelectorAll<HTMLAnchorElement>(".rail__link") ?? [])];
-  const sections = [...(page?.querySelectorAll<HTMLElement>(".sections .sec") ?? [])];
-
-  /* Scrollspy for the section rail */
-  if (page && "IntersectionObserver" in window && sections.length) {
-    const setActive = (id: string) => {
-      for (const link of links) link.classList.toggle("is-active", link.dataset.spy === id);
-    };
-    const spy = new IntersectionObserver(
-      (observed) => {
-        const best = observed.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (best) setActive(best.target.id);
-      },
-      { rootMargin: "-25% 0px -55% 0px", threshold: [0, 0.2, 0.5] },
-    );
-    for (const section of sections) spy.observe(section);
-    setActive(sections[0].id);
-  }
-</script>
-
-<style>
-  .projects-page { min-height: 100vh; background: var(--hc-surface-0); }
-
-  /* Masthead register: shell (masthead, tray, well, plate) is shared in global.css */
-  .reg__plate { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 1.1rem 0; }
-  .reg__figure { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 0.7rem; margin: 0; padding: 0 1.25rem; }
-  .reg__figure + .reg__figure { border-left: 1px dashed rgba(26, 23, 21, 0.4); }
-  .reg__figure dt { font: 700 0.81rem/1.35 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .reg__figure dd { margin: 0; font-size: clamp(1.9rem, 3.2vw, 2.4rem); }
-  .reg__rows { margin: 0; padding: 0 0.4rem 0.4rem; list-style: none; }
-  .reg__rows li + li { border-top: 1px solid var(--hc-rule-soft); }
-  .reg__row { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto auto; align-items: center; gap: 0.9rem; min-height: 44px; padding: 0.7rem 0.6rem; margin-inline: -0.6rem; color: inherit; text-decoration: none; transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
-  .reg__row:hover { background: rgba(216, 177, 102, 0.08); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
-  .reg__no { color: var(--hc-gold-dim); font: 500 0.95rem var(--font-display); font-variant-numeric: lining-nums tabular-nums; }
-  .reg__title { color: var(--hc-text-primary); font: 600 1rem/1.35 var(--font-display); letter-spacing: -0.015em; }
-  .reg__kind { color: var(--hc-text-tertiary); font: 700 0.75rem/1 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .reg__go { color: var(--hc-gold-dim); transition: transform var(--motion-base) var(--ease-standard), color var(--motion-base) ease; }
-  .reg__row:hover .reg__go { color: var(--hc-gold); transform: translateX(3px); }
-
-  /* Catalogue layout */
-  .catalog { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); padding-block: clamp(2rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem); }
-  .rail { position: sticky; top: 6rem; align-self: start; }
-  .rail__list { margin: 0; padding: 0; list-style: none; border-left: 1px solid var(--hc-rule-soft); }
-  .rail__link { display: block; margin-left: -1px; padding: 0.55rem 0 0.55rem 1rem; border-left: 2px solid transparent; color: var(--hc-text-tertiary); font: 500 0.95rem var(--font-ui); text-decoration: none; transition: color 0.2s ease, border-color 0.2s ease; }
-  .rail__link:hover { color: var(--hc-text-primary); }
-  .rail__link.is-active { border-left-color: var(--hc-gold); color: var(--hc-gold); }
-
-  .sections { display: grid; gap: clamp(3rem, 6vw, 4.5rem); min-width: 0; }
-  .sec { scroll-margin-top: 6rem; }
-  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
-  .sec__name { color: var(--hc-gold-dim); font: 700 0.81rem var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
-  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
-
-  /* Project cards: a ground in the project's own color, tinted art, and a ticket foot
-     (dashed perforation, three figures, one action). */
-  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
-  .cell { display: grid; min-width: 0; }
-  .cell--wide { grid-column: 1 / -1; }
-  .card { position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 25rem; overflow: hidden; border-radius: 2px; background: var(--c-bg); color: var(--c-ink); text-decoration: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
-  .card:hover, .card:focus-visible { box-shadow: inset 0 0 0 2px var(--c-accent); }
-  .card--wide { min-height: 19rem; }
-
-  .card__art { order: 2; position: relative; flex: none; height: 8.5rem; overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 45%); mask-image: linear-gradient(180deg, transparent 0%, #000 45%); }
-  .card__body { order: 1; }
-  .card__ticket { order: 3; }
-  .card__art img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: right center; opacity: 0.95; transition: transform 500ms var(--ease); }
-  .card__art::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--c-bg) 52%, transparent); transition: opacity 300ms ease; }
-  .card:hover .card__art::after { opacity: 0.6; }
-  .card:hover .card__art img { transform: scale(1.03); }
-  .card--wide .card__art { position: absolute; z-index: -1; inset: 0 0 0 auto; height: auto; width: 62%; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 45%); mask-image: linear-gradient(90deg, transparent 0%, #000 45%); }
-
-  .card__motif { position: absolute; z-index: -1; top: 0; right: 0; width: 52%; height: 100%; padding: 1.5rem 1.5rem 5.5rem 3rem; -webkit-mask-image: linear-gradient(90deg, transparent 0%, transparent 20%, #000 60%); mask-image: linear-gradient(90deg, transparent 0%, transparent 20%, #000 60%); }
-  .motif__edges path { fill: none; stroke: var(--c-accent); stroke-width: 1.2; opacity: 0.4; }
-  .motif__nodes circle { fill: var(--c-bg); stroke: var(--c-accent); stroke-width: 1.6; }
-  .motif__nodes .is-hub { fill: var(--c-accent); }
-
-  .card__body { display: grid; align-content: start; gap: 0.65rem; padding: clamp(1.15rem, 2vw, 1.6rem) clamp(1.15rem, 2vw, 1.6rem) 1.25rem; flex: 1; }
-  .card--wide .card__body { max-width: 34rem; }
-  .card__top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  .card__kind { color: var(--c-accent); font: 700 0.78rem/1.3 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
-  .card__go { display: inline-flex; color: var(--c-accent); transition: transform 0.25s var(--ease); }
-  .card:hover .card__go { transform: translate(2px, -2px); }
-  .card__title { font: 500 clamp(1.6rem, 2.4vw, 2.1rem)/1.12 var(--font-display); letter-spacing: -0.03em; text-wrap: balance; }
-  .card__ar { width: fit-content; max-width: 100%; color: var(--c-accent); font: 1rem/1.7 var(--font-arabic); }
-  .card__desc { max-width: 52ch; color: color-mix(in srgb, var(--c-ink) 88%, var(--c-bg)); font-size: 0.95rem; line-height: 1.6; text-wrap: pretty; }
-
-  .card__ticket { position: relative; display: grid; gap: 0.85rem; padding: 1.1rem clamp(1.15rem, 2vw, 1.6rem) 1.2rem; border-top: 1px dashed color-mix(in srgb, var(--c-ink) 32%, transparent); background: color-mix(in srgb, var(--c-bg) 72%, #000); }
-  .card__stats { display: flex; }
-  .card__stat { display: flex; flex: 1 1 0; flex-direction: column; gap: 0.2rem; min-width: 0; padding-right: 0.8rem; }
-  .card__stat + .card__stat { padding-left: clamp(0.7rem, 2vw, 1.2rem); border-left: 1px solid color-mix(in srgb, var(--c-ink) 18%, transparent); }
-  .card__value { font: 500 clamp(1.15rem, 2vw, 1.5rem)/1.1 var(--font-display); letter-spacing: -0.02em; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
-  .card__label { color: color-mix(in srgb, var(--c-ink) 74%, var(--c-bg)); font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
-  .card__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.3rem 1rem; }
-  .card__note { color: color-mix(in srgb, var(--c-ink) 80%, var(--c-bg)); font: 500 0.88rem var(--font-ui); }
-  .card__cta { display: inline-flex; align-items: center; gap: 0.35rem; color: var(--c-accent); font: 500 0.92rem var(--font-ui); transition: gap 0.2s ease; }
-  .card:hover .card__cta { gap: 0.6rem; }
-
-  /* Collaboration tray */
-  .cta__tray { padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); }
-  .cta__well { display: grid; grid-template-columns: minmax(0, 1fr) auto; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .cta__copy { padding: clamp(1.5rem, 3vw, 2.4rem); }
-  .cta__title { margin: 0.45rem 0 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .cta__text { max-width: 56ch; margin: 0.7rem 0 0; color: var(--hc-text-secondary); line-height: 1.7; }
-  .cta__side { display: grid; align-content: center; gap: 0.75rem; padding: clamp(1.5rem, 3vw, 2.4rem); border-left: 1px dashed var(--hc-rule-strong); }
-
-  @media (max-width: 1000px) {
-    .catalog { grid-template-columns: 1fr; }
-    .rail { display: none; }
-    .sec { scroll-margin-top: 5rem; }
-  }
-  @media (max-width: 700px) {
-    .sec__rule { display: none; }
-    .sec__head { flex-wrap: wrap; gap: 0.6rem 1rem; }
-    .grid { grid-template-columns: minmax(0, 1fr); }
-    .card, .card--wide { min-height: 0; }
-    .card--wide .card__art { position: relative; inset: auto; z-index: 0; order: 2; width: auto; height: 8.5rem; -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 45%); mask-image: linear-gradient(180deg, transparent 0%, #000 45%); }
-    .card__motif { position: relative; z-index: 0; order: 2; width: 100%; height: 11rem; padding: 0.5rem 1.15rem; -webkit-mask-image: none; mask-image: none; }
-    .card__stats { flex-wrap: wrap; row-gap: 0.8rem; }
-    .cta__well { grid-template-columns: 1fr; }
-    .cta__side { border-left: 0; border-top: 1px dashed var(--hc-rule-strong); }
-    .cta__side .hc-btn { width: 100%; justify-content: center; }
-    .reg__kind { display: none; }
-    .reg__row { grid-template-columns: 1.8rem minmax(0, 1fr) auto; }
-  }
-  @media (max-width: 460px) {
-    .reg__plate { grid-template-columns: minmax(0, 1fr); row-gap: 1rem; }
-    .reg__figure + .reg__figure { padding-top: 1rem; border-top: 1px dashed rgba(26, 23, 21, 0.4); border-left: 0; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .projects-page * { transition: none !important; }
-  }
-</style>

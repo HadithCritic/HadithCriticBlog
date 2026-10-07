@@ -1,0 +1,77 @@
+---
+/**
+ * The article's contents, two ways from one list:
+ *
+ *   margin  a quiet sticky list beside the text on wide screens, marking the
+ *           section in view
+ *   inline  a closed native <details> under the header everywhere else
+ *
+ * Each is display:none where the other shows, so a screen reader meets one.
+ * Both work without script; script only marks the current section.
+ * Subsections are listed only when there are too few sections to navigate by.
+ */
+export interface Heading {
+  depth: number;
+  text: string;
+  slug: string;
+}
+
+export interface Props {
+  headings: Heading[];
+  placement: 'margin' | 'inline';
+}
+
+const { headings, placement } = Astro.props;
+const sections = headings.filter((h) => h.depth === 2);
+const entries = sections.length >= 3 ? sections : headings;
+---
+
+{placement === 'margin' ? (
+  <nav class="hc-contents hc-contents--margin" aria-label="Contents">
+    <p class="hc-contents__label">Contents</p>
+    <ol>
+      {entries.map((h) => (
+        <li class:list={[{ 'is-sub': h.depth > 2 }]}><a href={`#${h.slug}`} data-contents-link>{h.text}</a></li>
+      ))}
+    </ol>
+  </nav>
+) : (
+  <details class="hc-contents hc-contents--inline">
+    <summary><span class="hc-contents__label">Contents</span>{' '}<span class="hc-contents__count">{entries.length} sections</span></summary>
+    <nav aria-label="Contents">
+      <ol>
+        {entries.map((h) => (
+          <li class:list={[{ 'is-sub': h.depth > 2 }]}><a href={`#${h.slug}`}>{h.text}</a></li>
+        ))}
+      </ol>
+    </nav>
+  </details>
+)}
+
+<script>
+    /* Mark the section currently being read. The last heading above the top
+       third of the viewport is the current one. */
+    function initContents() {
+      const links = [...document.querySelectorAll<HTMLAnchorElement>('[data-contents-link]')];
+      if (!links.length || document.documentElement.dataset.contentsReady) return;
+      document.documentElement.dataset.contentsReady = '1';
+      const targets = links
+        .map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))))
+        .filter((el): el is HTMLElement => Boolean(el));
+      let frame = 0;
+      const update = () => {
+        frame = 0;
+        const line = window.innerHeight * 0.33;
+        let current = -1;
+        targets.forEach((el, i) => { if (el.getBoundingClientRect().top <= line) current = i; });
+        links.forEach((link, i) => {
+          if (i === current) link.setAttribute('aria-current', 'location');
+          else link.removeAttribute('aria-current');
+        });
+      };
+      window.addEventListener('scroll', () => { if (!frame) frame = requestAnimationFrame(update); }, { passive: true });
+      update();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initContents);
+    else initContents();
+</script>

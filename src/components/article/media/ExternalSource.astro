@@ -1,0 +1,51 @@
+---
+/**
+ * A work on another site that the article cites or points to: a QuranTalk
+ * essay, a post on X. Set as a reference line rather than a branded card;
+ * the publisher's name carries the attribution. Authors use the named
+ * wrappers QuranTalk and XEmbed.
+ */
+export interface Props {
+  url: string;
+  /** Publisher or author, printed as the attribution. */
+  publisher: string;
+  /** Work title, or the quoted text of a post. */
+  title?: string;
+  /** Set the title as a quotation rather than a work title. */
+  quoted?: boolean;
+  date?: string;
+  description?: string;
+  /** Kind label: "Further reading", "Cited post". */
+  kind?: string;
+  linkLabel?: string;
+}
+
+const { url, publisher, title, quoted = false, date, description, kind = 'Further reading', linkLabel } = Astro.props;
+const domain = (() => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+})();
+---
+
+<aside class="hc-external" aria-label={`${kind}: ${publisher}`}>
+  <p class="hc-external__kind">{kind}</p>
+  <p class="hc-external__body">
+    {title
+      ? (quoted
+          ? <q class="hc-external__quote">{title}</q>
+          : <a class="hc-external__title" href={url} target="_blank" rel="noopener noreferrer">{title}</a>)
+      : <a class="hc-external__title" href={url} target="_blank" rel="noopener noreferrer">{linkLabel ?? `View on ${domain}`}</a>}
+  </p>
+  {description && <p class="hc-external__desc">{description}</p>}
+  <slot />
+  <p class="hc-external__meta">
+    <span>{publisher}</span>
+    {date && <span>{date}</span>}
+    {quoted
+      ? <a href={url} target="_blank" rel="noopener noreferrer">{linkLabel ?? domain}</a>
+      : title && <span>{domain}</span>}
+  </p>
+</aside>

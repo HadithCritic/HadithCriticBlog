@@ -66,7 +66,8 @@ const SCHEMA_FILES = [
   'migrations/0005_derived_stats.sql',
   'migrations/0006_narrator_top_hadith.sql',
   'migrations/0007_narrator_search_index.sql',
-  'migrations/0008_create_structured_hadith.sql'
+  'migrations/0008_create_structured_hadith.sql',
+  'migrations/0009_create_hadith_text_parts.sql'
 ];
 
 /**
@@ -263,8 +264,17 @@ function main() {
       ['hadith_kitab', 'SELECT DISTINCT k.* FROM hadith_kitab k JOIN hadith_structure s ON s.kitab_id = k.id WHERE s.hadith_id IN (__IDS__)'],
       ['hadith_bab', 'SELECT DISTINCT b.* FROM hadith_bab b JOIN hadith_structure s ON s.bab_id = b.id WHERE s.hadith_id IN (__IDS__)'],
       ['hadith_structure', 'SELECT * FROM hadith_structure WHERE hadith_id IN (__IDS__)'],
-      ['hadith_reference', 'SELECT * FROM hadith_reference WHERE hadith_id IN (__IDS__)']
+      ['hadith_reference', 'SELECT * FROM hadith_reference WHERE hadith_id IN (__IDS__)'],
+      ['hadith_text_parts', 'SELECT * FROM hadith_text_parts WHERE hadith_id IN (__IDS__)']
     ]) {
+      // A release carries only the optional tables its master had.
+      const present = src
+        .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(table).n;
+      if (!present) {
+        console.log(`  ${table}: not in this release`);
+        continue;
+      }
       const rows = src.prepare(sql.replace('__IDS__', inHadith)).all(...hadithIds);
       if (rows.length) {
         const columns = Object.keys(rows[0]);

@@ -2,6 +2,7 @@
 import "../../styles/qiraat.css";
 import { partUrl, verseNumber, type PartSpan } from "../../lib/qiraat-parts";
 import type { SuraData } from "../../lib/qiraat-suras";
+import vanPutten from "../../data/qiraat/van-putten-taysir.json";
 
 type Reader = { qari: string; display: string; whole: boolean; riwayat: { id: string; display: string }[] };
 type Claim = { id: string; book_id: string; page: string; quote: string; quote_is_exact_raw: boolean; via: string[]; note: string | null };
@@ -128,16 +129,51 @@ const readerRules = data.qaris
 .qq:has(#qq-r-${q.id}:checked) .who[data-q="${q.id}"] { font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.25em; }`,
   )
   .join("\n");
-const sources = data.books.map((book) => book.short_title).join(", ");
+/* Short titles read "Author, Title", so a comma between books would run them together. */
+const sources = data.books.map((book) => book.short_title).join("; ");
+
+/*
+ * at-Taysir in Marijn van Putten's translation (CC BY-NC 4.0), keyed by verse.
+ * It translates Pretzl's edition, the pagination Shamela 5527 and the claims
+ * cite. English leads; each book's Arabic quotation stays on the cards below.
+ * A verse with several positions prints the statement at its first position.
+ */
+type VpStatement = { id: string; sura: number | null; verse: number | null; section: string; kind: string; heading: string; pretzl_pages: number[]; text: string; footnotes: { n: number; text: string }[] };
+const taysirByVerse = new Map<number, VpStatement[]>();
+for (const statement of vanPutten.statements as VpStatement[]) {
+  if (statement.section !== "farsh" || statement.sura !== data.sura || statement.verse === null) continue;
+  taysirByVerse.set(statement.verse, [...(taysirByVerse.get(statement.verse) ?? []), statement]);
+}
+const taysirFirstAt = new Map<number, string>();
+for (const position of positions) {
+  const verse = verseNumber(position.verse);
+  if (taysirByVerse.has(verse) && !taysirFirstAt.has(verse)) taysirFirstAt.set(verse, position.id);
+}
+/*
+ * What no position carries, shown once on the sura's main page: the lists
+ * al-Dani closes the sura with (its yaʾs, numbered but with no verse), and his
+ * entries on verses the module has no position for yet. Together with the
+ * positions and the general principles page, every statement of the
+ * translation is shown somewhere.
+ */
+const taysirOfSura = (vanPutten.statements as VpStatement[]).filter((st) => st.section === "farsh" && st.sura === data.sura);
+const taysirClosing = part === null ? taysirOfSura.filter((st) => st.verse === null) : [];
+const verseHasPosition = new Set(positions.map((position) => verseNumber(position.verse)));
+const taysirUnplaced = part === null ? taysirOfSura.filter((st) => st.verse !== null && !verseHasPosition.has(st.verse)) : [];
+const vpPages = (statements: VpStatement[]) => {
+  const pages = [...new Set(statements.flatMap((st) => st.pretzl_pages))].sort((a, b) => a - b);
+  return pages.length === 1 ? `p. ${pages[0]}` : `pp. ${pages[0]} to ${pages[pages.length - 1]}`;
+};
 ---
 
 <div class="qq">
   <header class="hc-masthead" aria-labelledby="qq-title">
     <div class="hc-container hc-masthead__inner">
       <div>
-        <nav class="hc-eyebrow" aria-label="Breadcrumb">
-          <a href="/">Home</a> / <a href="/projects/">Projects</a> / <a href="/projects/quran/">Quran</a> /{" "}
-          {part ? <><a href={`/projects/quran/sura/${name.n}/`}>Sura {name.n}</a> / <span aria-current="page">Part {part.index}</span></> : <span aria-current="page">Sura {name.n}</span>}
+        <nav class="qq-crumbs" aria-label="Suras">
+          {prev ? <a href={`/projects/quran/sura/${prev.n}/`} rel="prev">{prev.n}. {prev.latin}</a> : <span></span>}
+          <a href="/projects/quran/#suras">Sura {name.n} of 114{part ? `, part ${part.index} of ${part.of}` : ""}</a>
+          {next ? <a href={`/projects/quran/sura/${next.n}/`} rel="next">{next.n}. {next.latin}</a> : <span></span>}
         </nav>
         <h1 id="qq-title" class="hc-masthead__title">{name.latin} <span class="hc-quran qq-ar" lang="ar">{name.ar}</span></h1>
         <p class="hc-masthead__lead">
@@ -171,6 +207,7 @@ const sources = data.books.map((book) => book.short_title).join(", ");
                   <span class="dep__bars">
                     {rows.map((row) => (
                       <span class={`dep__line shade-${row.shade}`}>
+                        <span class="dep__who">{riwayaOf.get(row.id)?.display ?? row.id}</span>
                         <i class="dep__bar" style={`--w:${positions.length ? (row.count / positions.length) * 100 : 0}%`}></i>
                         <b class="dep__n">{row.count}</b>
                       </span>
@@ -445,6 +482,29 @@ const sources = data.books.map((book) => book.short_title).join(", ");
               {position.anchored && <p class="specimen hc-quran" lang="ar">{position.words.map((word) => word.text).join(" ")}</p>}
             </header>
 
+            {(() => {
+              const verse = verseNumber(position.verse);
+              const statements = taysirByVerse.get(verse);
+              if (!statements) return null;
+              const first = taysirFirstAt.get(verse);
+              if (first !== position.id) {
+                return <p class="pos__en-ref">al-Dānī’s entry for {data.sura}:{verse} is translated at <a href={`#${first}`}>position {positionNo.get(first!)}</a>.</p>;
+              }
+              const notes = statements.flatMap((st) => st.footnotes);
+              return (
+                <div class="pos__en">
+                  {statements.map((st) => <p class="pos__en-text">{st.text}</p>)}
+                  <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages(statements)}, on {data.sura}:{verse}. Translated by Marijn van Putten (Open Book Publishers, 2026, CC BY-NC 4.0). The Arabic of each book is quoted on the cards below.</p>
+                  {notes.length > 0 && (
+                    <details class="pos__en-notes">
+                      <summary>Translator’s notes ({notes.length})</summary>
+                      <ol>{notes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                    </details>
+                  )}
+                </div>
+              );
+            })()}
+
             {!position.anchored && position.farsh && (
               <p class="pos__flag">The book’s word could not be matched to a word of this verse, so it is shown at the verse the extraction named.</p>
             )}
@@ -592,6 +652,57 @@ const sources = data.books.map((book) => book.short_title).join(", ");
           <a href={`/projects/quran/sura/${name.n}/#parts`}>All {part.of} parts</a>
           {part.index < part.of ? <a href={partUrl(name.n, part.index + 1)} rel="next">Part {part.index + 1}, from {name.n}:{parts[part.index].firstVerse}</a> : <span></span>}
         </nav>
+      )}
+    </section>
+    )}
+
+    {(taysirClosing.length > 0 || taysirUnplaced.length > 0) && (
+    <section class="sec" id="taysir" aria-labelledby="taysir-h">
+      <header class="sec__head">
+        <h2 id="taysir-h" class="sec__title">More from al-Dānī’s at-Taysīr</h2>
+        <span class="sec__rule" aria-hidden="true"></span>
+        <span class="sec__count">{taysirClosing.length + taysirUnplaced.length}</span>
+      </header>
+      <p class="lede">
+        al-Dānī’s entries for this sura that no position above carries: any verse the module has no position for yet, and the lists he closes the sura with.
+        In Marijn van Putten’s translation (Open Book Publishers, 2026, CC BY-NC 4.0), with the page of Pretzl’s edition.
+        The general principles they rest on are on <a href="/projects/quran/taysir/">their own page</a>.
+      </p>
+      {taysirUnplaced.length > 0 && (
+        <div class="taysir-more">
+          <h3 class="taysir-more__title">Verses with no position here yet</h3>
+          {taysirUnplaced.map((st) => (
+            <div class="pos__en">
+              <p class="taysir-more__ref">{data.sura}:{st.verse}</p>
+              <p class="pos__en-text">{st.text}</p>
+              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+              {st.footnotes.length > 0 && (
+                <details class="pos__en-notes">
+                  <summary>Translator’s notes ({st.footnotes.length})</summary>
+                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {taysirClosing.length > 0 && (
+        <div class="taysir-more">
+          <h3 class="taysir-more__title">The lists that close the sura</h3>
+          {taysirClosing.map((st) => (
+            <div class="pos__en">
+              <p class="taysir-more__ref">{st.heading}</p>
+              <p class="pos__en-text">{st.text}</p>
+              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+              {st.footnotes.length > 0 && (
+                <details class="pos__en-notes">
+                  <summary>Translator’s notes ({st.footnotes.length})</summary>
+                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </section>
     )}
@@ -790,14 +901,20 @@ const sources = data.books.map((book) => book.short_title).join(", ");
   .reports ul { margin: 0.4rem 0 0; padding: 0; list-style: none; }
   .reports li { padding: 0.7rem 0 0.8rem; border-top: 1px solid var(--hc-rule-soft); }
 
-  .qq-ar { display: block; margin: 0.1em 0 0.35em; font-size: 0.8em; font-weight: 400; line-height: 1.7; }
+  .qq-ar { display: block; margin: 0.1em 0 0.35em; font-size: 0.8em; font-weight: 400; line-height: 1.7; text-align: start; }
+  .qq-crumbs { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem 1rem; max-width: 34rem; margin: 0 0 1.25rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--hc-rule-soft); font: 500 0.85rem/1.4 var(--font-ui); }
+  .qq-crumbs a { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 44px; color: var(--hc-text-secondary); text-decoration: none; }
+  .qq-crumbs a:hover { color: var(--hc-gold-bright); }
+  .qq-crumbs a[rel="prev"]::before { content: "←" / ""; }
+  .qq-crumbs a[rel="next"]::after { content: "→" / ""; }
 
   /* ── Departures from the Cairo text (masthead) ──────────────── */
   .dep { display: grid; gap: 0.5rem; margin: 1.1rem 0 0; padding: 0; list-style: none; }
   .dep__q { display: grid; grid-template-columns: 6.25rem minmax(0, 1fr); align-items: center; gap: 0.75rem; }
   .dep__name { font: 600 0.9rem/1.2 var(--font-ui); }
   .dep__bars { display: grid; gap: 3px; }
-  .dep__line { display: grid; grid-template-columns: minmax(0, 1fr) 2.4rem; align-items: center; gap: 0.5rem; }
+  .dep__line { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 2rem; align-items: center; gap: 0.5rem; }
+  .dep__who { overflow: hidden; font: 500 0.75rem/1.2 var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
   .dep__bar { display: block; width: var(--w); min-width: 2px; height: 0.55rem; border-radius: 1px; background: var(--bg); }
   .dep__n { font: 700 0.81rem/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; text-align: end; }
 
@@ -836,6 +953,16 @@ const sources = data.books.map((book) => book.short_title).join(", ");
   .pos__scope { margin-inline-start: 0.4rem; padding: 0.15rem 0.6rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.06em; text-transform: none; }
   .pos__title--ar { font-family: var(--font-arabic); font-weight: 400; font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.8; letter-spacing: 0; }
   .pos__flag { max-width: 70ch; margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--hc-rule-strong); color: var(--hc-text-secondary); font-size: 0.93rem; line-height: 1.6; }
+  .pos__en { margin: 0.25rem 0 1rem; padding: 0.95rem 1.1rem; border-inline-start: 3px solid var(--hc-gold-dim); background: var(--hc-surface-1); }
+  .pos__en-text { max-width: 72ch; margin: 0 0 0.6rem; color: var(--hc-text-primary); font: 400 1.02rem/1.7 var(--font-body); }
+  .pos__en-src { margin: 0; color: var(--hc-text-tertiary); font: 500 0.78rem/1.55 var(--font-ui); }
+  .pos__en-notes summary { display: inline-flex; align-items: center; min-height: 36px; margin-top: 0.3rem; color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); cursor: pointer; }
+  .pos__en-notes ol { margin: 0.3rem 0 0; padding-left: 1.4rem; color: var(--hc-text-secondary); font: 400 0.85rem/1.6 var(--font-body); }
+  .taysir-more { margin-top: 1.25rem; }
+  .taysir-more__title { margin: 0 0 0.6rem; color: var(--hc-text-primary); font: 600 1.15rem/1.3 var(--font-editorial); }
+  .taysir-more__ref { margin: 0 0 0.35rem; color: var(--hc-gold); font: 500 0.82rem/1.4 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .pos__en-ref { margin: 0.25rem 0 1rem; color: var(--hc-text-tertiary); font: 400 0.85rem/1.5 var(--font-body); }
+  .pos__en-ref a { color: var(--hc-text-secondary); }
   .sura-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--hc-rule-soft); }
   .sura-nav a { color: var(--hc-text-secondary); font: 500 0.95rem var(--font-ui); text-decoration: none; }
   .sura-nav a:hover { color: var(--hc-gold-bright); }

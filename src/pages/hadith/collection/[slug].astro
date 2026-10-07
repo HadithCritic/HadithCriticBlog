@@ -2,6 +2,8 @@
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { CORPUS_META } from "../../../lib/corpus-config";
+import { divisionNoun, kitabTitle, structureFor } from "../../../lib/collection-structure";
+import { renderArabic, renderRich } from "../../../lib/format-text";
 
 /**
  * Digital source edition for a single hadith compilation.
@@ -26,6 +28,9 @@ const { book } = Astro.props;
 const SIZE = 25;
 const total = book.hadith_count;
 const pages = Math.max(1, Math.ceil(total / SIZE));
+// Its books, from the Ifta' Sunnah table of contents, where the collection has them.
+const structure = structureFor(slug);
+const noun = structure ? divisionNoun(structure.shape) : null;
 ---
 
 <BaseLayout
@@ -132,6 +137,40 @@ const pages = Math.max(1, Math.ceil(total / SIZE));
         </div>
       </div>
     </header>
+
+    {structure && noun && (
+      <section class="wrap edition-books" aria-labelledby="edition-books-title">
+        {structure.shape === "flat" ? (
+          <p class="edition-books__flat">
+            <a href={`/hadith/collection/${slug}/kitab/1/`}>
+              Browse its {structure.kitabs[0].chapters.length.toLocaleString()} chapters
+            </a>{" "}
+            in the order of the printed edition.
+          </p>
+        ) : (
+          <details class="edition-books__fold" open={structure.kitabs.length <= 100}>
+            <summary>
+              <h2 class="edition-books__title" id="edition-books-title">{noun.many} in this collection</h2>
+              <span class="edition-books__count">{structure.kitabs.length.toLocaleString()}</span>
+            </summary>
+            <ol class="edition-books__list">
+              {structure.kitabs.map((kitab) => (
+                <li>
+                  <a href={`/hadith/collection/${slug}/kitab/${kitab.n}/`}>
+                    <span class="edition-books__n">{kitab.n}</span>
+                    <span class="edition-books__names">
+                      <span class="edition-books__en" set:html={renderRich(kitabTitle(structure, kitab))} />
+                      <span class="edition-books__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} />
+                    </span>
+                    <span class="edition-books__extent">{kitab.count.toLocaleString()}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </details>
+        )}
+      </section>
+    )}
 
     <!-- Source Body / Narrations Sequence -->
     <div class="wrap edition-body">
@@ -367,6 +406,50 @@ const pages = Math.max(1, Math.ceil(total / SIZE));
       gap: 0.5rem;
     }
   }
+</style>
+
+<style>
+  /* The collection's books, above the sequential edition. */
+  .edition-books { margin-top: clamp(1.5rem, 3vw, 2.25rem); }
+  .edition-books__flat { margin: 0; font: 400 1.05rem/1.6 var(--font-body); color: var(--hc-text-secondary); }
+  .edition-books__flat a { color: var(--hc-gold); }
+  .edition-books__fold > summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--hc-rule);
+    cursor: pointer;
+  }
+  .edition-books__title { margin: 0; font: 600 clamp(1.35rem, 2.4vw, 1.7rem)/1.15 var(--font-editorial); }
+  .edition-books__count { color: var(--hc-text-tertiary); font: 500 0.85rem/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+  .edition-books__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+    gap: 0 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .edition-books__list a {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    gap: 0.6rem;
+    align-items: baseline;
+    padding: 0.6rem 0.25rem;
+    border-bottom: 1px solid var(--hc-rule-soft);
+    color: var(--hc-text-primary);
+    text-decoration: none;
+  }
+  .edition-books__list a:hover { background: var(--hc-surface-1); }
+  .edition-books__n, .edition-books__extent {
+    color: var(--hc-text-tertiary);
+    font: 500 0.8rem/1.5 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+  .edition-books__names { display: grid; gap: 0.1rem; min-width: 0; }
+  .edition-books__en { font: 400 0.98rem/1.35 var(--font-body); }
+  .edition-books__ar { color: var(--hc-text-secondary); font: 400 1rem/1.6 var(--font-arabic); text-align: right; }
 </style>
 
 <style is:global>

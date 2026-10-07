@@ -56,7 +56,7 @@ let manifestUrl = '';
 async function corpusManifestUrl(page: Page): Promise<string> {
   if (manifestUrl) return manifestUrl;
   await page.goto('/hadith');
-  await expect(page.locator('.book-card').first()).toBeVisible();
+  await expect(page.locator('.catalog-row').first()).toBeVisible();
   const reported = await page.evaluate(() => {
     const w = window as unknown as { __corpusManifest?: string; __corpusVersion?: string };
     return { manifest: w.__corpusManifest || '', version: w.__corpusVersion || '' };
@@ -122,10 +122,10 @@ test.describe('hadith corpus', () => {
     // The page must agree with the corpus it is serving. Hardcoding a number
     // here would pass against a stale metadata file, which is the bug this is
     // meant to catch.
-    await expect(page.locator('.corpus-stat-card__val').first()).toHaveText(
+    await expect(page.locator('.hc-project-hero__figure').first()).toHaveText(
       m.counts.hadith.toLocaleString()
     );
-    await expect(page.locator('.book-card')).toHaveCount(m.counts.collections);
+    await expect(page.locator('.catalog-row')).toHaveCount(m.counts.collections);
     await expect(page.locator('.corpus-provenance__version')).toHaveText(m.corpusVersion);
     noDatabaseTraffic(urls);
   });
@@ -239,13 +239,30 @@ test.describe('narration record', () => {
     noDatabaseTraffic(urls);
   });
 
+  test('shows the narration alone, with the edition headings, notes and pages as apparatus', async ({ page }) => {
+    await page.goto('/hadith/237072');
+    // The record opens a kitab: the edition prints its heading, a basmala and
+    // the book's transmission frame before the narration, and the editor's
+    // notes after it. None of that is the narration.
+    const arabic = page.locator('.hr-leaf__ar');
+    await expect(arabic).toContainText('حدثنا هشيم', { timeout: CORPUS_TIMEOUT });
+    await expect(arabic).not.toContainText('كتاب الطهارة');
+    await expect(arabic).not.toContainText('طبعة');
+    await expect(page.locator('.hr-cite')).toContainText('vol. 1, pp. 219–220');
+
+    const headed = page.locator('.hr-refs__more', { hasText: 'As headed in the edition' });
+    await headed.locator('summary').click();
+    await expect(headed.locator('.hr-refs__ar')).toContainText('كتاب الطهارة');
+    const notes = page.locator('.hr-refs__more', { hasText: 'Editor’s notes' });
+    await notes.locator('summary').click();
+    await expect(notes.locator('.hr-refs__ar')).toContainText('طبعة دار القبلة');
+  });
+
   test('keeps the source wording distinct from the normalized transmitter index', async ({ page }) => {
     await page.goto('/hadith/237072');
-    await expect(page.locator('.edition-source-path')).toContainText('Kitāb 1', {
+    await expect(page.locator('.hr-leaf__note')).toContainText('machine translation', {
       timeout: CORPUS_TIMEOUT
     });
-    await expect(page.locator('.edition-reference-summary__pages')).toContainText('[1/217]');
-    await expect(page.getByText('English report rendering')).toBeVisible();
     await expect(page.locator('.source-narrators summary')).toContainText('Source narrator name forms');
     await expect(page.locator('.ladder-verb')).toHaveCount(0);
 
@@ -310,6 +327,46 @@ test.describe('collection edition', () => {
     await expect(noScript.locator('h1.edition-title')).toHaveText(book.title_en);
     await expect(noScript.locator('.edition-stat-entry__val').first()).toContainText(
       book.hadith_count.toLocaleString()
+    );
+    await context.close();
+  });
+
+  test('lists its books, each linked to its page', async ({ page }) => {
+    await page.goto('/hadith/collection/musannaf-ibn-abi-shaybah/');
+    const first = page.locator('.edition-books__list a').first();
+    await expect(first).toHaveAttribute('href', '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1/');
+    await expect(first).toContainText('The Book of Purification');
+  });
+});
+
+test.describe('book page', () => {
+  const URL = '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1/';
+
+  test('reads a chapter from the corpus when it is opened', async ({ page }) => {
+    await page.goto(URL);
+    await expect(page.locator('h1')).toContainText('The Book of Purification');
+    await expect(page.locator('.kb-nav a[aria-current="page"]')).toContainText('Purification');
+
+    const chapter = page.locator('details.kb-chapter').first();
+    await chapter.locator('summary').click();
+    const card = chapter.locator('.kb-card-record', { has: page.locator('a[href="/hadith/237072/"]') });
+    await expect(card).toBeVisible({ timeout: CORPUS_TIMEOUT });
+    // No authenticity grade on a card: its label is the number and nothing else.
+    await expect(card.locator('.kb-card-record__meta')).toHaveText('Hadith 1');
+  });
+
+  test('works without script: chapters, books and the edition links are real markup', async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto(URL);
+    await expect(page.locator('details.kb-chapter')).not.toHaveCount(0);
+    await expect(page.locator('details.kb-chapter').first().locator('.kb-chapter__fallback a')).toHaveAttribute(
+      'href',
+      '/hadith/collection/musannaf-ibn-abi-shaybah/?page=1'
+    );
+    await expect(page.locator('.kb-pager a[rel="next"]')).toHaveAttribute(
+      'href',
+      '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/2/'
     );
     await context.close();
   });

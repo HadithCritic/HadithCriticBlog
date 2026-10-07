@@ -1,2189 +1,590 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import BibleVerse from '../components/article/BibleVerse.astro';
-import QuranVerse from '../components/article/QuranVerse.astro';
-import HadithBlock from '../components/article/HadithBlock.astro';
-import ClaimBox from '../components/article/ClaimBox.astro';
-import VerdictBox from '../components/article/VerdictBox.astro';
-import ContextNote from '../components/article/ContextNote.astro';
-import QuoteBlock from '../components/article/QuoteBlock.astro';
-import SectionDivider from '../components/article/SectionDivider.astro';
-import EditorialToc from '../components/article/EditorialToc.astro';
 import fs from 'node:fs';
 import path from 'node:path';
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BrandMark from '../components/BrandMark.astro';
+import ArchiveEntry from '../components/ArchiveEntry.astro';
+import HadithBlock from '../components/article/sources/HadithBlock.astro';
+import QuranVerse from '../components/article/sources/QuranVerse.astro';
+import ContextNote from '../components/article/text/ContextNote.astro';
+import QuoteBlock from '../components/article/text/QuoteBlock.astro';
+import { SITE } from '../lib/seo';
+import { toEntries } from '../lib/article-index';
+import '../styles/house.css';
+import '../styles/blog-index.css';
+import '../styles/brand.css';
 
-let designMdContent = '';
-try {
-  designMdContent = fs.readFileSync(path.resolve(process.cwd(), 'DESIGN.md'), 'utf-8');
-} catch (e) {
-  console.warn('Could not read DESIGN.md at build time', e);
-}
+/* The brand, shown rather than described. Every colour value below is the
+   token global.css declares, every contrast ratio is computed here from those
+   values, every component is the live one, and every article excerpt is
+   quoted exactly from the study it links to. */
 
-// ── Colors (21 Core Tokens + Taxonomy/Status) ─────────────────────────────
-const colorGroups = [
+/* WCAG 2.2 relative luminance and contrast. */
+const channel = (value: number) => {
+  const c = value / 255;
+  return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+};
+const luminance = (hex: string) => {
+  const [r, g, b] = (hex.replace('#', '').match(/../g) ?? []).map((part) => channel(parseInt(part, 16)));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+const BLACK = '#0f0f10';
+const PARCHMENT = '#f2ebdc';
+
+const palette = [
   {
-    category: 'Brand & Accent',
-    subtitle: 'Sparing, hierarchy & active-state voltage (<5% viewport footprint).',
-    colors: [
-      { name: 'Antique Gold', token: '--hc-gold', darkHex: '#d8b166', lightHex: '#6f5019', contrast: '7.8:1 AAA', role: 'Active links, emblems, focus rings, and primary hierarchy.' },
-      { name: 'Gold Bright', token: '--hc-gold-bright', darkHex: '#e8c878', lightHex: '#63440f', contrast: '9.2:1 AAA', role: 'Hover states, active focus indicators, and luminous accents.' },
-      { name: 'Gold Soft', token: '--hc-gold-soft', darkHex: '#e2c783', lightHex: '#795820', contrast: '8.5:1 AAA', role: 'Selection backgrounds and button gradient stops.' },
-      { name: 'Gold Dim', token: '--hc-gold-dim', darkHex: '#9d7a3c', lightHex: '#7a5920', contrast: '4.6:1 AA', role: 'Quiet apparatus borders and subtle ornament lines.' },
-      { name: 'Accent Copper', token: '--hc-copper', darkHex: '#c48b68', lightHex: '#8a4c27', contrast: '5.2:1 AA', role: 'Text-safe warm copper for apparatus notes and diagrams.' },
-      { name: 'Accent Umber', token: '--hc-umber', darkHex: '#a46a3f', lightHex: '#8a4c27', contrast: '4.5:1 AA', role: 'Historical context notes, caution banners, and chapter cards.' },
-      { name: 'Accent Prophecy', token: '--hc-prophecy', darkHex: '#7b2d24', lightHex: '#a84b3e', contrast: '4.5:1 AA', role: 'Sparing rubric red for critical prophecy and warning callouts.' },
-    ]
+    group: 'Grounds',
+    note: 'Warm blacks, never pure. Pages alternate between them so a long page reads as movements.',
+    swatches: [
+      { name: 'Black', token: '--hc-fixed-black', hex: '#0f0f10' },
+      { name: 'Soft black', token: '--hc-fixed-black-soft', hex: '#141312' },
+      { name: 'Charcoal', token: '--hc-fixed-charcoal', hex: '#1e1d1b' },
+      { name: 'Warm charcoal', token: '--hc-fixed-charcoal-2', hex: '#26231f' },
+    ],
   },
   {
-    category: 'Surface',
-    subtitle: 'Warm-tinted layered grounds, panels, elevated cards, and manuscript sheets.',
-    colors: [
-      { name: 'Canvas Ground', token: '--hc-surface-0', darkHex: '#0f0f10', lightHex: '#fbf9f4', contrast: '15.8:1 AAA', role: 'Canonical page canvas; deep tinted-black in dark, ivory in light.' },
-      { name: 'Surface Panel', token: '--hc-surface-1', darkHex: '#141312', lightHex: '#f2ece0', contrast: '14.2:1 AAA', role: 'Structural panels, persistent navigation bars, and chrome.' },
-      { name: 'Surface Elevated', token: '--hc-surface-2', darkHex: '#1e1d1b', lightHex: '#e8e2d5', contrast: '12.4:1 AAA', role: 'Elevated ledger cards, searchbars, toolbars, and active trays.' },
-      { name: 'Surface Card / Well', token: '--hc-surface-3', darkHex: '#26231f', lightHex: '#dfd8cb', contrast: '10.8:1 AAA', role: 'Nested card modules, input wells, and border backdrops.' },
-      { name: 'Fixed Parchment', token: '--hc-fixed-parchment', darkHex: '#f2ebdc', lightHex: '#f2ebdc', contrast: '13.5:1 AAA', role: 'Fixed parchment evidence cards, manuscript quotes, and source sheets.' },
-      { name: 'Surface Umber Sheet', token: '--hc-surface-umber', darkHex: '#6e3b24', lightHex: '#f4ede6', contrast: '4.8:1 AA', role: 'Deep umber background for historical context notes and apparatus.' },
-    ]
+    group: 'Paper and ink',
+    note: 'The leaf a section wants read first, and the ink printed on it.',
+    swatches: [
+      { name: 'Parchment', token: '--hc-fixed-parchment', hex: '#f2ebdc' },
+      { name: 'Deep parchment', token: '--hc-fixed-parchment-deep', hex: '#e5d7bd' },
+      { name: 'Ink', token: '--hc-fixed-parchment-ink', hex: '#1a1715' },
+    ],
   },
   {
-    category: 'Text',
-    subtitle: 'High-contrast typography tiers calibrated for WCAG 2.2 AA in both modes.',
-    colors: [
-      { name: 'Text Primary', token: '--hc-text-primary', darkHex: '#f2ebdc', lightHex: '#2b2824', contrast: '14.5:1 AAA', role: 'High-contrast headline and running reading text across all views.' },
-      { name: 'Text Secondary', token: '--hc-text-secondary', darkHex: '#b8ad99', lightHex: '#6b635a', contrast: '7.2:1 AAA', role: 'Lede text, apparatus subheadings, metadata timestamps, and descriptions.' },
-      { name: 'Text Tertiary / Muted', token: '--hc-text-tertiary', darkHex: '#8c8a86', lightHex: '#635e56', contrast: '4.7:1 AA', role: 'The dimmest legible text token on the site (12px minimum floor).' },
-      { name: 'Text Inverse', token: '--hc-text-inverse', darkHex: '#0f0f10', lightHex: '#fbf9f4', contrast: '15.8:1 AAA', role: 'High-contrast text on solid gold buttons and active accents.' },
-      { name: 'Parchment Ink', token: '--hc-fixed-parchment-ink', darkHex: '#1a1715', lightHex: '#1a1715', contrast: '14.0:1 AAA', role: 'Deep manuscript ink used on parchment cards across both themes.' },
-    ]
+    group: 'Metals',
+    note: 'Gold is the one accent on black; bronze is the same accent printed on paper.',
+    swatches: [
+      { name: 'Antique gold', token: '--hc-gold', hex: '#d8b166' },
+      { name: 'Bright gold', token: '--hc-gold-bright', hex: '#e8c878' },
+      { name: 'Dim gold', token: '--hc-gold-dim', hex: '#bf9957' },
+      { name: 'Bronze', token: '--hc-fixed-bronze', hex: '#6a4c18' },
+      { name: 'Umber', token: '--hc-umber', hex: '#a46a3f' },
+      { name: 'Copper', token: '--hc-copper', hex: '#c58e6b' },
+    ],
   },
-  {
-    category: 'Borders & Hairlines',
-    subtitle: 'Structural dividers, inset card outlines, and apparatus hairlines.',
-    colors: [
-      { name: 'Hairline Rule', token: '--hc-rule', darkHex: 'rgba(216,177,102,0.32)', lightHex: 'rgba(111,80,25,0.28)', contrast: 'Structural', role: '1px structural border for cards, panels, and ledger divisions.' },
-      { name: 'Rule Soft', token: '--hc-rule-soft', darkHex: 'rgba(242,235,220,0.14)', lightHex: 'rgba(43,40,36,0.12)', contrast: 'Structural', role: 'Subtle interior dividers and quiet metadata item separators.' },
-      { name: 'Rule Strong', token: '--hc-rule-strong', darkHex: 'rgba(216,177,102,0.55)', lightHex: 'rgba(111,80,25,0.50)', contrast: 'Structural', role: 'Active hover outlines, primary frames, and emphasized boundaries.' },
-    ]
-  },
-  {
-    category: 'Taxonomy & Status (Appendix)',
-    subtitle: 'Non-evaluative article categories and semantic application states.',
-    colors: [
-      { name: 'Taxonomy: History', token: '--cat-history-text', darkHex: '#c99a72', lightHex: '#8a4c27', contrast: '5.6:1 AA', role: 'Category hue for Origins & Early History studies.' },
-      { name: 'Taxonomy: Prophecies', token: '--cat-prophecies-text', darkHex: '#c8705f', lightHex: '#8f3316', contrast: '5.1:1 AA', role: 'Category hue for Prophecies & Eschatology studies.' },
-      { name: 'Taxonomy: Theology', token: '--cat-theology-text', darkHex: '#7fa389', lightHex: '#255e34', contrast: '5.8:1 AA', role: 'Category hue for Theology & Epistemology studies.' },
-      { name: 'Taxonomy: Philosophy', token: '--cat-philosophy-text', darkHex: '#8595b5', lightHex: '#324a73', contrast: '5.4:1 AA', role: 'Category hue for Philosophy & Methodology studies.' },
-      { name: 'Status: Success', token: '--hc-success', darkHex: '#81c784', lightHex: '#2e6b2e', contrast: '6.2:1 AA', role: 'Form confirmation and positive status notices.' },
-      { name: 'Status: Danger', token: '--hc-danger', darkHex: '#e2907a', lightHex: '#8f3316', contrast: '5.6:1 AA', role: 'Critical warnings and negative argument emphasis.' },
-      { name: 'Search Highlight', token: '--hc-highlight', darkHex: 'rgba(216,177,102,0.26)', lightHex: 'rgba(176,126,44,0.18)', contrast: 'Wash', role: 'Search hit highlighting and textual illumination.' },
-    ]
+];
+
+/* The four article branches. Colour identifies a branch and nothing else:
+   the name is always printed beside it, and no colour on the site grades a
+   report, a narrator or a reading. */
+const branches = [
+  { name: 'Origins & Early History', dark: '#d5b091', paper: '#713e20' },
+  { name: 'Transmission & Narrators', dark: '#a3afc7', paper: '#414c64' },
+  { name: 'Theology & Epistemology', dark: '#9cb8a4', paper: '#39533d' },
+  { name: 'Prophecies & Eschatology', dark: '#d7988b', paper: '#7e3727' },
+];
+
+const pairs = [
+  { label: 'Parchment on black', fg: PARCHMENT, bg: BLACK, use: 'Headings, running text' },
+  { label: 'Muted on black', fg: '#b8ad99', bg: BLACK, use: 'Ledes, descriptions' },
+  { label: 'Ash on black', fg: '#a7a5a2', bg: BLACK, use: 'Metadata, the dimmest text' },
+  { label: 'Gold on black', fg: '#d8b166', bg: BLACK, use: 'Links, labels, accents' },
+  { label: 'Dim gold on black', fg: '#bf9957', bg: BLACK, use: 'Folio numerals' },
+  { label: 'Ink on parchment', fg: '#1a1715', bg: PARCHMENT, use: 'Text on a leaf' },
+  { label: 'Secondary ink on parchment', fg: '#4e4842', bg: PARCHMENT, use: 'Descriptions on a leaf' },
+  { label: 'Bronze on parchment', fg: '#6a4c18', bg: PARCHMENT, use: 'Labels and links on a leaf' },
+].map((pair) => ({ ...pair, ratio: contrast(pair.fg, pair.bg) }));
+
+const scale = [
+  { role: 'Hero display', face: 'Cormorant Garamond 600', size: '4.85rem', sample: 'Tracing the origins', cls: 'bd-scale--hero' },
+  { role: 'Section head', face: 'Cormorant Garamond 600', size: '3.1rem', sample: 'From the archive', cls: 'bd-scale--section' },
+  { role: 'Study title', face: 'Source Serif 4 600', size: '2.45rem', sample: 'The Scroll and the Sword', cls: 'bd-scale--title' },
+  { role: 'Entry title', face: 'Source Serif 4 600', size: '1.34rem', sample: 'Faces Like Hammered Shields', cls: 'bd-scale--entry' },
+  { role: 'Reading text', face: 'Source Serif 4 400', size: '1.06rem', sample: 'Every attribution is treated as a claim to be tested.', cls: 'bd-scale--body' },
+  { role: 'Label', face: 'IBM Plex Sans 500, tracked capitals', size: '0.78rem', sample: 'Latest investigation', cls: 'bd-scale--label' },
+];
+
+const nightPlates = [
+  { src: '/images/platform/home-1086.webp', name: 'The city', use: 'Homepage' },
+  { src: '/images/platform/corpus-1086.webp', name: 'Seals and archive', use: 'Hadith Corpus' },
+  { src: '/images/platform/rijal-1086.webp', name: 'Transmitters at the gate', use: 'Rijāl Register' },
+  { src: '/images/platform/qiraat-1086.webp', name: 'The colonnade', use: 'Qirāʾāt Variants' },
+  { src: '/images/platform/atlas-1086.webp', name: 'The armillary', use: 'Islamic Studies Atlas' },
+  { src: '/images/platform/icma-1086.webp', name: 'The loom', use: 'ICMA Register' },
+];
+
+const paperPlates = [
+  { src: '/images/blog-editorial/81-hinnom-720.webp', id: 'theology-epistemology/81-the-people-of-the-canyon-in-q85-a-case-for-the-valley-of-hinnom-gehenna' },
+  { src: '/images/blog-editorial/77-frontier-720.webp', id: 'prophecies-eschatology/77-faces-like-hammered-shields-the-turks-hadith-clusters' },
+  { src: '/images/blog-editorial/78-scroll-sword-720.webp', id: 'transmission-narrators/78-the-scroll-and-the-sword-the-polemical-use-of-alis-authority' },
+];
+
+const posts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
+const entries = toEntries(posts);
+const sample = entries[1] ?? entries[0];
+const titleOf = (id: string) => posts.find((post) => post.id === id)?.data.title ?? '';
+
+/* Source articles for the excerpts below. */
+const AHMAD = 'origins-early-history/13-imam-ahmad-supplicates-through-dead-people';
+const BEWITCHED = 'origins-early-history/21-hadith-the-prophet-was-bewitched-by-a-jew';
+
+const kb = (file: string) => {
+  try {
+    const bytes = fs.statSync(path.resolve(process.cwd(), 'public', file)).size;
+    return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  } catch {
+    return '';
   }
-];
+};
 
-// ── Typography (11 Core Tokens) ───────────────────────────────────────────
-const typographyTokens = [
-  {
-    token: 'display-hero',
-    className: 'hc-title--xl',
-    font: 'Poppins',
-    spec: 'clamp(2.98rem, 7vw, 5.1rem) · 500 Medium · lh 1.1 · -0.035em',
-    sample: 'Critical Evidence.',
-    role: 'Primary homepage and flagship portal display headlines.'
-  },
-  {
-    token: 'display-section',
-    className: 'hc-title--lg',
-    font: 'Poppins',
-    spec: 'clamp(2.55rem, 6vw, 4.93rem) · 500 Medium · lh 1.15 · -0.035em',
-    sample: 'Historical Transmission',
-    role: 'Major archive section and dossier display headers.'
-  },
-  {
-    token: 'display-title-md',
-    className: 'hc-title--md',
-    font: 'Poppins',
-    spec: 'clamp(1.91rem, 4vw, 3.4rem) · 500 Medium · lh 1.2 · -0.035em',
-    sample: 'Origins & Early History',
-    role: 'Standard collection covers and category title headers.'
-  },
-  {
-    token: 'heading-h2',
-    className: 'spec-h2',
-    font: 'Poppins',
-    spec: 'clamp(1.4rem, 3vw, 1.8rem) · 600 SemiBold · lh 1.3 · -0.02em',
-    sample: 'Textual Variants in the Canon',
-    role: 'In-page article section headers and analytical dividers.'
-  },
-  {
-    token: 'heading-h3',
-    className: 'spec-h3',
-    font: 'Poppins',
-    spec: '1.18rem · 600 SemiBold · lh 1.35 · -0.015em',
-    sample: 'The Common Link Hypothesis',
-    role: 'Article subsections and apparatus grouping titles.'
-  },
-  {
-    token: 'body-prose',
-    className: 'spec-body',
-    font: 'Poppins',
-    spec: '1rem (16px) · 400 Regular · lh 1.75 · 68–75ch',
-    sample: 'Every attribution is treated as an empirical claim to be investigated rather than an article of faith. We reconstruct earliest transmission paths.',
-    role: 'Standard monograph reading prose, treatises, and critical analysis.'
-  },
-  {
-    token: 'body-copy-lead',
-    className: 'spec-lead',
-    font: 'Poppins',
-    spec: '1.08rem · 400 Regular · lh 1.68',
-    sample: 'An independent scholarly archive presenting evidence-led studies of hadith literature, early Islamic history, and source criticism.',
-    role: 'Article standfirsts, introductory summaries, and abstract text.'
-  },
-  {
-    token: 'body-small',
-    className: 'spec-small',
-    font: 'Poppins',
-    spec: '0.95rem · 400 Regular · lh 1.6',
-    sample: 'Citations follow the standard Leiden system with references to primary manuscript catalogues.',
-    role: 'Table contents, captions, secondary citations, and footnotes.'
-  },
-  {
-    token: 'ui-eyebrow-label',
-    className: 'spec-eyebrow',
-    font: 'Glacial Indifference',
-    spec: '0.81rem (13px) · 700 Bold · UPPERCASE · +0.14em',
-    sample: 'CRITICAL APPARATUS · ISNĀD ANALYSIS · 276,347 NARRATIONS',
-    role: 'Strictly apparatus UI: category kickers, table headers, breadcrumbs, and tags.'
-  },
-  {
-    token: 'ui-button',
-    className: 'spec-btn-label',
-    font: 'Glacial Indifference',
-    spec: '15px · 500 Medium · Sentence case · +0.04em',
-    sample: 'Explore the Corpus →',
-    role: 'Interactive button controls, primary callouts, and search actions.'
-  },
-  {
-    token: 'arabic-quran',
-    className: 'spec-quran',
-    font: 'Amiri Quran',
-    spec: 'clamp(1.27rem, 1.2vw + 1.25rem, 1.57rem) · lh 2.05 · RTL',
-    sample: 'قُتِلَ أَصْحَٰبُ ٱلْأُخْدُودِ ۝٤ ٱلنَّارِ ذَاتِ ٱلْوَقُودِ ۝٥',
-    role: 'Authentic Qurʾānic script supporting full waqf and vocalisation marks.'
-  }
-];
-
-// ── Layout (12 Tokens) ───────────────────────────────────────────────────
-const radiiTokens = [
-  { name: 'none', token: '0px', value: '0px', usage: 'Hard tables, strict manuscript matrices' },
-  { name: 'xs', token: '--radius-xs', value: '2px', usage: 'Buttons, cards, panels: the site default' },
-  { name: 'sm', token: '--radius-sm', value: '4px', usage: 'Inputs, small chips, dialogs, book plates' },
-  { name: 'pill', token: '--radius-pill', value: '999px', usage: 'Actionable filter chips & status tags only' },
-];
-
-const spacingTokens = [
-  { name: 'xs', token: '--space-xs', px: '4px', barWidth: '8px' },
-  { name: 'sm', token: '--space-sm', px: '8px', barWidth: '16px' },
-  { name: 'md', token: '--space-md', px: '12px', barWidth: '24px' },
-  { name: 'base', token: '--space-base', px: '16px', barWidth: '36px' },
-  { name: 'lg', token: '--space-lg', px: '24px', barWidth: '56px' },
-  { name: 'xl', token: '--space-xl', px: '32px', barWidth: '80px' },
-  { name: '2xl', token: '--space-2xl', px: '48px', barWidth: '120px' },
-  { name: '3xl', token: '--space-3xl', px: '72px', barWidth: '160px' },
-];
-
-const layoutSpecs = [
-  { label: 'Container Max-Width', token: '--wrap', value: '1240px', desc: 'Standard width for grids, catalogues, and site chrome.' },
-  { label: 'Reading Measure', token: '--wrap-reading', value: '780px', desc: '68–75ch optimal typographical measure for reading.' },
-  { label: 'Wide Reading Measure', token: '--wrap-wide', value: '940px', desc: 'Expanded scholarly measure for complex tables & facing notes.' },
-  { label: 'Editorial Desk Grid', token: '--desk-grid', value: '1480px', desc: 'Full 2-column scholarly apparatus workspace.' },
-];
-
-
-
-const faqs = [
-  {
-    q: 'How is the HadithCritic design system specified?',
-    a: 'The system is defined in DESIGN.md at the workspace root, sourced directly from CSS variables in src/styles/global.css, article.css, and footer.css. Every token is verified by automated contrast and design audits.'
-  },
-  {
-    q: 'Why is there no authenticity grading color system?',
-    a: 'Authenticity scoring (traffic-light green/yellow/red badges) is strictly forbidden across the site. HadithCritic operates on historical-critical methodology: classical evaluations are presented purely as attributed historical source data in neutral ink, never as empirical verdicts.'
-  },
-  {
-    q: 'How does the system ensure WCAG 2.2 AA contrast compliance?',
-    a: 'Every color is audited not as a raw token, but against the fully composited background stack (including paper noise, category washes, and radial gradients). The test script scripts/check-contrast.mjs validates all 93 routes in both dark and light modes.'
-  },
-  {
-    q: 'Can this design spec be used directly in Cursor, Claude, or Copilot?',
-    a: 'Yes. The DESIGN.md file follows the open Agent Design Schema. You can copy the raw markdown using the button above and supply it to coding agents to replicate exact components, spacing, and typography.'
-  }
-];
+const assets = [
+  { file: 'images/brand/HCsvg.svg', name: 'The mark, vector', format: 'SVG', size: 'Scalable', note: 'Gold; assembles itself on load' },
+  { file: 'images/brand/hc-logo-transparent-512.png', name: 'The mark, transparent', format: 'PNG', size: '512 × 512', note: 'Gold on transparent' },
+  { file: 'images/brand/hc-logo-transparent-192.png', name: 'The mark, small', format: 'PNG', size: '192 × 192', note: 'Gold on transparent' },
+  { file: 'images/HC.webp', name: 'The mark on black', format: 'WebP', size: '1254 × 1254', note: 'For avatars' },
+  { file: 'apple-touch-icon.png', name: 'Touch icon', format: 'PNG', size: '180 × 180', note: 'Home-screen icon' },
+  { file: 'images/brand/footer-panorama-v1.webp', name: 'The panorama', format: 'WebP', size: '2172 × 724', note: 'The footer engraving' },
+  { file: 'images/YTbanner.png', name: 'Channel banner', format: 'PNG', size: '1672 × 941', note: 'YouTube channel art' },
+].map((asset) => ({ ...asset, bytes: kb(asset.file) }));
 ---
 
 <BaseLayout
-  title="HadithCritic Design System — Colors 21, Typography 11, Layout 12, Components 21"
-  description="HadithCritic's scholarly design system spec. Dark manuscript archive (#0f0f10), antique gold (#d8b166), Poppins, Glacial Indifference, Amiri, 21 colors, 21 components."
+  title="Brand | HadithCritic"
+  description="The HadithCritic identity: the mark, the typefaces, the palette, the engraved plates, the ornament and the parts the site is built from, with downloadable assets."
 >
-  <main class="brand-spec-page">
-    <div class="wrap">
-      
-      <!-- ── Breadcrumb & Top Bar ──────────────────────────────────────── -->
-      <nav class="spec-breadcrumbs" aria-label="Breadcrumb">
-        <a href="/" class="spec-breadcrumb-link">HadithCritic</a>
-        <span class="spec-breadcrumb-sep" aria-hidden="true">/</span>
-        <span class="spec-breadcrumb-current">Design System</span>
-      </nav>
-
-      <!-- ── Hero Spec Header ─────────────────────────────────────────── -->
-      <section class="spec-hero">
-        <div class="spec-hero__left">
-          <div class="spec-eyebrow">DESIGN SYSTEM SPECIFICATION · V2.4</div>
-          <h1 class="spec-hero__title">HadithCritic Design System</h1>
-          <p class="spec-hero__lede">
-            A dark manuscript archive visual system: tinted-black ground, antique gold as the single accent, 
-            parchment and umber text tiers, and classical Naskh typography calibrated for rigorous historical-critical inquiry.
-          </p>
-
-          <div class="spec-hero__actions">
-            <button type="button" class="hc-btn" id="copyDesignMdBtn" data-copy-action="design-md">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              <span>Copy DESIGN.md Spec</span>
-            </button>
-            <a href="#explore-system" class="hc-btn hc-btn--ghost">
-              <span>Explore The System ↓</span>
-            </a>
-          </div>
-
-          <!-- 01-05 Key Distinctives (as in shadcn anthropic) -->
-          <div class="spec-distinctives">
-            <h2 class="spec-distinctives__title">WHAT MAKES IT DISTINCT</h2>
-            <ol class="spec-distinctives__list">
-              <li>
-                <span class="num">01</span>
-                <div>
-                  <strong>Dark Manuscript Archive Surface</strong>
-                  <p>Tinted-black canvas (<code>#0f0f10</code>) over two low-opacity radial glows, paired with a paper grain noise field.</p>
-                </div>
-              </li>
-              <li>
-                <span class="num">02</span>
-                <div>
-                  <strong>Sparing Antique Gold Voltage</strong>
-                  <p>Antique Gold (<code>#d8b166</code>) carries hierarchy and active state only; stays under ~5% of any viewport.</p>
-                </div>
-              </li>
-              <li>
-                <span class="num">03</span>
-                <div>
-                  <strong>Rigorous WCAG 2.2 AA Contrast Architecture</strong>
-                  <p>Audited against composited backgrounds (4.5:1 body, 3:1 large); zero pure white, zero pitch black.</p>
-                </div>
-              </li>
-              <li>
-                <span class="num">04</span>
-                <div>
-                  <strong>Tri-Scriptural Typographic Hierarchy</strong>
-                  <p>Geometric Latin (Poppins) for reading, uppercase apparatus (Glacial) for metadata, and classical Naskh (Amiri) for Arabic.</p>
-                </div>
-              </li>
-              <li>
-                <span class="num">05</span>
-                <div>
-                  <strong>Non-Negotiable Neutral Critical Apparatus</strong>
-                  <p>No traffic-light authenticity grades or reliability badges anywhere. Attributed evidence in neutral apparatus ink.</p>
-                </div>
-              </li>
-            </ol>
+  <div class="hc-page hc-plate bd-page">
+    <!-- Hero: the lockup at full size, over the panorama. -->
+    <header class="bd-hero" aria-labelledby="bd-title">
+      <img class="bd-hero__panorama" src="/images/brand/footer-panorama-v1.webp" srcset="/images/brand/footer-panorama-v1-1440.webp 1440w, /images/brand/footer-panorama-v1.webp 2172w" sizes="100vw" width="2172" height="724" alt="" fetchpriority="high" />
+      <div class="hc-container bd-hero__inner">
+        <p class="hc-hero__kicker">Brand</p>
+        <div class="bd-lockup">
+          <BrandMark size="clamp(7rem, 13vw, 11rem)" class="bd-lockup__mark" />
+          <div class="bd-lockup__text">
+            <h1 id="bd-title" class="bd-lockup__word">HadithCritic</h1>
+            <span class="hc-ornament bd-lockup__rule" aria-hidden="true"></span>
+            <p class="bd-lockup__tagline">{SITE.tagline}</p>
           </div>
         </div>
+        <p class="hc-hero__lede bd-hero__lede">
+          The identity of HadithCritic, set out as it is used: the mark, the four typefaces, the palette,
+          the engraved plates, the ornament and the parts every page is built from.
+        </p>
+        <nav class="bd-contents" aria-label="On this page">
+          <ol>
+            <li><a href="#mark">Mark</a></li>
+            <li><a href="#type">Type</a></li>
+            <li><a href="#colour">Colour</a></li>
+            <li><a href="#plates">Plates</a></li>
+            <li><a href="#ornament">Ornament</a></li>
+            <li><a href="#parts">Parts</a></li>
+            <li><a href="#articles">Articles</a></li>
+            <li><a href="#assets">Assets</a></li>
+          </ol>
+        </nav>
+      </div>
+    </header>
 
-        <!-- Quick Spec Side Card (Shadcn Anthropic pattern) -->
-        <aside class="spec-hero__side">
-          <div class="spec-summary-card">
-            <div class="spec-summary-card__swatch">
-              <div class="swatch-color" style="background-color: var(--hc-gold);"></div>
-              <div class="swatch-meta">
-                <span class="swatch-label">PRIMARY ACCENT</span>
-                <span class="swatch-code">#d8b166</span>
-                <span class="swatch-sub">Antique Gold · 7.8:1 AAA</span>
-              </div>
-            </div>
-
-            <div class="spec-summary-card__rows">
-              <div class="summary-row">
-                <span class="row-label">TYPEFACES</span>
-                <span class="row-val">Poppins · Glacial · Amiri</span>
-              </div>
-              <div class="summary-row">
-                <span class="row-label">COMPONENTS</span>
-                <span class="row-val highlight">21</span>
-              </div>
-              <div class="summary-row">
-                <span class="row-label">COLOR TOKENS</span>
-                <span class="row-val highlight">21</span>
-              </div>
-              <div class="summary-row">
-                <span class="row-label">TYPE TOKENS</span>
-                <span class="row-val">11</span>
-              </div>
-              <div class="summary-row">
-                <span class="row-label">BASE RADIUS</span>
-                <span class="row-val">2px (Crisp)</span>
-              </div>
-              <div class="summary-row">
-                <span class="row-label">WCAG COMPLIANCE</span>
-                <span class="row-val">2.2 AA (Audited)</span>
-              </div>
-            </div>
-
-            <div class="spec-summary-card__jump">
-              <span class="jump-title">JUMP TO SECTION</span>
-              <div class="jump-links">
-                <a href="#explore-system" data-tab-target="colors" class="jump-link">Colors (21) →</a>
-                <a href="#explore-system" data-tab-target="typography" class="jump-link">Typography (11) →</a>
-                <a href="#explore-system" data-tab-target="layout" class="jump-link">Layout (12) →</a>
-                <a href="#explore-system" data-tab-target="components" class="jump-link">Components (21) →</a>
-                <a href="#explore-system" data-tab-target="preview" class="jump-link">Live Preview →</a>
-              </div>
-            </div>
+    <!-- 1. The mark -->
+    <section class="hc-band hc-band--soft bd-section" id="mark" aria-labelledby="mark-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">01</span>
+          <div>
+            <h2 id="mark-title" class="hc-head__title">The <span>mark</span></h2>
+            <p class="hc-head__note">
+              Three interlocking hexagonal rings: a chain of transmission, link by link. It is drawn
+              once and only ever recoloured, never redrawn, outlined or given effects.
+            </p>
           </div>
-        </aside>
-      </section>
+        </header>
 
-      <!-- ── Explorer Section with Tabs ───────────────────────────────── -->
-      <section id="explore-system" class="spec-explorer">
-        <div class="spec-explorer__header">
-          <h2 class="spec-explorer__title">Explore HadithCritic</h2>
-          <p class="spec-explorer__subtitle">
-            Inspect the complete visual system: palette swatches, typography scale, responsive layout, isolated component previews, and live composition.
-          </p>
-
-          <!-- Tab Navigation Bar -->
-          <div class="spec-tab-bar" role="tablist" aria-label="Design System Explorer Tabs">
-            <button type="button" class="spec-tab is-active" role="tab" id="tab-colors" aria-controls="panel-colors" aria-selected="true" data-tab="colors">
-              <span>Colors</span>
-              <span class="tab-count">21</span>
-            </button>
-            <button type="button" class="spec-tab" role="tab" id="tab-typography" aria-controls="panel-typography" aria-selected="false" data-tab="typography">
-              <span>Typography</span>
-              <span class="tab-count">11</span>
-            </button>
-            <button type="button" class="spec-tab" role="tab" id="tab-layout" aria-controls="panel-layout" aria-selected="false" data-tab="layout">
-              <span>Layout</span>
-              <span class="tab-count">12</span>
-            </button>
-            <button type="button" class="spec-tab" role="tab" id="tab-components" aria-controls="panel-components" aria-selected="false" data-tab="components">
-              <span>Components</span>
-              <span class="tab-count">21</span>
-            </button>
-            <button type="button" class="spec-tab" role="tab" id="tab-preview" aria-controls="panel-preview" aria-selected="false" data-tab="preview">
-              <span>Preview</span>
-            </button>
-          </div>
+        <div class="bd-marks">
+          <figure class="bd-tile bd-tile--black">
+            <div class="bd-tile__stage"><BrandMark size="9rem" label="HadithCritic mark in gold on black" /></div>
+            <figcaption><strong>Primary</strong> Gold on black</figcaption>
+          </figure>
+          <figure class="bd-tile bd-tile--paper">
+            <div class="bd-tile__stage"><BrandMark size="9rem" label="HadithCritic mark in ink on parchment" /></div>
+            <figcaption><strong>On paper</strong> Ink on parchment</figcaption>
+          </figure>
+          <figure class="bd-tile bd-tile--mono">
+            <div class="bd-tile__stage"><BrandMark size="9rem" label="HadithCritic mark in parchment on black" /></div>
+            <figcaption><strong>One colour</strong> Parchment on black</figcaption>
+          </figure>
+          <figure class="bd-tile bd-tile--bronze">
+            <div class="bd-tile__stage"><BrandMark size="9rem" label="HadithCritic mark in bronze on deep parchment" /></div>
+            <figcaption><strong>Printed</strong> Bronze on deep parchment</figcaption>
+          </figure>
         </div>
 
-        <!-- ── TAB 1: COLORS (21) ────────────────────────────────────── -->
-        <div class="spec-panel" id="panel-colors" role="tabpanel" aria-labelledby="tab-colors">
-          {colorGroups.map((group) => (
-            <div class="spec-color-group">
-              <div class="group-header">
-                <h3 class="group-title">{group.category}</h3>
-                <p class="group-subtitle">{group.subtitle}</p>
-              </div>
+        <div class="bd-mark-detail">
+          <figure class="bd-lockups">
+            <div class="bd-lockups__row">
+              <span class="bd-lockup-h"><BrandMark size="2.4rem" /><span>HadithCritic</span></span>
+              <span class="bd-lockups__cap">Horizontal, as in the site header</span>
+            </div>
+            <div class="bd-lockups__row">
+              <span class="bd-lockup-v"><BrandMark size="4.5rem" /><span>HadithCritic</span></span>
+              <span class="bd-lockups__cap">Stacked, for square spaces</span>
+            </div>
+          </figure>
+          <figure class="bd-sizes">
+            <div class="bd-sizes__row">
+              {['4rem', '3rem', '2rem', '1.5rem', '1rem'].map((size) => (
+                <span class="bd-sizes__item"><BrandMark size={size} /><span>{`${parseFloat(size) * 16}px`}</span></span>
+              ))}
+            </div>
+            <figcaption>
+              Holds its form down to 16px, the favicon. Keep clear space of at least the width of one
+              ring on every side, and never set the wordmark without room to breathe beside the mark.
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
 
-              <div class="swatches-grid">
-                {group.colors.map((color) => (
-                  <div class="swatch-card" data-token={color.token} data-hex={color.darkHex}>
-                    <div 
-                      class="swatch-card__color" 
-                      style={`background-color: ${color.darkHex};`}
-                      aria-label={`${color.name} swatch`}
-                    >
-                      <button 
-                        type="button" 
-                        class="swatch-copy-overlay" 
-                        data-copy-hex={color.darkHex}
-                        title={`Copy ${color.darkHex}`}
-                        aria-label={`Copy hex code ${color.darkHex}`}
-                      >
-                        <span class="copy-text">Copy</span>
-                      </button>
-                    </div>
+    <!-- 2. Type -->
+    <section class="hc-band bd-section" id="type" aria-labelledby="type-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">02</span>
+          <div>
+            <h2 id="type-title" class="hc-head__title">Four <span>typefaces</span></h2>
+            <p class="hc-head__note">One for display, one for reading, one for the apparatus, one for Arabic. Each keeps to its role.</p>
+          </div>
+        </header>
 
-                    <div class="swatch-card__details">
-                      <div class="swatch-card__head">
-                        <span class="swatch-name">{color.name}</span>
-                        <span class="swatch-badge">{color.contrast}</span>
-                      </div>
-                      <code class="swatch-token">{color.token}</code>
-                      <div class="swatch-hex-row">
-                        <span class="hex-val">Dark: {color.darkHex}</span>
-                        {color.lightHex && color.lightHex !== color.darkHex && (
-                          <span class="hex-val-light">Light: {color.lightHex}</span>
-                        )}
-                      </div>
-                      <p class="swatch-role">{color.role}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div class="bd-faces">
+          <article class="bd-face bd-face--display">
+            <p class="bd-face__name">Cormorant Garamond <span>Display · 600 and 700</span></p>
+            <p class="bd-face__sample">Tracing the origins of <span>early traditions.</span></p>
+            <p class="bd-face__note">Page heroes and section heads only. It thins out below about 26px, so it is never used for text.</p>
+          </article>
+          <article class="bd-face bd-face--serif">
+            <p class="bd-face__name">Source Serif 4 <span>Reading · 400, 600 and italic</span></p>
+            <p class="bd-face__sample">The Scroll and the Sword</p>
+            <p class="bd-face__text">
+              Study titles, entry titles and every paragraph of running text. It carries the scholarly Latin
+              diacritics in full: ʿAbd Allāh b. ʿAbbās, Ṣaḥīḥ al-Bukhārī, <em>khabar al-wāḥid</em>.
+            </p>
+          </article>
+          <article class="bd-face bd-face--ui">
+            <p class="bd-face__name">IBM Plex Sans <span>Apparatus · 400 to 600</span></p>
+            <p class="bd-face__labels"><span>Latest investigation</span><span>Transmission &amp; Narrators</span></p>
+            <p class="bd-face__figures">276,347 <span>narrations</span> · 17 Aug 2026 · 25 min read</p>
+            <p class="bd-face__note">Labels, metadata, controls and figures. Small, often in tracked capitals, with tabular numerals.</p>
+          </article>
+          <article class="bd-face bd-face--arabic">
+            <p class="bd-face__name">Noto Naskh Arabic <span>Arabic · with Amiri Quran for verses</span></p>
+            <p class="bd-face__ar" lang="ar" dir="rtl">الحديث · الرجال · القراءات · التفسير</p>
+            <p class="bd-face__note">Arabic is never set in a Latin face. Qurʾānic verses use Amiri Quran, which places the pause marks correctly.</p>
+          </article>
+        </div>
+
+        <div class="bd-scale" aria-label="Type scale">
+          {scale.map((step) => (
+            <div class={`bd-scale__row ${step.cls}`}>
+              <span class="bd-scale__meta"><strong>{step.role}</strong> {step.face} · {step.size}</span>
+              <span class="bd-scale__sample">{step.sample}</span>
             </div>
           ))}
+          <p class="bd-scale__floor">Nothing on the site is set below 12px.</p>
         </div>
+      </div>
+    </section>
 
-        <!-- ── TAB 2: TYPOGRAPHY (11) ─────────────────────────────────── -->
-        <div class="spec-panel is-hidden" id="panel-typography" role="tabpanel" aria-labelledby="tab-typography">
-          <div class="spec-type-list">
-            {typographyTokens.map((type) => (
-              <div class="spec-type-row">
-                <div class="type-row__meta">
-                  <div class="type-row__tag">
-                    <span class="token-name">{type.token}</span>
-                    <span class="token-font">{type.font}</span>
-                  </div>
-                  <div class="type-row__spec">{type.spec}</div>
-                  <div class="type-row__role">{type.role}</div>
-                </div>
+    <!-- 3. Colour -->
+    <section class="hc-band hc-band--warm bd-section" id="colour" aria-labelledby="colour-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">03</span>
+          <div>
+            <h2 id="colour-title" class="hc-head__title">The <span>palette</span></h2>
+            <p class="hc-head__note">Black, parchment and gold, with umber and copper in reserve. Values are the tokens in the stylesheet.</p>
+          </div>
+        </header>
 
-                <div class="type-row__preview">
-                  <div class={`type-specimen ${type.className}`} dir={type.font === 'Amiri Quran' ? 'rtl' : 'ltr'}>
-                    {type.sample}
-                  </div>
-                </div>
-              </div>
+        {palette.map((group) => (
+          <div class="bd-palette">
+            <p class="hc-rubric">{group.group} <span>{group.note}</span></p>
+            <ul class="bd-swatches">
+              {group.swatches.map((swatch) => (
+                <li class="bd-swatch">
+                  <span class="bd-swatch__chip" style={`background:${swatch.hex}`}></span>
+                  <span class="bd-swatch__name">{swatch.name}</span>
+                  <code class="bd-swatch__hex">{swatch.hex}</code>
+                  <code class="bd-swatch__token">{swatch.token}</code>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        <div class="bd-palette">
+          <p class="hc-rubric">Branch inks <span>They identify an article branch, always beside its name, and never grade anything</span></p>
+          <ul class="bd-branches">
+            {branches.map((branch) => (
+              <li class="bd-branch" style={`--ink:${branch.dark};--ink-paper:${branch.paper}`}>
+                <span class="bd-branch__dark"><span class="bd-branch__mark"></span>{branch.name}</span>
+                <span class="bd-branch__paper"><span class="bd-branch__mark"></span>{branch.name}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <!-- ── TAB 3: LAYOUT (12) ────────────────────────────────────── -->
-        <div class="spec-panel is-hidden" id="panel-layout" role="tabpanel" aria-labelledby="tab-layout">
-          <div class="layout-grid-section">
-            
-            <!-- Radii Scale -->
-            <div class="layout-card">
-              <h3 class="layout-card__title">Corner Radii (4 Tokens)</h3>
-              <p class="layout-card__desc">Corners are crisp or minimally softened. Large radii outside pills are prohibited.</p>
-              
-              <div class="radii-stage">
-                {radiiTokens.map((r) => (
-                  <div class="radius-specimen">
-                    <div class="radius-box" style={`border-radius: ${r.value};`}></div>
-                    <span class="radius-name">{r.name}</span>
-                    <span class="radius-val">{r.value}</span>
-                    <span class="radius-desc">{r.usage}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <!-- Spacing Scale -->
-            <div class="layout-card">
-              <h3 class="layout-card__title">Spacing & Rhythm (8 Tokens)</h3>
-              <p class="layout-card__desc">A 4px modular spacing scale maintaining disciplined vertical rhythm.</p>
-              
-              <div class="spacing-list">
-                {spacingTokens.map((s) => (
-                  <div class="spacing-row">
-                    <div class="spacing-meta">
-                      <span class="spacing-token">{s.token}</span>
-                      <span class="spacing-px">{s.px}</span>
-                    </div>
-                    <div class="spacing-bar-wrap">
-                      <div class="spacing-bar" style={`width: ${s.barWidth};`}></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <!-- Containers & Measures -->
-            <div class="layout-card layout-card--full">
-              <h3 class="layout-card__title">Containers & Reading Measures</h3>
-              <p class="layout-card__desc">Strict line measures designed to keep scholarly prose between 68 and 75 characters.</p>
-
-              <div class="container-specs">
-                {layoutSpecs.map((spec) => (
-                  <div class="container-spec-item">
-                    <div class="spec-head">
-                      <span class="spec-label">{spec.label}</span>
-                      <code class="spec-code">{spec.token}</code>
-                    </div>
-                    <div class="spec-val">{spec.value}</div>
-                    <p class="spec-desc">{spec.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
+        <div class="bd-palette">
+          <p class="hc-rubric">Contrast <span>Computed from the tokens; WCAG 2.2 AA asks 4.5:1 for text</span></p>
+          <ul class="bd-pairs">
+            {pairs.map((pair) => (
+              <li class="bd-pair" style={`--fg:${pair.fg};--bg:${pair.bg}`}>
+                <span class="bd-pair__sample">Aa</span>
+                <span class="bd-pair__label">{pair.label}<span>{pair.use}</span></span>
+                <span class="bd-pair__ratio">{pair.ratio.toFixed(1)}:1</span>
+              </li>
+            ))}
+          </ul>
         </div>
+      </div>
+    </section>
 
-        <!-- ── TAB 4: COMPONENTS (21) ────────────────────────────────── -->
-        <div class="spec-panel is-hidden" id="panel-components" role="tabpanel" aria-labelledby="tab-components">
-          <div class="components-stage-header">
-            <p class="components-stage-desc">21 components rendered with their authentic styles, tokens, and interactions.</p>
+    <!-- 4. Plates -->
+    <section class="hc-band bd-section" id="plates" aria-labelledby="plates-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">04</span>
+          <div>
+            <h2 id="plates-title" class="hc-head__title">Engraved <span>plates</span></h2>
+            <p class="hc-head__note">
+              The site is illustrated in one language: fine-line engraving in sepia and gold, historical
+              in subject, drawn for its page rather than taken from stock.
+            </p>
           </div>
+        </header>
 
-          <div class="components-grid">
-            
-            <!-- 1. Button Primary -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <button type="button" class="hc-btn">Button Primary</button>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-btn</span>
-                <span class="comp-name">Button Primary (44px target)</span>
-              </div>
-            </div>
-
-            <!-- 2. Button Ghost -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <button type="button" class="hc-btn hc-btn--ghost">Button Ghost</button>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-btn--ghost</span>
-                <span class="comp-name">Button Ghost (Hairline)</span>
-              </div>
-            </div>
-
-            <!-- 3. Back Link -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <a href="#explore-system" class="hc-back-link">
-                  <span aria-hidden="true">←</span>
-                  <span>Back to Research Archive</span>
-                </a>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-back-link</span>
-                <span class="comp-name">Back Link (Gap Shift Motion)</span>
-              </div>
-            </div>
-
-            <!-- 4. Animated Underline -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <a href="#explore-system" class="hc-ulink" style="color: var(--hc-gold); font-size: 1.05rem;">
-                  Animated Underline Link
-                </a>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-ulink</span>
-                <span class="comp-name">Animated Underline (Gradient Growth)</span>
-              </div>
-            </div>
-
-            <!-- 5. Search Bar -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div class="hc-searchbar" style="width: 100%; max-width: 480px;">
-                  <input type="search" class="hc-searchbar__input" placeholder="Search 276,347 narrations..." />
-                  <button type="button" class="hc-searchbar__submit">Search</button>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-searchbar</span>
-                <span class="comp-name">Corpus Search Bar</span>
-              </div>
-            </div>
-
-            <!-- 6. Stat Band -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div class="hc-stat-band" style="width: 100%;">
-                  <div class="hc-stat">
-                    <span class="hc-stat__num">276,347</span>
-                    <span class="hc-stat__label">HADITH CORPUS</span>
-                  </div>
-                  <div class="hc-stat">
-                    <span class="hc-stat__num">20,950</span>
-                    <span class="hc-stat__label">RIJĀL REGISTER</span>
-                  </div>
-                  <div class="hc-stat">
-                    <span class="hc-stat__num">93</span>
-                    <span class="hc-stat__label">CRITICAL STUDIES</span>
-                  </div>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-stat-band / .hc-stat</span>
-                <span class="comp-name">Scholarly Ledger Stat Band</span>
-              </div>
-            </div>
-
-            <!-- 7. Parchment Card -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <div class="hc-card hc-card--parchment" style="padding: 1.25rem; width: 100%;">
-                  <div class="hc-eyebrow" style="margin-bottom: 0.5rem;">PRIMARY SOURCE</div>
-                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6;">Kitāb al-Ṭabaqāt al-Kabīr, Ibn Saʿd (d. 230 AH).</p>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-card--parchment</span>
-                <span class="comp-name">Parchment Manuscript Card</span>
-              </div>
-            </div>
-
-            <!-- 8. Umber Card -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <div class="hc-article-panel hc-article-panel--umber" style="padding: 1.25rem; width: 100%;">
-                  <div class="hc-eyebrow" style="color: var(--hc-fixed-parchment); margin-bottom: 0.5rem;">HISTORICAL CONTEXT</div>
-                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--hc-fixed-parchment);">Umayyad fiscal administration during the governorship of ʿUmar II.</p>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-article-panel--umber</span>
-                <span class="comp-name">Umber Apparatus Panel</span>
-              </div>
-            </div>
-
-            <!-- 9. Inset Card -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <div class="hc-card" style="padding: 1.25rem; width: 100%;">
-                  <div class="hc-eyebrow" style="margin-bottom: 0.5rem;">LEDGER RECORD</div>
-                  <p style="margin: 0; font-size: 0.95rem; line-height: 1.6;">Double hairline border with inset hairline depth.</p>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-card</span>
-                <span class="comp-name">Standard Inset Hairline Card</span>
-              </div>
-            </div>
-
-            <!-- 10. Category Chips -->
-            <div class="component-card">
-              <div class="component-card__stage" style="gap: 0.5rem; flex-wrap: wrap;">
-                <span class="hc-chip" data-category="Origins & Early History" style="border-color: rgba(184,138,100,0.4); color: #c99a72;">History</span>
-                <span class="hc-chip" data-category="Theology & Epistemology" style="border-color: rgba(106,140,116,0.4); color: #7fa389;">Theology</span>
-                <span class="hc-chip" data-category="Prophecies" style="border-color: rgba(168,75,62,0.4); color: #c8705f;">Prophecies</span>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-chip</span>
-                <span class="comp-name">Actionable Taxonomy Chips</span>
-              </div>
-            </div>
-
-            <!-- 11. Bible Verse -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <BibleVerse reference="Jeremiah 7:31" eyebrow="Hebrew Bible">
-                    "And they have built the high places of Topheth, which is in the valley of the son of Hinnom, to burn their sons and their daughters in the fire."
-                  </BibleVerse>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;BibleVerse /&gt;</span>
-                <span class="comp-name">Comparative Bible Verse Component</span>
-              </div>
-            </div>
-
-            <!-- 12. Quran Verse -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <QuranVerse verse="85:4-5" />
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;QuranVerse /&gt;</span>
-                <span class="comp-name">Qurʾānic Ayah Component with Muṣḥaf Numbers</span>
-              </div>
-            </div>
-
-            <!-- 13. Hadith Block -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <HadithBlock 
-                    arabic="إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ" 
-                    translation="Actions are judged only by intentions." 
-                    source="Ṣaḥīḥ al-Bukhārī 1" 
-                    label="Canonical Report"
-                    type="canonical"
-                  />
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;HadithBlock /&gt;</span>
-                <span class="comp-name">Bilingual Hadith Report Block</span>
-              </div>
-            </div>
-
-            <!-- 14. Claim Box -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <ClaimBox title="Working Thesis">
-                    The topographical references in early apocalyptic traditions reflect Topheth in the Valley of Hinnom rather than Najrān.
-                  </ClaimBox>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;ClaimBox /&gt;</span>
-                <span class="comp-name">Analytical Claim Box</span>
-              </div>
-            </div>
-
-            <!-- 15. Verdict Box -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <VerdictBox title="Analytical Assessment" status="Historical-Critical Verdict">
-                    The geographical and linguistic evidence establishes that Q85 preserves an authentic Valley of Hinnom substrate.
-                  </VerdictBox>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;VerdictBox /&gt;</span>
-                <span class="comp-name">Analytical Verdict Box (Left-Aligned)</span>
-              </div>
-            </div>
-
-            <!-- 16. Context Note -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <ContextNote title="Historical Setting" collapsible={false}>
-                    The Valley of Hinnom (Gehenna) southwest of Jerusalem served as an ancient boundary marker between Judah and Benjamin.
-                  </ContextNote>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;ContextNote /&gt;</span>
-                <span class="comp-name">Historical Context Apparatus Note</span>
-              </div>
-            </div>
-
-            <!-- 17. Quote Block -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <QuoteBlock author="Ignáz Goldziher" source="Muslim Studies, Vol. II">
-                    "The hadith does not serve as a documentation for the period it purports to describe, but as a mirror of the successive stages of development."
-                  </QuoteBlock>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;QuoteBlock /&gt;</span>
-                <span class="comp-name">Scholarly Quote Block</span>
-              </div>
-            </div>
-
-            <!-- 18. Section Divider -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <SectionDivider title="Part II: Geographical Evidence" subtitle="Comparative Topography of the Levant" />
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;SectionDivider /&gt;</span>
-                <span class="comp-name">Section Divider with Emblem</span>
-              </div>
-            </div>
-
-            <!-- 19. Editorial TOC -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <div style="width: 100%;">
-                  <EditorialToc headings={[
-                    { depth: 2, text: 'Introduction & Scope', slug: 'intro' },
-                    { depth: 2, text: 'The Valley of Hinnom', slug: 'hinnom' },
-                    { depth: 3, text: 'Biblical Topheth', slug: 'topheth' }
-                  ]} />
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">&lt;EditorialToc /&gt;</span>
-                <span class="comp-name">Editorial Desk Table of Contents</span>
-              </div>
-            </div>
-
-            <!-- 20. Scholarly Data Table -->
-            <div class="component-card component-card--wide">
-              <div class="component-card__stage">
-                <div class="hc-table-wrap" style="width: 100%; margin: 0;">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Transmitter</th>
-                        <th>Generation</th>
-                        <th>City</th>
-                        <th>Preserved Corpora</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><strong>Ibn Shihāb al-Zuhrī</strong></td>
-                        <td>Tābiʿī (3rd)</td>
-                        <td>Medina</td>
-                        <td>4,219 Narrations</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Qatādah b. Diʿāmah</strong></td>
-                        <td>Tābiʿī (3rd)</td>
-                        <td>Basra</td>
-                        <td>2,840 Narrations</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.hc-table-wrap table</span>
-                <span class="comp-name">Apparatus Data Table</span>
-              </div>
-            </div>
-
-            <!-- 21. Footnotes / Backref -->
-            <div class="component-card">
-              <div class="component-card__stage">
-                <div class="footnotes" style="width: 100%; font-size: 0.92rem;">
-                  <ol style="margin: 0; padding-left: 1.25rem;">
-                    <li>
-                      See Motzki, <em>The Origins of Islamic Jurisprudence</em> (Leiden: Brill, 2002), pp. 18–24.
-                      <a href="#explore-system" data-footnote-backref aria-label="Back to content">↩</a>
-                    </li>
-                  </ol>
-                </div>
-              </div>
-              <div class="component-card__info">
-                <span class="comp-token">.footnotes li / backref</span>
-                <span class="comp-name">Apparatus Footnote with 24px Target</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- ── TAB 5: PREVIEW ────────────────────────────────────────── -->
-        <div class="spec-panel is-hidden" id="panel-preview" role="tabpanel" aria-labelledby="tab-preview">
-          <div class="preview-toolbar">
-            <span class="preview-toolbar__label">INTERACTIVE PREVIEW CANVAS</span>
-            <div class="preview-toolbar__actions">
-              <button type="button" class="preview-mode-btn is-active" id="previewThemeDark">Dark Mode</button>
-              <button type="button" class="preview-mode-btn" id="previewThemeLight">Light Mode</button>
-            </div>
-          </div>
-
-          <div class="preview-stage" id="previewCanvas" data-preview-theme="dark">
-            <article class="preview-sheet">
-              <div class="preview-header">
-                <div class="hc-eyebrow" style="color: var(--hc-gold);">ORIGINS &amp; EARLY HISTORY · CRITICAL STUDY #81</div>
-                <h2 class="preview-title">The "People of the Canyon" in Q85: A Case for the Valley of Hinnom</h2>
-                <p class="preview-standfirst">
-                  A topographical re-examination of the <em>Ukhdūd</em> traditions in early exegetical literature, demonstrating 
-                  an unbroken lexical correspondence with the ancient Topheth of Jerusalem.
-                </p>
-                <div class="preview-meta">
-                  <span>8,420 WORDS</span>
-                  <span class="sep">•</span>
-                  <span>26 MIN READ</span>
-                  <span class="sep">•</span>
-                  <span>HADITHCRITIC EDITORIAL</span>
-                </div>
-              </div>
-
-              <div class="preview-body">
-                <p>
-                  Classical commentators routinely identified the "people of the canyon" (<em>aṣḥāb al-ukhdūd</em>) in Sūrah al-Burūj with a persecution 
-                  of Christians in South Arabian Najrān. However, close reading of the Qurʾānic vocabulary against Hebrew Bible substrates reveals 
-                  that the imagery reflects the Valley of Hinnom.
-                </p>
-
-                <div style="margin: 1.5rem 0;">
-                  <ClaimBox title="Textual Thesis">
-                    The topographical references in early apocalyptic traditions reflect Topheth in the Valley of Hinnom rather than South Arabia.
-                  </ClaimBox>
-                </div>
-
-                <div style="margin: 1.5rem 0;">
-                  <HadithBlock 
-                    arabic="إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى"
-                    translation="Actions are judged by intentions, and each person will have only what they intended."
-                    source="Ṣaḥīḥ al-Bukhārī 1"
-                    label="Canonic Text"
-                    type="canonical"
-                  />
-                </div>
-
-                <p>
-                  By treating each report as historical data rather than dogma, we uncover the evolution of early Islamic textual traditions 
-                  with empirical clarity.
-                </p>
-
-                <div class="preview-actions">
-                  <a href="/blogs" class="hc-btn">Read Complete Monograph →</a>
-                  <a href="/hadith" class="hc-btn hc-btn--ghost">Explore Narration Variants</a>
-                </div>
-              </div>
-            </article>
-          </div>
-        </div>
-
-      </section>
-
-      <!-- ── FAQ Accordion Section ───────────────────────────────────── -->
-      <section class="spec-faq">
-        <h2 class="spec-faq__title">HadithCritic Design System FAQ</h2>
-        <div class="spec-faq__list">
-          {faqs.map((faq) => (
-            <details class="spec-faq__item">
-              <summary class="spec-faq__question">
-                <span>{faq.q}</span>
-                <span class="faq-icon" aria-hidden="true">+</span>
-              </summary>
-              <div class="spec-faq__answer">
-                <p>{faq.a}</p>
-              </div>
-            </details>
+        <p class="hc-rubric">Night plates <span>Drawn on black for heroes and projects</span></p>
+        <ul class="bd-night">
+          {nightPlates.map((plate) => (
+            <li>
+              <figure>
+                <img src={plate.src} alt="" width="1086" height="362" loading="lazy" decoding="async" />
+                <figcaption><strong>{plate.name}</strong> {plate.use}</figcaption>
+              </figure>
+            </li>
           ))}
+        </ul>
+
+        <div class="bd-setting">
+          <figure class="bd-setting__raw">
+            <img src="/images/platform/corpus-1086.webp" alt="" width="1086" height="362" loading="lazy" decoding="async" />
+            <figcaption>As drawn: a rectangle.</figcaption>
+          </figure>
+          <figure class="bd-setting__set">
+            <img src="/images/platform/corpus-1086.webp" alt="" width="1086" height="362" loading="lazy" decoding="async" />
+            <figcaption>As set: masked into the ground on its left and lower edges, so it belongs to the page.</figcaption>
+          </figure>
         </div>
-      </section>
 
-      <!-- Raw DESIGN.md content for instant 1-click clipboard copy -->
-      <script type="text/plain" id="rawDesignMd" is:inline set:html={designMdContent}></script>
+        <p class="hc-rubric bd-paper-rubric">Parchment plates <span>Drawn for each study, fading to paper on the left where the title sits</span></p>
+        <ul class="bd-paper">
+          {paperPlates.map((plate) => (
+            <li>
+              <figure>
+                <img src={plate.src} alt="" width="720" height="480" loading="lazy" decoding="async" />
+                <figcaption><a href={`/blogs/${plate.id}/`}>{titleOf(plate.id)}</a></figcaption>
+              </figure>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
 
-    </div>
-  </main>
+    <!-- 5. Ornament -->
+    <section class="hc-band hc-band--soft bd-section" id="ornament" aria-labelledby="ornament-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">05</span>
+          <div>
+            <h2 id="ornament-title" class="hc-head__title">Ornament, <span>sparingly</span></h2>
+            <p class="hc-head__note">Hairlines and lozenges, taken from the mark's own geometry. Ornament marks structure; it never decorates empty space.</p>
+          </div>
+        </header>
+        <ul class="bd-ornaments">
+          <li>
+            <span class="bd-ornaments__stage"><span class="hc-ornament" style="--ornament-width: 14rem; --ornament-ground: var(--hc-fixed-black-soft)" aria-hidden="true"></span></span>
+            <strong>The rule</strong><span>A hairline with a lozenge at its centre. Under every hero title.</span>
+          </li>
+          <li>
+            <span class="bd-ornaments__stage"><span class="bd-double" aria-hidden="true"></span></span>
+            <strong>The double rule</strong><span>Heads a ledger: the archive, a register, a table.</span>
+          </li>
+          <li>
+            <span class="bd-ornaments__stage"><span class="hc-cat" data-category="Transmission & Narrators">Transmission &amp; Narrators</span></span>
+            <strong>The lozenge</strong><span>Marks a branch, a filter, a list item. Filled when active.</span>
+          </li>
+          <li>
+            <span class="bd-ornaments__stage"><span class="bd-folio" aria-hidden="true"><span>No.</span>081</span></span>
+            <strong>The folio</strong><span>Every study keeps its number in the archive.</span>
+          </li>
+          <li>
+            <span class="bd-ornaments__stage"><ul class="hc-figures"><li>20,915 transmitters</li><li>33 collections</li></ul></span>
+            <strong>The register</strong><span>Figures separated by open lozenges.</span>
+          </li>
+          <li>
+            <span class="bd-ornaments__stage"><span class="bd-leaf hc-parchment" aria-hidden="true"></span></span>
+            <strong>The leaf</strong><span>Parchment with an inset double rule: the one item a section wants read first.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 6. Parts -->
+    <section class="hc-band bd-section" id="parts" aria-labelledby="parts-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">06</span>
+          <div>
+            <h2 id="parts-title" class="hc-head__title">The <span>parts</span></h2>
+            <p class="hc-head__note">Live components, as the pages use them. Shared parts, composed differently on every page.</p>
+          </div>
+        </header>
+
+        <div class="bd-parts">
+          <figure class="bd-part">
+            <div class="bd-part__stage bd-part__stage--row">
+              <a href="#parts" class="hc-btn">Primary action</a>
+              <a href="#parts" class="hc-btn hc-btn--ghost">Secondary</a>
+              <a href="#parts" class="hc-link">Ruled link <span aria-hidden="true">→</span></a>
+            </div>
+            <figcaption><strong>Actions</strong> A flat gold plate, a ruled ghost, a ruled link. No gradients, no lift, no shine.</figcaption>
+          </figure>
+
+          <figure class="bd-part">
+            <div class="bd-part__stage">
+              <p class="hc-head__title bd-part__head">From the <span>archive</span></p>
+              <p class="hc-head__note">Essays and research notes on transmission and scriptural history.</p>
+            </div>
+            <figcaption><strong>Section head</strong> One word in gold, and a short note beneath.</figcaption>
+          </figure>
+
+          <figure class="bd-part bd-part--wide">
+            <div class="bd-part__stage">
+              <ol class="bi-ledger bd-part__ledger"><ArchiveEntry entry={sample} /></ol>
+            </div>
+            <figcaption><strong>Archive entry</strong> Folio, branch, date, title, abstract and the study's own engraving.</figcaption>
+          </figure>
+
+          <figure class="bd-part">
+            <div class="bd-part__stage">
+              <ul class="hc-filters">
+                <li><span class="hc-filter is-active"><span>All branches</span><span class="hc-filter__n">{posts.length}</span></span></li>
+                <li><span class="hc-filter" data-category="Origins & Early History"><span>Origins &amp; Early History</span><span class="hc-filter__n">{posts.filter((post) => post.data.category === 'Origins & Early History').length}</span></span></li>
+                <li><span class="hc-filter" data-category="Prophecies & Eschatology"><span>Prophecies &amp; Eschatology</span><span class="hc-filter__n">{posts.filter((post) => post.data.category === 'Prophecies & Eschatology').length}</span></span></li>
+              </ul>
+            </div>
+            <figcaption><strong>Filters</strong> A ruled list, never a row of pills.</figcaption>
+          </figure>
+
+          <figure class="bd-part">
+            <div class="bd-part__stage">
+              <div class="hc-field" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <span class="bd-part__placeholder">Search the archive</span>
+              </div>
+            </div>
+            <figcaption><strong>Field</strong> A ruled well on the soft black.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Articles -->
+    <section class="hc-band hc-band--warm bd-section" id="articles" aria-labelledby="articles-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">07</span>
+          <div>
+            <h2 id="articles-title" class="hc-head__title">Inside <span>a study</span></h2>
+            <p class="hc-head__note">
+              The reader's own components. Sources are reproduced exactly and attributed; nothing is
+              paraphrased. Each excerpt below is quoted from the study it links to.
+            </p>
+          </div>
+        </header>
+
+        <div class="bd-articles">
+          <figure class="bd-article">
+            <div class="bd-article__stage">
+              <HadithBlock
+                label="Aḥmad's Own Practice"
+                source="al-Bayhaqī, al-Jāmiʿ li-Shuʿab al-Īmān, no. 7298 in one common numbering; also cited from Masāʾil al-Imām Aḥmad, riwāyat ʿAbd Allāh"
+                arabic={`أخبرنا أبو عبد الله الحافظ، أخبرنا أحمد بن سلمان الفقيه ببغداد، حدثنا عبد الله بن أحمد بن حنبل، قال: سمعت أبي يقول: حججت خمس حجج، منها اثنتان راكبًا وثلاثة ماشيًا، أو ثلاثة راكبًا واثنتان ماشيًا، فضللت الطريق في حجة وكنت ماشيًا فجعلت أقول: يا عباد الله، دلوني على الطريق. قال: فلم أزل أقول ذلك حتى وقفت على الطريق، أو كما قال أبي.`}
+                translation={`Abū ʿAbd Allāh al-Ḥākim informed us; Aḥmad b. Salmān the jurist in Baghdad informed us; ʿAbd Allāh b. Aḥmad b. Ḥanbal narrated to us, saying: I heard my father say: “I performed five pilgrimages: two riding and three walking, or three riding and two walking. I lost the road during one pilgrimage while I was walking, so I began saying: ‘O servants of God, guide me to the road.’ I continued saying that until I came upon the road,” or as my father said.`}
+              />
+            </div>
+            <figcaption><strong>Report</strong> Arabic, translation and citation, reproduced exactly. From <a href={`/blogs/${AHMAD}/`}>{titleOf(AHMAD)}</a>.</figcaption>
+          </figure>
+
+          <figure class="bd-article">
+            <div class="bd-article__stage">
+              <QuranVerse verse="85:4-5" />
+            </div>
+            <figcaption><strong>Verse</strong> Looked up by reference from the Cairo text, set in Amiri Quran.</figcaption>
+          </figure>
+
+          <figure class="bd-article">
+            <div class="bd-article__stage">
+              <ContextNote title="The Standard Used Here">
+                This article uses the Qurʾānic standard rather than the later sectarian vocabulary of the madhhabs. A practice is not purified merely because the person says, “God is the real actor.” The Quraysh also placed their intermediaries beneath God. The Qurʾān rejects the act of invoking and religiously relying upon created intermediaries, even when those intermediaries are framed as channels to God.
+              </ContextNote>
+            </div>
+            <figcaption><strong>Context note</strong> A frame the reader should hold before the evidence. From <a href={`/blogs/${AHMAD}/`}>{titleOf(AHMAD)}</a>.</figcaption>
+          </figure>
+
+          <figure class="bd-article">
+            <div class="bd-article__stage">
+              <QuoteBlock author="Joshua Little" source="Summary of PhD research">
+                “None of the hadiths can be traced back to Medina in the 7th or 8th centuries CE; they cannot be traced to earlier generations in Iraq either. All versions of the hadith trace back to an ur-version, with Hisham’s version being the most widespread.”
+              </QuoteBlock>
+            </div>
+            <figcaption><strong>Quotation</strong> A scholar's words, attributed. From <a href={`/blogs/${BEWITCHED}/`}>{titleOf(BEWITCHED)}</a>.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Assets -->
+    <section class="hc-band bd-section" id="assets" aria-labelledby="assets-title">
+      <div class="hc-container">
+        <header class="bd-head">
+          <span class="bd-head__no">08</span>
+          <div>
+            <h2 id="assets-title" class="hc-head__title">Assets <span>to download</span></h2>
+            <p class="hc-head__note">The files the site itself uses. Please keep the mark as drawn.</p>
+          </div>
+        </header>
+        <div class="bd-assets-wrap">
+          <table class="bd-assets">
+            <thead>
+              <tr>
+                <th scope="col">File</th>
+                <th scope="col">Format</th>
+                <th scope="col">Dimensions</th>
+                <th scope="col">Size</th>
+                <th scope="col"><span class="sr-only">Download</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {assets.map((asset) => (
+                <tr>
+                  <th scope="row"><strong>{asset.name}</strong><span>{asset.note}</span></th>
+                  <td>{asset.format}</td>
+                  <td>{asset.size}</td>
+                  <td>{asset.bytes}</td>
+                  <td><a class="hc-link" href={`/${asset.file}`} download>Download <span class="sr-only">{asset.name}</span></a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
 </BaseLayout>
-
-<script>
-  function initBrandExplorer() {
-    // ── Tab Switching ───────────────────────────────────────────────────────
-    const tabs = document.querySelectorAll<HTMLButtonElement>('.spec-tab');
-    const panels = document.querySelectorAll<HTMLElement>('.spec-panel');
-
-    function switchTab(targetTabId: string) {
-      tabs.forEach((tab) => {
-        const isActive = tab.getAttribute('data-tab') === targetTabId;
-        tab.classList.toggle('is-active', isActive);
-        tab.setAttribute('aria-selected', String(isActive));
-      });
-
-      panels.forEach((panel) => {
-        const matches = panel.id === `panel-${targetTabId}`;
-        panel.classList.toggle('is-hidden', !matches);
-      });
-    }
-
-    tabs.forEach((tab) => {
-      tab.addEventListener('click', () => {
-        const target = tab.getAttribute('data-tab');
-        if (target) switchTab(target);
-      });
-    });
-
-    // Handle Quick Jump links in Side Card
-    document.querySelectorAll<HTMLAnchorElement>('[data-tab-target]').forEach((link) => {
-      link.addEventListener('click', () => {
-        const target = link.getAttribute('data-tab-target');
-        if (target) {
-          switchTab(target);
-          const explorer = document.getElementById('explore-system');
-          if (explorer) explorer.scrollIntoView({ behavior: 'smooth' });
-        }
-      });
-    });
-
-    // ── 1-Click Clipboard Copying ───────────────────────────────────────────
-    async function copyToClipboard(text: string, labelEl?: HTMLElement | null) {
-      try {
-        await navigator.clipboard.writeText(text);
-        if (labelEl) {
-          const original = labelEl.textContent;
-          labelEl.textContent = 'Copied!';
-          setTimeout(() => {
-            labelEl.textContent = original;
-          }, 1600);
-        }
-      } catch (err) {
-        console.error('Failed to copy text: ', err);
-      }
-    }
-
-    // Color Swatch Copy
-    document.querySelectorAll<HTMLButtonElement>('[data-copy-hex]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const hex = btn.getAttribute('data-copy-hex');
-        const textSpan = btn.querySelector('.copy-text') as HTMLElement | null;
-        if (hex) copyToClipboard(hex, textSpan);
-      });
-    });
-
-    // Copy DESIGN.md button
-    const copyMdBtn = document.getElementById('copyDesignMdBtn');
-    if (copyMdBtn) {
-      copyMdBtn.addEventListener('click', async () => {
-        const span = copyMdBtn.querySelector('span');
-        const originalText = span ? span.textContent : '';
-        const rawEl = document.getElementById('rawDesignMd');
-        const content = rawEl?.textContent?.trim() || `# HadithCritic Design System\n\n- Ground: #0F0F10\n- Gold: #D8B166\n- Text: #F2EBDC\n- Fonts: Poppins, Glacial Indifference, Amiri\n- Radius: 2px\n- 21 Components, 21 Colors, 11 Type Tokens.`;
-        
-        await copyToClipboard(content);
-        if (span) span.textContent = 'Copied DESIGN.md!';
-        setTimeout(() => {
-          if (span) span.textContent = originalText;
-        }, 2000);
-      });
-    }
-
-    // ── Preview Canvas Theme Toggle ─────────────────────────────────────────
-    const previewCanvas = document.getElementById('previewCanvas');
-    const darkBtn = document.getElementById('previewThemeDark');
-    const lightBtn = document.getElementById('previewThemeLight');
-
-    if (previewCanvas && darkBtn && lightBtn) {
-      darkBtn.addEventListener('click', () => {
-        previewCanvas.setAttribute('data-preview-theme', 'dark');
-        darkBtn.classList.add('is-active');
-        lightBtn.classList.remove('is-active');
-      });
-
-      lightBtn.addEventListener('click', () => {
-        previewCanvas.setAttribute('data-preview-theme', 'light');
-        lightBtn.classList.add('is-active');
-        darkBtn.classList.remove('is-active');
-      });
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBrandExplorer);
-  } else {
-    initBrandExplorer();
-  }
-  document.addEventListener('astro:page-load', initBrandExplorer);
-</script>
-
-<style>
-  .brand-spec-page {
-    padding-top: clamp(2rem, 4vw, 3.5rem);
-    padding-bottom: 6rem;
-    min-height: 100vh;
-  }
-
-  /* ── Breadcrumb ── */
-  .spec-breadcrumbs {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .spec-breadcrumb-link {
-    color: var(--hc-text-tertiary);
-    text-decoration: none;
-    transition: color 160ms ease;
-  }
-
-  .spec-breadcrumb-link:hover {
-    color: var(--hc-gold);
-  }
-
-  .spec-breadcrumb-sep {
-    color: var(--hc-rule-strong);
-    opacity: 0.6;
-  }
-
-  .spec-breadcrumb-current {
-    color: var(--hc-gold);
-  }
-
-  /* ── Hero Spec Section ── */
-  .spec-hero {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 3rem;
-    margin-bottom: 4rem;
-    align-items: start;
-  }
-
-  @media (min-width: 1024px) {
-    .spec-hero {
-      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr);
-      gap: clamp(2.5rem, 4vw, 4.5rem);
-    }
-  }
-
-  .spec-eyebrow {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    margin-bottom: 0.85rem;
-  }
-
-  .spec-hero__title {
-    margin: 0 0 1.25rem;
-    font-family: var(--font-display);
-    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
-    font-weight: 500;
-    line-height: 1.15;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-  }
-
-  .spec-hero__lede {
-    font-family: var(--font-body);
-    font-size: 1.12rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
-    margin: 0 0 2rem;
-    max-width: 64ch;
-  }
-
-  .spec-hero__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 3rem;
-  }
-
-  /* 01-05 Distinctives */
-  .spec-distinctives {
-    border-top: 1px solid var(--hc-rule-soft);
-    padding-top: 2rem;
-  }
-
-  .spec-distinctives__title {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    margin: 0 0 1.5rem;
-  }
-
-  .spec-distinctives__list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-col;
-    gap: 1.4rem;
-  }
-
-  .spec-distinctives__list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 1.2rem;
-  }
-
-  .spec-distinctives__list .num {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    color: var(--hc-gold-dim);
-    line-height: 1.5;
-    padding-top: 0.1rem;
-    flex: 0 0 1.5rem;
-  }
-
-  .spec-distinctives__list strong {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    margin-bottom: 0.25rem;
-  }
-
-  .spec-distinctives__list p {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-  }
-
-  .spec-distinctives__list code {
-    font-size: 0.85em;
-    color: var(--hc-gold-soft);
-    background: rgba(216, 177, 102, 0.1);
-    padding: 0.1em 0.3em;
-    border-radius: 2px;
-  }
-
-  /* ── Quick Spec Side Card ── */
-  .spec-summary-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
-    overflow: hidden;
-  }
-
-  :global([data-theme="light"]) .spec-summary-card {
-    background: #fbf9f4;
-    box-shadow: 0 4px 16px rgba(43, 40, 36, 0.08);
-  }
-
-  .spec-summary-card__swatch {
-    padding: 1.5rem;
-    background: var(--hc-surface-2);
-    border-bottom: 1px solid var(--hc-rule-soft);
-    display: flex;
-    align-items: center;
-    gap: 1.2rem;
-  }
-
-  :global([data-theme="light"]) .spec-summary-card__swatch {
-    background: #f2ece0;
-  }
-
-  .swatch-color {
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    flex-shrink: 0;
-  }
-
-  .swatch-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
-  .swatch-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--hc-gold);
-  }
-
-  .swatch-code {
-    font-family: var(--font-display);
-    font-size: 1.45rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .swatch-sub {
-    font-size: 0.82rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .spec-summary-card__rows {
-    padding: 1.25rem 1.5rem;
-  }
-
-  .summary-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.65rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    font-size: 0.9rem;
-  }
-
-  .summary-row:last-child {
-    border-bottom: none;
-  }
-
-  .row-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .row-val {
-    font-family: var(--font-body);
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .row-val.highlight {
-    color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .spec-summary-card__jump {
-    padding: 1.25rem 1.5rem;
-    background: rgba(216, 177, 102, 0.035);
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .jump-title {
-    display: block;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--hc-gold);
-    margin-bottom: 0.75rem;
-  }
-
-  .jump-links {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .jump-link {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    color: var(--hc-text-secondary);
-    text-decoration: none;
-    transition: color 160ms ease, transform 160ms ease;
-  }
-
-  .jump-link:hover {
-    color: var(--hc-gold);
-    transform: translateX(3px);
-  }
-
-  /* ── Explorer Section ── */
-  .spec-explorer {
-    margin-top: 2rem;
-    padding-top: 3rem;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .spec-explorer__header {
-    margin-bottom: 2.5rem;
-  }
-
-  .spec-explorer__title {
-    margin: 0 0 0.65rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .spec-explorer__subtitle {
-    margin: 0 0 2rem;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-    max-width: 65ch;
-  }
-
-  /* ── Tab Bar (Shadcn Anthropic Style) ── */
-  .spec-tab-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    border-bottom: 1px solid var(--hc-rule);
-    padding-bottom: 0;
-    overflow-x: auto;
-    scrollbar-width: thin;
-  }
-
-  .spec-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.75rem 1.25rem;
-    border: none;
-    background: transparent;
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--hc-text-tertiary);
-    cursor: pointer;
-    position: relative;
-    white-space: nowrap;
-    transition: color 180ms ease;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-  }
-
-  .spec-tab:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .spec-tab.is-active {
-    color: var(--hc-gold);
-    border-bottom-color: var(--hc-gold);
-    font-weight: 700;
-  }
-
-  .tab-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.15rem 0.45rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    background: rgba(216, 177, 102, 0.1);
-    color: var(--hc-gold);
-  }
-
-  .spec-tab.is-active .tab-count {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse);
-  }
-
-  /* Panels */
-  .spec-panel {
-    padding-top: 2.5rem;
-  }
-
-  .spec-panel.is-hidden {
-    display: none;
-  }
-
-  /* ── Tab 1: Colors Layout ── */
-  .spec-color-group {
-    margin-bottom: 3.5rem;
-  }
-
-  .group-header {
-    margin-bottom: 1.5rem;
-  }
-
-  .group-title {
-    margin: 0 0 0.35rem;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .group-subtitle {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .swatches-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 1.25rem;
-  }
-
-  .swatch-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-    transition: transform 180ms ease, border-color 180ms ease;
-  }
-
-  :global([data-theme="light"]) .swatch-card {
-    background: #fbf9f4;
-  }
-
-  .swatch-card:hover {
-    border-color: var(--hc-gold-dim);
-    transform: translateY(-2px);
-  }
-
-  .swatch-card__color {
-    height: 100px;
-    width: 100%;
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .swatch-copy-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(15, 15, 16, 0.65);
-    backdrop-filter: blur(4px);
-    border: none;
-    opacity: 0;
-    cursor: pointer;
-    transition: opacity 180ms ease;
-  }
-
-  .swatch-card:hover .swatch-copy-overlay {
-    opacity: 1;
-  }
-
-  .copy-text {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: #fff;
-    padding: 0.3rem 0.75rem;
-    border-radius: 3px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .swatch-card__details {
-    padding: 1rem;
-  }
-
-  .swatch-card__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .swatch-name {
-    font-family: var(--font-display);
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .swatch-badge {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.08);
-    padding: 0.15rem 0.45rem;
-    border-radius: 2px;
-  }
-
-  .swatch-token {
-    display: block;
-    font-size: 0.78rem;
-    color: var(--hc-gold-soft);
-    margin-bottom: 0.45rem;
-  }
-
-  .swatch-hex-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.65rem;
-    font-size: 0.8rem;
-    color: var(--hc-text-tertiary);
-    margin-bottom: 0.65rem;
-  }
-
-  .swatch-role {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.82rem;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ── Tab 2: Typography Layout ── */
-  .spec-type-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1.75rem;
-  }
-
-  .spec-type-row {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    padding: 1.5rem;
-  }
-
-  :global([data-theme="light"]) .spec-type-row {
-    background: #fbf9f4;
-  }
-
-  .type-row__meta {
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .type-row__tag {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.35rem;
-  }
-
-  .token-name {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold);
-    text-transform: uppercase;
-  }
-
-  .token-font {
-    font-size: 0.85rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .type-row__spec {
-    font-size: 0.82rem;
-    color: var(--hc-text-tertiary);
-    margin-bottom: 0.35rem;
-  }
-
-  .type-row__role {
-    font-size: 0.88rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .type-specimen {
-    color: var(--hc-text-primary);
-  }
-
-  .spec-h2 {
-    font-family: var(--font-display);
-    font-size: clamp(1.4rem, 3vw, 1.8rem);
-    font-weight: 600;
-  }
-
-  .spec-h3 {
-    font-family: var(--font-display);
-    font-size: 1.18rem;
-    font-weight: 600;
-  }
-
-  .spec-body {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.75;
-    max-width: 70ch;
-  }
-
-  .spec-lead {
-    font-family: var(--font-body);
-    font-size: 1.08rem;
-    line-height: 1.68;
-    max-width: 65ch;
-  }
-
-  .spec-small {
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-  }
-
-  .spec-eyebrow {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .spec-btn-label {
-    font-family: var(--font-ui);
-    font-size: 0.95rem;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    color: var(--hc-gold);
-  }
-
-  .spec-quran {
-    font-family: var(--font-quran);
-    font-size: clamp(1.3rem, 2.5vw, 1.65rem);
-    line-height: 2.1;
-    color: var(--hc-text-primary);
-    text-align: right;
-  }
-
-  /* ── Tab 3: Layout Specs ── */
-  .layout-grid-section {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.75rem;
-  }
-
-  @media (min-width: 900px) {
-    .layout-grid-section {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  .layout-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    padding: 1.75rem;
-  }
-
-  :global([data-theme="light"]) .layout-card {
-    background: #fbf9f4;
-  }
-
-  .layout-card--full {
-    grid-column: 1 / -1;
-  }
-
-  .layout-card__title {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .layout-card__desc {
-    margin: 0 0 1.5rem;
-    font-family: var(--font-body);
-    font-size: 0.92rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .radii-stage {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 1.25rem;
-  }
-
-  .radius-specimen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .radius-box {
-    width: 64px;
-    height: 64px;
-    background: var(--hc-surface-2);
-    border: 2px solid var(--hc-gold);
-    margin-bottom: 0.75rem;
-  }
-
-  :global([data-theme="light"]) .radius-box {
-    background: #e8e2d5;
-  }
-
-  .radius-name {
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    color: var(--hc-text-primary);
-    text-transform: uppercase;
-  }
-
-  .radius-val {
-    font-size: 0.8rem;
-    color: var(--hc-gold);
-    margin-bottom: 0.35rem;
-  }
-
-  .radius-desc {
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-    line-height: 1.4;
-  }
-
-  .spacing-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .spacing-row {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-  }
-
-  .spacing-meta {
-    flex: 0 0 120px;
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.82rem;
-  }
-
-  .spacing-token {
-    color: var(--hc-text-secondary);
-  }
-
-  .spacing-px {
-    color: var(--hc-gold);
-    font-weight: 600;
-  }
-
-  .spacing-bar-wrap {
-    flex: 1;
-    background: rgba(216, 177, 102, 0.05);
-    height: 14px;
-    border-radius: 2px;
-    display: flex;
-    align-items: center;
-  }
-
-  .spacing-bar {
-    height: 100%;
-    background: var(--hc-gold);
-    border-radius: 2px;
-  }
-
-  .container-specs {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1.25rem;
-  }
-
-  .container-spec-item {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 3px;
-    padding: 1.25rem;
-    background: var(--hc-surface-2);
-  }
-
-  :global([data-theme="light"]) .container-spec-item {
-    background: #f2ece0;
-  }
-
-  .spec-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.45rem;
-  }
-
-  .spec-label {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: var(--hc-gold);
-    text-transform: uppercase;
-  }
-
-  .spec-code {
-    font-size: 0.75rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .spec-val {
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    margin-bottom: 0.35rem;
-  }
-
-  .spec-desc {
-    margin: 0;
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ── Tab 4: Components (21 Cards Grid) ── */
-  .components-stage-header {
-    margin-bottom: 1.5rem;
-  }
-
-  .components-stage-desc {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .components-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  @media (min-width: 860px) {
-    .components-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 1200px) {
-    .components-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-
-  .component-card {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-
-  :global([data-theme="light"]) .component-card {
-    background: #fbf9f4;
-  }
-
-  .component-card--wide {
-    grid-column: 1 / -1;
-  }
-
-  .component-card__stage {
-    padding: 2rem 1.5rem;
-    background: 
-      radial-gradient(rgba(216, 177, 102, 0.04) 1px, transparent 1px) 0 0 / 16px 16px,
-      var(--hc-surface-0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 140px;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  :global([data-theme="light"]) .component-card__stage {
-    background: 
-      radial-gradient(rgba(111, 80, 25, 0.05) 1px, transparent 1px) 0 0 / 16px 16px,
-      #f6f3eb;
-  }
-
-  .component-card__info {
-    padding: 0.85rem 1.15rem;
-    background: var(--hc-surface-1);
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  :global([data-theme="light"]) .component-card__info {
-    background: #fbf9f4;
-  }
-
-  .comp-token {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.78rem;
-    color: var(--hc-gold);
-  }
-
-  .comp-name {
-    font-family: var(--font-body);
-    font-size: 0.82rem;
-    color: var(--hc-text-secondary);
-  }
-
-  /* ── Tab 5: Live Preview ── */
-  .preview-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-    padding: 0.75rem 1.25rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-  }
-
-  :global([data-theme="light"]) .preview-toolbar {
-    background: #fbf9f4;
-  }
-
-  .preview-toolbar__label {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: var(--hc-gold);
-  }
-
-  .preview-toolbar__actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .preview-mode-btn {
-    padding: 0.35rem 0.85rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: 3px;
-    background: transparent;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 160ms ease;
-  }
-
-  .preview-mode-btn.is-active {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse);
-    border-color: var(--hc-gold);
-  }
-
-  .preview-stage {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    padding: clamp(1.5rem, 3.5vw, 3.5rem);
-    background: var(--hc-surface-0);
-    transition: background 200ms ease;
-  }
-
-  .preview-stage[data-preview-theme="light"] {
-    background: #fbf9f4;
-    color: #2b2824;
-  }
-
-  .preview-sheet {
-    max-width: 780px;
-    margin: 0 auto;
-  }
-
-  .preview-header {
-    border-bottom: 1px solid var(--hc-rule-soft);
-    padding-bottom: 1.5rem;
-    margin-bottom: 1.75rem;
-  }
-
-  .preview-title {
-    margin: 0.5rem 0 0.85rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.65rem, 2.5vw, 2.1rem);
-    font-weight: 600;
-    line-height: 1.25;
-    color: var(--hc-text-primary);
-  }
-
-  .preview-stage[data-preview-theme="light"] .preview-title {
-    color: #2b2824;
-  }
-
-  .preview-standfirst {
-    margin: 0 0 1.15rem;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.6;
-    color: var(--hc-text-secondary);
-  }
-
-  .preview-stage[data-preview-theme="light"] .preview-standfirst {
-    color: #6b635a;
-  }
-
-  .preview-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .preview-body p {
-    font-family: var(--font-body);
-    font-size: 1rem;
-    line-height: 1.75;
-    color: var(--hc-text-primary);
-    margin: 0 0 1.25rem;
-  }
-
-  .preview-stage[data-preview-theme="light"] .preview-body p {
-    color: #2b2824;
-  }
-
-  .preview-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-    margin-top: 2rem;
-  }
-
-  /* ── FAQ Section ── */
-  .spec-faq {
-    margin-top: 5rem;
-    padding-top: 3rem;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .spec-faq__title {
-    margin: 0 0 2rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3vw, 2.1rem);
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .spec-faq__list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    max-width: 900px;
-  }
-
-  .spec-faq__item {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-  }
-
-  :global([data-theme="light"]) .spec-faq__item {
-    background: #fbf9f4;
-  }
-
-  .spec-faq__question {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.15rem 1.4rem;
-    font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    cursor: pointer;
-    list-style: none;
-    user-select: none;
-  }
-
-  .spec-faq__question::-webkit-details-marker {
-    display: none;
-  }
-
-  .faq-icon {
-    font-family: var(--font-body);
-    font-size: 1.2rem;
-    font-weight: 300;
-    color: var(--hc-gold);
-    transition: transform 200ms ease;
-  }
-
-  .spec-faq__item[open] .faq-icon {
-    transform: rotate(45deg);
-  }
-
-  .spec-faq__answer {
-    padding: 0 1.4rem 1.4rem;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.68;
-    color: var(--hc-text-secondary);
-  }
-
-  .spec-faq__answer p {
-    margin: 0;
-  }
-</style>

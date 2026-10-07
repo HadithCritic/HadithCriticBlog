@@ -1,5 +1,18 @@
 # HadithCritic Design System
 
+## Front-of-house pages (2026-10)
+
+`/blogs/` (and the branch hubs), `/academia/`, `/projects/`, `/youtube/`, `/contact/` and `/brand/` are built from one shared layer, `src/styles/house.css`, taken from the homepage's own parts: the masked engraving on black (`PageHero.astro`), Cormorant section heads with one word in gold (`.hc-head`), category lozenges (`.hc-cat`), open-lozenge figure rows (`.hc-figures`), the ruled filter list (`.hc-filters`), the ruled field (`.hc-field`), alternating grounds (`.hc-band`, `--soft`, `--warm`) and the parchment closing leaf (`.hc-closing`). Shared parts, not shared pages: the heroes take four shapes (engraving at right, centred title page for Academia, the channel masthead for YouTube, the full lockup over the panorama for Brand).
+
+**Deliberate break, recorded:** like the homepage, these pages are plates (`.hc-plate` on the page root) and stay dark in both themes. Every token inside resolves to the dark palette, so contrast is measured once. The databases and the article reader keep the light theme, because a reader may sit in them for an hour.
+
+- **Blog.** The latest study as a parchment leaf with its own contents list (its `##` headings), the three before it, then the whole archive grouped by year beside a sticky column of full-text search, branch filters and order (`src/lib/blog-index.ts`). Every row is `ArchiveEntry.astro`, which the branch hubs and the brand page reuse. Bespoke engravings come from `src/data/blog-artwork.ts`.
+- **Academia.** The treatise as an object beside its record, the citation card (all three formats print without script), and the ICMA studies as a monograph series by research family.
+- **Projects.** The corpus as a lead instrument, panels that name the places inside each project, the prototype set apart, and an at-a-glance status table. Panels reuse each project's own masthead engraving.
+- **YouTube.** The channel masthead, one player beside the record of the video in it, and the catalogue by subject. Tiles are real links to YouTube; script loads them into the player.
+- **Contact.** The reasons people write, as a numbered list that sets the form's topic, beside the form as a parchment leaf.
+- **Brand.** Demonstrates rather than describes: the mark (`BrandMark.astro`, recoloured never redrawn), live type specimens, palette with contrast computed from the tokens, plates as drawn and as set, live parts, and article excerpts quoted exactly from their studies.
+
 > Single locked reference for this site's visual system. Sourced from
 > `src/styles/global.css`, `article.css`, `footer.css` and `treatise-index.css`.
 > Every token name below is real and greppable. If a value here disagrees with
@@ -17,7 +30,7 @@ history and source criticism, together with a 276,347-narration corpus and a
 
 The surface is a **dark manuscript archive**: tinted-black ground, antique gold
 as the only accent, parchment and umber text tiers, Naskh Arabic set against
-geometric Latin. Homepage is an editorial front page; archives are ledgers;
+serif Latin. Homepage is an editorial front page; archives are ledgers;
 articles and corpus records are critical editions. It should feel like a
 carefully typeset critical edition, calm enough for sustained reading, exact
 enough to cite.
@@ -182,7 +195,9 @@ search hits. `::selection` is `--hc-gold-soft` with `--hc-text-inverse`.
 
 ### Panel washes: `--hc-scrim`
 
-Long-form articles inset their own plates, ledgers and matrices with an alpha
+Articles no longer use this (since 2026-10-06 their figures are drawn by the
+shared `.hc-fig` vocabulary with no fills); it remains for the pages that still
+inset panels. Long-form articles used to inset their own plates, ledgers and matrices with an alpha
 wash over the sheet. Written dark-first as a near-black, the same declaration
 composited to grey mud on paper and dropped body text as low as 1.02:1 across
 fourteen articles. The text colours were theme-aware all along; only the fill
@@ -203,7 +218,8 @@ same bug: it reads as an 18% black veil on paper, which is mid grey.
 
 ### Fixed-dark plates: `.hc-plate`
 
-Some article figures are lamp-lit instruments rather than panels: a night sky
+No article uses a plate any more; the front-of-house pages and heroes do. Some
+article figures were lamp-lit instruments rather than panels: a night sky
 behind a moon diagram, an isnād chart drawn as a dark ledger. They were composed
 on black and their own labels are written in fixed parchment and gold, so they
 stay dark in both themes.
@@ -277,47 +293,57 @@ Standing boundaries:
 
 ## Typography
 
-Three faces, each with one job. The roles are **categorical, not stylistic**: a
-reader should be able to tell which face they are looking at from case and
-tracking alone, without comparing letterforms.
+Four faces, each with one job. The register is a scholarly journal or an
+archival institution: **bold editorial typography, never bold geometric
+typography**. Authority comes from serif weight, not from a heavy sans.
 
 ### Font family
 
-- **`--font-display` / `--font-body`. Poppins** (`"Poppins", "Amiri", "Segoe UI", sans-serif`).
-  Carries everything meant to be *read*: titles, prose, tables, captions,
-  pull-quote attributions, and all numerals in stat bands. Sentence case.
-  Weights 400–600. **Never letterspaced.**
-- **`--font-ui`. Glacial Indifference** (self-hosted, SIL OFL; only Regular and
-  Bold ship, so 400–500 maps to Regular and 600–900 to Bold: no faux bold).
-  Carries **the apparatus and nothing else**: nav, breadcrumbs, metadata lines,
-  filter tabs, buttons, form controls, stat labels. Uppercase, letterspaced
-  0.08–0.12em, weights 600–700, 12–13px.
-- **`--font-arabic`. Amiri** (`"Amiri", "Noto Naskh Arabic", "Scheherazade New", serif`).
-  All Arabic script.
+- **`--font-editorial`. Cormorant Garamond** 600–700
+  (`"Cormorant Garamond", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif`).
+  Major display only: page and project heroes, homepage section heads,
+  `.hc-title`, `.hc-masthead__title`, `.hc-section-head__title`, the wordmark.
+  `--font-brand` aliases it. It has a small x-height and thins out below about
+  26px, so it is never a default heading token and never set under ~1.4rem.
+  Source Serif 4 follows it in the stack because Cormorant lacks the modifier
+  letters ʿ and ʾ (U+02BF, U+02BE).
+- **`--font-display`. Source Serif 4** 600. Article titles, secondary headings,
+  entry and card titles, figures in stat bands.
+- **`--font-body` / `--font-critical`. Source Serif 4** 400 (italic available).
+  All running text. Self-hosted full-character-set Roman and italic variable
+  fonts, weights 200–900, verified for scholarly transliteration (Ḥadīth,
+  Muṣannaf, Ṣaḥīḥ, Ṭabarī, Qurʾān, ʿayn/hamza, macrons, combining marks).
+- **`--font-ui`. IBM Plex Sans** 500 (400–600 loaded). The apparatus and
+  nothing else: nav, breadcrumbs, metadata lines, filter tabs, buttons, form
+  controls, stat labels, numerals in apparatus. Uppercase labels track
+  0.10–0.14em at 12–13px.
+- **`--font-arabic`. Noto Naskh Arabic** 400–700. All Arabic script.
 - **`--font-quran`. Amiri Quran.** Qurʾānic ayāt specifically, because it
   supports the U+06D6–06ED mark set (sajdah, waqf, small high seen) that general
-  Arabic faces render poorly.
+  Naskh faces position poorly.
 
-The Latin faces list Amiri after themselves so an Arabic run inside an otherwise
-Latin string resolves to the Arabic face rather than a system fallback.
+Latin stacks list Noto Naskh Arabic after themselves so an Arabic run inside an
+otherwise Latin string resolves to the Arabic face. Cormorant, Plex, Noto Naskh
+and Amiri Quran load from Google Fonts (unicode-range subset); Source Serif 4
+is self-hosted. Poppins and Glacial Indifference were retired on 2026-10-05.
 
-Because the two Latin faces are both geometric sans, hierarchy between them
-rests on **case, tracking, weight and size band**: not on serif/sans contrast.
-The genuine typographic contrast on the page is Latin against Arabic, which is
-where this material needs it.
+Serif display wants close to neutral tracking. The −0.035em to −0.065em the
+headings carried for the geometric sans packed serifs into each other; display
+tracking is now −0.005em to −0.015em.
 
 ### Hierarchy
 
 | Token / class | Size | Face | Weight | Tracking | Use |
 |---|---|---|---|---|---|
-| `.hc-title--xl` | `clamp(2.98rem, 7vw, 5.1rem)` | display | 500 | −0.035em | Page hero |
-| `.hc-title--lg` | `clamp(2.55rem, 6vw, 4.93rem)` | display | 500 | −0.035em | Major section |
-| `.hc-title--md` | `clamp(1.91rem, 4vw, 3.4rem)` | display | 500 | −0.035em | Section |
-| Section head `h2` | `clamp(1.8rem, 3vw, 2.55rem)` | display | 500 | −0.03em | In-page section |
+| `.hc-title--xl` | `clamp(2.98rem, 7vw, 5.1rem)` | editorial | 600 | −0.012em | Page hero |
+| `.hc-title--lg` | `clamp(2.55rem, 6vw, 4.93rem)` | editorial | 600 | −0.012em | Major section |
+| `.hc-title--md` | `clamp(1.91rem, 4vw, 3.4rem)` | editorial | 600 | −0.012em | Section |
+| Section head `h2` | `clamp(2rem, 3.2vw, 2.8rem)` | editorial | 600 | −0.01em | In-page section |
+| Panel head | `clamp(1.3rem, 2vw, 1.65rem)` | display | 600 | −0.005em | Section inside a record |
 | `body` | `clamp(1.03rem, .25vw + 1rem, 1.13rem)` | body | 400 |: | Running text, 1.72 leading |
 | `.hc-copy` | `clamp(1.03rem, .5vw + .96rem, 1.22rem)` | body | 400 |: | Lede |
 | `.hc-small` | `0.96rem` | body | 400 |: | Fine print |
-| `.hc-eyebrow` / `.hc-label` | `0.81rem` | ui | 600 | 0.15em, upper | Kicker, breadcrumb |
+| `.hc-eyebrow` / `.hc-label` | `0.78rem` | ui | 500 | 0.12em, upper | Kicker, breadcrumb |
 | `.hc-stat__num` | `clamp(1.3rem, 2vw, 1.75rem)` | body | 500 | −0.02em | Stat value, tabular |
 | `.hc-stat__label` | `0.75rem` | ui | 600 | 0.10em, upper | Stat label |
 | `--text-arabic` | `clamp(1.15rem, .35vw + 1.08rem, 1.3rem)` | arabic | 400 |: | Arabic body |
@@ -326,8 +352,12 @@ where this material needs it.
 
 - **12px floor.** No body or label text below 12px anywhere, MDX `<style>`
   blocks included. Uppercase micro-labels sit at 12–13px.
-- **Prose measure 68–75ch**, 1.7–1.75 leading. Never above 75ch.
-- **Arabic runs at `--leading-arabic` (2.05)**, never at Latin leading. Amiri
+- **Prose measure: about 80 characters a line in the article reader** (the
+  owner asked for a wider column on 2026-10-06), 68–75 characters elsewhere,
+  1.7–1.75 leading. Count characters in the browser, not `ch`: Source Serif 4
+  sets oldstyle figures, so its `0` is narrow and `ch` overstates the measure
+  by about a quarter.
+- **Arabic runs at `--leading-arabic` (2.05)**, never at Latin leading. A Naskh face
   sits small on the em and its ḥarakāt occupy the space above and below the
   baseline that Latin leading would absorb.
 - **Every Arabic run must carry `lang="ar"`.** The global rule keys off it.
@@ -342,43 +372,100 @@ where this material needs it.
 - Numerals in any column context carry `font-variant-numeric: lining-nums
   tabular-nums`.
 
-### Article reading
+### Article reader
 
-- Article prose uses Poppins at 17px on phones and scales to 19px on wide
-  screens, with 1.78 leading. Keep paragraphs left aligned, without first-line
-  indents, with approximately 1.1em between paragraphs. Reader size settings
-  also scale English text in source quotations. Keep the small setting at least
-  16px.
-- The standard reading measure is 66ch; callouts and wide tables can extend to
-  72ch. The article title and standfirst align to the prose edge. Section
-  headings are left aligned and clearly separated from the preceding paragraph.
-- Every post uses `EditorialHeader`: a left-aligned category, prominent title
-  and standfirst, followed by a ruled metadata row with explicit author,
-  publication date and reading-time labels. Topics are plain text, not pills.
-  Cover images use a consistent 16:9 frame up to 48rem wide. Preserve the full
-  artwork and add descriptive alternative text. All surfaces use shared theme
-  tokens.
-- Qur'anic Arabic uses Amiri Quran with generous Arabic leading. English
-  translations, Bible excerpts, and hadith translations use the body face and
-  share its reading scale. Distinguish source types through their labels and
-  references, not thick gold borders or decorative shadows. English verses in
-  a multi-verse Qur'an citation flow as one passage, with subtle verse markers
-  between them and the full reference at the end. Bible excerpt text is
-  justified within its citation component.
-- Interface components use words for actions and state. Do not add emoji,
-  ornamental Unicode glyphs, icon-only controls, or the word "Copy" to visible
-  controls. Share actions say "Share" and explain their subject to assistive
-  technology. Logos and marks that identify a cited third-party service remain
-  where they carry attribution; transmission diagrams retain connectors only
-  when they encode the evidence being shown.
-- Footnote references remain real anchors to the notes. The dialog is a
-  progressive enhancement for short citation reading, especially on phones.
-  Its citation link scrolls to and focuses the matching note. Notes and
-  bibliography entries use compact, readable rows.
+Redesigned again 2026-10-06, as a whole system rather than per article. An
+article is set like a journal: one reading column, a title page, and four
+settings that cover every kind of content. `src/styles/article.css` carries the
+whole language; components emit plain class names and carry no styles of their
+own (except the isnad figures, which draw SVG).
+
+**Palette.** The reader defines its own ramp on `.hc-article` (`--r-ink`,
+`--r-ink-2`, `--r-ink-3`, `--r-accent`, `--r-rule`, `--r-rule-strong`,
+`--r-rule-accent`, the five `--r-mark-*` hues) for both themes, and re-points
+the site tokens (`--hc-text-*`, `--hc-gold*`, `--hc-rule*`) to it, so any
+component inside an article inherits one palette. Measured on the page ground:
+ink 14.7:1 dark and 15.6:1 light, ink-2 8.6 / 8.7, ink-3 5.8 / 5.8, accent
+8.9 / 6.2. The accent is reserved for the branch kicker, note labels, reference
+numerals and link underlines; links are body ink with an accent underline.
+
+**Page.** One column, `--measure: 44.5rem` (about 82 characters a line at
+19px; 41rem until 2026-10-06). At 1200px and wider the contents sit in a sticky
+margin to the left, aligned with the title leaf's left edge, with the column
+centred; below that they are a closed native disclosure under the header.
+
+**Title leaf.** The opening is a leaf across the top of the page
+(`--page-wide: 1240px`), above the column and its margin, built in
+`ArticleHeader.astro`: meta line (branch behind a lozenge in its own ink, date,
+reading time, author), the title in Cormorant, the standfirst, and the folio
+with a short rule; the artwork on the right. Dark theme: a dark plate with a
+gold double rule and corner ticks, the artwork framed inside it. Light theme:
+the parchment leaf of the homepage's featured study, where an editorial
+engraving (`blogArtwork`) fades into the paper and an older 16:9 thumbnail
+stays framed. Its inks are fixed per theme (`--leaf-*`) rather than read from
+the reader ramp. Every rule is scoped to `.hc-article`, because article.css is
+global and house.css owns `.hc-head` for the homepage-style section heads. No progress bar, toolbar,
+breadcrumb strip, reading settings, back-to-top or floating control. The
+footnote preview dialog is rendered inside `.hc-article` so it reads the
+palette.
+
+**Type.** Source Serif 4 at 17/18/19px (phones, 720px, 1200px), 1.68 to 1.7
+leading, oldstyle figures in prose, hyphenation on phones only. Title and `h2`
+in Cormorant 600; `h3` in Source Serif 600; `h4` in Source Serif italic.
+Editorial labels (branch kicker, contents, note labels, citations, table heads,
+figure labels) are Source Serif in real small caps (`font-variant-caps:
+small-caps`; the self-hosted face carries `smcp` and `c2sc`). IBM Plex Sans is
+used only for interface apparatus: the byline line, dates, footnote numerals,
+the Share control.
+
+**Four settings, no filled boxes:**
+
+| Setting | Covers | How it is drawn |
+|---|---|---|
+| Prose | paragraphs, `h2` to `h4`, lists, links, `hr` | `hr` is the brand lozenge alone, centred |
+| Extract | `QuranVerse`, `HadithBlock`, `BibleVerse`, `QuoteBlock`, Markdown `>`, `.hc-fig--extract` | indented under one accent hairline, 0.96em, Arabic first, citation last in small caps; the Qur'an keeps Amiri Quran and numbered āyah marks |
+| Note | `ClaimBox`, `VerdictBox`, `ContextNote` | thesis and verdict open under a hairline with an accent small caps label; context is indented, smaller and in ink-2 |
+| Figure | tables, `.hc-fig`, embeds, isnad diagrams | booktabs rules for tables; figures as cells under hairlines |
+
+**Figures: the shared vocabulary.** Articles that need structure beyond prose
+build it from `.hc-fig` and its parts, never from their own CSS:
+
+| Class | Meaning |
+|---|---|
+| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow`, `--rows`, `--lead`, `--extract`) |
+| `.hc-fig__item` | a cell, ruled above |
+| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; the arrow turns down when stacked |
+| `.hc-fig__label`, `__kicker`, `__title` | figure label, cell label (small caps), cell heading (`h3`/`h4` take it too) |
+| `.hc-fig__ar`, `__quote`, `__note`, `__tags` | Arabic, a quoted line, secondary text, a run of short terms |
+| `.hc-fig__caption`, `__ornament` | caption below; an ornament, never shown |
+
+`scripts/codemods/article-figures-to-shared.mjs` moved all 46 articles that
+carried their own `<style>` blocks (about 10,000 lines of CSS, some 500
+one-off classes, and the dark `hc-plate` figures) onto this vocabulary. It
+rewrote `class` attributes and deleted the style blocks only; the visible text
+of every article is identical to the previous commit (checked by comparing the
+tag-stripped text of each file). A per-article `<style>` block is no longer
+allowed in an article.
+
+**End matter, in order.** Notes (smaller, ink-2, a "Notes" head only when the
+article has none of its own; end-matter headings are set smaller and ruled),
+bibliography with hanging indents, topics as plain text, three more studies
+from the same branch with dates, then the earlier and later study.
+
+**Kept.** Footnote previews and the per-source Share control, which is created
+by script and shown on hover or focus (always on touch screens).
+
+**Component folder.** `src/components/article/`:
+
+- `shell/`: `ArticleHeader`, `ArticleContents`, `ArticleEnd`, `FootnoteSheet`
+- `text/`: `Note` (and `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
+- `sources/`: `Source` (and `QuranVerse`, `HadithBlock`, `BibleVerse`), `SourceComparisonTable`, `Bibliography`
+- `media/`: `ExternalSource` (and `QuranTalk`, `XEmbed`), `YouTubeEmbed`
+- `figures/`: `IsnadDiagram`, `IsnadDilemmaVisual`, `VariantTree`
 
 ### The button exception
 
-`.hc-btn` and its variants sit in Glacial at ~15px, weight 500, light tracking,
+`.hc-btn` and its variants sit in IBM Plex Sans at ~15px, weight 500, light tracking,
 **sentence case**: not the 12–13px uppercase apparatus treatment. A call to
 action is a tap target before it is apparatus, and uppercasing it at 13px costs
 more in legibility on a phone than the face contrast buys back. Buttons keep the
@@ -654,7 +741,7 @@ on the inner input so focus is not drawn twice. The native search clear button i
 re-drawn in a themed color. An empty result names the query. Old `?format=App` links
 still resolve to Tool. Card grids use a 10px gap.
 
-### `/research` atlas
+### `/projects/islamic-studies-atlas` atlas
 
 The hadith criticism atlas reuses the masthead, instrument and ruled-list shapes. Its
 entry point is a searchable works catalogue with topic and chronological ordering controls.
@@ -685,34 +772,45 @@ Off-screen until `:focus-visible`, then slides to the top edge. Targets
 
 ## Social preview cards
 
-The `og:image` set lives in `public/og/`, generated by
-`scripts/build-og-images.mjs` and committed. It is part of the visual system,
-not an afterthought: a pasted link is often the first thing anyone sees.
+`npm run build:og` writes 56 cards to `public/og/` (1200x630 JPEG, about
+110 KB each): the site default, the blog index and the four category hubs, the
+editorial pages, the six projects, every collection, and one transmitter
+dossier per generation. Articles keep their own illustrated thumbnails.
 
-Two families, so the two halves of the site are separable at a glance in a
-Discord or iMessage embed:
+Every card is the page it previews, in miniature: the page's engraving masked
+into the black ground from the right, the Cormorant title with a gold phrase,
+the ornament rule, the double frame with gilt corners, the wordmark and the
+address. Projects carry their signature instrument drawn from the same data
+the page uses (catalogue card, century chart, readers' hues, Q 1:1, decades,
+family mix); category cards list the branch's three newest studies in their
+category ink; collection cards carry a parchment slip with the edition's size.
 
-| Family | Card | Used by |
-|---|---|---|
-| Corpus | Collection masthead: English title over the Arabic title, narration count | `/hadith`, `/hadith/collection/:slug`, `/hadith/:id` |
-| Register | Transmitter card carrying the isnad chain ornament, one node filled | `/narrators`, `/narrators/:id`, `/narrators/compare` |
+Rendering notes, all in `scripts/og/kit.mjs`:
 
-Rules that keep them on-system:
+- satori reads only static TTF/OTF, so the faces are fetched as static TTFs
+  into `.cache/fonts`.
+- Card Arabic is **Amiri**, not Noto Naskh. Noto Naskh places its dots as GPOS
+  marks, which satori does not apply, so ث lost its dots.
+- Labels are uppercased in JavaScript and their hyphens made non-breaking:
+  satori measures before `text-transform` and drops tracking at hyphens, which
+  ran words together.
+- Titles are laid out one flex child per word so they wrap like text.
 
-- 1200 x 630, the dark ground, a 4px gold top rule and the inset hairline from
-  `.hc-card`. Depth comes from a rule, never a shadow.
-- Palette values are **copied** into the generator, because the card renders
-  outside the browser and cannot read the custom properties. Keep the `C` block
-  in that script in step with the dark theme in `global.css`.
-- The lozenge ornament is **drawn**, not set: Poppins has no U+25C6 and satori
+Inputs are committed files only (`scripts/og/data.mjs`); no corpus build is
+needed. Re-run after adding a collection, category or project, or after a
+change to the palette or type.
+
+- Palette values are **copied** into `scripts/og/kit.mjs`, because the card
+  renders outside the browser and cannot read the custom properties. Keep its
+  `C` block in step with `global.css`.
+- The lozenge is **drawn**, not set: the card faces have no U+25C6 and satori
   renders a missing glyph as tofu.
-- Arabic is laid out one word per flex child. satori shapes Arabic correctly
-  but collapses the spaces between words, which turns a title into one run.
-- A collection or generation with no card falls back to its family default via
-  the manifest in `src/lib/og-cards.ts`, so no page ever emits an `og:image`
-  that 404s.
-
-Reach for the `OG` helpers in `src/lib/seo.ts` rather than writing a path.
+- Arabic is laid out one word per flex child: satori shapes it but collapses
+  the spaces between words.
+- A collection, category or generation with no card falls back to its section
+  card (the manifest is `src/lib/og-cards.ts`), so no page emits an `og:image`
+  that 404s. Reach for the `OG` helpers in `src/lib/seo.ts` rather than
+  writing a path; `tests/social-cards.spec.ts` checks the main routes.
 
 ---
 
@@ -800,7 +898,7 @@ listens to is not a filter; it is a decoration that happens to be focusable.
 - Don't ship an inert pill.
 - Don't re-declare `outline` in a component.
 - Don't reference an undefined custom property with a hardcoded hex fallback.
-- Don't hardcode a font stack: `var(--font-ui)`, not `'Glacial Indifference', sans-serif`.
+- Don't hardcode a font stack: `var(--font-ui)`, not `'IBM Plex Sans', sans-serif`.
 - Don't paraphrase research claims, Arabic, transliteration, citations, titles,
   project names or forthcoming statuses during design work.
 - Don't introduce an icon library. The section's directional vocabulary is
@@ -854,6 +952,16 @@ between 320px and 1920px.
 
 ## Iteration Guide
 
+### Editorial index pages
+
+Blog, Academia, Projects, Resources, YouTube, and Contact use Source Serif 4 for
+editorial headings and prose. `EditorialHero.astro` and `editorial-pages.css`
+share dark engraved banners, thin gold rules, and fixed parchment plates with
+`--hc-fixed-bronze` accents. Each hero has its own subject in the same illustration
+system; see `docs/editorial-pages.md` and `docs/editorial-hero-prompts.json`.
+Existing navigation, research text, data, and page controls retain their owners.
+Native overview disclosures hold longer indexes and statistics below the banner.
+
 1. **Read this file and `global.css` before changing any UI.** `AGENTS.md`
    requires it.
 2. **One component at a time.** Name the token you are consuming, don't invent a
@@ -887,3 +995,59 @@ between 320px and 1920px.
 - **The catalogue's `--display` stat cell states "Not stored / Authenticity
   gradings"**: a deliberate anti-claim, not a metric. Keep it worded, never
   numeric.
+
+## Homepage
+
+One composition in seven movements, each with its own ground, so the page reads
+as a sequence and not as a stack of equal black panels. Owned by
+`src/styles/home.css`.
+
+| Movement | Ground | Composition |
+|---|---|---|
+| Hero | black, engraved city masked into the page | Cormorant title with a gold phrase, ornament rule, lede, two actions |
+| From the archive | soft black | heading, one horizontal **parchment leaf** for the latest study, four research branches |
+| Latest studies | black | a journal contents page: sticky head with branch filter, entries with folio numerals |
+| Lectures | soft black band | one lead lecture over two rows, five beside it; thumbnails as published |
+| Projects | black | the suite in two labelled groups, Databases and Research, each entry with its own figures |
+| Closing | parchment leaf | engraved plate, Cormorant line, ink button |
+| Footer | after a single `--hc-footer-gap` | unchanged |
+
+Rules that hold it together:
+
+- **Parchment is rationed.** `.hc-parchment` appears twice on the page, for the
+  featured study and the closing note. It pins paper inks in both themes.
+- **Category colour is a marker, never a fill.** Each branch shows its ink as a
+  2px top rule, a lozenge beside its label, and a count. Hover widens the rule
+  and lays a faint `--cat-bg` wash. Colours identify subjects; they do not
+  evaluate sources.
+- **Every control works without script.** Branch names and their latest study
+  are real links to the category hubs. The contents filter ships `hidden` and
+  is revealed by the module, so it never exists as a dead control.
+- **The CTA-to-footer gap is a token.** The footer's top margin is
+  `var(--hc-footer-gap, 64px)`; the homepage sets it once and its closing
+  section has no bottom padding. Do not patch it with negative margins.
+
+## Research projects
+
+`ResearchHero.astro` is one shell with six faces. Shared: the engraved ground,
+the Cormorant title with the discipline's Arabic name beneath it, the ornament
+rule, the register bar of figures. Not shared: the `signature` slot, where each
+project sets one instrument drawn from its own data.
+
+| Route | Variant | Signature | Body |
+|---|---|---|---|
+| `/hadith/` | corpus | parchment catalogue card: build, narrations, compilations, transmitters, chain links | search desk pulled onto the masthead edge, ruled collection slips |
+| `/narrators/` | register | transmitters by century of death, as a hatched column chart | sticky filter desk beside the live ledger |
+| `/projects/quran/` | readings | the ten readers in their own hues, Latin and Arabic names | reader dossiers, bilingual sura register |
+| `/projects/tafsir/` | reader | Q 1:1 in Amiri Quran with its translation | quiet folio index of 114 suras |
+| `/projects/islamic-studies-atlas/` | atlas | works by decade, hatched bars | catalogue beside a persistent reading panel |
+| `/projects/academic-studies/` | icma | family mix bar and legend | study jackets with a 3px family top rule |
+
+`research-platform.css` owns the shell, the signatures and each page's body
+refinements. Every figure in a signature or register bar is read from the data
+the page is built from.
+
+The seven `public/images/platform/` engravings have 2172px originals and 1086px
+responsive derivatives. These are conceptual illustrations, not reproductions of
+historical artifacts or evidence for research claims. Prompts and subjects are
+recorded in `docs/platform-artwork-prompts.json` and `docs/platform-redesign.md`.

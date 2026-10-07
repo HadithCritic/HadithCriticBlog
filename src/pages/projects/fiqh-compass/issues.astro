@@ -1,0 +1,153 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import FiqhCompassNav from "../../../components/FiqhCompassNav.astro";
+import { axes } from "../../../data/fiqh-compass";
+import { issueGroups } from "../../../data/fiqh-compass-research";
+
+const crumbs = [
+  { name: "Home", url: "/" },
+  { name: "Projects", url: "/projects/" },
+  { name: "Fiqh Compass", url: "/projects/fiqh-compass/" },
+  { name: "Issue register", url: "/projects/fiqh-compass/issues/" },
+];
+const issueCount = issueGroups.reduce((total, group) => total + group.issues.length, 0);
+---
+
+<BaseLayout
+  title="Proposed issue register | Fiqh Compass"
+  description="Browse twenty proposed legal questions in the Fiqh Compass research roadmap. These are prompts for investigation, not settled findings."
+  canonical="/projects/fiqh-compass/issues/"
+  crumbs={crumbs}
+>
+  <div class="fiqh-compass fc-research-page">
+    <FiqhCompassNav current="issues" />
+    <header class="fc-research-hero hc-container">
+      <p class="fc-kicker">Research index · proposal, not findings</p>
+      <h1>Twenty questions to investigate.</h1>
+      <p class="fc-research-hero__lead">The roadmap starts with bounded questions that can reveal disagreement in evidence and method. This register is a research queue: it does not state any historical jurist’s answer or imply that a dossier has been reviewed.</p>
+      <dl class="fc-research-stats">
+        <div><dt>Prompts in roadmap</dt><dd>{issueCount}</dd></div>
+        <div><dt>Provisional dimensions</dt><dd>{axes.length}</dd></div>
+        <div><dt>Reviewed dossiers published here</dt><dd>0</dd></div>
+      </dl>
+    </header>
+
+    <section class="fc-issue-browser hc-container" aria-labelledby="issue-browser-title">
+      <div class="fc-issue-browser__intro">
+        <div><p class="fc-kicker">Browse proposed questions</p><h2 id="issue-browser-title">Issue register</h2></div>
+      <p data-issue-count aria-live="polite">Showing {issueCount} proposed prompts</p>
+      </div>
+      <div class="fc-issue-filters">
+        <label>Search the prompts
+          <input type="search" data-issue-search placeholder="Search by topic or wording" />
+        </label>
+        <label>Filter by dimension
+          <select data-issue-axis>
+            <option value="all">All twelve dimensions</option>
+            {axes.map((axis) => <option value={axis.id}>{axis.id} · {axis.title}</option>)}
+          </select>
+        </label>
+      </div>
+
+      <div class="fc-issue-groups">
+        {issueGroups.map((group) => (
+          <section class="fc-issue-group" data-issue-group={group.id} aria-labelledby={`group-${group.id}`}>
+            <header><div><h3 id={`group-${group.id}`}>{group.title}</h3><p>{group.description}</p></div><span>{group.issues.length} prompts</span></header>
+            <ol>
+              {group.issues.map((issue) => (
+                <li data-issue-card data-axes={issue.axes.join(",")} data-search={`${issue.id} ${issue.question} ${issue.axes.join(" ")}`}>
+                  <span class="fc-issue-id">{issue.id}</span>
+                  <div class="fc-issue-card__body">
+                    <h4>{issue.question}</h4>
+                    <div class="fc-issue-card__meta">
+                      <a class="fc-issue-correction" href={`/projects/fiqh-compass/corrections/?kind=issue&record=${encodeURIComponent(issue.id)}`}>Suggest a correction</a>
+                      <span class="fc-axis-tags" aria-label="Related dimensions">
+                        {issue.axes.map((axisId) => {
+                          const axis = axes.find((entry) => entry.id === axisId)!;
+                          return <a href={`/projects/fiqh-compass/#axis-${axisId}`} title={axis.title}>{axisId}<span class="sr-only"> {axis.title}</span></a>;
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </div>
+      <p class="fc-issue-empty" data-issue-empty hidden>No proposed prompts match those filters.</p>
+    </section>
+
+    <aside class="fc-research-note hc-container">
+      <div><p class="fc-kicker">How to read this page</p><h2>A prompt is not a position.</h2></div>
+      <p>Before any answer can be compared, the research needs an exact case, attributed passages, edition and locator, qualifications, and review. Unresolved or missing evidence stays unscored.</p>
+    </aside>
+  </div>
+</BaseLayout>
+
+<script>
+  const search = document.querySelector("[data-issue-search]");
+  const axisSelect = document.querySelector("[data-issue-axis]");
+  const cards = [...document.querySelectorAll<HTMLElement>("[data-issue-card]")];
+  const groups = [...document.querySelectorAll<HTMLElement>("[data-issue-group]")];
+  const count = document.querySelector("[data-issue-count]");
+  const empty = document.querySelector("[data-issue-empty]");
+
+  const filterIssues = () => {
+    const query = (search instanceof HTMLInputElement ? search.value : "").trim().toLocaleLowerCase();
+    const axis = axisSelect instanceof HTMLSelectElement ? axisSelect.value : "all";
+    let visible = 0;
+    for (const card of cards) {
+      const matchesText = (card.getAttribute("data-search") || "").toLocaleLowerCase().includes(query);
+      const matchesAxis = axis === "all" || (card.getAttribute("data-axes") || "").split(",").includes(axis);
+      card.hidden = !(matchesText && matchesAxis);
+      if (!card.hidden) visible += 1;
+    }
+    for (const group of groups) group.hidden = group.querySelectorAll("[data-issue-card]:not([hidden])").length === 0;
+    if (count) count.textContent = `Showing ${visible} of ${cards.length} proposed prompts`;
+    if (empty instanceof HTMLElement) empty.hidden = visible !== 0;
+  };
+
+  search?.addEventListener("input", filterIssues);
+  axisSelect?.addEventListener("change", filterIssues);
+</script>
+
+<style>
+  .fiqh-compass.fc-research-page { --fc-bg: var(--hc-surface-0); --fc-ink: var(--hc-text-primary); --fc-text: var(--hc-text-secondary); --fc-muted: var(--hc-text-tertiary); --fc-line: var(--hc-rule-soft); --fc-paper: var(--hc-surface-2); --fc-green: var(--hc-gold); --fc-accent: var(--hc-gold); color: var(--fc-ink); background: var(--fc-bg); padding-bottom: clamp(4rem, 8vw, 7rem); }
+  .fc-research-hero { padding-block: clamp(3.5rem, 7vw, 6rem) 2.5rem; }
+  .fc-kicker { margin: 0 0 0.55rem; color: var(--fc-accent); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+  .fc-research-hero h1 { max-width: 18ch; margin: 0; font: 500 clamp(2.4rem, 5vw, 4.4rem)/1.08 var(--font-display); letter-spacing: -0.045em; text-wrap: balance; }
+  .fc-research-hero__lead { max-width: 72ch; margin: 1rem 0 0; color: var(--fc-text); line-height: 1.7; }
+  .fc-research-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 2rem 0 0; border-top: 1px solid var(--fc-line); }
+  .fc-research-stats div { padding: 0.9rem 1rem 0.9rem 0; border-bottom: 1px solid var(--fc-line); }
+  .fc-research-stats dt { color: var(--fc-muted); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .fc-research-stats dd { margin: 0.2rem 0 0; color: var(--fc-ink); font: 600 1.1rem/1.4 var(--font-display); }
+  .fc-issue-browser { padding-top: 2rem; }
+  .fc-issue-browser__intro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.3rem; }
+  .fc-issue-browser h2, .fc-research-note h2 { margin: 0; font: 500 clamp(1.8rem, 3.2vw, 2.7rem)/1.12 var(--font-display); letter-spacing: -0.035em; }
+  .fc-issue-browser__intro > p { margin: 0; color: var(--fc-muted); font: 500 0.78rem/1.4 var(--font-ui); }
+  .fc-issue-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.5fr); gap: 0.8rem; padding: 1rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); }
+  .fc-issue-filters label { display: grid; gap: 0.4rem; color: var(--fc-text); font: 600 0.75rem/1.4 var(--font-ui); }
+  .fc-issue-filters input, .fc-issue-filters select { width: 100%; min-height: 2.8rem; padding: 0 0.75rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-bg); color: var(--fc-ink); }
+  .fc-issue-groups { display: grid; gap: 2.2rem; margin-top: 2rem; }
+  .fc-issue-group[hidden] { display: none; }
+  .fc-issue-group > header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--fc-line); }
+  .fc-issue-group h3 { margin: 0; font: 600 1.28rem/1.3 var(--font-display); }
+  .fc-issue-group > header p { max-width: 65ch; margin: 0.3rem 0 0; color: var(--fc-text); font-size: 0.86rem; line-height: 1.5; }
+  .fc-issue-group > header > span { color: var(--fc-muted); font: 500 0.75rem/1.4 var(--font-ui); white-space: nowrap; }
+  .fc-issue-group ol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; margin: 0.8rem 0 0; padding: 0; list-style: none; }
+  .fc-issue-group li { --fc-paper: var(--hc-fixed-parchment); --fc-ink: var(--hc-fixed-parchment-ink); --fc-text: #4e4842; --fc-muted: #58534c; --fc-line: rgba(92, 66, 34, 0.24); --fc-accent: var(--hc-fixed-parchment-ink); display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: 0.75rem; min-height: 8.3rem; padding: 1rem; border: 1px solid var(--fc-line); border-radius: 0.12rem; background: var(--hc-fixed-parchment); }
+  .fc-issue-group li[hidden] { display: none; }
+  .fc-issue-id { color: var(--fc-accent); font: 600 0.76rem/1.4 var(--font-ui); letter-spacing: 0.06em; }
+  .fc-issue-card__body h4 { margin: 0; color: var(--fc-ink); font: 600 0.92rem/1.45 var(--font-display); }
+  .fc-issue-card__meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.9rem; }
+  .fc-issue-correction { color: var(--fc-ink); font: 600 0.76rem/1.4 var(--font-ui); text-underline-offset: 0.18em; }
+  .fc-status-pill { padding: 0.23rem 0.48rem; border: 1px solid var(--fc-line); border-radius: 999px; color: var(--fc-muted); font: 600 0.75rem/1.35 var(--font-ui); }
+  .fc-axis-tags { display: flex; gap: 0.28rem; }
+  .fc-axis-tags a { display: inline-grid; place-items: center; min-width: 2rem; min-height: 1.6rem; padding: 0 0.3rem; border-radius: 999px; background: color-mix(in srgb, var(--fc-accent) 11%, var(--fc-paper)); color: var(--fc-ink); font: 600 0.75rem/1 var(--font-ui); text-decoration: none; }
+  .fc-issue-empty { margin: 1rem 0; padding: 1.2rem; border: 1px dashed var(--fc-line); color: var(--fc-muted); text-align: center; }
+  .fc-research-note { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 2rem; align-items: start; margin-top: 4rem; padding-top: 2rem; border-top: 1px solid var(--fc-line); }
+  .fc-research-note > p { margin: 0; color: var(--fc-text); line-height: 1.7; }
+  @media (max-width: 750px) { .fc-issue-group ol { grid-template-columns: minmax(0, 1fr); } .fc-research-note { grid-template-columns: minmax(0, 1fr); gap: 0.8rem; } }
+  @media (max-width: 560px) { .fc-research-hero { padding-top: 2.5rem; } .fc-research-stats { grid-template-columns: minmax(0, 1fr); } .fc-issue-browser__intro, .fc-issue-group > header { align-items: flex-start; flex-direction: column; } .fc-issue-filters { grid-template-columns: minmax(0, 1fr); } .fc-issue-group li { grid-template-columns: 2.2rem minmax(0, 1fr); padding: 0.8rem; } }
+</style>

@@ -1,28 +1,61 @@
 # Component usage guide for authors
 
-Reference for which `src/components/article/*` component fits which content pattern. All of these are used directly inside `.mdx` articles.
+Reference for which article component fits which content pattern. All of
+these are imported directly inside `.mdx` articles from
+`src/components/article/<group>/`. How each one looks, and why, is in
+`DESIGN.md`, "Article reader".
 
 ## When to use which component
 
-| Content pattern | Component | Notes |
+| Content pattern | Component (import path under `components/article/`) | Notes |
 |---|---|---|
-| Quranic citation, one or more verses | `<QuranVerse verse="2:255, 24:13" />` | Comma-separated refs or `a:b-c` ranges. Renders each translation as its own paragraph. |
-| Hadith report with Arabic + translation | `<HadithBlock>` | See existing articles for the `hadith-block__arabic` / `hadith-block__translation` inner markup. |
-| Scholarly claim or thesis statement | `<ClaimBox title="...">` | |
-| Contextual/historical background aside | `<ContextNote>` | |
-| Final verdict or conclusion | `<VerdictBox title="...">` | |
-| Source-comparison table (multiple variants, families, references) | `<SourceComparisonTable>` | Uses a named `header` slot for `<th>` and the default slot for `<tr>`/`<td>` rows -- **not** raw Markdown pipe tables. See any of the 20+ existing articles using it for the exact markup shape. |
-| Isnād chain diagram | `<IsnadDiagram nodes={...} edges={...} tiers={...} />` (from `src/components/IsnadDiagram.astro`) | Types `DiagramNode`/`DiagramEdge`/`DiagramTier`/`DiagramAnnotation` are exported from that file. |
-| Preset isnād bundle diagram (bukhari:1) | `<IsnadBundle>` (from `src/components/IsnadBundle.astro`) | |
-| Single-transmitter bottleneck fanning into matn variants | `<VariantTree title="..." root="Prophet" bottleneck="..." branches={[{ name, from, quote, sources }]} />` | Use instead of hand-rolled `<div>` trees -- those ship with no shared styling. |
-| Inline or block Arabic script | `<Arabic>عِكْرِمَة</Arabic>` or `<Arabic inline={false}>...</Arabic>` | Equivalent to `<span lang="ar" dir="rtl">`, which already gets RTL/font styling automatically inside `.hc-article-body`. Use the component for content that may render outside that scope. |
-| Biblical citation | `<BibleVerse>` | Rare; used where an article compares Quranic/hadith and Biblical material. |
-| General quotation (non-hadith, non-Quran) | `<QuoteBlock>` | |
-| Philosophical/logical dilemma diagram | `<IsnadDilemmaVisual>` | Rare, bespoke visual argument mapping. |
-| Bibliography / reference list | `<Bibliography entries={[{ author, title, details, year }]} />` | |
-| Thematic section break with optional heading | `<SectionDivider title="..." subtitle="..." />` | Use instead of a bare `##` heading or `---` when the break is thematic rather than a new subsection. |
+| Quranic citation, one or more verses | `<QuranVerse verse="2:255, 24:13" />` (`sources/QuranVerse.astro`) | Comma-separated refs or `a:b-c` ranges. Text comes from `src/data/quran-verses.json`; `label` overrides the citation line. |
+| Hadith report with Arabic + translation | `<HadithBlock label="…" source="…" arabic={`…`} translation={`…`} />` (`sources/HadithBlock.astro`) | `title` is accepted as a synonym for `label`. Arabic and translation may instead go inside the tag as `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`. |
+| Biblical citation | `<BibleVerse reference="Exodus 24:12">…</BibleVerse>` (`sources/BibleVerse.astro`) | |
+| Thesis the article argues | `<ClaimBox title="…">` (`text/ClaimBox.astro`) | One per article, near the top. |
+| Conclusion it reaches | `<VerdictBox title="…" status="…">` (`text/VerdictBox.astro`) | Keep it for the actual conclusion. |
+| Background the argument leans on | `<ContextNote title="…" collapsible>` (`text/ContextNote.astro`) | `collapsible` starts it closed. |
+| General quotation (non-scripture) | `<QuoteBlock author="…" source="…" sourceUrl="…">` (`text/QuoteBlock.astro`) | A plain Markdown `>` is fine for a short unattributed passage. |
+| Inline Arabic in a Latin sentence | `<Arabic>عِكْرِمَة</Arabic>` (`text/Arabic.astro`) | Equivalent to `<span lang="ar" dir="rtl">`. |
+| Thematic part break with a title | `<SectionDivider title="…" subtitle="…" />` (`text/SectionDivider.astro`) | The title is a real `h2` and appears in the contents. |
+| Source-comparison table | `<SourceComparisonTable caption="…" stickyFirstCol>` (`sources/SourceComparisonTable.astro`) | Named `header` slot for `<th>`, default slot for `<tr>` rows. Markdown pipe tables get the identical setting. |
+| Bibliography / reference list | `<Bibliography entries={[{ author, title, details, year }]} />` (`sources/Bibliography.astro`) | Or a Markdown list under `## Bibliography`, which is set the same way. |
+| Video | `<YouTubeEmbed url="…" title="…" channel="…" />` (`media/YouTubeEmbed.astro`) | |
+| QuranTalk essay | `<QuranTalk url="…" title="…" date="…" />` (`media/QuranTalk.astro`) | Formerly `QuranTalkEmbed_v2`. |
+| Post on X | `<XEmbed url="…" author="…" text="…" />` (`media/XEmbed.astro`) | Static; no third-party script. |
+| Isnād chain diagram | `<IsnadDiagram nodes={…} edges={…} tiers={…} />` (`figures/IsnadDiagram.astro`) | Types are exported from that file. |
+| One bottleneck fanning into matn variants | `<VariantTree title="…" root="…" bottleneck="…" branches={[…]} />` (`figures/VariantTree.astro`) | |
+| Logical dilemma diagram | `<IsnadDilemmaVisual>` (`figures/IsnadDilemmaVisual.astro`) | Rare, bespoke. |
 
-Components that render page chrome (`ArticleHero`, `ArticleMetaBar`, `ArticleTOC`, `PreviousNext`, `RelatedPosts`, `ArticleLayout`, `ArticleProse`) are wired up by `src/pages/blogs/[...id].astro` automatically -- articles never import these directly.
+The page chrome (header, contents, end matter, footnote previews) lives in
+`shell/` and is wired up by `src/pages/blogs/[...id].astro`; articles never
+import it.
+
+## Figures without a component
+
+When a comparison, sequence, ledger or set of profiles does not fit a
+component, build it from the shared figure classes in `src/styles/article.css`
+(`.hc-fig`, `.hc-fig__item`, `.hc-fig__kicker`, `.hc-fig__join` and the rest,
+listed in DESIGN.md, "Article reader"). Do not add a `<style>` block or
+one-off classes to an article: every figure in the archive is drawn by the
+same rules so the reader meets one system.
+
+```html
+<div class="hc-fig hc-fig--flow" aria-label="Al-Shafi'i's hierarchy of proof">
+  <div class="hc-fig__item">
+    <span class="hc-fig__kicker">public proof</span>
+    <h3>Qur'an and public transmission</h3>
+    <p>Known by the community.</p>
+  </div>
+  <div class="hc-fig__join hc-fig__join--arrow" aria-hidden="true">→</div>
+  <div class="hc-fig__item">…</div>
+</div>
+```
+
+Layouts: `hc-fig--cols` (as many cells across as fit), `--c2`/`--c3`/`--c4`
+(a fixed count, stacked on phones), `--flow` (a sequence with joins), `--rows`
+(label against value), `--lead` (an opening summary), `--extract` (a quoted
+passage built by hand).
 
 ## Footnote rules
 

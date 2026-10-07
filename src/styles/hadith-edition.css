@@ -1,0 +1,457 @@
+/*
+ * The Hadith Corpus edition primitives, shared by the narration record
+ * (/hadith/[id]) and the kitab pages (/hadith/collection/[slug]/kitab/[n]).
+ *
+ * Global on purpose: both pages build their records in the browser, where
+ * Astro's scope hash never reaches.
+ *
+ * Every primitive here is a plate with fixed colors, the same in both themes:
+ * the masthead and the transmission panel are dark ground under dark
+ * artwork, the chapter band is bronze, the leaf and the references panel are
+ * parchment under parchment artwork. Only the page around them follows the
+ * theme. Their inks are fixed for the same reason, and each pair clears
+ * WCAG AA on its own ground.
+ */
+
+.hc-edition {
+  --ed-black: #0f0f10;
+  --ed-panel: #121211;
+  --ed-ink: #efe9dd;
+  --ed-ink-2: #c3b9aa;
+  --ed-ink-3: #9a8f81;
+  --ed-gold: #d8b166;
+  --ed-gold-bright: #ecc77f;
+  --ed-gold-dim: #8a6d38;
+  --ed-rule: rgba(216, 177, 102, 0.26);
+  --ed-rule-soft: rgba(216, 177, 102, 0.14);
+  --ed-band: #6e2f17;
+  --ed-band-deep: #4a1f0f;
+  --ed-band-ink: #f6e9d6;
+  --ed-band-accent: #f0c995;
+  --ed-paper: #efe5d3;
+  --ed-paper-ink: #2b251f;
+  --ed-paper-ink-2: #5c4a39;
+  --ed-paper-ink-3: #6e5d4b;
+  --ed-paper-label: #7a5a2f;
+  --ed-paper-rule: rgba(43, 37, 31, 0.22);
+}
+
+.hr-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Masthead: the collection on dark ground, under the three scholars ── */
+.hr-head {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 198px;
+  padding: 0.5rem clamp(0.9rem, 2.5vw, 1.5rem) clamp(1.4rem, 3vw, 2rem);
+  border-radius: var(--radius-xs);
+  background: var(--ed-black);
+  color: var(--ed-ink);
+}
+/* The artwork is shown whole at the masthead's height, never cropped to the
+   figures: three scholars at their reading table, faded at both edges. */
+.hr-head__art {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: -1;
+  width: min(100%, 60rem);
+  height: 100%;
+  background:
+    linear-gradient(90deg, rgba(15, 15, 16, 1) 0%, rgba(15, 15, 16, 0.9) 22%, rgba(15, 15, 16, 0.35) 46%, rgba(15, 15, 16, 0.12) 66%, rgba(15, 15, 16, 0.8) 90%, rgba(15, 15, 16, 0.98) 100%),
+    image-set(url('/images/hadith/scholars-1086.webp') 1x, url('/images/hadith/scholars-2172.webp') 2x) center 44% / auto 100% no-repeat;
+  pointer-events: none;
+}
+.hr-head__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: clamp(0.75rem, 2.5vw, 1.4rem);
+}
+.hr-head__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: var(--ed-ink-2);
+  font: 500 0.85rem/1.4 var(--font-ui);
+  text-decoration: none;
+}
+.hr-head__back:hover { color: var(--ed-gold-bright); }
+.hr-head__titles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1rem 2rem;
+}
+.hr-head__title {
+  margin: 0;
+  font: 500 clamp(2.4rem, 5vw, 3.6rem)/1.05 var(--font-editorial);
+  letter-spacing: -0.01em;
+}
+.hr-head__title a { color: var(--ed-gold); text-decoration: none; }
+.hr-head__title a:hover { color: var(--ed-gold-bright); }
+.hr-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.1rem;
+  margin: 0.65rem 0 0;
+  color: var(--ed-ink-2);
+  font: 400 1.05rem/1.4 var(--font-body);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.hr-head__meta [hidden] { display: none; }
+.hr-head__meta a { color: inherit; text-decoration: none; }
+.hr-head__meta a:hover { color: var(--ed-gold-bright); text-decoration: underline; text-underline-offset: 0.2em; }
+.hr-head__meta > span:not([hidden]) ~ span:not([hidden])::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-inline-end: 1.1rem;
+  border-radius: 50%;
+  background: var(--ed-gold-dim);
+  vertical-align: middle;
+}
+.hr-head__ar { text-align: right; }
+.hr-head__title-ar {
+  margin: 0;
+  color: var(--ed-gold);
+  font: 400 clamp(2rem, 4vw, 3rem)/1.3 var(--font-arabic);
+}
+.hr-head__ar .hr-head__meta { justify-content: flex-end; font-family: var(--font-arabic); }
+
+.edition-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 1.25rem;
+  font: 500 0.82rem/1.4 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+}
+.edition-pager[hidden] { display: none; }
+.edition-pager__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  color: var(--hc-text-secondary);
+  text-decoration: none;
+}
+.edition-pager__link:hover { color: var(--hc-gold-bright); }
+.edition-pager__dir { color: var(--hc-text-tertiary); }
+.edition-pager--top .edition-pager__link { color: var(--ed-ink-2); }
+.edition-pager--top .edition-pager__link:hover { color: var(--ed-gold-bright); }
+.edition-pager--top .edition-pager__dir { display: none; }
+.edition-pager--bottom {
+  justify-content: space-between;
+  margin-top: clamp(2rem, 4vw, 3rem);
+  padding-top: 1rem;
+  border-top: 1px solid var(--hc-rule-soft);
+}
+
+/* ── Bronze band: a chapter heading, or a kitab's description ── */
+.hr-chapter {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem 2.5rem;
+  margin: 1rem 0;
+  padding: 1rem clamp(1.4rem, 3vw, 2rem);
+  border: 1px solid rgba(240, 201, 149, 0.34);
+  border-radius: var(--radius-xs);
+  background:
+    linear-gradient(90deg, rgba(74, 31, 15, 0.96), rgba(110, 47, 23, 0.98) 48%, rgba(74, 31, 15, 0.96)),
+    repeating-linear-gradient(90deg, transparent 0 21px, rgba(246, 233, 214, 0.018) 21px 22px),
+    var(--ed-band-deep);
+  box-shadow: inset 0 0 0 4px rgba(240, 201, 149, 0.035);
+}
+.hr-chapter::before,
+.hr-chapter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--ed-band-accent);
+  opacity: 0.55;
+  transform: translateY(-50%) rotate(45deg);
+}
+.hr-chapter::before { left: 0.55rem; }
+.hr-chapter::after { right: 0.55rem; }
+.hr-chapter__en {
+  margin: 0;
+  color: var(--ed-band-ink);
+  font: 400 clamp(1.15rem, 2vw, 1.4rem)/1.4 var(--font-editorial);
+}
+.hr-chapter__en em { color: var(--ed-band-accent); }
+.hr-chapter__label { color: var(--ed-band-accent); }
+.hr-chapter__ar {
+  margin: 0;
+  color: var(--ed-band-ink);
+  font: 400 clamp(1.2rem, 2.2vw, 1.55rem)/1.7 var(--font-arabic);
+  text-align: right;
+}
+
+/* ── The leaf: parchment, English on the left, the Arabic beside it ── */
+.hr-leaf {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 clamp(1.5rem, 4vw, 3rem);
+  padding: clamp(1.4rem, 3.5vw, 2.6rem) clamp(1.2rem, 3.5vw, 2.6rem);
+  border: 1px solid rgba(109, 79, 47, 0.36);
+  border-radius: var(--radius-xs);
+  background:
+    radial-gradient(1000px 360px at 48% 20%, rgba(255, 255, 255, 0.43), transparent 68%),
+    repeating-linear-gradient(0deg, rgba(82, 57, 35, 0.018) 0 1px, transparent 1px 5px),
+    var(--ed-paper);
+  color: var(--ed-paper-ink);
+  box-shadow: inset 0 0 0 1px rgba(43, 37, 31, 0.1), 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+.hr-leaf__en { grid-column: 1; min-width: 0; }
+.hr-leaf__ar {
+  grid-column: 2;
+  min-width: 0;
+  padding-inline-start: clamp(1.5rem, 4vw, 3rem);
+  border-inline-start: 1px solid var(--ed-paper-rule);
+}
+.hr-leaf__chain {
+  margin: 0;
+  color: var(--ed-paper-ink-2);
+  font: italic 400 1rem/1.7 var(--font-body);
+}
+.hr-leaf__rule {
+  display: block;
+  position: relative;
+  height: 1px;
+  margin: 1.25rem 0;
+  background: var(--ed-paper-rule);
+}
+.hr-leaf__rule::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--ed-paper-ink-2);
+  background: var(--ed-paper);
+  transform: translateX(-50%) rotate(45deg);
+}
+.hr-leaf__matn {
+  color: var(--ed-paper-ink);
+  font: 400 clamp(1.15rem, 1.8vw, 1.32rem)/1.75 var(--font-editorial);
+  scroll-margin-top: calc(var(--site-header-height, 72px) + 1.5rem);
+}
+.hr-leaf__note {
+  margin: 1.4rem 0 0;
+  color: var(--ed-paper-ink-3);
+  font: 500 0.75rem/1.5 var(--font-ui);
+}
+.hc-edition .facing-prose--ar {
+  margin: 0;
+  color: var(--ed-paper-ink);
+  font: 400 clamp(1.2rem, 1.9vw, 1.42rem)/2.05 var(--font-arabic);
+  text-align: right;
+}
+.hc-edition .facing-prose em { color: inherit; font-style: italic; }
+.hc-edition .facing-prose strong { color: inherit; font-weight: 700; }
+.hc-edition .facing-prose .folio {
+  display: inline-block;
+  margin: 0 0.28em;
+  padding: 0.05em 0.4em;
+  border: 1px solid var(--ed-paper-rule);
+  border-radius: 3px;
+  color: var(--ed-paper-ink-2);
+  font: 500 0.7em/1.4 var(--font-ui);
+  vertical-align: 0.1em;
+}
+.hc-edition .facing-prose--empty { margin: 0; color: var(--ed-paper-ink-2); font-style: italic; }
+
+/* ── Lower panels: transmission on dark, references on parchment ── */
+.hr-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.hr-panel {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 245px;
+  overflow: hidden;
+  padding: clamp(1.1rem, 2.5vw, 1.6rem);
+  border: 1px solid var(--ed-rule);
+  border-radius: var(--radius-xs);
+}
+.hr-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.hr-panel__title {
+  margin: 0 0 1rem;
+  font: 600 0.8rem/1.4 var(--font-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  scroll-margin-top: calc(var(--site-header-height, 72px) + 1.5rem);
+}
+
+/* The transmission artwork keeps its dark field on the left for the chain and
+   its books, quill and lamp on the right. */
+.hr-panel--chain { background: var(--ed-panel); color: var(--ed-ink); }
+.hr-panel--chain::before {
+  background:
+    linear-gradient(90deg, rgba(18, 18, 17, 0.98) 0%, rgba(18, 18, 17, 0.95) 44%, rgba(18, 18, 17, 0.68) 64%, rgba(18, 18, 17, 0.22) 100%),
+    image-set(url('/images/hadith/transmission-952.webp') 1x, url('/images/hadith/transmission-1905.webp') 2x) right center / auto 100% no-repeat;
+}
+.hr-panel--chain .hr-panel__title { color: var(--ed-gold); }
+.hr-panel__note { margin: 1rem 0 0; max-width: 66%; color: var(--ed-ink-3); font: 400 0.8rem/1.6 var(--font-body); }
+.hr-chain-block { max-width: 70%; }
+.hr-chain-block + .hr-chain-block { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--ed-rule-soft); }
+.hr-chain__label { margin: 0 0 0.4rem; color: var(--ed-ink-2); font: 600 0.78rem/1.4 var(--font-ui); }
+.hr-chain__compiler { margin: 0 0 0.6rem; color: var(--ed-ink-2); font: 400 0.9rem/1.5 var(--font-body); }
+.hr-chain__compiler a { color: var(--ed-ink); }
+.hr-chain { margin: 0; padding: 0; list-style: none; }
+.hr-chain li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--ed-rule-soft);
+}
+.hr-chain__n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: var(--ed-gold);
+  color: #1b150c;
+  font: 700 0.75rem/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(0.2rem);
+}
+.hr-chain__who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; min-width: 0; }
+.hc-edition .ladder-card__name {
+  color: var(--ed-ink);
+  font: 400 1rem/1.45 var(--font-body);
+  text-decoration: none;
+}
+.hc-edition a.ladder-card__name:hover { color: var(--ed-gold-bright); text-decoration: underline; text-underline-offset: 0.2em; }
+.hr-chain__unresolved { color: var(--ed-ink-3); font: 500 0.75rem/1.4 var(--font-ui); }
+.hr-chain__death { color: var(--ed-ink-3); font: 500 0.78rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.hc-edition .source-narrators { max-width: 70%; margin-top: 0.85rem; border-top: 1px solid var(--ed-rule-soft); }
+.hc-edition .source-narrators summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  min-height: 44px;
+  padding-top: 0.6rem;
+  color: var(--ed-ink-2);
+  font: 600 0.82rem/1.4 var(--font-ui);
+  cursor: pointer;
+}
+.hc-edition .source-narrators summary span { color: var(--ed-ink-3); font-weight: 500; }
+.hc-edition .source-narrators__note { margin: 0.4rem 0 0.6rem; color: var(--ed-ink-3); font: 400 0.8rem/1.6 var(--font-body); }
+.hc-edition .source-narrators ol { margin: 0; padding: 0; list-style: none; }
+.hc-edition .source-narrators li {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--ed-rule-soft);
+}
+.hc-edition .source-narrators__position { color: var(--ed-ink-3); font: 500 0.75rem/1.4 var(--font-ui); }
+.hc-edition .source-narrators__en { color: var(--ed-ink-2); font: 400 0.88rem/1.5 var(--font-body); }
+.hc-edition .source-narrators__en a { color: var(--ed-ink); }
+.hc-edition .source-narrators__ar { color: var(--ed-ink); font: 400 1.05rem/1.8 var(--font-arabic); text-align: right; }
+
+/* The references artwork keeps parchment on the left for the entries and the
+   mosque and palms on the right. */
+.hr-panel--refs { border-color: rgba(109, 79, 47, 0.36); background: var(--ed-paper); color: var(--ed-paper-ink); }
+.hr-panel--refs::before {
+  background:
+    linear-gradient(90deg, rgba(239, 229, 211, 0.99) 0%, rgba(239, 229, 211, 0.97) 50%, rgba(239, 229, 211, 0.7) 67%, rgba(239, 229, 211, 0.14) 100%),
+    image-set(url('/images/hadith/references-1086.webp') 1x, url('/images/hadith/references-2172.webp') 2x) right center / auto 100% no-repeat;
+}
+.hr-panel--refs .hr-panel__title { color: var(--ed-paper-label); }
+.hr-refs { display: grid; gap: 0; max-width: 68%; margin: 0; }
+.hr-refs > div {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px dashed var(--ed-paper-rule);
+}
+.hr-refs > div[hidden] { display: none; }
+.hr-refs dt { color: var(--ed-paper-ink-3); font: 500 0.85rem/1.5 var(--font-ui); }
+.hr-refs dd { margin: 0; color: var(--ed-paper-ink); font: 400 0.95rem/1.5 var(--font-body); }
+.hr-refs dd a { color: var(--ed-paper-ink); text-decoration-color: var(--ed-paper-rule); text-underline-offset: 0.2em; }
+.hr-refs dd a:hover { color: var(--ed-paper-label); }
+.hr-refs [lang='ar'] { font-family: var(--font-arabic); }
+.hr-refs .ledger-meta { color: var(--ed-paper-ink-3); }
+.hr-refs__note { max-width: 62%; margin: 1rem 0 0; color: var(--ed-paper-ink-3); font: 400 0.8rem/1.6 var(--font-body); }
+.hr-refs__basis { color: var(--ed-paper-ink-3); font: 400 0.85rem/1.5 var(--font-body); }
+/* The edition's headings and the editor's notes: verbatim, folded away. */
+.hr-refs__more { max-width: 68%; margin: 0.85rem 0 0; padding-top: 0.6rem; border-top: 1px dashed var(--ed-paper-rule); }
+.hr-refs__more summary { cursor: pointer; color: var(--ed-paper-label); font: 500 0.85rem/1.5 var(--font-ui); }
+.hr-refs__more summary:hover { color: var(--ed-paper-ink); }
+.hr-refs__ar { margin: 0.6rem 0 0; color: var(--ed-paper-ink); font: 400 1.02rem/var(--leading-arabic, 2.05) var(--font-arabic); }
+.hr-refs__more .hr-refs__note { max-width: none; margin-top: 0.4rem; }
+.hc-edition .edition-reference-summary { display: grid; gap: 0.2rem; }
+.hc-edition .edition-reference-summary__pages { color: var(--ed-paper-label); font: 500 0.85rem/1.4 var(--font-ui); }
+.hc-edition .edition-reference-summary__ar { color: var(--ed-paper-ink-2); font: 400 0.95rem/1.7 var(--font-arabic); }
+.hc-edition .edition-source-path { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; }
+.hc-edition .edition-source-path__title { font-family: var(--font-arabic); }
+.hc-edition .edition-source-path__separator,
+.hc-edition .edition-source-path__note { color: var(--ed-paper-ink-3); }
+
+/* ── Narrow screens: Arabic leads by placement only; DOM order is unchanged ── */
+@media (max-width: 780px) {
+  .hr-head__titles, .hr-chapter, .hr-panels, .hr-leaf { grid-template-columns: minmax(0, 1fr); }
+  .hr-head__ar { text-align: left; }
+  .hr-head__ar .hr-head__meta { justify-content: flex-start; }
+  .hr-chapter__ar { grid-row: 1; text-align: right; }
+  .hr-chapter__en { grid-row: 2; }
+  .hr-leaf__ar {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0 0 1.25rem;
+    margin-bottom: 1.25rem;
+    border-inline-start: 0;
+    border-bottom: 1px solid var(--ed-paper-rule);
+  }
+  .hr-leaf__en { grid-row: 2; }
+  .hr-chain-block, .hr-panel__note, .hr-refs, .hr-refs__note, .hr-refs__more, .hc-edition .source-narrators { max-width: 100%; }
+  .hr-panel--chain::before { background-size: auto, auto 80%; background-position: 0 0, right bottom; opacity: 0.6; }
+  .hr-panel--refs::before { background-size: auto, auto 80%; background-position: 0 0, right bottom; opacity: 0.55; }
+  .hc-edition .source-narrators li { grid-template-columns: 1.6rem minmax(0, 1fr); }
+  .hc-edition .source-narrators__ar { grid-column: 2; text-align: left; }
+}
+@media (max-width: 540px) {
+  .hr-head__top { align-items: flex-start; flex-direction: column; gap: 0; }
+  .hr-head__title { font-size: 2.35rem; }
+  .hr-head__title-ar { font-size: 2rem; }
+  .hr-refs > div { grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
+}

@@ -140,10 +140,9 @@ for (const file of files) {
     }
   });
 
-  // Role split between the two geometric sans faces. Glacial (--font-ui) is
-  // apparatus only: uppercase, letterspaced, 12-13px. Used sentence-case at
-  // reading sizes it is indistinguishable from Poppins and the page reads
-  // flat. See DESIGN.md > Typography.
+  // Role split. IBM Plex Sans (--font-ui) is apparatus: labels, metadata,
+  // controls, set small. At reading size in sentence case it competes with the
+  // Source Serif text it is meant to annotate. See DESIGN.md > Typography.
   for (const block of content.matchAll(/\{([^{}]*)\}/g)) {
     const body = block[1];
     if (!/font-family:\s*var\(--font-ui/.test(body)) continue;

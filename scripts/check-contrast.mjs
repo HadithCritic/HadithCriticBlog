@@ -25,6 +25,10 @@
  *   node scripts/check-contrast.mjs --theme light   # one theme
  *   node scripts/check-contrast.mjs --all-articles  # every article too
  *   node scripts/check-contrast.mjs --route /x      # one route
+ *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results # render quiz result state
+ *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results --width 390
+ *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-empty # all items skipped
+ *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-unknown # all responses unsure
  *   node scripts/check-contrast.mjs --json          # composited bg and DOM path
  *
  * Exit code is 1 when anything fails, so it can gate a build later. It is not
@@ -43,22 +47,45 @@ const THEMES = themeArg ? [themeArg] : ['dark', 'light'];
 const ALL_ARTICLES = args.includes('--all-articles');
 const JSON_OUT = args.includes('--json');
 const ONLY = args.includes('--route') ? args[args.indexOf('--route') + 1] : null;
+const QUIZ_RESULTS = args.includes('--quiz-results');
+const QUIZ_RESULTS_EMPTY = args.includes('--quiz-results-empty');
+const QUIZ_RESULTS_UNKNOWN = args.includes('--quiz-results-unknown');
+const VIEWPORT_WIDTH = args.includes('--width') ? Number(args[args.indexOf('--width') + 1]) : 1440;
+
+const QUIZ_RESULT_MODES = [QUIZ_RESULTS, QUIZ_RESULTS_EMPTY, QUIZ_RESULTS_UNKNOWN].filter(Boolean).length;
+if (QUIZ_RESULT_MODES > 1) {
+  process.stderr.write('Choose only one quiz result mode\n');
+  process.exit(2);
+}
+if (QUIZ_RESULT_MODES && ONLY !== '/projects/fiqh-compass/quiz/') {
+  process.stderr.write('--quiz-results options require --route /projects/fiqh-compass/quiz/\n');
+  process.exit(2);
+}
+if (!Number.isInteger(VIEWPORT_WIDTH) || VIEWPORT_WIDTH < 240 || VIEWPORT_WIDTH > 3840) {
+  process.stderr.write('--width must be an integer between 240 and 3840\n');
+  process.exit(2);
+}
 
 /** The routes that carry the design system, one of each page type. */
 const ROUTES = [
   '/',
   '/hadith',
   '/hadith/collection/sahih-al-bukhari',
+  '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1',
   '/hadith/5',
   '/narrators',
   '/narrators/484',
   '/narrators/compare?ids=484,3889',
   '/blogs',
+  '/blogs/category/transmission-narrators',
   '/academia',
   '/resources',
   '/projects',
   '/projects/tafsir',
   '/projects/tafsir/sura/1',
+  '/projects/fiqh-compass',
+  '/youtube',
+  '/brand',
   '/contact'
 ];
 
@@ -271,8 +298,10 @@ const PROBE = `(() => {
  */
 const CORPUS_CONTENT = [
   [/^\/hadith\/\d+/, '.edition-hero, .hadith-degraded'],
+  // A book page renders its narrations only when a chapter is opened; see awaitCorpus.
+  [/^\/hadith\/collection\/[^/]+\/kitab\//, '.kb-card-record, .kb-status--error'],
   [/^\/hadith\/collection\//, '.narration-record, .coll-error, .coll-empty'],
-  [/^\/hadith(\?|$)/, '.book-card, .corpus-record-card'],
+  [/^\/hadith(\?|$)/, '.catalog-row, .corpus-record-card'],
   [/^\/narrators\/compare/, '.compare-table, .compare-empty'],
   [/^\/narrators\/\d+/, '.rijal-hero, .rijal-degraded'],
   [/^\/narrators(\?|$)/, '.reg-row, .register-error']
@@ -281,6 +310,14 @@ const CORPUS_CONTENT = [
 async function awaitCorpus(page, route) {
   const match = CORPUS_CONTENT.find(([pattern]) => pattern.test(route));
   if (!match) return true;
+  // A book page is prerendered with its chapters closed; open the first so its
+  // parchment cards exist to be measured.
+  if (/\/kitab\//.test(route)) {
+    await page.evaluate(() => {
+      const first = document.querySelector('details.kb-chapter');
+      if (first) first.open = true;
+    });
+  }
   try {
     // Generous: a cold corpus has to fetch the wasm module and walk the b-tree
     // over the network before the first row exists.
@@ -318,7 +355,7 @@ for (const theme of THEMES) {
   // Setting the attribute after load measured whichever theme the previous
   // pass had left behind and reported every colour inverted, which invented a
   // 1.31:1 failure for a wordmark that actually sits at 16.14:1.
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({ viewport: { width: VIEWPORT_WIDTH, height: 900 } });
   await context.addInitScript((t) => {
     try { localStorage.setItem('theme', t); } catch {}
   }, theme);
@@ -333,6 +370,33 @@ for (const theme of THEMES) {
         continue;
       }
       await settle(page);
+      if (QUIZ_RESULT_MODES) {
+        await page.locator('[data-compass-auto-advance]').uncheck({ force: true });
+        const questionCount = await page.locator('[data-question]').count();
+        for (let index = 0; index < questionCount; index += 1) {
+          if (QUIZ_RESULTS || QUIZ_RESULTS_UNKNOWN) {
+            const value = QUIZ_RESULTS ? '0' : 'unknown';
+            await page.locator(`[data-question-index="${index}"] input[type="radio"][value="${value}"]`).check({ force: true });
+          }
+          await page.locator('[data-compass-next]').click();
+        }
+        await page.locator('[data-compass-results]:not([hidden])').waitFor({ state: 'visible' });
+        const resultRows = await page.locator('.fc-result-row').count();
+        // Every row carries the answers behind it and the figures placed on it; a scored
+        // run also names the closest figures, each with the passages behind it.
+        const disclosures = page.locator('.fc-result-basis, .fc-evidence-disclosure, .fc-figures-axis, .fc-figure__sources, .fc-figures__more');
+        const basisCount = await page.locator('.fc-result-basis').count();
+        const evidenceDisclosureCount = await page.locator('.fc-evidence-disclosure').count();
+        const figureCards = await page.locator('.fc-figure').count();
+        const noScoreRows = await page.locator('.fc-result-meta').filter({ hasText: 'No scored answers' }).count();
+        const meters = await page.locator('.fc-meter').count();
+        const expectsNoScore = QUIZ_RESULTS_EMPTY || QUIZ_RESULTS_UNKNOWN;
+        if (resultRows !== 12 || basisCount !== 12 || (expectsNoScore && (noScoreRows !== 12 || meters !== 0 || figureCards !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12 || figureCards === 0))) {
+          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${basisCount} answer lists, ${evidenceDisclosureCount} evidence disclosures, ${figureCards} figure cards, ${noScoreRows} without scores, ${meters} meters`);
+        }
+        await disclosures.evaluateAll((elements) => elements.forEach((element) => { element.open = true; }));
+        await settle(page);
+      }
     } catch (error) {
       // Printed, and counted. A swallowed error here is how a run reports
       // "0 contrast failures" having measured nothing at all — which is the

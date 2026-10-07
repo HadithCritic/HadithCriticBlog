@@ -1,6 +1,6 @@
 # Research graph pipeline
 
-Builds `src/data/research-graph.json`, the data behind `/research/`.
+Builds `src/data/research-graph.json`, the data behind `/projects/islamic-studies-atlas/`.
 
 ## Final stage (reproducible)
 

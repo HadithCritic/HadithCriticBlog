@@ -1,0 +1,46 @@
+---
+import '../styles/research-platform.css';
+
+/**
+ * The shared masthead for the six research projects.
+ *
+ * Shared: the engraved ground, the type, the ornament rule, the register bar
+ * at the foot. Not shared: the `signature` slot, where each project sets out
+ * one instrument drawn from its own data (a catalogue card, a century
+ * histogram, the readers' legend, a verse, a decade timeline, the family mix).
+ * That is what tells a corpus from a register from a reader at a glance; the
+ * shell only keeps them recognisably one house.
+ */
+interface Props {
+  artwork: string;
+  title: string;
+  titleId: string;
+  kicker: string;
+  /** The discipline's Arabic name, set after the English title. */
+  arabic?: string;
+  /** Selects the per-project layout in research-platform.css. */
+  variant: 'corpus' | 'register' | 'readings' | 'reader' | 'atlas' | 'icma';
+}
+const { artwork, title, titleId, kicker, arabic, variant } = Astro.props;
+const hasActions = Astro.slots.has('actions');
+const hasStats = Astro.slots.has('stats');
+---
+<header class={`rp-hero rp-hero--${variant} hc-plate`} aria-labelledby={titleId}>
+  <img class="rp-hero__art" src={`/images/platform/${artwork}.webp`} srcset={`/images/platform/${artwork}-1086.webp 1086w, /images/platform/${artwork}.webp 2172w`} sizes="(max-width:640px) 100vw, 65vw" width="2172" height="724" alt="" fetchpriority="high" />
+  <div class="hc-container rp-hero__inner">
+    <div class="rp-hero__copy">
+      <p class="rp-kicker">{kicker}</p>
+      <h1 id={titleId}>{title}</h1>
+      {arabic && <p class="rp-hero__ar" lang="ar" dir="rtl">{arabic}</p>}
+      <span class="hc-ornament rp-hero__ornament" aria-hidden="true"></span>
+      <div class="rp-hero__lead"><slot /></div>
+      {hasActions && <div class="rp-hero__actions"><slot name="actions" /></div>}
+    </div>
+    <div class="rp-hero__signature"><slot name="signature" /></div>
+  </div>
+  {hasStats && (
+    <div class="rp-hero__footer">
+      <div class="hc-container rp-hero__register"><slot name="stats" /></div>
+    </div>
+  )}
+</header>

@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { OG } from '../../lib/seo';
+import ResearchHero from "../../components/ResearchHero.astro";
 import { getCollection } from 'astro:content';
 import { academicStudies } from '../../data/academic-studies';
 import { FAMILIES, studyFamily, type IcmaFamily } from '../../data/icma-families';
@@ -31,61 +33,35 @@ const HOUSE = { bg: '#17140f', ink: '#f2ebdc', accent: '#e2c38a' };
 const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:${jacket.bg};--j-ink:${jacket.ink};--j-accent:${jacket.accent}`;
 ---
 
-<BaseLayout
-  title="Academic Studies & ICMA Register | HadithCritic Projects"
+<BaseLayout image={OG.icma}
+  title="The ICMA Register | HadithCritic Projects"
   description="A register of isnād-cum-matn studies, each traced to its common link and dated."
 >
-  <div class="studies-page">
-    <header class="hc-masthead" aria-labelledby="studies-title" data-motion="hero">
-      <div class="hc-container hc-masthead__inner">
-        <div>
-          <p class="hc-eyebrow">Academic studies</p>
-          <h1 id="studies-title" class="hc-masthead__title">The ICMA Register</h1>
-          <p class="hc-masthead__lead">
-            Isnād-cum-matn studies that trace a tradition to its common link and date it.
-          </p>
-          <div class="hc-masthead__actions">
+  <div class="studies-page rp-page rp-icma">
+    <ResearchHero artwork="icma" variant="icma" title="The ICMA Register" titleId="studies-title" kicker="Academic studies" arabic="الإسناد والمتن">
+      <p>Isnād-cum-matn studies that trace a tradition to its common link and date it.</p>
+      <div slot="actions">
             <a href="#register" class="hc-btn">Browse the register</a>
-            <a href="/research/" class="hc-back-link hc-back-link--ruled">Hadith Criticism Atlas <span aria-hidden="true">→</span></a>
+            <a href="/projects/islamic-studies-atlas/" class="hc-back-link hc-back-link--ruled">Islamic Studies Atlas <span aria-hidden="true">→</span></a>
           </div>
+      <figure slot="signature" class="rp-families studies-hero__aside">
+        <figcaption class="rp-sig__caption">{studies.length} studies across {sections.length} research families</figcaption>
+        <div class="mix" aria-hidden="true">
+          {sections.map((section) => (
+            <span class="mix__seg" style={`--n:${section.items.length};background:${section.bg}`}></span>
+          ))}
         </div>
-
-        <aside class="hc-instrument" aria-label="The register at a glance">
-          <div class="hc-instrument__well">
-            <dl class="hc-instrument__plate glance">
-              <div class="glance__figure">
-                <dt>ICMA studies</dt>
-                <dd class="hc-instrument__figure">{studies.length}</dd>
-              </div>
-              <div class="glance__figure">
-                <dt>Research families</dt>
-                <dd class="hc-instrument__figure">{sections.length}</dd>
-              </div>
-            </dl>
-
-            <div class="mix" aria-hidden="true">
-              {sections.map((section) => (
-                <span class="mix__seg" style={`--n:${section.items.length};background:${section.bg}`}></span>
-              ))}
-            </div>
-
-            <p class="hc-instrument__cap" id="families-cap">Research families</p>
-            <ol class="jump" aria-labelledby="families-cap">
-              {sections.map((section) => (
-                <li>
-                  <a class="jump__row" href={`#${section.id}`}>
-                    <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
-                    <span class="jump__name">{section.label}</span>
-                    <span class="jump__n">{section.items.length}</span>
-                    <span class="jump__go" aria-hidden="true">→</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </aside>
-      </div>
-    </header>
+        <ul class="rp-families__list">
+          {sections.map((section) => (
+            <li>
+              <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
+              <a href={`#${section.id}`}>{section.label}</a>
+              <span class="rp-families__n">{section.items.length}</span>
+            </li>
+          ))}
+        </ul>
+      </figure>
+    </ResearchHero>
 
     <div class="hc-container dockwrap" id="register">
       <div class="dock" role="search" data-dock hidden>
@@ -135,6 +111,7 @@ const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:$
                     <h3 class="jacket__title"><a class="jacket__link" href={study.href}>{study.title}</a></h3>
                     {study.subtitle && <p class="jacket__sub">{study.subtitle}</p>}
                     <dl class="jacket__facts">
+                      {study.tradition && <div class="jacket__fact--lead"><dt>Tradition studied</dt><dd>{study.tradition}</dd></div>}
                       <div><dt>Common link</dt><dd>{study.commonLink}</dd></div>
                       <div><dt>Dated</dt><dd>{study.dating}</dd></div>
                     </dl>
@@ -290,24 +267,8 @@ const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:$
   .studies-page { min-height: 100vh; background: var(--hc-surface-0); }
   .studies-page [hidden] { display: none !important; }
 
-  /* Masthead instrument: plate figures, a proportional family bar, jump rows */
-  .glance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 1.1rem 0; }
-  .glance__figure { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 0.7rem; margin: 0; padding: 0 1.25rem; }
-  .glance__figure + .glance__figure { border-left: 1px dashed rgba(26, 23, 21, 0.4); }
-  .glance dt { font: 700 0.81rem/1.35 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .glance dd { margin: 0; }
-
-  .mix { display: flex; gap: 3px; margin: 0.9rem 0.4rem 0; }
+  .mix { display: flex; gap: 3px; margin: 0 0 1rem; }
   .mix__seg { flex: var(--n) 1 0; height: 10px; }
-
-  .jump { margin: 0; padding: 0 0.4rem 0.4rem; list-style: none; }
-  .jump li + li { border-top: 1px solid var(--hc-rule-soft); }
-  .jump__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 0.85rem; min-height: 44px; margin-inline: -0.6rem; padding: 0.6rem; color: inherit; text-decoration: none; transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
-  .jump__row:hover { background: rgba(216, 177, 102, 0.08); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
-  .jump__name { color: var(--hc-text-primary); font: 600 1rem/1.35 var(--font-display); letter-spacing: -0.015em; }
-  .jump__n { color: var(--hc-text-tertiary); font: 500 0.95rem var(--font-ui); font-variant-numeric: tabular-nums; }
-  .jump__go { color: var(--hc-gold-dim); transition: transform var(--motion-base) var(--ease-standard), color var(--motion-base) ease; }
-  .jump__row:hover .jump__go { color: var(--hc-gold); transform: translateX(3px); }
   .swatch { flex: none; width: 12px; height: 12px; border-radius: 2px; background: var(--sw); box-shadow: 0 0 0 1px var(--sw-ring); }
 
   /* Dock: search and family filters */
@@ -341,7 +302,7 @@ const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:$
   .sections { display: grid; gap: clamp(3rem, 6vw, 4.5rem); min-width: 0; }
   .sec { scroll-margin-top: 9rem; }
   .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 1.8rem); font-weight: 600; line-height: 1.3; letter-spacing: -0.02em; color: var(--hc-text-primary); }
+  .sec__title { margin: 0; font-family: var(--font-editorial); font-size: clamp(2rem, 3vw, 2.6rem); font-weight: 600; line-height: 1.05; letter-spacing: -0.005em; color: var(--hc-text-primary); }
   .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
   .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
   .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -364,10 +325,11 @@ const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:$
   .jacket__title { margin: 0; font: 600 1.15rem/1.3 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
   .jacket__link { color: inherit; text-decoration: none; }
   .jacket__link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
-  .jacket__sub { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin: 0; color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); font-size: 0.9rem; line-height: 1.5; text-wrap: pretty; }
+  .jacket__sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); font-size: 0.9rem; line-height: 1.5; text-wrap: pretty; }
   .jacket__facts { display: grid; gap: 0.55rem; margin: auto 0 0; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--j-ink) 18%, transparent); }
   .jacket__facts dt { color: var(--j-accent); font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
   .jacket__facts dd { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0.1rem 0 0; font-size: 0.88rem; line-height: 1.4; }
+  .jacket__facts .jacket__fact--lead dd { -webkit-line-clamp: 3; font-size: 0.92rem; }
   .jacket__go { font-size: 1.05rem; letter-spacing: 0; transition: transform 0.25s var(--ease); }
   .jacket:hover .jacket__go, .jacket:focus-within .jacket__go { transform: translateX(3px); }
 

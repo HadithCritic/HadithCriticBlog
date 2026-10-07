@@ -1,0 +1,224 @@
+---
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { OG } from '../../../../lib/seo';
+import transmission from "../../../../data/quran-transmission.json";
+import isnadTranslations from "../../../../data/qiraat-isnad-translations.json";
+import researchNotes from "../../../../data/qiraat-research-notes.json";
+import "../../../../styles/qiraat.css";
+
+type Reader = (typeof transmission.readers)[number];
+type Person = (typeof transmission.persons)[number];
+type Edge = (typeof transmission.edges)[number];
+type LinkEntry = { edge: Edge; person: Person };
+type TranslationEntry = { label: string; locator: string; translation: string; note?: string };
+type ReaderTranslations = { teachers?: TranslationEntry[]; students?: TranslationEntry[] };
+
+const pageLabel = (edge: Edge) => {
+  const witness = edge.witnesses[0];
+  return `${witness.volume ? `vol. ${witness.volume}, ` : ""}p. ${witness.page}`;
+};
+
+export function getStaticPaths() {
+  const personById = new Map(transmission.persons.map((person) => [person.id, person]));
+  const sevenIds = new Set(["nafi", "ibn_kathir", "abu_amr", "ibn_amir", "asim", "hamza", "kisai"]);
+  return transmission.readers.map((reader, index) => {
+    const teachers = transmission.edges
+      .filter((edge) => edge.student === reader.id)
+      .map((edge) => ({ edge, person: personById.get(edge.teacher)! }));
+    const students = transmission.edges
+      .filter((edge) => edge.teacher === reader.id)
+      .map((edge) => ({ edge, person: personById.get(edge.student)! }));
+    return {
+      params: { id: reader.id },
+      props: {
+        reader,
+        person: personById.get(reader.id)!,
+        readerGroup: sevenIds.has(reader.id) ? "One of Ibn Mujāhid’s seven" : "One of three additional readers",
+        teachers,
+        students,
+        previous: transmission.readers[index - 1] ?? null,
+        next: transmission.readers[index + 1] ?? null,
+      },
+    };
+  });
+}
+
+const { reader, person, readerGroup, teachers, students, previous, next } = Astro.props as {
+  reader: Reader;
+  person: Person;
+  readerGroup: string;
+  teachers: LinkEntry[];
+  students: LinkEntry[];
+  previous: Reader | null;
+  next: Reader | null;
+};
+const riwayat = reader.riwayat.map((id) => transmission.persons.find((entry) => entry.id === id)!);
+const citation = `${transmission.source.author}, ${transmission.source.title}`;
+const readerResearchNotes = researchNotes.notes.filter((note) => note.readerId === reader.id);
+const readerTranslations = isnadTranslations.readers[reader.id as keyof typeof isnadTranslations.readers] as ReaderTranslations | undefined;
+const teacherTranslations = readerTranslations?.teachers ?? [];
+const studentTranslations = readerTranslations?.students ?? [];
+---
+
+<BaseLayout image={OG.quran}
+  title={`${reader.display} | Quran | HadithCritic Projects`}
+  description={`The teachers and students named for ${reader.display} in Ibn al-Jazarī’s cited account of Qurʾānic reading transmission.`}
+>
+  <div class={`rp q-${reader.id}`}>
+    <header class="hc-masthead" aria-labelledby="rp-title">
+      <div class="hc-container hc-masthead__inner">
+        <div>
+          <p class="rp__category">{readerGroup}</p>
+          <h1 id="rp-title" class="hc-masthead__title">{reader.display} <span class="rp__ar hc-quran" lang="ar">{person.ar_full}</span></h1>
+          <p class="hc-masthead__lead">
+            The transmission index names these teachers and students for {reader.display}, with each link tied to a page in {citation}.
+            The excerpts below show what the cited page says; they are not an assessment of the reading.
+          </p>
+          <div class="hc-masthead__actions">
+            <a class="hc-btn" href="/projects/quran/transmission/">View the transmission index <span aria-hidden="true">→</span></a>
+            <a class="hc-btn hc-btn--ghost" href="/projects/quran/">Compare the readings</a>
+          </div>
+        </div>
+
+        <aside class="hc-instrument" aria-label={`${reader.display} at a glance`}>
+          <div class="hc-instrument__well">
+            <div class="hc-instrument__plate rp__plate">
+              <p class="rp__label">The two transmitted riwāyāt</p>
+              <ul class="rp__riwayat">
+                {riwayat.map((entry, index) => (
+                  <li class={`shade-${index}`}><span>{entry.latin}</span><span lang="ar" class="rp__ar">{entry.ar_full}</span></li>
+                ))}
+              </ul>
+            </div>
+            <p class="hc-instrument__cap">The project groups two transmitters under each reader.</p>
+          </div>
+        </aside>
+      </div>
+    </header>
+
+    <main class="hc-container rp__body">
+      <p class="rp__source-note">An arrow runs from the teacher to the person who read under them. The English entries preserve the distinction between “read under” and “transmitted”; cumulative teacher entries are translated in full.</p>
+
+      {readerResearchNotes.length > 0 && (
+        <section class="rp__section rp__research" aria-labelledby="research-title">
+          <header class="rp__section-head">
+            <h2 id="research-title">Research notes</h2>
+            <span aria-hidden="true"></span>
+            <b>{readerResearchNotes.length}</b>
+          </header>
+          <p class="rp__research-intro">These notes summarize modern scholarship in its own terms. They are separate from the transmission links above and from the project’s verse-level reading data.</p>
+          <ol class="rp__research-list">
+            {readerResearchNotes.map((note) => {
+              const source = researchNotes.sources[note.sourceId as keyof typeof researchNotes.sources];
+              return (
+                <li class="rp__research-card">
+                  <p class="rp__research-entity">{note.entity}</p>
+                  <p class="rp__research-summary">{note.summary}</p>
+                  <p class="rp__research-scope">Scope: {note.scope}</p>
+                  <p class="rp__citation">
+                    {source.author}, <cite>{source.title}</cite>{source.year ? ` (${source.year})` : ""}, {note.locator}.
+                    {"publication" in source && <> {source.publication}.</>}
+                    {"doi" in source && <> <a href={source.doi} target="_blank" rel="noopener noreferrer">DOI <span aria-hidden="true">↗</span></a></>}
+                  </p>
+                  <p class="rp__research-access">{source.access}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      <section class="rp__section" aria-labelledby="teachers-title">
+        <header class="rp__section-head">
+          <h2 id="teachers-title">Teachers named in the index</h2>
+          <span aria-hidden="true"></span>
+          <b>{teachers.length}</b>
+        </header>
+        {teachers.length ? (
+          <ol class="rp__links">
+            {teachers.map(({ edge, person: teacher }, index) => {
+              const translated = teacherTranslations[index];
+              return (
+                <li class="rp__link">
+                  <p class="rp__relation"><span>{teacher.latin}</span><span aria-hidden="true">→</span><b>{reader.display}</b></p>
+                  <blockquote>{translated ? translated.translation.split(/(\*[^*]+\*)/g).map((part, partIndex) => partIndex % 2 === 1 ? <em>{part.slice(1, -1)}</em> : part) : <span lang="ar" dir="rtl">{edge.witnesses[0].quote}</span>}</blockquote>
+                  <p class="rp__citation">{citation}, {translated?.locator ?? pageLabel(edge)}</p>
+                  {translated?.note && <p class="rp__note"><b>Translation note:</b> {translated.note.split(/(\*[^*]+\*)/g).map((part, partIndex) => partIndex % 2 === 1 ? <em>{part.slice(1, -1)}</em> : part)}</p>}
+                  {edge.witnesses[0].note && <p class="rp__note"><b>Index note:</b> {edge.witnesses[0].note}</p>}
+                </li>
+              );
+            })}
+          </ol>
+        ) : <p class="rp__empty">No teacher link for this reader is listed in the current extraction.</p>}
+      </section>
+
+      <section class="rp__section" aria-labelledby="students-title">
+        <header class="rp__section-head">
+          <h2 id="students-title">Students named in the index</h2>
+          <span aria-hidden="true"></span>
+          <b>{students.length}</b>
+        </header>
+        {students.length ? (
+          <ol class="rp__links">
+            {students.map(({ edge, person: student }, index) => {
+              const translated = studentTranslations[index];
+              return (
+                <li class="rp__link">
+                  <p class="rp__relation"><b>{reader.display}</b><span aria-hidden="true">→</span><span>{student.latin}</span></p>
+                  <blockquote>{translated ? translated.translation.split(/(\*[^*]+\*)/g).map((part, partIndex) => partIndex % 2 === 1 ? <em>{part.slice(1, -1)}</em> : part) : <span lang="ar" dir="rtl">{edge.witnesses[0].quote}</span>}</blockquote>
+                  <p class="rp__citation">{citation}, {translated?.locator ?? pageLabel(edge)}</p>
+                  {translated?.note && <p class="rp__note"><b>Translation note:</b> {translated.note.split(/(\*[^*]+\*)/g).map((part, partIndex) => partIndex % 2 === 1 ? <em>{part.slice(1, -1)}</em> : part)}</p>}
+                  {edge.witnesses[0].note && <p class="rp__note"><b>Index note:</b> {edge.witnesses[0].note}</p>}
+                </li>
+              );
+            })}
+          </ol>
+        ) : <p class="rp__empty">No student link for this reader is listed in the current extraction.</p>}
+      </section>
+
+      <nav class="rp__pager" aria-label="Other readers">
+        {previous ? <a href={`/projects/quran/readers/${previous.id}/`}><span aria-hidden="true">←</span> {previous.display}</a> : <span></span>}
+        <a href="/projects/quran/#readers">All ten readers</a>
+        {next ? <a href={`/projects/quran/readers/${next.id}/`}>{next.display} <span aria-hidden="true">→</span></a> : <span></span>}
+      </nav>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .rp__ar { margin-inline-start: 0.45rem; font: 400 0.72em/1.5 var(--font-arabic); }
+  .rp__category { margin: 1rem 0 0.4rem; color: var(--hc-gold); font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.08em; }
+  .rp__body { padding-block: 2.5rem clamp(4rem, 9vw, 7rem); }
+  .rp__source-note { max-width: 74ch; margin: 0 0 2rem; color: var(--hc-text-secondary); line-height: 1.7; }
+  .rp__research-intro { max-width: 78ch; margin: -0.3rem 0 1.25rem; color: var(--hc-text-secondary); line-height: 1.7; }
+  .rp__research-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .rp__research-card { padding: 1rem 1.15rem 1.1rem; border: 1px solid var(--hc-rule-soft); background: var(--hc-surface-1); }
+  .rp__research-entity { margin: 0 0 0.6rem; color: var(--hc-gold); font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; }
+  .rp__research-summary { margin: 0; color: var(--hc-text-primary); line-height: 1.7; }
+  .rp__research-scope { margin: 0.6rem 0 0; color: var(--hc-text-secondary); font-size: 0.88rem; line-height: 1.6; }
+  .rp__research-card .rp__citation { margin-top: 0.8rem; }
+  .rp__research-card .rp__citation a { color: var(--hc-gold); text-decoration: underline; text-underline-offset: 0.18em; }
+  .rp__research-access { margin: 0.25rem 0 0; color: var(--hc-text-tertiary); font-size: 0.8rem; line-height: 1.5; }
+  .rp__section { padding-top: clamp(2rem, 4vw, 3.25rem); scroll-margin-top: 6rem; }
+  .rp__section-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+  .rp__section-head h2 { margin: 0; color: var(--hc-text-primary); font: 600 clamp(1.3rem, 2.8vw, 1.7rem)/1.3 var(--font-display); }
+  .rp__section-head > span { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
+  .rp__section-head b { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
+  .rp__links { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .rp__link { padding: 1rem 1.15rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-inline-start: 3px solid var(--d-bg); background: var(--hc-surface-1); }
+  .rp__relation { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.65rem; margin: 0 0 0.75rem; color: var(--hc-text-primary); font: 600 1rem/1.4 var(--font-display); }
+  .rp__relation b { color: var(--hc-gold); }
+  .rp__link blockquote { margin: 0; color: var(--hc-text-primary); font: 400 1rem/1.7 var(--font-ui); }
+  .rp__citation { margin: 0.65rem 0 0; color: var(--hc-text-secondary); font: 500 0.85rem/1.5 var(--font-ui); }
+  .rp__note { max-width: 75ch; margin: 0.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.88rem; line-height: 1.6; }
+  .rp__empty { color: var(--hc-text-secondary); }
+  .rp__plate { padding: 1.2rem; }
+  .rp__label { margin: 0 0 0.9rem; font: 700 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .rp__riwayat { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .rp__riwayat li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0.8rem; background: var(--bg); color: var(--ink); font: 600 1rem/1.4 var(--font-display); }
+  .rp__riwayat .rp__ar { margin: 0; font-size: 1.2rem; }
+  .rp__pager { display: flex; justify-content: space-between; gap: 1rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--hc-rule-soft); }
+  .rp__pager a { display: inline-flex; align-items: center; gap: 0.45rem; min-height: 44px; color: var(--hc-gold); font: 600 0.9rem/1.4 var(--font-ui); text-decoration: none; }
+  .rp__pager a:hover { color: var(--hc-gold-bright); }
+  @media (max-width: 640px) { .rp__pager { flex-wrap: wrap; } .rp__pager a:nth-child(2) { order: -1; width: 100%; } }
+</style>

@@ -1,10 +1,14 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { OG } from "../lib/seo";
 import youtubeMeta from "../data/youtube-meta.json";
+import "../styles/house.css";
+import "../styles/youtube.css";
 
-/* ───────────────────────────────────────────────
-   DATA: Channel metadata + video catalogue
-   ──────────────────────────────────────────── */
+/* The HadithCritic channel: what it publishes, the video now showing, and the
+   catalogue by subject. Titles and descriptions below are the channel's; the
+   counts, dates, durations and views come from the YouTube Data API snapshot
+   in src/data/youtube-meta.json (refresh with `npm run sync:youtube`). */
 
 interface Video {
   id: string;
@@ -13,31 +17,32 @@ interface Video {
   category: CategoryKey;
   description: string;
   duration?: string;
+  seconds?: number;
   views?: string;
   date?: string;
+  dateISO?: string;
 }
 
-/* Every subject shares the one gold accent. The site's colored category hues
-   belong to the article taxonomy, and seven hues would carry no meaning here. */
-const CATEGORY_COLOR = "var(--hc-gold)";
-
 /* Subjects come from reading the transcripts of all 38 films, not from titles.
-   Each film sits under the subject it spends most of its time on. */
+   Each film sits under the subject it spends most of its time on. Every
+   subject shares the one gold mark: the coloured hues belong to the article
+   branches, and seven more would carry no meaning here. */
 const categories = [
-  { key: "end-times", label: "Prophecy and End Times", color: CATEGORY_COLOR },
-  { key: "prophet-life", label: "Life of the Prophet", color: CATEGORY_COLOR },
-  { key: "law-power", label: "Law, Gender and Power", color: CATEGORY_COLOR },
-  { key: "narrators", label: "Narrators and Grading", color: CATEGORY_COLOR },
-  { key: "certainty", label: "Certainty and Evidence", color: CATEGORY_COLOR },
-  { key: "jurists", label: "Jurists and Legal Authority", color: CATEGORY_COLOR },
-  { key: "quran-creed", label: "Quran and Creed", color: CATEGORY_COLOR },
+  { key: "end-times", label: "Prophecy and End Times" },
+  { key: "prophet-life", label: "Life of the Prophet" },
+  { key: "law-power", label: "Law, Gender and Power" },
+  { key: "narrators", label: "Narrators and Grading" },
+  { key: "certainty", label: "Certainty and Evidence" },
+  { key: "jurists", label: "Jurists and Legal Authority" },
+  { key: "quran-creed", label: "Quran and Creed" },
 ] as const;
 
 type CategoryKey = (typeof categories)[number]["key"];
 
 const FEATURED_ID = "HWHjCfaPn_0";
+const CHANNEL_URL = "https://www.youtube.com/@HadithCritic";
 
-const catalogue: Omit<Video, "duration" | "views" | "date">[] = [
+const catalogue: Omit<Video, "duration" | "seconds" | "views" | "date" | "dateISO">[] = [
   {
     id: "6bpJBji3E0M",
     title: "What Does the Quran Say Happened to Jesus?",
@@ -344,8 +349,6 @@ const catalogue: Omit<Video, "duration" | "views" | "date">[] = [
   },
 ];
 
-/* Subscribers, views, dates and durations come from the YouTube Data API
-   snapshot. Refresh it with `npm run sync:youtube`. */
 const liveById = new Map(youtubeMeta.videos.map((video) => [video.id, video]));
 
 const formatCount = (value: number, decimals = 1): string => {
@@ -365,55 +368,6 @@ const formatClock = (totalSeconds: number): string => {
 const formatMonth = (iso: string): string =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 
-const videos: Video[] = catalogue.map((entry) => {
-  const live = liveById.get(entry.id);
-  return live
-    ? {
-        ...entry,
-        duration: formatClock(live.durationSeconds),
-        views: formatCount(live.views),
-        date: formatMonth(live.publishedAt),
-      }
-    : entry;
-});
-
-const featuredVideo = videos.find((video) => video.id === FEATURED_ID) ?? videos[0];
-
-const channelMeta = {
-  name: "HadithCritic",
-  handle: youtubeMeta.channel.handle,
-  tagline: "Where evidence dismantles dogma.",
-  subscribers: formatCount(youtubeMeta.channel.subscribers, 2),
-  views: formatCount(youtubeMeta.channel.views),
-  description:
-    "Rigorous video essays dismantling hadith methodology, exposing fabricated prophecies, and recovering the Quran's epistemological framework through historical source criticism.",
-  avatar: "/images/brand/hc-logo-transparent-512.png",
-  banner: "/images/YTbanner.png",
-};
-
-const categoryByKey = Object.fromEntries(
-  categories.map((category) => [category.key, category]),
-) as Record<CategoryKey, (typeof categories)[number]>;
-
-function getVideoDescription(video: Video) {
-  return video.description;
-}
-
-function getCategory(category: CategoryKey) {
-  return categoryByKey[category] ?? categories[0];
-}
-
-const categoryCounts = categories.reduce(
-  (acc, cat) => {
-    acc[cat.key] = videos.filter((v) => v.category === cat.key).length;
-    return acc;
-  },
-  {} as Record<string, number>,
-);
-
-const minutesOf = (video: Video): number =>
-  (video.duration ?? "0:0").split(":").reduce((total, part) => total * 60 + Number(part), 0) / 60;
-
 const formatRuntime = (minutes: number): string => {
   const rounded = Math.round(minutes);
   const hours = Math.floor(rounded / 60);
@@ -421,449 +375,262 @@ const formatRuntime = (minutes: number): string => {
   return hours > 0 ? `${hours}h ${String(rest).padStart(2, "0")}m` : `${rest}m`;
 };
 
-const totalRuntimeMinutes = videos.reduce((acc, video) => acc + minutesOf(video), 0);
-const runtimeLabel = formatRuntime(totalRuntimeMinutes);
-
-/* The whole catalogue as one strip: a tick per film, sized by runtime,
-   grouped by field of inquiry. Widths stay exactly proportional, so the
-   hour ruler beneath it is true to scale. */
-let tickIndex = 0;
-const reel = categories.map((category, index) => {
-  const items = videos.filter((video) => video.category === category.key);
-  const minutes = items.reduce((acc, video) => acc + minutesOf(video), 0);
-  return {
-    key: category.key,
-    label: category.label,
-    count: items.length,
-    minutes,
-    runtime: formatRuntime(minutes),
-    opacity: Math.max(0.4, 1 - index * 0.1).toFixed(2),
-    ticks: items.map((video) => ({ minutes: minutesOf(video), index: tickIndex++ })),
-  };
+const videos: Video[] = catalogue.map((entry) => {
+  const live = liveById.get(entry.id);
+  return live
+    ? {
+        ...entry,
+        duration: formatClock(live.durationSeconds),
+        seconds: live.durationSeconds,
+        views: formatCount(live.views),
+        date: formatMonth(live.publishedAt),
+        dateISO: live.publishedAt.slice(0, 10),
+      }
+    : entry;
 });
-const rulerHours = Array.from({ length: Math.floor(totalRuntimeMinutes / 60) + 1 }, (_, hour) => hour).filter(
-  (hour) => hour % 3 === 0,
-);
-const hourStep = (60 / totalRuntimeMinutes) * 100;
+
+const featured = videos.find((video) => video.id === FEATURED_ID) ?? videos[0];
+const labelOf = (key: CategoryKey) => categories.find((category) => category.key === key)?.label ?? "";
+
+/* Grid tiles use the 480px frame, which every upload has; the large poster
+   asks for the full-resolution frame and falls back to it. */
+const frame = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+const poster = (id: string) => `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+
+const subjects = categories
+  .map((category) => {
+    const items = videos.filter((video) => video.category === category.key);
+    const seconds = items.reduce((total, video) => total + (video.seconds ?? 0), 0);
+    return { ...category, count: items.length, runtime: formatRuntime(seconds / 60) };
+  })
+  .filter((subject) => subject.count > 0);
+
+const totalRuntime = formatRuntime(videos.reduce((total, video) => total + (video.seconds ?? 0), 0) / 60);
+const channel = youtubeMeta.channel;
+const fetched = new Date(youtubeMeta.fetchedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const n = (value: number) => value.toLocaleString("en-US");
 ---
 
 <BaseLayout
-  title="YouTube Channel & Video Archive | HadithCritic"
-  description="Systematic video essays, lectures, and historical debates on hadith transmission, isnad forensics, and early Islamic source criticism."
+  image={OG.youtube}
+  title="HadithCritic on YouTube | HadithCritic"
+  description="The HadithCritic YouTube channel: video investigations of hadith reports and their transmission, lectures on the Quran and Islamic law, and recorded debates."
 >
   <Fragment slot="head">
     <link rel="preconnect" href="https://i.ytimg.com" />
-    <link rel="preconnect" href="https://www.youtube.com" />
-    <link rel="preconnect" href="https://img.youtube.com" />
   </Fragment>
 
-  <div class="yt-page" id="yt-page">
-    <div class="yt-progress" id="yt-progress" aria-hidden="true"></div>
-
-    <header class="hc-masthead" id="hero" aria-labelledby="yt-hero-title">
-      <div class="hc-container hc-masthead__inner">
-        <div>
-          <p class="hc-eyebrow">Broadcast archive</p>
-          <h1 id="yt-hero-title" class="hc-masthead__title">Evidence-led forensics for hadith literature</h1>
-          <p class="hc-masthead__lead">{channelMeta.description}</p>
-
-          <div class="hc-masthead__actions">
-            <a
-              href="https://www.youtube.com/@HadithCritic?sub_confirmation=1"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="hc-btn yt-btn yt-btn--primary"
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
-                <path d="M23.5 6.19a3 3 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3 3 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3 3 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3 3 0 0 0 2.12-2.14c.5-1.88.5-5.81.5-5.81s0-3.93-.5-5.81ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z"></path>
-              </svg>
-              <span>Subscribe on YouTube</span>
+  <div class="hc-page hc-plate yt-page" id="yt-page">
+    <!-- Channel masthead -->
+    <header class="hc-hero yt-hero" aria-labelledby="yt-title">
+      <img
+        class="hc-hero__art yt-hero__art"
+        src="/images/editorial/youtube-channel.webp"
+        srcset="/images/editorial/youtube-channel-520.webp 520w, /images/editorial/youtube-channel.webp 772w"
+        sizes="(max-width: 720px) 100vw, 48vw"
+        width="772"
+        height="720"
+        alt=""
+        fetchpriority="high"
+      />
+      <div class="hc-container hc-hero__inner">
+        <div class="hc-hero__copy">
+          <p class="hc-hero__kicker">YouTube</p>
+          <h1 id="yt-title" class="hc-hero__title">HadithCritic <span>on YouTube</span></h1>
+          <span class="hc-ornament hc-hero__ornament" aria-hidden="true"></span>
+          <p class="hc-hero__lede">
+            The HadithCritic channel: video investigations of hadith reports and their transmission,
+            lectures on the Quran and Islamic law, and recorded debates.
+          </p>
+          <p class="yt-channel">
+            <img src="/images/brand/geometric-emblem-96.webp" alt="" width="40" height="40" />
+            <span class="yt-channel__name">
+              <a href={CHANNEL_URL} target="_blank" rel="noopener noreferrer">{channel.handle}<span class="sr-only"> (opens in a new tab)</span></a>
+              <span class="hc-meta">
+                <span>{n(channel.subscribers)} subscribers</span>
+                <span>{n(channel.videos)} videos</span>
+                <span>{n(channel.views)} views</span>
+              </span>
+            </span>
+          </p>
+          <div class="hc-hero__actions">
+            <a href={`${CHANNEL_URL}?sub_confirmation=1`} target="_blank" rel="noopener noreferrer" class="hc-btn">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M23.5 6.19a3 3 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3 3 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3 3 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3 3 0 0 0 2.12-2.14c.5-1.88.5-5.81.5-5.81s0-3.93-.5-5.81ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z"></path></svg>
+              <span>Subscribe on YouTube</span><span class="sr-only"> (opens in a new tab)</span>
             </a>
-            <a href="#featured" class="hc-btn hc-btn--ghost yt-btn">Enter the screening room</a>
+            <a href="#archive" class="hc-btn hc-btn--ghost">Browse the videos</a>
           </div>
         </div>
-
-        <aside class="hc-instrument yt-reel" aria-label="Video catalogue at a glance">
-          <div class="hc-instrument__well">
-            <div class="hc-instrument__plate yt-reel__plate">
-              <span class="hc-instrument__figure">{runtimeLabel}</span>
-              <span class="hc-instrument__note yt-reel__note">of recorded argument<br />across {videos.length} films</span>
-            </div>
-
-            <p class="hc-instrument__cap">Runtime by subject</p>
-            <div class="yt-reel__strip" aria-hidden="true">
-              {reel.map((group) => (
-                <span class="yt-reel__group" style={`--n:${group.minutes.toFixed(2)};--o:${group.opacity}`}>
-                  {group.ticks.map((tick) => (
-                    <i class="yt-reel__tick hc-hatch" style={`--n:${tick.minutes.toFixed(2)};--i:${tick.index}`}></i>
-                  ))}
-                </span>
-              ))}
-            </div>
-            <div class="yt-reel__ruler" style={`--hour:${hourStep.toFixed(4)}%`} aria-hidden="true">
-              {rulerHours.map((hour) => (
-                <span class="yt-reel__mark" style={`left:${(hour * hourStep).toFixed(3)}%`}>{hour}h</span>
-              ))}
-            </div>
-
-            <ul class="yt-reel__rows">
-              {reel.map((group) => (
-                <li style={`--o:${group.opacity}`}>
-                  <span class="yt-reel__dot" aria-hidden="true"></span>
-                  <span class="yt-reel__name">{group.label}</span>
-                  <span class="yt-reel__count">{group.count} {group.count === 1 ? 'film' : 'films'}</span>
-                  <span class="yt-reel__run">{group.count === 0 ? 'none' : group.runtime}</span>
-                </li>
-              ))}
-            </ul>
-
-            <p class="yt-reel__channel">
-              <span class="yt-reel__handle">{channelMeta.handle}</span>
-              <span class="yt-reel__subs">{channelMeta.subscribers} subscribers, {channelMeta.views} views</span>
-            </p>
-          </div>
-        </aside>
+      </div>
+      <div class="hc-hero__register">
+        <div class="hc-container">
+          <span><strong>{videos.length}</strong> videos catalogued here</span>
+          <span><strong>{totalRuntime}</strong> of video</span>
+          <span><strong>{subjects.length}</strong> subjects</span>
+          <span class="yt-hero__asof">Channel figures from YouTube, {fetched}</span>
+        </div>
       </div>
     </header>
 
-    <!-- ═══════════════════════════════════════════
-         FEATURED THEATER / SCREENING ROOM
-         ═══════════════════════════════════════════ -->
-    <section class="yt-featured" id="featured" aria-label="Featured video theater">
-      <div class="hc-container">
-        <div class="yt-section-head">
-          <p class="hc-eyebrow">§ I — Screening Room</p>
-          <h2>Now Playing in the Theater</h2>
-          <p>
-            Stream the featured monograph below, or select any record from the archive ledger to load it instantly into the player.
-          </p>
+    <!-- Now showing: one player; any video in the catalogue can be loaded into it. -->
+    <section class="hc-band hc-band--soft yt-showing" id="featured" aria-labelledby="featured-title">
+      <div class="hc-container yt-theater">
+        <div class="yt-player" id="yt-player" data-video-id={featured.id}>
+          <a class="yt-player__poster" id="yt-poster" href={`https://www.youtube.com/watch?v=${featured.id}`} target="_blank" rel="noopener noreferrer">
+            <img
+              id="yt-poster-img"
+              src={poster(featured.id)}
+              alt=""
+              width="1280"
+              height="720"
+              loading="eager"
+              decoding="async"
+              onerror={`this.onerror=null;this.src='${frame(featured.id)}'`}
+            />
+            <span class="yt-play" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+            </span>
+            <span class="yt-player__duration" id="yt-player-duration">{featured.duration}</span>
+            <span class="sr-only" id="yt-poster-label">Play {featured.title} on YouTube</span>
+          </a>
+          <div class="yt-player__embed" id="yt-embed"></div>
         </div>
 
-        <div class="yt-theater">
-          <!-- Theater Player -->
-          <div class="yt-player" id="yt-player" data-video-id={featuredVideo.id}>
-            <div class="yt-player__frame" aria-hidden="true"></div>
-            <div class="yt-player__poster" id="yt-poster">
-              <img
-                id="yt-poster-img"
-                src={featuredVideo.thumbnail}
-                alt={`Thumbnail: ${featuredVideo.title}`}
-                width="1280"
-                height="720"
-                loading="eager"
-              />
-              <div class="yt-player__shade" aria-hidden="true"></div>
-              <button
-                class="yt-player__play"
-                id="yt-play"
-                type="button"
-                aria-label={`Play ${featuredVideo.title}`}
-              >
-                <span class="yt-player__pulse" aria-hidden="true"></span>
-                <span class="yt-player__icon">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="26" height="26" aria-hidden="true">
-                    <path d="M8 5v14l11-7z"></path>
-                  </svg>
-                </span>
-              </button>
-              <span class="yt-player__duration" id="yt-player-duration">{featuredVideo.duration}</span>
-            </div>
-            <div class="yt-player__embed" id="yt-embed" aria-live="polite"></div>
+        <div class="yt-dossier">
+          <p class="yt-dossier__label">Now showing</p>
+          <p class="yt-dossier__subject"><span class="hc-cat" id="featured-subject">{labelOf(featured.category)}</span></p>
+          <h2 id="featured-title" class="yt-dossier__title">{featured.title}</h2>
+          <p id="featured-description" class="yt-dossier__desc">{featured.description}</p>
+          <dl class="yt-dossier__facts">
+            <div><dt>Published</dt><dd id="featured-date">{featured.date}</dd></div>
+            <div><dt>Length</dt><dd id="featured-duration">{featured.duration}</dd></div>
+            <div><dt>Views</dt><dd id="featured-views">{featured.views}</dd></div>
+          </dl>
+          <div class="yt-dossier__actions">
+            <button type="button" class="hc-btn" id="featured-play" data-js-only hidden>
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+              <span>Play here</span>
+            </button>
+            <a id="featured-link" href={`https://www.youtube.com/watch?v=${featured.id}`} target="_blank" rel="noopener noreferrer" class="hc-btn hc-btn--ghost">
+              Watch on YouTube <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span>
+            </a>
           </div>
-
-          <!-- Theater Dossier -->
-          <aside class="yt-theater__meta" aria-label="Featured video dossier">
-            <p class="yt-dossier-label">Featured Dossier</p>
-
-            <div class="yt-theater__badge-row">
-              <span
-                class="yt-cat-badge"
-                id="featured-chip"
-                style={`--chip-color: ${getCategory(featuredVideo.category).color};`}
-              >
-                <span class="yt-cat-badge__dot" aria-hidden="true"></span>
-                <span id="featured-chip-label">{getCategory(featuredVideo.category).label}</span>
-              </span>
-              <span class="yt-theater__duration-badge" id="featured-duration-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <polyline points="12 6 12 12 16 14"></polyline>
-                </svg>
-                <span id="featured-duration-text">{featuredVideo.duration}</span>
-              </span>
-            </div>
-
-            <h3 id="featured-title" class="yt-theater__title">{featuredVideo.title}</h3>
-            <p id="featured-description" class="yt-theater__desc">
-              {getVideoDescription(featuredVideo)}
-            </p>
-
-            <div class="yt-theater__ledger">
-              <div class="yt-ledger-row">
-                <span class="yt-ledger-key">Published</span>
-                <strong class="yt-ledger-val" id="featured-date">{featuredVideo.date}</strong>
-              </div>
-              <div class="yt-ledger-row">
-                <span class="yt-ledger-key">Format</span>
-                <strong class="yt-ledger-val">Video Monograph</strong>
-              </div>
-              <div class="yt-ledger-row">
-                <span class="yt-ledger-key">Witnesses</span>
-                <strong class="yt-ledger-val" id="featured-views">{featuredVideo.views}</strong>
-              </div>
-            </div>
-
-            <div class="yt-theater__actions">
-              <button type="button" class="hc-btn yt-theater__play-btn" id="featured-theater-play">
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">
-                  <path d="M8 5v14l11-7z"></path>
-                </svg>
-                <span>Play in Theater</span>
-              </button>
-              <a
-                id="featured-link"
-                href={`https://www.youtube.com/watch?v=${featuredVideo.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="hc-btn hc-btn--ghost yt-theater__external-link"
-              >
-                <span>Open on YouTube</span>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M7 17 17 7"></path>
-                  <path d="M8 7h9v9"></path>
-                </svg>
-              </a>
-            </div>
-          </aside>
         </div>
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════
-         SECTION DIVIDER
-         ═══════════════════════════════════════════ -->
-    <div class="yt-divider" aria-hidden="true">
-      <span class="yt-divider__rule"></span>
-      <svg class="yt-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 6v12M6 12h12"></path>
-      </svg>
-      <span class="yt-divider__rule"></span>
-    </div>
+    <!-- The catalogue, by subject -->
+    <section class="hc-band yt-archive" id="archive" aria-labelledby="archive-title">
+      <div class="hc-container yt-archive__grid">
+        <aside class="yt-tools" aria-label="Search and filter the videos">
+          <div class="yt-tools__sticky">
+            <h2 id="archive-title" class="hc-head__title">All <span>videos</span></h2>
+            <p class="hc-head__note">
+              {videos.length} videos, newest first, each filed under the subject it spends most of its time on.
+            </p>
 
-    <!-- ═══════════════════════════════════════════
-         ARCHIVE & SEARCH — the catalogue ledger
-         ═══════════════════════════════════════════ -->
-    <section class="yt-archive" id="archive" aria-label="Video archive">
-      <div class="hc-container">
-        <div class="yt-section-head">
-          <p class="hc-eyebrow">§ II — Catalogue &amp; Forensics</p>
-          <h2>The Video Archive</h2>
-          <p>
-            Thirty-eight documentary investigations, critical lectures, and debate analyses — indexed,
-            searchable, and filed under their field of inquiry.
-          </p>
-        </div>
-
-        <!-- Search & filter controls -->
-        <div class="yt-controls">
-          <div class="yt-search-wrap">
-            <div class="yt-search-box">
-              <svg class="yt-search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input
-                type="search"
-                id="yt-search-input"
-                class="yt-search-input"
-                placeholder="Search the catalogue — titles, figures, debates, cities (e.g. Baghdad, Bukhārī, Crucifixion)…"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" id="yt-search-clear" class="yt-search-clear" aria-label="Clear search query" hidden>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
-                  <path d="M18 6 6 18M6 6l12 12"></path>
-                </svg>
-              </button>
-              <kbd class="yt-search-kbd">⌘K</kbd>
-            </div>
-          </div>
-
-          <div class="yt-filter-bar">
-            <div class="yt-filter-tabs" id="yt-filter-tabs" role="tablist" aria-label="Filter videos by subject">
-              <div class="yt-filter-magnet-pill" aria-hidden="true"></div>
-              <button
-                class="yt-filter-tab is-active"
-                type="button"
-                role="tab"
-                aria-selected="true"
-                data-filter="all"
-              >
-                <span class="yt-filter-tab__dot" aria-hidden="true"></span>
-                <span class="yt-filter-tab__label">Complete Catalogue</span>
-                <span class="yt-filter-tab__count">{videos.length}</span>
-              </button>
-              {categories.map((category) => (
-                <button
-                  class="yt-filter-tab"
-                  type="button"
-                  role="tab"
-                  aria-selected="false"
-                  data-filter={category.key}
-                  data-category={category.key}
-                >
-                  <span class="yt-filter-tab__dot" aria-hidden="true"></span>
-                  <span class="yt-filter-tab__label">{category.label}</span>
-                  <span class="yt-filter-tab__count">{categoryCounts[category.key]}</span>
-                </button>
-              ))}
+            <div class="yt-search" role="search" data-js-only hidden>
+              <label class="sr-only" for="yt-search-input">Search titles and descriptions</label>
+              <div class="hc-field">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input type="search" id="yt-search-input" placeholder="Search titles and descriptions" autocomplete="off" spellcheck="false" />
+                <button type="button" id="yt-search-clear" hidden>Clear</button>
+              </div>
             </div>
 
-            <button type="button" id="yt-reset-btn" class="yt-reset-btn" hidden>
-              <span>Reset Filters</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-                <path d="M18 6 6 18M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
+            <div role="group" aria-label="Filter by subject" id="yt-filter-tabs" class="yt-subjects" data-js-only hidden>
+              <ul class="hc-filters">
+                <li>
+                  <button type="button" class="hc-filter yt-filter" data-filter="all" aria-pressed="true">
+                    <span>All subjects</span><span class="hc-filter__n">{videos.length}</span>
+                  </button>
+                </li>
+                {subjects.map((subject) => (
+                  <li>
+                    <button type="button" class="hc-filter yt-filter" data-filter={subject.key} aria-pressed="false">
+                      <span>{subject.label}</span>
+                      <span class="hc-filter__n">{subject.count}<span class="yt-filter__run"> · {subject.runtime}</span></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-        <!-- Status ledger line -->
-        <div class="yt-status-bar">
-          <div class="yt-status-chip" id="yt-status-chip">
-            <span class="yt-status-dot" aria-hidden="true"></span>
-            <span id="yt-status-text">Filing <strong>{videos.length}</strong> records under complete catalogue</span>
-          </div>
-        </div>
+            <noscript>
+              <ul class="hc-filters yt-subjects-static">
+                {subjects.map((subject) => (
+                  <li class="hc-filter"><span>{subject.label}</span><span class="hc-filter__n">{subject.count}</span></li>
+                ))}
+              </ul>
+            </noscript>
 
-        <!-- Archive grid -->
-        <div class="yt-grid" id="video-grid">
-          {videos.map((video, index) => {
-            const category = getCategory(video.category);
-            const description = getVideoDescription(video);
-            const recordNumber = String(index + 1).padStart(2, "0");
-            return (
-              <article
+            <p class="yt-status" role="status" aria-live="polite">
+              <span id="yt-status-text"><strong>{videos.length}</strong> videos</span>
+              <button type="button" id="yt-reset-btn" class="yt-reset" hidden>Reset</button>
+            </p>
+          </div>
+        </aside>
+
+        <div>
+          <ol class="yt-grid" id="video-grid">
+            {videos.map((video) => (
+              <li
                 class="yt-card"
                 data-category={video.category}
                 data-video-id={video.id}
                 data-title={video.title}
-                data-description={description}
-                data-thumbnail={video.thumbnail}
+                data-description={video.description}
                 data-duration={video.duration}
                 data-date={video.date}
                 data-views={video.views}
-                data-category-label={category.label}
-                data-category-color={category.color}
-                data-search={`${video.title} ${description} ${category.label} ${video.date}`.toLowerCase()}
-                style={`--cat-color: ${category.color};`}
+                data-category-label={labelOf(video.category)}
+                data-search={`${video.title} ${video.description} ${labelOf(video.category)} ${video.date ?? ""}`.toLowerCase()}
               >
-                <div class="yt-card__media">
-                  <img
-                    src={video.thumbnail}
-                    alt={video.title}
-                    width="480"
-                    height="270"
-                    loading="lazy"
-                    class="yt-card__img"
-                  />
-                  <span class="yt-card__rec" aria-hidden="true">№ {recordNumber}</span>
-                </div>
+                <a class="yt-card__link" href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
+                  <span class="yt-card__media">
+                    <img src={frame(video.id)} alt="" width="480" height="360" loading="lazy" decoding="async" />
+                    {video.duration && <span class="yt-card__duration">{video.duration}</span>}
+                  </span>
+                  <span class="yt-card__subject"><span class="hc-cat">{labelOf(video.category)}</span></span>
+                  <span class="yt-card__title">{video.title}</span>
+                  <span class="yt-card__desc">{video.description}</span>
+                  <span class="hc-meta yt-card__meta">
+                    {video.dateISO && <time datetime={video.dateISO}>{video.date}</time>}
+                    {video.views && <span>{video.views} views</span>}
+                  </span>
+                  <span class="sr-only"> (opens on YouTube)</span>
+                </a>
+              </li>
+            ))}
+          </ol>
 
-                <div class="yt-card__body">
-                  <div class="yt-card__header">
-                    <span class="yt-card__cat-pill">
-                      <span class="yt-card__cat-dot" aria-hidden="true"></span>
-                      <span>{category.label}</span>
-                    </span>
-                    <div class="yt-card__record-meta">
-                      <span class="yt-card__duration">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <polyline points="12 6 12 12 16 14"></polyline>
-                        </svg>
-                        <span>{video.duration}</span>
-                      </span>
-                      <time class="yt-card__year">{video.date}</time>
-                    </div>
-                  </div>
-
-                  <h3 class="yt-card__title">{video.title}</h3>
-                  <p class="yt-card__desc">{description}</p>
-
-                  <div class="yt-card__footer">
-                    <span class="yt-card__action">
-                      <span>Screen in theater</span>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M5 12h14"></path>
-                        <path d="m12 5 7 7-7 7"></path>
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  class="yt-card__hit-button"
-                  aria-label={`Stream "${video.title}" in the screening room`}
-                ></button>
-              </article>
-            );
-          })}
-        </div>
-
-        <!-- Empty state -->
-        <div class="yt-empty" id="yt-empty" hidden>
-          <div class="yt-empty__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M12 6v12M6 12h12"></path>
-            </svg>
+          <div class="yt-empty" id="yt-empty" hidden>
+            <h3>No videos found</h3>
+            <p>Nothing in the catalogue matches this search and subject.</p>
+            <button type="button" class="hc-btn hc-btn--ghost" id="yt-empty-reset">Clear search and filters</button>
           </div>
-          <h3>No Records Found</h3>
-          <p>Nothing in the ledger matches the current query or field filter.</p>
-          <button type="button" class="hc-btn yt-empty__reset" id="yt-empty-reset">
-            Reset Filters &amp; View Complete Catalogue
-          </button>
+
+          <p class="yt-more">
+            This page catalogues {videos.length} of the channel's {n(channel.videos)} uploads.
+            <a href={`${CHANNEL_URL}/videos`} target="_blank" rel="noopener noreferrer" class="hc-link">See every upload on YouTube <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+          </p>
         </div>
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════
-         CTA — umber apparatus panel
-         ═══════════════════════════════════════════ -->
-    <section class="yt-cta" id="cta" aria-label="Community discourse call to action">
+    <section class="hc-band yt-closing" aria-labelledby="yt-closing-title">
       <div class="hc-container">
-        <div class="yt-cta__card">
-          <div class="yt-cta__content">
-            <p class="hc-eyebrow">§ III — Direct Research Stream</p>
-            <h2>Subscribe before the next chain collapses.</h2>
-            <p>
-              Receive new video monographs, debate reviews, and isnād diagrams that render complex
-              manuscript transmission into transparent visual proofs.
-            </p>
+        <div class="hc-closing hc-parchment">
+          <figure class="hc-closing__plate" style="--plate-focus: 70% 40%">
+            <img src="/images/editorial/youtube-channel-520.webp" alt="" width="520" height="485" loading="lazy" decoding="async" />
+          </figure>
+          <div class="hc-closing__copy">
+            <h2 id="yt-closing-title" class="hc-closing__title">Subscribe to the channel.</h2>
+            <p class="hc-closing__lead">New investigations, lectures and debates are published on YouTube, where comments and questions on each video are open.</p>
           </div>
-          <div class="yt-cta__buttons">
-            <a
-              href="https://www.youtube.com/@HadithCritic?sub_confirmation=1"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="hc-btn yt-btn yt-btn--primary"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
-                <path d="M23.5 6.19a3 3 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.5A3 3 0 0 0 .5 6.19C0 8.07 0 12 0 12s0 3.93.5 5.81a3 3 0 0 0 2.12 2.14c1.88.5 9.38.5 9.38.5s7.5 0 9.38-.5a3 3 0 0 0 2.12-2.14c.5-1.88.5-5.81.5-5.81s0-3.93-.5-5.81ZM9.55 15.57V8.43L15.82 12l-6.27 3.57Z"></path>
-              </svg>
-              <span>Subscribe on YouTube</span>
-            </a>
-            <a
-              href="https://discord.gg/SubmissionServer"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="hc-btn hc-btn--ghost yt-btn"
-            >
-              <span>Join Discord Discourse</span>
-            </a>
+          <div class="hc-closing__actions">
+            <a href={`${CHANNEL_URL}?sub_confirmation=1`} target="_blank" rel="noopener noreferrer" class="hc-ink-btn">Subscribe on YouTube <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+            <a href="https://discord.gg/SubmissionServer" target="_blank" rel="noopener noreferrer" class="hc-ink-btn hc-ink-btn--ghost">Join the Discord <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
           </div>
         </div>
       </div>
@@ -871,1629 +638,159 @@ const hourStep = (60 / totalRuntimeMinutes) * 100;
   </div>
 </BaseLayout>
 
-<script is:inline>
-  (() => {
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+<script>
+  /* The player and the catalogue filters. Without script every tile and the
+     poster are plain links to the video on YouTube, and the whole catalogue
+     is listed. */
+  function initChannel(): void {
+    const page = document.querySelector<HTMLElement>("#yt-page");
+    if (!page || page.dataset.ready) return;
+    page.dataset.ready = "1";
+    page.querySelectorAll<HTMLElement>("[data-js-only]").forEach((element) => (element.hidden = false));
 
-    /* ── Scroll progress hairline ── */
-    const setupProgress = () => {
-      const progress = document.getElementById("yt-progress");
-      if (!progress) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const player = page.querySelector<HTMLElement>("#yt-player");
+    const posterLink = page.querySelector<HTMLAnchorElement>("#yt-poster");
+    const posterImg = page.querySelector<HTMLImageElement>("#yt-poster-img");
+    const posterLabel = page.querySelector<HTMLElement>("#yt-poster-label");
+    const embed = page.querySelector<HTMLElement>("#yt-embed");
+    const field = (id: string) => page.querySelector<HTMLElement>(`#${id}`);
 
-      let ticking = false;
-
-      const update = () => {
-        const max = document.documentElement.scrollHeight - window.innerHeight || 1;
-        progress.style.transform = `scaleX(${Math.min(window.scrollY / max, 1)})`;
-        ticking = false;
-      };
-
-      window.addEventListener(
-        "scroll",
-        () => {
-          if (ticking) return;
-          ticking = true;
-          requestAnimationFrame(update);
-        },
-        { passive: true },
-      );
-
-      update();
+    const play = (): void => {
+      const id = player?.dataset.videoId;
+      if (!id || !embed || !player) return;
+      const iframe = document.createElement("iframe");
+      iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`;
+      iframe.title = "YouTube video player";
+      iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      iframe.referrerPolicy = "strict-origin-when-cross-origin";
+      iframe.allowFullscreen = true;
+      embed.replaceChildren(iframe);
+      player.classList.add("is-playing");
+      iframe.focus();
     };
 
-    /* ── Theater player ── */
-    const setupPlayer = () => {
-      const player = document.getElementById("yt-player");
-      const poster = document.getElementById("yt-poster");
-      const posterImg = document.getElementById("yt-poster-img");
-      const playBtn = document.getElementById("yt-play");
-      const theaterPlayBtn = document.getElementById("featured-theater-play");
-      const embed = document.getElementById("yt-embed");
-
-      const dossier = {
-        title: document.getElementById("featured-title"),
-        desc: document.getElementById("featured-description"),
-        chip: document.getElementById("featured-chip"),
-        chipLabel: document.getElementById("featured-chip-label"),
-        durationText: document.getElementById("featured-duration-text"),
-        playerDuration: document.getElementById("yt-player-duration"),
-        date: document.getElementById("featured-date"),
-        views: document.getElementById("featured-views"),
-        views: document.getElementById("featured-views"),
-        link: document.getElementById("featured-link"),
-      };
-
-      const stopVideo = () => {
-        if (embed) embed.innerHTML = "";
-        player?.classList.remove("is-playing");
-        if (poster) {
-          poster.hidden = false;
-          poster.style.opacity = "1";
-        }
-      };
-
-      const playVideo = () => {
-        const id = player?.dataset.videoId;
-        if (!id || !embed) return;
-
-        embed.innerHTML =
-          `<iframe src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0&modestbranding=1"` +
-          ` title="YouTube video player"` +
-          ` style="position:absolute;inset:0;width:100%;height:100%;border:0;display:block;"` +
-          ` allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"` +
-          ` referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
-
-        player.classList.add("is-playing");
-        if (poster) {
-          poster.style.opacity = "0";
-          window.setTimeout(() => {
-            poster.hidden = true;
-          }, prefersReduced ? 0 : 260);
-        }
-      };
-
-      const loadFeatured = (card, autoplay) => {
-        if (!card || !player) return;
-        const data = card.dataset;
-
-        player.dataset.videoId = data.videoId;
-        stopVideo();
-
-        if (posterImg) {
-          posterImg.src = data.thumbnail || "";
-          posterImg.alt = `Thumbnail: ${data.title}`;
-        }
-        if (dossier.playerDuration) dossier.playerDuration.textContent = data.duration || "";
-        if (dossier.durationText) dossier.durationText.textContent = data.duration || "";
-        if (dossier.title) dossier.title.textContent = data.title || "";
-        if (dossier.desc) dossier.desc.textContent = data.description || "";
-        if (dossier.chipLabel) dossier.chipLabel.textContent = data.categoryLabel || "";
-        if (dossier.chip) {
-          dossier.chip.style.setProperty("--chip-color", data.categoryColor || "var(--hc-gold)");
-        }
-        if (dossier.date) dossier.date.textContent = data.date || "";
-        if (dossier.views) dossier.views.textContent = data.views || "N/A";
-        if (dossier.link) dossier.link.setAttribute("href", `https://www.youtube.com/watch?v=${data.videoId}`);
-
-        document.getElementById("featured")?.scrollIntoView({
-          behavior: prefersReduced ? "auto" : "smooth",
-          block: "start",
-        });
-
-        if (autoplay) {
-          window.setTimeout(playVideo, prefersReduced ? 50 : 350);
-        }
-      };
-
-      playBtn?.addEventListener("click", playVideo);
-      theaterPlayBtn?.addEventListener("click", playVideo);
-
-      document.getElementById("video-grid")?.addEventListener("click", (event) => {
-        const card = event.target.closest(".yt-card");
-        if (!card) return;
-        loadFeatured(card, true);
-      });
-    };
-
-    /* ── Catalogue search & field filtering ── */
-    const setupFilterAndSearch = () => {
-      const searchInput = document.getElementById("yt-search-input");
-      const searchClear = document.getElementById("yt-search-clear");
-      const filterTabs = document.getElementById("yt-filter-tabs");
-      const magnetPill = filterTabs?.querySelector(".yt-filter-magnet-pill");
-      const resetBtn = document.getElementById("yt-reset-btn");
-      const tabs = Array.from(document.querySelectorAll(".yt-filter-tab"));
-      const cards = Array.from(document.querySelectorAll(".yt-card"));
-      const emptyState = document.getElementById("yt-empty");
-      const emptyReset = document.getElementById("yt-empty-reset");
-      const statusText = document.getElementById("yt-status-text");
-
-      let activeCategory = "all";
-      let activeQuery = "";
-
-      const escapeHtml = (str) =>
-        str
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;");
-
-      /* Pointer spotlight that follows the cursor across each record card. */
-      cards.forEach((card) => {
-        card.addEventListener("mousemove", (e) => {
-          const rect = card.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          card.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
-          card.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
-        });
-      });
-
-      /* Sliding magnet pill tracking the active field tab. */
-      const updateMagnetPill = (tab) => {
-        if (!magnetPill || !filterTabs || !tab) return;
-
-        const containerRect = filterTabs.getBoundingClientRect();
-        const tabRect = tab.getBoundingClientRect();
-        const activeBg = getComputedStyle(tab).getPropertyValue("--tab-active-bg").trim() || "var(--hc-gold)";
-
-        magnetPill.style.transform = `translate(${tabRect.left - containerRect.left}px, ${tabRect.top - containerRect.top}px)`;
-        magnetPill.style.width = `${tabRect.width}px`;
-        magnetPill.style.height = `${tabRect.height}px`;
-        magnetPill.style.backgroundColor = activeBg;
-        magnetPill.style.boxShadow = `0 2px 14px color-mix(in srgb, ${activeBg} 40%, transparent)`;
-        magnetPill.style.opacity = "1";
-      };
-
-      if (filterTabs && magnetPill) {
-        filterTabs.setAttribute("data-magnet-ready", "true");
-
-        const initialTab = filterTabs.querySelector(".yt-filter-tab.is-active");
-        if (initialTab) updateMagnetPill(initialTab);
-
-        window.addEventListener(
-          "resize",
-          () => {
-            const active = filterTabs.querySelector(".yt-filter-tab.is-active");
-            if (active) updateMagnetPill(active);
-          },
-          { passive: true },
-        );
+    const load = (card: HTMLElement, autoplay: boolean): void => {
+      if (!player) return;
+      const data = card.dataset;
+      const id = data.videoId ?? "";
+      player.dataset.videoId = id;
+      player.classList.remove("is-playing");
+      embed?.replaceChildren();
+      if (posterImg) {
+        posterImg.onerror = () => {
+          posterImg.onerror = null;
+          posterImg.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+        };
+        posterImg.src = `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
       }
-
-      const applyFilters = () => {
-        let visibleCount = 0;
-
-        cards.forEach((card) => {
-          const matchesCategory = activeCategory === "all" || card.dataset.category === activeCategory;
-          const matchesQuery = !activeQuery || (card.dataset.search || "").includes(activeQuery);
-          const show = matchesCategory && matchesQuery;
-
-          card.hidden = !show;
-          if (show) visibleCount += 1;
-        });
-
-        if (emptyState) emptyState.hidden = visibleCount > 0;
-        if (searchClear) searchClear.hidden = activeQuery.length === 0;
-        if (resetBtn) resetBtn.hidden = activeCategory === "all" && activeQuery.length === 0;
-
-        if (statusText) {
-          const noun = visibleCount === 1 ? "record" : "records";
-
-          if (activeQuery) {
-            const fieldStr = activeCategory === "all" ? "" : ` under ${activeCategory}`;
-            statusText.innerHTML =
-              `Filing <strong>${visibleCount}</strong> ${noun} matching "${escapeHtml(activeQuery)}"${fieldStr}`;
-          } else if (activeCategory !== "all") {
-            statusText.innerHTML = `Filing <strong>${visibleCount}</strong> ${noun} under ${activeCategory}`;
-          } else {
-            statusText.innerHTML = `Filing <strong>${visibleCount}</strong> records under complete catalogue`;
-          }
-        }
+      const watch = `https://www.youtube.com/watch?v=${id}`;
+      posterLink?.setAttribute("href", watch);
+      field("featured-link")?.setAttribute("href", watch);
+      if (posterLabel) posterLabel.textContent = `Play ${data.title ?? ""} on YouTube`;
+      const set = (key: string, value = "") => {
+        const element = field(key);
+        if (element) element.textContent = value;
       };
-
-      const setActiveTab = (tab) => {
-        tabs.forEach((t) => {
-          const isTarget = t === tab;
-          t.classList.toggle("is-active", isTarget);
-          t.setAttribute("aria-selected", isTarget ? "true" : "false");
-        });
-
-        activeCategory = tab.dataset.filter || "all";
-        updateMagnetPill(tab);
-        applyFilters();
-      };
-
-      tabs.forEach((tab) => {
-        tab.addEventListener("click", () => setActiveTab(tab));
-      });
-
-      searchInput?.addEventListener("input", (e) => {
-        activeQuery = (e.target.value || "").trim().toLowerCase();
-        applyFilters();
-      });
-
-      const resetSearchAndFilters = () => {
-        if (searchInput) searchInput.value = "";
-        activeQuery = "";
-
-        const allTab = tabs.find((t) => t.dataset.filter === "all") || tabs[0];
-        if (allTab) {
-          setActiveTab(allTab);
-        } else {
-          activeCategory = "all";
-          applyFilters();
-        }
-      };
-
-      searchClear?.addEventListener("click", () => {
-        if (searchInput) {
-          searchInput.value = "";
-          searchInput.focus();
-        }
-        activeQuery = "";
-        applyFilters();
-      });
-
-      resetBtn?.addEventListener("click", resetSearchAndFilters);
-      emptyReset?.addEventListener("click", resetSearchAndFilters);
-
-      /* Deep link: ?category=end-times pre-selects a subject tab. */
-      const urlCategory = new URLSearchParams(window.location.search).get("category");
-      if (urlCategory) {
-        const matchingTab = tabs.find((t) => t.dataset.filter === urlCategory);
-        if (matchingTab) setActiveTab(matchingTab);
-      }
-
-      /* ⌘K / Ctrl+K focuses search; Escape clears and blurs. */
-      window.addEventListener("keydown", (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-          e.preventDefault();
-          searchInput?.focus();
-          searchInput?.select();
-          return;
-        }
-
-        if (e.key === "Escape" && document.activeElement === searchInput && searchInput) {
-          searchInput.value = "";
-          activeQuery = "";
-          applyFilters();
-          searchInput.blur();
-        }
-      });
+      set("featured-title", data.title);
+      set("featured-description", data.description);
+      set("featured-subject", data.categoryLabel);
+      set("featured-date", data.date);
+      set("featured-duration", data.duration);
+      set("featured-views", data.views);
+      set("yt-player-duration", data.duration);
+      field("featured")?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      if (autoplay) window.setTimeout(play, reduced ? 0 : 320);
     };
 
-    const init = () => {
-      setupProgress();
-      setupPlayer();
-      setupFilterAndSearch();
-    };
+    posterLink?.addEventListener("click", (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+      event.preventDefault();
+      play();
+    });
+    field("featured-play")?.addEventListener("click", play);
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init, { once: true });
-    } else {
-      init();
+    const cards = [...page.querySelectorAll<HTMLElement>(".yt-card")];
+    for (const card of cards) {
+      card.querySelector<HTMLAnchorElement>(".yt-card__link")?.addEventListener("click", (event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        load(card, true);
+      });
     }
-  })();
+
+    /* Subject filter and search. */
+    const input = page.querySelector<HTMLInputElement>("#yt-search-input");
+    const clear = page.querySelector<HTMLButtonElement>("#yt-search-clear");
+    const reset = page.querySelector<HTMLButtonElement>("#yt-reset-btn");
+    const empty = page.querySelector<HTMLElement>("#yt-empty");
+    const status = page.querySelector<HTMLElement>("#yt-status-text");
+    const filters = [...page.querySelectorAll<HTMLButtonElement>(".yt-filter")];
+    let subject = "all";
+    let query = "";
+
+    const apply = (): void => {
+      let shown = 0;
+      for (const card of cards) {
+        const match =
+          (subject === "all" || card.dataset.category === subject) &&
+          (!query || (card.dataset.search ?? "").includes(query));
+        card.hidden = !match;
+        if (match) shown += 1;
+      }
+      for (const button of filters) button.setAttribute("aria-pressed", String(button.dataset.filter === subject));
+      if (empty) empty.hidden = shown > 0;
+      if (reset) reset.hidden = subject === "all" && !query;
+      if (clear) clear.hidden = !query;
+      if (status) {
+        const label = filters.find((button) => button.dataset.filter === subject)?.querySelector("span")?.textContent ?? "";
+        const noun = shown === 1 ? "video" : "videos";
+        status.replaceChildren();
+        const strong = document.createElement("strong");
+        strong.textContent = String(shown);
+        const rest = [
+          ` ${noun}`,
+          subject !== "all" ? ` in ${label}` : "",
+          query ? ` matching “${input?.value.trim() ?? ""}”` : "",
+        ].join("");
+        status.appendChild(strong);
+        status.appendChild(document.createTextNode(rest));
+      }
+    };
+
+    const resetAll = (): void => {
+      subject = "all";
+      query = "";
+      if (input) input.value = "";
+      apply();
+    };
+
+    for (const button of filters) {
+      button.addEventListener("click", () => {
+        subject = button.dataset.filter ?? "all";
+        apply();
+      });
+    }
+    input?.addEventListener("input", () => {
+      query = input.value.trim().toLowerCase();
+      apply();
+    });
+    clear?.addEventListener("click", () => {
+      if (input) {
+        input.value = "";
+        input.focus();
+      }
+      query = "";
+      apply();
+    });
+    reset?.addEventListener("click", resetAll);
+    page.querySelector("#yt-empty-reset")?.addEventListener("click", resetAll);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initChannel, { once: true });
+  } else {
+    initChannel();
+  }
+  document.addEventListener("astro:page-load", initChannel);
 </script>
-
-<style>
-  /* ─────────────────────────────────────────────
-     YOUTUBE ARCHIVE · Design System V2.4
-     Dark manuscript ground · antique-gold voltage under 5%
-     Ledger apparatus · editorial numbering · apparatus ink taxonomy
-     ───────────────────────────────────────────── */
-
-  .yt-page {
-    position: relative;
-    color: var(--hc-text-primary);
-    background-color: var(--hc-surface-0);
-    min-height: 100vh;
-  }
-
-  .yt-progress {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--hc-gold);
-    transform-origin: 0 50%;
-    transform: scaleX(0);
-    z-index: 100;
-    pointer-events: none;
-    transition: transform 120ms ease-out;
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION DIVIDER WITH EMBLEM
-     ═══════════════════════════════════════════ */
-  .yt-divider {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    max-width: var(--wrap, 1240px);
-    margin-inline: auto;
-    padding-inline: clamp(1.25rem, 4vw, 2rem);
-    color: var(--hc-gold-dim);
-  }
-
-  .yt-divider__rule {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      var(--hc-rule) 20%,
-      var(--hc-rule) 80%,
-      transparent
-    );
-  }
-
-  .yt-divider__emblem {
-    flex-shrink: 0;
-    opacity: 0.8;
-  }
-
-  /* ═══════════════════════════════════════════
-     HERO: the catalogue as a runtime reel.
-     Shell (masthead, tray, well, plate) is shared in global.css.
-     ═══════════════════════════════════════════ */
-  .yt-reel__plate {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1.1rem 1.25rem;
-  }
-
-  .yt-reel__note {
-    text-align: right;
-  }
-
-  .yt-reel__strip {
-    display: flex;
-    height: 34px;
-    margin: 0.35rem 0.4rem 0;
-  }
-
-  .yt-reel__group {
-    display: flex;
-    flex: var(--n) 1 0;
-    min-width: 0;
-    opacity: var(--o);
-  }
-
-  .yt-reel__tick {
-    flex: var(--n) 1 0;
-    min-width: 0;
-    box-shadow: inset -1px 0 0 var(--hc-surface-1);
-    transform-origin: 50% 100%;
-  }
-
-  .yt-reel__group:not(:last-child) .yt-reel__tick:last-child {
-    box-shadow: inset -4px 0 0 var(--hc-surface-1);
-  }
-
-  .yt-reel__ruler {
-    position: relative;
-    height: 1.55rem;
-    margin: 0.3rem 0.4rem 0;
-  }
-
-  .yt-reel__ruler::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto;
-    height: 6px;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    background: repeating-linear-gradient(
-      90deg,
-      var(--hc-rule-strong) 0 1px,
-      transparent 1px var(--hour)
-    );
-  }
-
-  .yt-reel__mark {
-    position: absolute;
-    top: 9px;
-    transform: translateX(-50%);
-    color: var(--hc-text-tertiary);
-    font: 700 0.75rem/1 var(--font-ui);
-    letter-spacing: 0.08em;
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  .yt-reel__mark:first-child {
-    transform: none;
-  }
-
-  .yt-reel__rows {
-    margin: 0.55rem 0 0;
-    padding: 0 0.4rem 0.4rem;
-    list-style: none;
-  }
-
-  .yt-reel__rows li {
-    display: grid;
-    grid-template-columns: 8px minmax(0, 1fr) auto 4.6rem;
-    align-items: center;
-    gap: 0.7rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    font-size: 0.95rem;
-  }
-
-  .yt-reel__dot {
-    width: 8px;
-    height: 8px;
-    background: var(--hc-gold);
-    opacity: var(--o);
-  }
-
-  .yt-reel__name {
-    color: var(--hc-text-secondary);
-  }
-
-  .yt-reel__count {
-    color: var(--hc-text-primary);
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  .yt-reel__run {
-    color: var(--hc-text-tertiary);
-    text-align: right;
-    white-space: nowrap;
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  .yt-reel__channel {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    margin: 0;
-    padding: 0.75rem 0.4rem 0.45rem;
-  }
-
-  .yt-reel__handle {
-    color: var(--hc-gold);
-    font: 600 0.95rem/1.3 var(--font-display);
-    letter-spacing: -0.01em;
-  }
-
-  .yt-reel__subs {
-    color: var(--hc-text-secondary);
-    font-size: 0.95rem;
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .yt-reel__tick {
-      animation: yt-reel-in var(--motion-slow) var(--ease-standard) both;
-      animation-delay: calc(var(--i) * 16ms + 120ms);
-    }
-  }
-
-  @keyframes yt-reel-in {
-    from {
-      opacity: 0;
-      transform: scaleY(0.15);
-    }
-
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-
-  @media (max-width: 460px) {
-    .yt-reel__plate {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .yt-reel__note {
-      text-align: left;
-    }
-
-    .yt-reel__rows li {
-      gap: 0.5rem;
-      grid-template-columns: 8px minmax(0, 1fr) auto 4.4rem;
-    }
-  }
-
-  .yt-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    text-decoration: none;
-    padding: 0.7rem 1.35rem;
-    border-radius: var(--radius-sm, 4px);
-    transition: all 200ms ease;
-  }
-
-  .yt-btn--primary {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse, #0f0f10);
-    border: 1px solid var(--hc-gold);
-    box-shadow: 0 4px 16px rgba(200, 155, 75, 0.22);
-  }
-
-  .yt-btn--primary:hover {
-    background: var(--hc-gold-bright);
-    border-color: var(--hc-gold-bright);
-    color: var(--hc-text-inverse, #0f0f10);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 22px rgba(200, 155, 75, 0.32);
-  }
-
-  /* ═══════════════════════════════════════════
-     COMMON SECTION HEADER
-     ═══════════════════════════════════════════ */
-  .yt-section-head {
-    margin-bottom: 2.25rem;
-  }
-
-  .yt-section-head h2 {
-    margin: 0.4rem 0 0.7rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.85rem, 3.2vw, 2.4rem);
-    font-weight: 500;
-    letter-spacing: -0.015em;
-    color: var(--hc-text-primary);
-  }
-
-  .yt-section-head p:not(.hc-eyebrow) {
-    margin: 0;
-    font-size: 0.98rem;
-    line-height: 1.62;
-    color: var(--hc-text-secondary);
-    max-width: 40rem;
-  }
-
-  /* ═══════════════════════════════════════════
-     FEATURED THEATER
-     ═══════════════════════════════════════════ */
-  .yt-featured {
-    scroll-margin-top: 4.5rem;
-    padding-block: 3.5rem;
-    background: var(--hc-surface-0);
-  }
-
-  .yt-theater {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(17rem, 0.75fr);
-    gap: clamp(1.5rem, 3vw, 2.75rem);
-    align-items: stretch;
-  }
-
-  @media (max-width: 900px) {
-    .yt-theater {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .yt-player {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    align-self: start;
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule-strong);
-    outline: 1px solid var(--hc-rule-soft);
-    outline-offset: -5px;
-    overflow: hidden;
-    transition: border-color 200ms ease;
-  }
-
-  .yt-player:hover {
-    border-color: var(--hc-gold-dim);
-  }
-
-  .yt-player__poster {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    transition: opacity 200ms ease;
-  }
-
-  .yt-player__poster img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  .yt-player__shade {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(15, 15, 16, 0.03) 45%, rgba(15, 15, 16, 0.55) 100%);
-    pointer-events: none;
-  }
-
-  .yt-player__play {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 3.9rem;
-    height: 3.9rem;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    border: 1px solid var(--hc-gold-bright);
-    color: var(--hc-text-inverse, #0f0f10);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms ease;
-  }
-
-  .yt-player__play svg {
-    margin-left: 3px;
-  }
-
-  .yt-player:hover .yt-player__play {
-    transform: translate(-50%, -50%) scale(1.07);
-    background: var(--hc-gold-bright);
-  }
-
-  .yt-player__pulse {
-    position: absolute;
-    inset: -1px;
-    border-radius: 50%;
-    border: 1px solid var(--hc-gold);
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .yt-player__pulse {
-      animation: ytPulse 2.6s ease-out infinite;
-    }
-  }
-
-  @keyframes ytPulse {
-    0% {
-      transform: scale(1);
-      opacity: 0.55;
-    }
-    70% {
-      transform: scale(1.55);
-      opacity: 0;
-    }
-    100% {
-      transform: scale(1.55);
-      opacity: 0;
-    }
-  }
-
-  .yt-player__duration {
-    position: absolute;
-    bottom: 0.85rem;
-    right: 0.85rem;
-    background: rgba(15, 15, 16, 0.88);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    font-variant-numeric: tabular-nums;
-    padding: 0.24rem 0.55rem;
-    border-radius: var(--radius-xs, 2px);
-  }
-
-  .yt-player__embed {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1;
-  }
-
-  .yt-player__embed :global(iframe),
-  .yt-player__embed iframe {
-    position: absolute;
-    inset: 0;
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-    border: 0;
-  }
-
-  /* Theater dossier */
-  .yt-theater__meta {
-    display: flex;
-    flex-direction: column;
-    padding: 1.5rem 0 1.5rem clamp(1.5rem, 2.5vw, 2.25rem);
-    border-left: 1px solid var(--hc-rule);
-  }
-
-  @media (max-width: 900px) {
-    .yt-theater__meta {
-      padding-left: 0;
-      border-left: none;
-      border-top: 1px solid var(--hc-rule);
-    }
-  }
-
-  .yt-dossier-label {
-    margin: 0 0 1.15rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--hc-gold-dim);
-  }
-
-  .yt-theater__badge-row {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    margin-bottom: 1.15rem;
-    flex-wrap: wrap;
-  }
-
-  .yt-cat-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.26rem 0.7rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--chip-color, var(--hc-gold)) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--chip-color, var(--hc-gold)) 35%, transparent);
-    color: var(--chip-color, var(--hc-gold));
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .yt-cat-badge__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--chip-color, var(--hc-gold));
-  }
-
-  .yt-theater__duration-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.26rem 0.65rem;
-    border-radius: var(--radius-xs, 2px);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .yt-theater__title {
-    margin: 0 0 0.9rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.4rem, 2vw, 1.7rem);
-    font-weight: 500;
-    line-height: 1.25;
-    color: var(--hc-text-primary);
-  }
-
-  .yt-theater__desc {
-    margin: 0 0 1.5rem;
-    font-size: 0.95rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-    flex-grow: 1;
-  }
-
-  /* Dossier ledger rows */
-  .yt-theater__ledger {
-    margin-bottom: 1.5rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .yt-ledger-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.55rem 0.15rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .yt-ledger-key {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .yt-ledger-val {
-    font-family: var(--font-ui);
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .yt-theater__actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .yt-theater__play-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse, #0f0b0d);
-    border: 1px solid var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    padding: 0.62rem 1.2rem;
-    border-radius: var(--radius-sm, 4px);
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .yt-theater__play-btn:hover {
-    background: var(--hc-gold-bright);
-    border-color: var(--hc-gold-bright);
-    transform: translateY(-1px);
-  }
-
-  .yt-theater__external-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    color: var(--hc-text-secondary);
-    text-decoration: none;
-    padding: 0.6rem 1rem;
-    border-radius: var(--radius-sm, 4px);
-    border: 1px solid var(--hc-rule);
-    transition: all 180ms ease;
-  }
-
-  .yt-theater__external-link:hover {
-    color: var(--hc-gold);
-    border-color: var(--hc-gold-dim);
-    background: rgba(216, 177, 102, 0.07);
-  }
-
-  /* ═══════════════════════════════════════════
-     ARCHIVE — catalogue ledger
-     ═══════════════════════════════════════════ */
-  .yt-archive {
-    padding-block: 3.5rem 5.5rem;
-    background:
-      radial-gradient(ellipse 900px 380px at 50% 0%, rgba(216, 177, 102, 0.04) 0%, transparent 70%),
-      var(--hc-surface-0);
-  }
-
-  .yt-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  /* Search bar */
-  .yt-search-wrap {
-    width: 100%;
-  }
-
-  .yt-search-box {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-height: 50px;
-    padding: 0 1rem;
-    border-radius: var(--radius-xs, 2px);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    transition: border-color 200ms ease, box-shadow 200ms ease;
-  }
-
-  .yt-search-box:focus-within {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.16);
-  }
-
-  .yt-search-icon {
-    color: var(--hc-gold-dim);
-    flex-shrink: 0;
-  }
-
-  .yt-search-input {
-    width: 100%;
-    background: transparent;
-    border: none;
-    color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1rem;
-  }
-
-  .yt-search-input::-webkit-search-cancel-button,
-  .yt-search-input::-webkit-search-decoration {
-    -webkit-appearance: none;
-    appearance: none;
-    display: none;
-  }
-
-  .yt-search-input::placeholder {
-    color: var(--hc-text-tertiary);
-  }
-
-  .yt-search-clear {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    cursor: pointer;
-    padding: 0.3rem;
-    border-radius: var(--radius-xs, 2px);
-    transition: color 160ms ease;
-  }
-
-  .yt-search-clear:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .yt-search-kbd {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.22rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs, 2px);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    color: var(--hc-text-tertiary);
-    background: var(--hc-surface-1);
-    user-select: none;
-    flex-shrink: 0;
-  }
-
-  /* Filter tabs with sliding magnet pill */
-  .yt-filter-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-  }
-
-  .yt-filter-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .yt-filter-tabs {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-    width: max-content;
-  }
-
-  /* Seven subjects outgrow one row: wrap on wide screens, scroll on phones. */
-  @media (min-width: 900px) {
-    .yt-filter-bar {
-      overflow-x: visible;
-    }
-
-    .yt-filter-tabs {
-      flex-wrap: wrap;
-      width: auto;
-    }
-  }
-
-  .yt-filter-magnet-pill {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 0;
-    border-radius: 999px;
-    pointer-events: none;
-    z-index: 1;
-    opacity: 0;
-    transition:
-      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background-color 180ms ease,
-      box-shadow 180ms ease,
-      opacity 120ms ease;
-  }
-
-  /* Every subject tab shares the one gold accent. */
-  .yt-filter-tab {
-    --tab-color: var(--hc-gold);
-    --tab-bg: rgba(216, 177, 102, 0.1);
-    --tab-border: rgba(216, 177, 102, 0.32);
-    --tab-active-bg: #c89b4b;
-    --tab-active-text: #141312;
-  }
-
-  .yt-filter-tab {
-    position: relative;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.44rem 1rem;
-    border: 1px solid var(--tab-border, var(--hc-rule));
-    border-radius: 999px;
-    background: var(--hc-surface-1);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease;
-  }
-
-  .yt-filter-tab__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--tab-color, var(--hc-gold));
-    flex-shrink: 0;
-    transition: transform 180ms ease;
-  }
-
-  .yt-filter-tab:hover {
-    color: var(--tab-color, var(--hc-text-primary));
-    border-color: var(--tab-color, var(--hc-rule-strong));
-    background: var(--tab-bg, var(--hc-surface-2));
-  }
-
-  .yt-filter-tab:hover .yt-filter-tab__dot {
-    transform: scale(1.3);
-  }
-
-  .yt-filter-tab.is-active {
-    color: var(--tab-active-text, #ffffff);
-    font-weight: 700;
-  }
-
-  .yt-filter-tabs[data-magnet-ready="true"] .yt-filter-tab.is-active {
-    background: transparent;
-    border-color: transparent;
-  }
-
-  .yt-filter-tab.is-active .yt-filter-tab__dot {
-    background: currentColor;
-  }
-
-  .yt-filter-tab__count {
-    font-size: 0.78rem;
-    padding: 0.08rem 0.45rem;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.2);
-    color: var(--hc-text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .yt-filter-tab.is-active .yt-filter-tab__count {
-    background: rgba(255, 255, 255, 0.28);
-    color: currentColor;
-  }
-
-  .yt-reset-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.42rem 0.9rem;
-    border-radius: 999px;
-    border: 1px dashed var(--hc-rule-strong);
-    background: transparent;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: all 180ms ease;
-  }
-
-  .yt-reset-btn:hover {
-    border-color: var(--hc-gold);
-    border-style: solid;
-    background: rgba(216, 177, 102, 0.08);
-  }
-
-  /* Status ledger line */
-  .yt-status-bar {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1.75rem;
-    min-height: 2.1rem;
-  }
-
-  .yt-status-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.36rem 0.9rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.07);
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-  }
-
-  .yt-status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    flex-shrink: 0;
-  }
-
-  .yt-status-chip strong {
-    color: var(--hc-gold);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ═══════════════════════════════════════════
-     RECORD CARDS — double hairline ledger style
-     ═══════════════════════════════════════════ */
-  .yt-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.75rem 1.25rem;
-    align-items: stretch;
-  }
-
-  @media (max-width: 900px) {
-    .yt-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 640px) {
-    .yt-grid {
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-  }
-
-  .yt-card {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    border-radius: var(--radius-xs, 2px);
-    background: var(--hc-surface-1);
-    border: 1px solid var(--hc-rule);
-    outline: 1px solid var(--hc-rule-soft);
-    outline-offset: -5px;
-    overflow: hidden;
-    transition: transform 200ms ease, border-color 200ms ease;
-  }
-
-  .yt-card[hidden] {
-    display: none !important;
-  }
-
-  /* Cursor-following parchment spotlight */
-  .yt-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 6;
-    pointer-events: none;
-    opacity: 0;
-    background: radial-gradient(
-      340px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      rgba(216, 177, 102, 0.09),
-      transparent 65%
-    );
-    transition: opacity 220ms ease;
-  }
-
-  .yt-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--hc-gold-dim);
-  }
-
-  .yt-card:hover::after {
-    opacity: 1;
-  }
-
-  .yt-card__media {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    overflow: hidden;
-    background: var(--hc-surface-2);
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .yt-card__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .yt-card:hover .yt-card__img {
-    transform: scale(1.035);
-  }
-
-  .yt-card__rec {
-    position: absolute;
-    top: 0.65rem;
-    left: 0.65rem;
-    padding: 0.2rem 0.5rem;
-    background: rgba(15, 15, 16, 0.82);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    font-variant-numeric: tabular-nums;
-    border-radius: var(--radius-xs, 2px);
-  }
-
-  .yt-card__body {
-    display: flex;
-    flex-direction: column;
-    padding: 1rem 1.05rem 1.05rem;
-    flex-grow: 1;
-  }
-
-  .yt-card__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.85rem;
-  }
-
-  .yt-card__record-meta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.7rem;
-    flex-shrink: 0;
-  }
-
-  .yt-card__cat-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.42rem;
-    padding: 0.22rem 0.6rem;
-    border-radius: var(--radius-xs, 2px);
-    background: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 9%, transparent);
-    border: 1px solid color-mix(in srgb, var(--cat-color, var(--hc-gold)) 30%, transparent);
-    color: var(--cat-color, var(--hc-gold));
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    transition: border-color 160ms ease, background-color 160ms ease;
-  }
-
-  .yt-card__cat-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--cat-color, var(--hc-gold));
-    flex-shrink: 0;
-  }
-
-  .yt-card:hover .yt-card__cat-pill {
-    border-color: var(--cat-color, var(--hc-gold));
-  }
-
-  .yt-card__duration {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .yt-card__duration svg {
-    color: var(--hc-gold-dim);
-    flex-shrink: 0;
-  }
-
-  .yt-card__year {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-text-tertiary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .yt-card__title {
-    margin: 0 0 0.55rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.02rem, 1.2vw, 1.12rem);
-    font-weight: 600;
-    line-height: 1.32;
-    color: var(--hc-text-primary);
-    transition: color 160ms ease;
-  }
-
-  .yt-card:hover .yt-card__title {
-    color: var(--hc-gold);
-  }
-
-  .yt-card__desc {
-    margin: 0 0 1rem;
-    font-family: var(--font-body);
-    font-size: 0.86rem;
-    line-height: 1.56;
-    color: var(--hc-text-secondary);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    flex-grow: 1;
-  }
-
-  .yt-card__footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-top: 0.7rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .yt-card__action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.42rem;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .yt-card__action svg {
-    transition: transform 180ms ease;
-  }
-
-  .yt-card:hover .yt-card__action svg {
-    transform: translateX(3px);
-  }
-
-  .yt-card__hit-button {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    z-index: 5;
-    opacity: 0;
-  }
-
-  .yt-card__hit-button:focus-visible {
-    opacity: 1;
-  }
-
-  /* Empty state */
-  .yt-empty {
-    text-align: center;
-    padding: 4rem 1.5rem;
-    background: var(--hc-surface-1);
-    border: 1px dashed var(--hc-rule-strong);
-    border-radius: var(--radius-xs, 2px);
-    margin-top: 1.5rem;
-  }
-
-  .yt-empty__icon {
-    display: inline-flex;
-    color: var(--hc-gold-dim);
-    margin-bottom: 0.85rem;
-  }
-
-  .yt-empty h3 {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    color: var(--hc-text-primary);
-  }
-
-  .yt-empty p {
-    margin: 0 0 1.5rem;
-    color: var(--hc-text-secondary);
-    font-size: 0.95rem;
-  }
-
-  .yt-empty__reset {
-    background: transparent;
-    color: var(--hc-gold);
-    border: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 0.6rem 1.3rem;
-    border-radius: var(--radius-sm, 4px);
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .yt-empty__reset:hover {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse, #0f0b0d);
-    border-color: var(--hc-gold);
-  }
-
-  /* ═══════════════════════════════════════════
-     CTA — deep umber apparatus panel
-     ═══════════════════════════════════════════ */
-  .yt-cta {
-    padding-block: 4rem 6rem;
-    border-top: 1px solid var(--hc-rule);
-    background: var(--hc-surface-0);
-  }
-
-  .yt-cta__card {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 2.5rem;
-    padding: 2.75rem 3rem;
-    border-radius: var(--radius-xs, 2px);
-    background:
-      radial-gradient(circle at 8% 15%, rgba(216, 177, 102, 0.09), transparent 45%),
-      var(--hc-surface-umber, #6e3b24);
-    border: 1px solid var(--hc-rule-strong);
-    outline: 1px solid var(--hc-rule-soft);
-    outline-offset: -5px;
-    overflow: hidden;
-  }
-
-  .yt-cta__card::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 95% 90%, rgba(15, 15, 16, 0.25), transparent 55%);
-    pointer-events: none;
-  }
-
-  @media (max-width: 840px) {
-    .yt-cta__card {
-      flex-direction: column;
-      align-items: flex-start;
-      padding: 2rem;
-    }
-  }
-
-  .yt-cta__content {
-    position: relative;
-    max-width: 36rem;
-  }
-
-  .yt-cta__content .hc-eyebrow {
-    color: var(--hc-gold-soft, #e2c783);
-  }
-
-  .yt-cta__content h2 {
-    margin: 0.4rem 0 0.8rem;
-    font-family: var(--font-display);
-    font-size: clamp(1.65rem, 2.5vw, 2.15rem);
-    font-weight: 500;
-    line-height: 1.22;
-    color: var(--hc-fixed-parchment, #f2ebdc);
-  }
-
-  .yt-cta__content p:not(.hc-eyebrow) {
-    margin: 0;
-    font-size: 0.98rem;
-    line-height: 1.65;
-    color: color-mix(in srgb, var(--hc-fixed-parchment, #f2ebdc) 82%, transparent);
-  }
-
-  .yt-cta__buttons {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-    flex-shrink: 0;
-    width: 100%;
-    max-width: 16rem;
-  }
-
-  .yt-cta__buttons .yt-btn {
-    justify-content: center;
-  }
-
-  .yt-cta__buttons .hc-btn--ghost {
-    color: var(--hc-fixed-parchment, #f2ebdc);
-    border-color: color-mix(in srgb, var(--hc-fixed-parchment, #f2ebdc) 35%, transparent);
-  }
-
-  .yt-cta__buttons .hc-btn--ghost:hover {
-    color: var(--hc-gold-soft, #e2c783);
-    border-color: var(--hc-gold-soft, #e2c783);
-  }
-
-  /* ═══════════════════════════════════════════
-     LIGHT THEME ADAPTATION
-     ═══════════════════════════════════════════ */
-  :global([data-theme="light"]) .yt-player__duration,
-  :global([data-theme="light"]) .yt-card__rec {
-    background: rgba(43, 40, 36, 0.85);
-  }
-
-  :global([data-theme="light"]) .yt-card::after {
-    background: radial-gradient(
-      340px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-      rgba(176, 126, 44, 0.1),
-      transparent 65%
-    );
-  }
-
-  :global([data-theme="light"]) .yt-filter-tab__count {
-    background: rgba(43, 40, 36, 0.08);
-  }
-
-  /* ═══════════════════════════════════════════
-     REDUCED MOTION
-     ═══════════════════════════════════════════ */
-  @media (prefers-reduced-motion: reduce) {
-    .yt-card,
-    .yt-card__img,
-    .yt-player__play,
-    .yt-btn,
-    .yt-filter-tab,
-    .yt-card__action svg {
-      transition: none;
-    }
-
-    .yt-card:hover {
-      transform: none;
-    }
-
-    .yt-card:hover .yt-card__img {
-      transform: none;
-    }
-  }
-</style>

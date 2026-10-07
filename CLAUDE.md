@@ -117,6 +117,47 @@ No database server is in the request path for any public page.
   from R2. Build for that with `npm run build:e2e`, never plain `npm run build`,
   when you intend to exercise the corpus end to end.
 - **Script-built markup gets no scope hash, on any page.** The atlas map draws its edges and detail panel from script, and its first version rendered every edge as a filled black blob because the rules were scoped. Rules for anything created after load go in an `is:global` block.
+- **Build output in the project root used to stop `npm run dev` starting.**
+  Astro gives its `astro` and `prerender` Vite environments no dependency-scan
+  entries, so Vite fell back to globbing every `**/*.html` under the root, and
+  the root then held thirteen review builds of ~180,000 files. The
+  scan outlived the Cloudflare module runner's 60s start limit ("transport
+  invoke timed out" on `virtual:astro:server-app`), the server died before it
+  wrote a dependency cache, and every start began the scan again. It never
+  answered on 2026-10-05 until `astro.config.mjs` pinned the scan entries to
+  `src/` and kept those trees out of the watcher. A warm start is now ~12s.
+  If a new top-level output directory appears, add it to `vite.server.watch`.
+- **An isolated build is 14,000 files.** `npm run build -- --outDir <dir>`
+  hard-links the Qur'an releases into every build (12.25 GB apparent size,
+  ~250 MB real per build; tools that sum sizes will report the apparent
+  figure) and copies `.dev.vars` (live credentials). Thirteen of them
+  accumulated in the root on 2026-10-04/05 and put ~169,000 untracked files
+  in Source Control. They were archived, then deleted on the owner's decision (see
+  `local-archive/README.md`). For a new isolated build, reuse one name such as `dist-review`
+  rather than numbering a fresh copy per check, and remove it when the check
+  is recorded. `/dist-*/` is ignored at the root, so a new one stays out of
+  git, but it still costs the disk.
+- **Switching how dev runs costs one slow start.** The content store and the
+  dependency caches are keyed on the resolved config, which includes the
+  logger (Astro 7 detaches `astro dev` into a daemon with a JSON logger when
+  it has no terminal) and `server.host`. Alternating foreground, daemon and
+  `npm run build` therefore clears the content store and re-optimizes once;
+  the next start in the same mode is warm. It is not a regression.
+- **Dev reads its own corpus, whatever `.env` says.** `.env` carries the
+  production `PUBLIC_CORPUS_BASE_URL` for the build and publish scripts, and
+  Vite loads `.env` in dev too. Dev used to inherit it and ask R2 for the
+  corpus from `localhost`, which R2's CORS rules (the two production hostnames
+  only) refuse, so every corpus page in dev said the corpus could not be loaded
+  while production was fine. `corpus-config.ts` now ignores it in dev and uses
+  the `/data/corpus/` middleware; set `PUBLIC_CORPUS_DEV_BASE_URL` to point dev
+  elsewhere.
+- **A static preview of a production build cannot read the production
+  corpus**, for the same CORS reason. For a quick visual check, build into the
+  gitignored scratch dir (`npm run build -- --outDir scratch/review-site`; an
+  outDir outside the repo cannot resolve packages) and serve
+  `scratch/review-site/client` statically; `PLAYWRIGHT_PORT` and `BASE_URL`
+  point the tests and the contrast checker at it. Corpus routes stay shells
+  there: measure those on the dev server, or use `npm run build:e2e`.
 - **A corpus page is a shell until the corpus answers.** Any check that waits
   for `load` is measuring a spinner. `scripts/check-contrast.mjs` waits for real
   content per route and fails the route if it never arrives; anything new that
@@ -153,22 +194,44 @@ No database server is in the request path for any public page.
   `cf-cache-status: DYNAMIC`, and `origin_range_requests: on` does not change
   it. Since every corpus read is a range request, the rule alone bought nothing
   for readers: 185 ms per request, 34 serial requests on one narration record,
-  roughly six seconds. `workers/corpus/` is the fix, widening each range to a
-  1 MiB slice cached under a key with no `Range` header. Do not spend time
-  re-testing the rule; it is applied and it is not the lever.
+  roughly six seconds. A worker on that hostname is the fix, widening each
+  range to a 1 MiB slice cached under a key with no `Range` header; range
+  requests answer `HIT` (checked 2026-10-05). Its source, `workers/corpus/`,
+  was deleted from this repo in `4eccb93`; recover it from `eca9b39` before
+  changing the deployed worker. Do not spend time re-testing the rule; it is
+  applied and it is not the lever.
 - **Anything serving corpus bytes must answer `206`, never `200`.**
   `openCorpus()` probes with `Range: bytes=0-15` and refuses otherwise, because
   given a whole file sql.js-httpvfs copies from offset 0 into the page it
   believes it asked for and SQLite reads a database assembled from the wrong
   pages. It does not error, it returns the wrong narration. This applies to
-  `scripts/lib/corpus-range.mjs`, `scripts/corpus-file-server.mjs` and
-  `workers/corpus/src/index.js` equally.
+  `scripts/lib/corpus-range.mjs`, `scripts/corpus-file-server.mjs` and the
+  deployed corpus worker equally.
 - **`publish:corpus` stages the version the site asks for.** Its default comes
   from `src/data/corpus-meta.json`, not from `corpusVersion()`, which mints a
   fresh name from today's date and HEAD. Minting one here named a directory
   that does not exist, so the command failed the day after a release telling
   you to rebuild 1.6 GB you already had. `build-corpus.mjs` is the only script
   that should mint a version.
+
+- **Articles carry no CSS of their own.** Until 2026-10-06, 46 articles each
+  shipped a `<style>` block (about 10,000 lines, 500 one-off classes), which is
+  what made the reader look like a dashboard. They now draw every figure from
+  the shared `.hc-fig` vocabulary in `src/styles/article.css`, and tables use
+  `SourceComparisonTable`. Do not add a `<style>` block or bespoke classes to an
+  MDX file; extend the vocabulary instead. The reader also re-points the site
+  tokens to its own palette (`--r-*` on `.hc-article`), so a component inside an
+  article that reads `--hc-gold` gets the reader's accent, not the site's.
+
+- **A long-running dev server can lose an optimized dependency.** After many
+  edits Vite may re-optimize and drop a file the pages still reference: a 404
+  on `node_modules/.vite/deps/sql__js-httpvfs.js?v=...` (every corpus page
+  stays a shell) or "file does not exist ... in the optimize deps directory"
+  on the on-demand routes. It is not the page code. Restart the dev server.
+- **A Playwright run can leave `astro preview` and `workerd` alive**, holding
+  `dist/client`. The next build then fails on `EPERM ... dist\client` followed
+  by a libuv assertion that reads like a Node crash. Stop those two processes
+  and build again.
 
 ## Rules that are not negotiable
 
@@ -206,7 +269,7 @@ npm run test:e2e:corpus  # both corpus suites, data assertions included
 
 npm run sync:youtube      # refresh src/data/youtube-meta.json from the YouTube Data API (needs YOUTUBE_API_3 in .env)
 npm run dev              # 127.0.0.1:4321
-npm run build:og         # regenerate the social preview cards in public/og
+npm run build:og         # regenerate the 56 social preview cards in public/og
 npm run check            # astro check, must be 0 errors
 npm run test:design      # scripts/design-audit.mjs, fails on <12px and outline:none
 npm run lint:footnotes
@@ -234,9 +297,15 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | Path | What |
 |---|---|
 | `DESIGN.md` | The visual system. Read before any UI change. |
+| `local-archive/` | Ignored, local only. Material kept for reference; its README records what was archived or removed. Nothing reads from it. |
+| `output/` | Ignored. Throwaway design-review screenshots and logs; safe to delete. |
+| `scratch/` | Ignored. Working files, including the private Fiqh Compass store in `scratch/fiqh-compass/`. |
 | `docs/hallmark-audit-before.md`, `-after.md` | The 2026-09 design pass, with the punch list and what closed. |
 | `src/styles/global.css` | Tokens, both themes, and the shared component layer. |
-| `src/styles/article.css` | Long-form article body. |
+| `src/styles/house.css`, `src/components/PageHero.astro` | The shared layer of the front-of-house pages (blog, academia, projects, YouTube, contact, brand). They stay dark in both themes; see DESIGN.md "Front-of-house pages". |
+| `src/components/ArchiveEntry.astro`, `src/lib/article-index.ts` | One archive row, and the folio, date and reading-time helpers every article listing shares. |
+| `src/styles/article.css` | The whole article reader: page, header, body, every content component. Read DESIGN.md "Article reader" first. |
+| `src/components/article/` | Article components in `shell/`, `text/`, `sources/`, `media/`, `figures/`. Author guide: `docs/COMPONENT-GUIDE.md`. |
 | `src/styles/motion.css` | A stub kept only for its reduced-motion block. |
 | `src/pages/hadith/**` | Corpus catalogue, collection edition, hadith record. |
 | `src/pages/narrators/**` | Rijāl register, dossier, comparison. |
@@ -246,17 +315,23 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/lib/narrator-register.ts` | The register's client module. |
 | `src/lib/hadith-search.ts`, `hadith-record.ts`, `collection-edition.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
 | `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
+| `scripts/fetch-ifta-toc.mjs`, `scripts/parse-ifta-toc.mjs`, `data/ifta-toc/` | The Ifta' Sunnah table of contents: fetched politely into the ignored `raw/`, recorded in `manifest.json`, parsed offline. |
+| `scripts/build-collection-structure.py`, `src/data/collection-structure/`, `src/lib/collection-structure.ts` | Each collection's books and chapters, its shape (kitab, companion, flat), and the English titles (`data/kitab-titles-en.json`). |
+| `src/pages/hadith/collection/[slug]/kitab/[n].astro`, `src/lib/kitab-page.ts`, `src/styles/kitab-page.css` | The book pages: prerendered, chapters as native disclosures that read their narrations when opened. |
+| `scripts/split-hadith-text.py`, `scripts/check-hadith-text-parts.py`, `migrations/0009_*` | Each record's text as lead, narration and editor's notes (`hadith_text_parts`), with its printed pages. Run after any change to the master's texts. |
 | `src/data/youtube-meta.json` | Channel and per-video stats snapshot for `/youtube`. Generated by `npm run sync:youtube` and committed; the page never calls the API, so builds need no key. |
 | `scripts/build-corpus.mjs` | The corpus release pipeline. |
 | `tests/corpus.spec.ts` | Corpus behaviour, against any corpus. Includes "no database traffic". |
 | `tests/corpus-data.spec.ts` | What the real corpus contains. Skips against the fixture. |
 | `tests/fixtures/corpus/` | The miniature corpus CI serves. Generated, committed, 2.6 MB. |
 | `src/data/tafsir/`, `src/lib/tafsir*.ts`, `src/pages/projects/tafsir/` | The tafsir module: commentaries by verse, each in its own qirāʾa. Schema and sources in `docs/tafsir.md`. |
-| `src/data/research-graph.json`, `src/lib/research-graph*.ts`, `src/pages/research/` | The hadith criticism atlas. Data is generated by `scripts/research-graph`; open items live in `docs/research/hadith-graph/TODO.md`. |
+| `data/fiqh-compass/figure-placements.json`, `src/data/fiqh-compass-figures.json`, `src/lib/fiqh-compass-figures*.js` | The Fiqh Compass figure comparison: authored placements, the verified build, the ranking and its view. Read `docs/research/fiqh-compass/FIGURES.md` first. |
+| `src/data/research-graph.json`, `src/lib/research-graph*.ts`, `src/pages/projects/islamic-studies-atlas/` | The Islamic Studies Atlas. Data is generated by `scripts/research-graph`; open items live in `docs/research/hadith-graph/TODO.md`. |
 | `scripts/design-audit.mjs` | The design linter wired into `validate`. |
 | `scripts/check-contrast.mjs` | Real-browser WCAG AA check against the composited background. |
 | `scripts/build-og-images.mjs` | Generates the social preview cards. |
-| `public/og/`, `src/lib/og-cards.ts` | The generated cards and their manifest. |
+| `scripts/build-og-images.mjs`, `scripts/og/` | The social card generator: designs, satori kit, data loader. |
+| `public/og/`, `src/lib/og-cards.ts` | The generated cards (JPEG) and the collection manifest. `OG` in `src/lib/seo.ts` maps pages to them. |
 
 ## Conventions
 

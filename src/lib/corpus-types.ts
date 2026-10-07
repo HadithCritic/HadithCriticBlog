@@ -50,6 +50,17 @@ export interface HadithRecord {
   bab_ar?: string | null;
   bab_en?: string | null;
   assignment_basis?: 'source_chapter_label' | 'kitab_title_only' | null;
+  /**
+   * Offsets into text_ar from hadith_text_parts (releases from 2026-10-07):
+   * [0, lead_end) is the edition's headings and front matter, [lead_end,
+   * notes_start) the narration, [notes_start, end) the editor's notes. Absent
+   * on older releases, which show text_ar whole.
+   */
+  lead_end?: number | null;
+  notes_start?: number | null;
+  /** Printed "volume/page" the narration begins and ends on, as the edition marks it. */
+  page_start?: string | null;
+  page_end?: string | null;
 }
 
 /** A search hit: the record plus the excerpts the reader's query earned. */

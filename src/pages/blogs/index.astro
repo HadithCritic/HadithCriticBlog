@@ -1,1743 +1,222 @@
 ---
-import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getCollection } from "astro:content";
-import { isNewPost } from "../../lib/new-badge";
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHero from '../../components/PageHero.astro';
+import ArchiveEntry from '../../components/ArchiveEntry.astro';
+import { getCollection, render } from 'astro:content';
+import { OG } from '../../lib/seo';
+import { CATEGORIES } from '../../lib/categories';
+import { isNewPost } from '../../lib/new-badge';
+import { toEntries, byYear } from '../../lib/article-index';
+import '../../styles/blog-index.css';
 
-const allPosts = await getCollection("articles", ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
-const posts = allPosts.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const posts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
+const entries = toEntries(posts);
+const years = byYear(entries);
 
-const categoryCounts = new Map<string, number>();
-for (const post of posts) {
-  categoryCounts.set(post.data.category, (categoryCounts.get(post.data.category) ?? 0) + 1);
-}
+const [lead, ...rest] = entries;
+const recent = rest.slice(0, 3);
 
-const categories = [...categoryCounts.entries()]
-  .sort((a, b) => b[1] - a[1])
-  .map(([name, count]) => ({ name, count }));
+/* The lead study's own section headings, as a contents list. */
+const { headings } = await render(lead.post);
+const contents = headings
+  .filter((heading) => heading.depth === 2 && !/^(foot ?notes|notes|references|bibliography|sources)$/i.test(heading.text.trim()))
+  .slice(0, 6);
 
-const formatDate = (date: Date) =>
-  date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+/* Branches, largest first, for the archive's filter list. */
+const branches = CATEGORIES.map((category) => ({
+  ...category,
+  count: entries.filter((entry) => entry.post.data.category === category.name).length
+})).filter((branch) => branch.count > 0).sort((a, b) => b.count - a.count);
 
-const calcReadingMinutes = (post?: (typeof posts)[number]) => {
-  if (!post) return 1;
-  const rawBody = post.body || "";
-  const words = rawBody.replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
-};
-
-const entries = posts.map((post, index) => ({
-  post,
-  folio: String(posts.length - index).padStart(3, "0"),
-  dateLabel: formatDate(post.data.date),
-  dateISO: post.data.date.toISOString().slice(0, 10),
-  isNew: isNewPost(post.data.date),
-  readingMinutes: calcReadingMinutes(post),
-  tags: post.data.tags ?? [],
-}));
-
-/* Ledger stat band — real figures only */
-const latestLabel = posts[0] ? formatDate(posts[0].data.date) : "—";
-const ledgerStats = [
-  { value: String(posts.length), label: "Critical Studies" },
-  { value: String(categories.length), label: "Fields of Inquiry" },
-  { value: latestLabel, label: "Latest Folio" },
-];
+const firstYear = years[years.length - 1]?.year;
+const lastYear = years[0]?.year;
+const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 ---
 
 <BaseLayout
-  title="Blogs & Analysis | HadithCritic"
+  image={OG.blogs}
+  title="Blog: Research and Analysis | HadithCritic"
   description="Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts."
 >
-  <div class="bi-page">
-    <!-- ═══════════════════════════════════════════
-         HERO — editorial masthead with archive ledger
-         ═══════════════════════════════════════════ -->
-    <header class="bi-hero" id="hero" aria-labelledby="bi-hero-title">
-      <div class="bi-hero__emblem" aria-hidden="true">
-        <svg viewBox="0 0 120 120" width="120" height="120" fill="none">
-          <circle cx="60" cy="60" r="56" stroke="currentColor" stroke-width="1" opacity="0.5" />
-          <circle cx="60" cy="60" r="47" stroke="currentColor" stroke-width="0.6" opacity="0.35" />
-          <path d="M60 18v84M18 60h84" stroke="currentColor" stroke-width="0.6" opacity="0.3" />
-          <circle cx="60" cy="60" r="6" fill="currentColor" opacity="0.7" />
-        </svg>
-      </div>
+  <div class="hc-page hc-plate bi-page">
+    <PageHero
+      title="Research, analysis,"
+      accent="and critical inquiry."
+      titleId="bi-title"
+      kicker="Blog"
+      art="/images/blog-editorial/hero.webp"
+      focus="78% center"
+      measure="14ch"
+    >
+      <p class="hc-hero__lede">
+        Critical studies, transmission forensics, and historical analyses of prophetic reports
+        and early Islamic source texts.
+      </p>
+      <Fragment slot="actions">
+        <a href="#archive" class="hc-btn">Search the archive <span aria-hidden="true">↓</span></a>
+        <a href={`/blogs/${lead.post.id}/`} class="hc-btn hc-btn--ghost">Read the latest study</a>
+      </Fragment>
+      <Fragment slot="register">
+        <span><strong>{entries.length}</strong> studies</span>
+        <span><strong>{branches.length}</strong> research branches</span>
+        <span>Published <strong>{firstYear}</strong> to <strong>{lastYear}</strong></span>
+        <a href="/rss.xml">Follow by RSS</a>
+      </Fragment>
+    </PageHero>
 
-      <div class="hc-container bi-hero__inner">
-        <div class="bi-hero__content">
-          <div class="bi-hero__eyebrow">
-            <span class="bi-hero__kicker-dot" aria-hidden="true"></span>
-            <span class="bi-hero__kicker">Research Archive</span>
-            <span class="bi-hero__kicker-sep" aria-hidden="true">/</span>
-            <span class="bi-hero__kicker-tag">Critical Editions &amp; Forensics</span>
-          </div>
+    <!-- The latest study, set as a leaf with its own contents, and the three before it. -->
+    <section class="hc-band hc-band--soft bi-lead-band" aria-labelledby="bi-lead-title">
+      <div class="hc-container">
+        <h2 id="bi-lead-title" class="sr-only">Latest studies</h2>
 
-          <h1 id="bi-hero-title" class="bi-hero__title">
-            Studies <em class="bi-hero__title-accent">&amp; Analysis</em>
-          </h1>
-
-          <p class="bi-hero__lede">
-            Critical studies, transmission forensics, and historical analyses of prophetic
-            reports and early Islamic source texts.
-          </p>
-        </div>
-
-        <dl class="bi-hero__stats" aria-label="Archive statistics">
-          {ledgerStats.map((stat) => (
-            <div class="bi-hero__stat">
-              <dt class="bi-hero__stat-label">{stat.label}</dt>
-              <dd class="bi-hero__stat-value">{stat.value}</dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </header>
-
-    <!-- ═══════════════════════════════════════════
-         SECTION DIVIDER
-         ═══════════════════════════════════════════ -->
-    <div class="bi-divider" aria-hidden="true">
-      <span class="bi-divider__rule"></span>
-      <svg class="bi-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 6v12M6 12h12"></path>
-      </svg>
-      <span class="bi-divider__rule"></span>
-    </div>
-
-    <!-- ═══════════════════════════════════════════
-         STICKY TOOLBAR — search + field filters
-         ═══════════════════════════════════════════ -->
-    <div class="bi-tools" role="region" aria-label="Filter the index">
-      <div class="bi-tools__progress" aria-hidden="true">
-        <div class="bi-tools__progress-bar" id="scroll-bar"></div>
-      </div>
-
-      <div class="hc-container bi-tools__inner">
-        <div class="bi-search-row">
-          <div class="bi-search-box">
-            <svg class="bi-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              type="search"
-              id="archive-search-input"
-              class="bi-search-input"
-              placeholder="Search studies by title, narrator, thesis, tag, or passage…"
-              autocomplete="off"
-              spellcheck="false"
-              aria-label="Search studies"
-            />
-            <button type="button" id="archive-search-clear" class="bi-search-clear" aria-label="Clear search" hidden>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
-                <path d="M18 6 6 18M6 6l12 12"></path>
-              </svg>
-            </button>
-          </div>
-          <kbd class="bi-search-kbd" aria-hidden="true">⌘K</kbd>
-        </div>
-
-        <div class="bi-filters-row">
-          <div class="bi-filters" id="bi-filters" role="group" aria-label="Filter by field of inquiry">
-            <div class="bi-filters__magnet" aria-hidden="true"></div>
-            <button type="button" class="bi-chip is-active" data-filter="all">
-              <span class="bi-chip__dot" aria-hidden="true"></span>
-              <span class="bi-chip__label">Complete Archive</span>
-              <span class="bi-chip__count">{posts.length}</span>
-            </button>
-            {categories.map((category) => (
-              <button type="button" class="bi-chip" data-filter={category.name} data-category={category.name}>
-                <span class="bi-chip__dot" aria-hidden="true"></span>
-                <span class="bi-chip__label">{category.name}</span>
-                <span class="bi-chip__count">{category.count}</span>
-              </button>
-            ))}
-          </div>
-
-          <button type="button" id="archive-reset-btn" class="bi-reset" hidden>
-            <span>Reset Filters</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-              <path d="M18 6 6 18M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════
-         THE LEDGER — all entries
-         ═══════════════════════════════════════════ -->
-    <section class="bi-ledger-section hc-container" aria-label="All entries">
-      <div class="bi-status">
-        <div class="bi-status-chip" id="archive-result-count" role="status" aria-live="polite">
-          <span class="bi-status-dot" aria-hidden="true"></span>
-          <span class="bi-status-text">Filing <strong>{posts.length}</strong> folios under complete archive</span>
-        </div>
-      </div>
-
-      <ol class="bi-ledger" id="ledger">
-        {entries.map(({ post, folio, dateLabel, dateISO, isNew, readingMinutes, tags }) => (
-          <li
-            class="bi-row"
-            data-id={post.id}
-            data-category={post.data.category}
-            data-search={`${post.data.title} ${post.data.description ?? ""} ${post.data.category} ${tags.join(" ")} ${post.data.author}`.toLowerCase()}
-          >
-            <a href={`/blogs/${post.id}/`} class="bi-row__link">
-              <div class="bi-row__meta">
-                <span class="bi-row__folio">
-                  <span class="bi-row__folio-glyph" aria-hidden="true">◈</span>
-                  <span>No. {folio}</span>
-                </span>
-                <time class="bi-row__date" datetime={dateISO}>{dateLabel}</time>
-                <span class="bi-row__readtime">
-                  <svg class="bi-row__readtime-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                  <span>{readingMinutes} min read</span>
-                </span>
-                {isNew && <span class="bi-row__badge-new">New</span>}
+        <article class="bi-lead hc-parchment" data-category={lead.post.data.category} data-timestamp={lead.post.data.date.valueOf()}>
+          <div class="bi-lead__copy">
+            <p class="bi-lead__meta">
+              <span class="bi-lead__label">Latest investigation</span>
+              <span class="hc-cat" data-category={lead.post.data.category}>{lead.post.data.category}</span>
+              <time datetime={lead.dateISO}>{lead.dateLabel}</time>
+              <span>{lead.minutes} min read</span>
+              {isNewPost(lead.post.data.date) && <span class="hc-new">New</span>}
+            </p>
+            <h3 class="bi-lead__title">
+              <a href={`/blogs/${lead.post.id}/`} class="bi-lead__link">{lead.post.data.title}</a>
+            </h3>
+            {lead.post.data.description && <p class="bi-lead__desc">{lead.post.data.description}</p>}
+            {contents.length > 0 && (
+              <div class="bi-lead__contents">
+                <p class="bi-lead__contents-label">In this study</p>
+                <ol>
+                  {contents.map((heading) => (
+                    <li><a href={`/blogs/${lead.post.id}/#${heading.slug}`}>{heading.text}</a></li>
+                  ))}
+                </ol>
               </div>
+            )}
+            <p class="bi-lead__foot">
+              <span class="bi-lead__folio">Folio {lead.folio}</span>
+              <span class="bi-lead__cta" aria-hidden="true">Read the investigation <span>→</span></span>
+            </p>
+          </div>
+          {lead.artwork && (
+            <figure class="bi-lead__plate">
+              <img
+                src={lead.artwork.src}
+                srcset={lead.artwork.srcset}
+                sizes="(max-width: 860px) 100vw, 46vw"
+                width={lead.artwork.width}
+                height={lead.artwork.height}
+                alt={lead.artwork.alt}
+                loading="eager"
+                decoding="async"
+              />
+            </figure>
+          )}
+        </article>
 
-              <div class="bi-row__body">
-                <div class="bi-row__header">
-                  <span class="bi-row__cat" data-category={post.data.category}>
-                    <span class="bi-row__cat-dot" aria-hidden="true"></span>
-                    {post.data.category}
-                  </span>
-                  <h2 class="bi-row__title">{post.data.title}</h2>
-                </div>
-
-                {post.data.description && (
-                  <p class="bi-row__desc">{post.data.description}</p>
+        <div class="bi-recent">
+          <p class="hc-rubric">Recently published <span>The three studies before it</span></p>
+          <ol class="bi-recent__list">
+            {recent.map((entry) => (
+              <li class="bi-recent__item" data-category={entry.post.data.category}>
+                {entry.artwork ? (
+                  <img src={entry.artwork.srcset.split(' ')[0]} alt="" width="720" height="480" loading="lazy" decoding="async" />
+                ) : entry.thumb && (
+                  <img src={entry.thumb} alt="" width="720" height="480" loading="lazy" decoding="async" />
                 )}
-
-                <div class="bi-row__match" hidden></div>
-              </div>
-
-              <div class="bi-row__action" aria-hidden="true">
-                <span class="bi-row__action-label">Read folio</span>
-                <div class="bi-row__arrow">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 19 12 12 19"></polyline>
-                  </svg>
+                <div class="bi-recent__body">
+                  <p class="bi-recent__cat"><span class="hc-cat" data-category={entry.post.data.category}>{entry.post.data.category}</span></p>
+                  <h3 class="bi-recent__title"><a href={`/blogs/${entry.post.id}/`}>{entry.post.data.title}</a></h3>
+                  <p class="hc-meta">
+                    <time datetime={entry.dateISO}>{entry.dateLabel}</time>
+                    <span>{entry.minutes} min read</span>
+                  </p>
                 </div>
-              </div>
-            </a>
-          </li>
-        ))}
-      </ol>
-
-      <div class="bi-empty" id="ledger-empty" hidden>
-        <div class="bi-empty__icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"></circle>
-            <path d="M12 6v12M6 12h12"></path>
-          </svg>
+              </li>
+            ))}
+          </ol>
         </div>
-        <h3>No Studies Found</h3>
-        <p>No research entries match the current query or field filter.</p>
-        <button type="button" class="hc-btn bi-empty__reset" id="ledger-empty-reset">
-          Reset Filters &amp; View Complete Archive
-        </button>
       </div>
     </section>
 
-    <!-- ═══════════════════════════════════════════
-         SECTION DIVIDER
-         ═══════════════════════════════════════════ -->
-    <div class="bi-divider" aria-hidden="true">
-      <span class="bi-divider__rule"></span>
-      <svg class="bi-divider__emblem" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"></circle>
-        <path d="M12 6v12M6 12h12"></path>
-      </svg>
-      <span class="bi-divider__rule"></span>
-    </div>
+    <!-- The whole archive, by year, with search and branch filters. -->
+    <section class="hc-band bi-archive" id="archive" aria-labelledby="bi-archive-title">
+      <div class="hc-container bi-archive__grid">
+        <aside class="bi-tools" aria-label="Search and filter the archive">
+          <div class="bi-tools__sticky">
+            <h2 id="bi-archive-title" class="hc-head__title">The complete <span>archive</span></h2>
+            <p class="hc-head__note">Every study, newest first, grouped by year of publication.</p>
+
+            <form id="archive-search-form" class="bi-search" action="/blogs/" method="get" role="search" data-js-only hidden>
+              <label class="sr-only" for="archive-search-input">Search titles, topics and the full text of every study</label>
+              <div class="hc-field">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input type="search" id="archive-search-input" name="q" placeholder="Search the archive" autocomplete="off" spellcheck="false" />
+                <button id="archive-search-clear" type="button" hidden>Clear</button>
+              </div>
+              <p class="bi-search__note">Titles, topics and the full text of every study.</p>
+            </form>
+
+            <nav class="bi-filter-nav" aria-label="Filter by branch">
+              <ul class="hc-filters" id="bi-filters">
+                <li>
+                  <a href="/blogs/" class="hc-filter bi-chip is-active" data-filter="all" aria-current="true">
+                    <span>All branches</span><span class="hc-filter__n">{entries.length}</span>
+                  </a>
+                </li>
+                {branches.map((branch) => (
+                  <li>
+                    <a href={`/blogs/category/${branch.slug}/`} class="hc-filter bi-chip" data-filter={branch.name} data-category={branch.name}>
+                      <span>{branch.name}</span><span class="hc-filter__n">{branch.count}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <div class="bi-tools__row" data-js-only hidden>
+              <label class="bi-order">
+                <span>Order</span>
+                <select id="archive-order" class="hc-select">
+                  <option value="latest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </label>
+              <button type="button" id="archive-reset-btn" class="bi-reset" hidden>Reset</button>
+            </div>
+
+            <p id="archive-result-count" class="bi-status" role="status" aria-live="polite">
+              <span class="bi-status-text">{entries.length} studies in the archive</span>
+            </p>
+            <noscript>
+              <p class="bi-status">Each branch above opens its own index. Your browser's Find command searches this page.</p>
+            </noscript>
+          </div>
+        </aside>
+
+        <div class="bi-ledger-wrap">
+          <div id="ledger" class="bi-years">
+            {years.map((group) => (
+              <section class="bi-year" data-year={group.year} aria-labelledby={`bi-year-${group.year}`}>
+                <header class="bi-year__head">
+                  <h3 id={`bi-year-${group.year}`} class="bi-year__title">{group.year}</h3>
+                  <span class="bi-year__count" data-total={group.entries.length}>{plural(group.entries.length, 'study', 'studies')}</span>
+                </header>
+                <ol class="bi-ledger">
+                  {group.entries.map((entry) => <ArchiveEntry entry={entry} />)}
+                </ol>
+              </section>
+            ))}
+          </div>
+
+          <div class="bi-empty" id="ledger-empty" hidden>
+            <h3>No studies found</h3>
+            <p>Nothing in the archive matches this search and branch.</p>
+            <button type="button" id="ledger-empty-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </BaseLayout>
 
-<script>
-  interface SearchSection {
-    heading: string;
-    slug: string;
-    text: string;
-  }
-
-  interface SearchDoc {
-    id: string;
-    title: string;
-    description: string;
-    category: string;
-    tags: string[];
-    sections: SearchSection[];
-    fullText: string;
-  }
-
-  function initArchive() {
-    const page = document.querySelector<HTMLElement>(".bi-page");
-    /* Guard: DOMContentLoaded and astro:page-load can both fire under
-       View Transitions — bind every listener exactly once. */
-    if (!page || page.dataset.hcInit === "true") return;
-    page.dataset.hcInit = "true";
-
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const filterContainer = page.querySelector<HTMLElement>("#bi-filters");
-    const magnetPill = filterContainer?.querySelector<HTMLElement>(".bi-filters__magnet");
-    const chips = Array.from(page.querySelectorAll<HTMLButtonElement>(".bi-chip"));
-    const rows = Array.from(page.querySelectorAll<HTMLLIElement>(".bi-row"));
-
-    const searchInput = page.querySelector<HTMLInputElement>("#archive-search-input");
-    const searchClear = page.querySelector<HTMLButtonElement>("#archive-search-clear");
-    const resetBtn = page.querySelector<HTMLButtonElement>("#archive-reset-btn");
-    const emptyState = page.querySelector<HTMLElement>("#ledger-empty");
-    const emptyReset = page.querySelector<HTMLButtonElement>("#ledger-empty-reset");
-    const statusChip = page.querySelector<HTMLElement>("#archive-result-count");
-    let activeCategory = "all";
-    let query = "";
-
-    /* ── Cursor spotlight tracking per ledger row ── */
-    if (!prefersReduced) {
-      rows.forEach((row) => {
-        row.addEventListener("mousemove", (e) => {
-          const rect = row.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width) * 100;
-          const y = ((e.clientY - rect.top) / rect.height) * 100;
-          row.style.setProperty("--mouse-x", `${x.toFixed(1)}%`);
-          row.style.setProperty("--mouse-y", `${y.toFixed(1)}%`);
-        });
-      });
-    }
-
-    /* ── Sliding magnet pill tracking the active field chip ── */
-    const updateMagnetPill = (chip: HTMLElement) => {
-      if (!magnetPill || !filterContainer || !chip) return;
-
-      const containerRect = filterContainer.getBoundingClientRect();
-      const chipRect = chip.getBoundingClientRect();
-      const activeBg =
-        getComputedStyle(chip).getPropertyValue("--chip-active-bg").trim() || "var(--hc-gold)";
-
-      magnetPill.style.transform = `translate(${chipRect.left - containerRect.left}px, ${chipRect.top - containerRect.top}px)`;
-      magnetPill.style.width = `${chipRect.width}px`;
-      magnetPill.style.height = `${chipRect.height}px`;
-      magnetPill.style.backgroundColor = activeBg;
-      magnetPill.style.boxShadow = `0 2px 12px color-mix(in srgb, ${activeBg} 40%, transparent)`;
-      magnetPill.style.opacity = "1";
-    };
-
-    if (filterContainer && magnetPill) {
-      filterContainer.setAttribute("data-magnet-ready", "true");
-
-      const initialChip = filterContainer.querySelector<HTMLButtonElement>(".bi-chip.is-active");
-      if (initialChip) updateMagnetPill(initialChip);
-
-      window.addEventListener(
-        "resize",
-        () => {
-          const active = filterContainer.querySelector<HTMLButtonElement>(".bi-chip.is-active");
-          if (active) updateMagnetPill(active);
-        },
-        { passive: true },
-      );
-    }
-
-    /* ── Reading progress through the ledger ── */
-    const ledgerList = document.getElementById("ledger");
-    const scrollBar = document.getElementById("scroll-bar");
-
-    if (ledgerList && scrollBar) {
-      let ticking = false;
-
-      const updateProgress = () => {
-        const rect = ledgerList.getBoundingClientRect();
-        const total = ledgerList.scrollHeight - window.innerHeight + 200;
-        const current = Math.max(0, -rect.top);
-        const progress = Math.min(100, Math.max(0, (current / total) * 100));
-        scrollBar.style.width = `${progress}%`;
-        ticking = false;
-      };
-
-      window.addEventListener(
-        "scroll",
-        () => {
-          if (ticking) return;
-          ticking = true;
-          requestAnimationFrame(updateProgress);
-        },
-        { passive: true },
-      );
-    }
-
-    /* ── Deep search index (lazy, fetched on first keystroke) ── */
-    const searchMap = new Map<string, SearchDoc>();
-    let searchIndexRequest: Promise<void> | null = null;
-
-    const loadSearchIndex = () => {
-      if (searchIndexRequest) return searchIndexRequest;
-
-      searchIndexRequest = fetch("/search-index.json")
-        .then((res) => res.json() as Promise<SearchDoc[]>)
-        .then((docs) => {
-          docs.forEach((doc) => searchMap.set(doc.id, doc));
-          if (query) applyFilters();
-        })
-        .catch(() => {});
-
-      return searchIndexRequest;
-    };
-
-    const escapeHtml = (str: string): string =>
-      str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    const createSnippet = (text: string, term: string): string => {
-      const idx = text.toLowerCase().indexOf(term.toLowerCase());
-      if (idx === -1) return "";
-
-      const start = Math.max(0, idx - 65);
-      const end = Math.min(text.length, idx + term.length + 85);
-      let snippet = text.slice(start, end);
-      if (start > 0) snippet = "..." + snippet;
-      if (end < text.length) snippet = snippet + "...";
-
-      const escapedSnippet = escapeHtml(snippet);
-      const escapedTerm = escapeHtml(term);
-      const regex = new RegExp(`(${escapedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-      return escapedSnippet.replace(regex, '<mark class="search-match-mark">$1</mark>');
-    };
-
-    const updateControls = () => {
-      const isFiltered = activeCategory !== "all" || query.length > 0;
-      if (resetBtn) resetBtn.hidden = !isFiltered;
-      if (searchClear) searchClear.hidden = query.length === 0;
-    };
-
-    const setActiveChip = (category: string) => {
-      const normalized = category.trim().toLowerCase();
-      const chip =
-        chips.find((c) => (c.dataset.filter ?? "").trim().toLowerCase() === normalized) || chips[0];
-
-      activeCategory = chip.dataset.filter ?? "all";
-      chips.forEach((c) => {
-        const isTarget = c === chip;
-        c.classList.toggle("is-active", isTarget);
-        c.setAttribute("aria-selected", isTarget ? "true" : "false");
-      });
-      updateMagnetPill(chip);
-      updateControls();
-    };
-
-    const syncUrl = () => {
-      const url = new URL(location.href);
-      if (activeCategory === "all") {
-        url.searchParams.delete("category");
-      } else {
-        url.searchParams.set("category", activeCategory);
-      }
-      query ? url.searchParams.set("q", query) : url.searchParams.delete("q");
-      history.replaceState(null, "", url);
-    };
-
-    const applyFilters = () => {
-      let visible = 0;
-
-      for (const row of rows) {
-        const id = row.dataset.id ?? "";
-        const doc = searchMap.get(id);
-        const matchesCategory = activeCategory === "all" || row.dataset.category === activeCategory;
-
-        let matchesQuery = !query;
-        let matchSection: SearchSection | null = null;
-        let matchSnippetHtml = "";
-
-        if (query) {
-          const titleDescMatch = (row.dataset.search ?? "").includes(query);
-          if (titleDescMatch) matchesQuery = true;
-
-          if (doc) {
-            for (const sec of doc.sections) {
-              const inHeading = sec.heading.toLowerCase().includes(query);
-              const inText = sec.text.toLowerCase().includes(query);
-              if (inHeading || inText) {
-                matchesQuery = true;
-                matchSection = sec;
-                const source = inText ? sec.text : sec.heading;
-                matchSnippetHtml = createSnippet(source, query);
-                break;
-              }
-            }
-
-            if (!matchSection && doc.fullText.toLowerCase().includes(query)) {
-              matchesQuery = true;
-              matchSnippetHtml = createSnippet(doc.fullText, query);
-            }
-          }
-        }
-
-        const show = matchesCategory && matchesQuery;
-        row.hidden = !show;
-        if (show) visible += 1;
-
-        const link = row.querySelector<HTMLAnchorElement>(".bi-row__link");
-        const matchBox = row.querySelector<HTMLElement>(".bi-row__match");
-        const descEl = row.querySelector<HTMLElement>(".bi-row__desc");
-
-        if (link) {
-          if (matchSection && matchSection.slug) {
-            link.setAttribute("href", `/blogs/${id}/#${matchSection.slug}`);
-          } else {
-            link.setAttribute("href", `/blogs/${id}/`);
-          }
-        }
-
-        if (matchBox) {
-          if (show && matchSnippetHtml) {
-            if (descEl) descEl.hidden = true;
-            matchBox.hidden = false;
-            const headingLabel = matchSection ? matchSection.heading : "Article Content";
-            matchBox.innerHTML = `
-              <div class="search-citation">
-                <div class="search-citation__header">
-                  <div class="search-citation__meta">
-                    <span class="search-citation__badge">
-                      <svg class="search-citation__icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                      </svg>
-                      <span>Direct match in</span>
-                    </span>
-                    <strong class="search-citation__section">${escapeHtml(headingLabel)}</strong>
-                  </div>
-                  <span class="search-citation__jump">
-                    <span>Jump to Section</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                      <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
-                  </span>
-                </div>
-                <div class="search-citation__body">
-                  <span class="search-citation__quote-mark" aria-hidden="true">"</span>
-                  <p class="search-citation__text">${matchSnippetHtml}</p>
-                </div>
-              </div>
-            `;
-          } else {
-            if (descEl) descEl.hidden = false;
-            matchBox.hidden = true;
-            matchBox.innerHTML = "";
-          }
-        }
-      }
-
-      if (emptyState) emptyState.hidden = visible > 0;
-
-      if (statusChip) {
-        const textEl = statusChip.querySelector(".bi-status-text");
-        if (textEl) {
-          const noun = visible === 1 ? "folio" : "folios";
-
-          if (query) {
-            const fieldStr =
-              activeCategory === "all" ? "" : ` under <strong>${escapeHtml(activeCategory)}</strong>`;
-            textEl.innerHTML =
-              `Filing <strong>${visible}</strong> ${noun} matching "${escapeHtml(query)}"${fieldStr}`;
-          } else if (activeCategory !== "all") {
-            textEl.innerHTML =
-              `Filing <strong>${visible}</strong> ${noun} under <strong>${escapeHtml(activeCategory)}</strong>`;
-          } else {
-            textEl.innerHTML = `Filing <strong>${visible}</strong> folios under complete archive`;
-          }
-        }
-      }
-
-      updateControls();
-    };
-
-    const resetAll = () => {
-      activeCategory = "all";
-      query = "";
-      if (searchInput) searchInput.value = "";
-      setActiveChip("all");
-      syncUrl();
-      applyFilters();
-    };
-
-    chips.forEach((chip) => {
-      chip.addEventListener("click", () => {
-        setActiveChip(chip.dataset.filter ?? "all");
-        syncUrl();
-        applyFilters();
-      });
-    });
-
-    searchInput?.addEventListener("input", () => {
-      query = searchInput.value.trim().toLowerCase();
-      if (query) loadSearchIndex();
-      syncUrl();
-      applyFilters();
-    });
-
-    searchClear?.addEventListener("click", () => {
-      if (searchInput) {
-        searchInput.value = "";
-        searchInput.focus();
-      }
-      query = "";
-      syncUrl();
-      applyFilters();
-    });
-
-    resetBtn?.addEventListener("click", resetAll);
-    emptyReset?.addEventListener("click", resetAll);
-
-    /* ⌘K / Ctrl+K focuses search; Escape clears and blurs. */
-    window.addEventListener("keydown", (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchInput?.focus();
-        searchInput?.select();
-        return;
-      }
-
-      if (e.key === "Escape" && document.activeElement === searchInput && searchInput) {
-        searchInput.value = "";
-        query = "";
-        syncUrl();
-        applyFilters();
-        searchInput.blur();
-      }
-    });
-
-    /* Deep links: ?category= and ?q= */
-    const requestedCategory = new URLSearchParams(location.search).get("category");
-    if (requestedCategory) setActiveChip(requestedCategory);
-
-    const requestedQuery = new URLSearchParams(location.search).get("q");
-    if (requestedQuery && searchInput) {
-      searchInput.value = requestedQuery;
-      query = requestedQuery.toLowerCase();
-      loadSearchIndex();
-    }
-
-    applyFilters();
-  }
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initArchive, { once: true });
-  } else {
-    initArchive();
-  }
-  document.addEventListener("astro:page-load", initArchive);
-</script>
-
-<style>
-  /* ─────────────────────────────────────────────
-     BLOG INDEX · Design System V2.4
-     Dark manuscript ground · ledger folios · deep-search citations
-     ───────────────────────────────────────────── */
-
-  .bi-page {
-    position: relative;
-    min-height: 100vh;
-    color: var(--hc-text-primary);
-    background-color: var(--hc-surface-0);
-  }
-
-  /* ═══════════════════════════════════════════
-     SECTION DIVIDER WITH EMBLEM
-     ═══════════════════════════════════════════ */
-  .bi-divider {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    max-width: var(--wrap, 1240px);
-    margin-inline: auto;
-    padding-inline: clamp(1.25rem, 4vw, 2rem);
-    color: var(--hc-gold-dim);
-  }
-
-  .bi-divider__rule {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--hc-rule) 20%, var(--hc-rule) 80%, transparent);
-  }
-
-  .bi-divider__emblem {
-    flex-shrink: 0;
-    opacity: 0.8;
-  }
-
-  /* ═══════════════════════════════════════════
-     HERO — editorial masthead
-     ═══════════════════════════════════════════ */
-  .bi-hero {
-    position: relative;
-    overflow: hidden;
-    border-bottom: 1px solid var(--hc-rule);
-    background:
-      radial-gradient(ellipse 850px 420px at 12% 20%, rgba(216, 177, 102, 0.055) 0%, transparent 65%),
-      radial-gradient(circle at 88% 8%, rgba(216, 177, 102, 0.035), transparent 42%),
-      linear-gradient(180deg, var(--hc-surface-1) 0%, var(--hc-surface-0) 100%);
-    padding: clamp(3.5rem, 6vw, 5.5rem) 0 clamp(2.5rem, 4.5vw, 4rem);
-  }
-
-  .bi-hero__emblem {
-    position: absolute;
-    top: clamp(1.5rem, 4vw, 3rem);
-    right: clamp(-2rem, 2vw, 3rem);
-    color: var(--hc-gold);
-    opacity: 0.07;
-    pointer-events: none;
-    user-select: none;
-  }
-
-  @media (max-width: 720px) {
-    .bi-hero__emblem {
-      display: none;
-    }
-  }
-
-  .bi-hero__inner {
-    position: relative;
-  }
-
-  .bi-hero__eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    margin-bottom: 1.15rem;
-  }
-
-  .bi-hero__kicker-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    flex-shrink: 0;
-  }
-
-  .bi-hero__kicker {
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .bi-hero__kicker-sep {
-    color: var(--hc-rule-strong);
-    font-size: 0.75rem;
-  }
-
-  .bi-hero__kicker-tag {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .bi-hero__title {
-    margin: 0 0 1.1rem;
-    font-family: var(--font-display);
-    font-size: clamp(2.4rem, 5.4vw, 3.9rem);
-    font-weight: 500;
-    line-height: 1.04;
-    letter-spacing: -0.03em;
-    color: var(--hc-text-primary);
-  }
-
-  .bi-hero__title-accent {
-    font-style: italic;
-    color: var(--hc-gold);
-  }
-
-  .bi-hero__lede {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: clamp(1.02rem, 1.25vw, 1.16rem);
-    line-height: 1.68;
-    color: var(--hc-text-secondary);
-    max-width: 58ch;
-  }
-
-  /* Ledger stat band */
-  .bi-hero__stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin: clamp(2.25rem, 4vw, 3.25rem) 0 0;
-    border: 1px solid var(--hc-rule);
-    background: var(--hc-surface-1);
-  }
-
-  .bi-hero__stat {
-    padding: 1.15rem 1.35rem;
-    border-left: 1px solid var(--hc-rule-soft);
-  }
-
-  .bi-hero__stat:first-child {
-    border-left: none;
-  }
-
-  .bi-hero__stat-label {
-    margin: 0 0 0.4rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .bi-hero__stat-value {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.35rem, 2.2vw, 1.8rem);
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-gold);
-  }
-
-  @media (max-width: 640px) {
-    .bi-hero__stats {
-      grid-template-columns: 1fr;
-    }
-
-    .bi-hero__stat {
-      border-left: none;
-      border-top: 1px solid var(--hc-rule-soft);
-    }
-
-    .bi-hero__stat:first-child {
-      border-top: none;
-    }
-  }
-
-  /* ═══════════════════════════════════════════
-     STICKY TOOLBAR
-     ═══════════════════════════════════════════ */
-  .bi-tools {
-    position: sticky;
-    top: var(--site-header-height, 72px);
-    z-index: 40;
-    border-bottom: 1px solid var(--hc-rule);
-    background: color-mix(in srgb, var(--hc-surface-1) 92%, transparent);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-  }
-
-  .bi-tools__progress {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: transparent;
-  }
-
-  .bi-tools__progress-bar {
-    height: 100%;
-    width: 0%;
-    background: var(--hc-gold);
-    transition: width 100ms ease;
-  }
-
-  .bi-tools__inner {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-    padding-block: 1rem;
-  }
-
-  /* Search row */
-  .bi-search-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-  }
-
-  .bi-search-box {
-    position: relative;
-    display: flex;
-    align-items: center;
-    flex: 1;
-    min-height: 48px;
-    padding: 0 1rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs, 2px);
-    background: var(--hc-surface-2);
-    transition: border-color 200ms ease, box-shadow 200ms ease;
-  }
-
-  .bi-search-box:focus-within {
-    border-color: var(--hc-gold);
-    box-shadow: 0 0 0 3px rgba(216, 177, 102, 0.16);
-  }
-
-  .bi-search-icon {
-    color: var(--hc-gold-dim);
-    margin-right: 0.75rem;
-    flex-shrink: 0;
-  }
-
-  .bi-search-input {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--hc-text-primary);
-    font-family: var(--font-body);
-    font-size: 1rem;
-  }
-
-  .bi-search-input::-webkit-search-cancel-button,
-  .bi-search-input::-webkit-search-decoration {
-    -webkit-appearance: none;
-    appearance: none;
-    display: none;
-  }
-
-  .bi-search-input::placeholder {
-    color: var(--hc-text-tertiary);
-  }
-
-  .bi-search-clear {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    color: var(--hc-text-tertiary);
-    cursor: pointer;
-    padding: 0.3rem;
-    border-radius: var(--radius-xs, 2px);
-    transition: color 160ms ease;
-  }
-
-  .bi-search-clear:hover {
-    color: var(--hc-text-primary);
-  }
-
-  .bi-search-kbd {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs, 2px);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--hc-text-tertiary);
-    background: var(--hc-surface-1);
-    user-select: none;
-    flex-shrink: 0;
-  }
-
-  /* Filter chips with sliding magnet pill */
-  .bi-filters-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
-  }
-
-  .bi-filters-row::-webkit-scrollbar {
-    display: none;
-  }
-
-  .bi-filters {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: nowrap;
-    width: max-content;
-  }
-
-  .bi-filters__magnet {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 0;
-    height: 0;
-    border-radius: 999px;
-    pointer-events: none;
-    z-index: 1;
-    opacity: 0;
-    transition:
-      transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      width 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      height 240ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      background-color 180ms ease,
-      box-shadow 180ms ease,
-      opacity 120ms ease;
-  }
-
-  /* Field-of-inquiry hues — brand apparatus tokens.
-     Active fills stay theme-fixed: they carry a fixed near-black
-     or parchment label, so an inverting fill would break contrast. */
-  .bi-chip[data-filter="all"] {
-    --chip-color: var(--hc-gold);
-    --chip-bg: rgba(216, 177, 102, 0.1);
-    --chip-border: rgba(216, 177, 102, 0.32);
-    --chip-active-bg: #c89b4b;
-    --chip-active-text: #141312;
-  }
-
-  .bi-chip[data-category="Origins & Early History"],
-  .bi-chip[data-filter="Origins & Early History"] {
-    --chip-color: var(--cat-history-text, #c99a72);
-    --chip-bg: rgba(201, 154, 114, 0.1);
-    --chip-border: rgba(201, 154, 114, 0.32);
-    --chip-active-bg: #a5714a;
-    --chip-active-text: #fbf9f4;
-  }
-
-  .bi-chip[data-category="Prophecies & Eschatology"],
-  .bi-chip[data-filter="Prophecies & Eschatology"] {
-    --chip-color: var(--cat-prophecies-text, #c8705f);
-    --chip-bg: rgba(200, 112, 95, 0.1);
-    --chip-border: rgba(200, 112, 95, 0.32);
-    --chip-active-bg: #a44a3a;
-    --chip-active-text: #fbf9f4;
-  }
-
-  .bi-chip[data-category="Theology & Epistemology"],
-  .bi-chip[data-filter="Theology & Epistemology"] {
-    --chip-color: var(--cat-theology-text, #7fa389);
-    --chip-bg: rgba(127, 163, 137, 0.1);
-    --chip-border: rgba(127, 163, 137, 0.32);
-    --chip-active-bg: #4d7a5c;
-    --chip-active-text: #fbf9f4;
-  }
-
-  .bi-chip[data-category="Transmission & Narrators"],
-  .bi-chip[data-filter="Transmission & Narrators"] {
-    --chip-color: var(--cat-philosophy-text, #8595b5);
-    --chip-bg: rgba(133, 149, 181, 0.1);
-    --chip-border: rgba(133, 149, 181, 0.32);
-    --chip-active-bg: #55648a;
-    --chip-active-text: #fbf9f4;
-  }
-
-  .bi-chip {
-    position: relative;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.44rem 1rem;
-    border: 1px solid var(--chip-border, var(--hc-rule));
-    border-radius: 999px;
-    background: var(--hc-surface-1);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: color 180ms ease, border-color 180ms ease, background-color 180ms ease;
-  }
-
-  .bi-chip__dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--chip-color, var(--hc-gold));
-    flex-shrink: 0;
-    transition: transform 180ms ease;
-  }
-
-  .bi-chip:hover {
-    color: var(--chip-color, var(--hc-text-primary));
-    border-color: var(--chip-color, var(--hc-rule-strong));
-    background: var(--chip-bg, var(--hc-surface-2));
-  }
-
-  .bi-chip:hover .bi-chip__dot {
-    transform: scale(1.3);
-  }
-
-  .bi-chip.is-active {
-    color: var(--chip-active-text, #ffffff);
-    font-weight: 700;
-  }
-
-  .bi-filters[data-magnet-ready="true"] .bi-chip.is-active {
-    background: transparent;
-    border-color: transparent;
-  }
-
-  .bi-chip.is-active .bi-chip__dot {
-    background: currentColor;
-  }
-
-  .bi-chip__count {
-    font-size: 0.78rem;
-    padding: 0.08rem 0.45rem;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.18);
-    color: var(--hc-text-primary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .bi-chip.is-active .bi-chip__count {
-    background: rgba(255, 255, 255, 0.28);
-    color: currentColor;
-  }
-
-  .bi-reset {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.42rem 0.9rem;
-    border-radius: 999px;
-    border: 1px dashed var(--hc-rule-strong);
-    background: transparent;
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: all 180ms ease;
-  }
-
-  .bi-reset:hover {
-    border-color: var(--hc-gold);
-    border-style: solid;
-    background: rgba(216, 177, 102, 0.08);
-  }
-
-  /* ═══════════════════════════════════════════
-     STATUS CHIP
-     ═══════════════════════════════════════════ */
-  .bi-ledger-section {
-    padding-block: 2rem 5rem;
-  }
-
-  .bi-status {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1.25rem;
-    min-height: 2.1rem;
-  }
-
-  .bi-status-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.36rem 0.9rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.07);
-    border: 1px solid rgba(216, 177, 102, 0.22);
-    color: var(--hc-text-secondary);
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-  }
-
-  .bi-status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    flex-shrink: 0;
-  }
-
-  .bi-status-text strong {
-    color: var(--hc-gold);
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ═══════════════════════════════════════════
-     LEDGER ROWS
-     ═══════════════════════════════════════════ */
-  .bi-ledger {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    border-top: 1px solid var(--hc-rule);
-  }
-
-  .bi-row {
-    position: relative;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    transition: background 240ms ease, border-bottom-color 200ms ease, box-shadow 240ms ease;
-  }
-
-  .bi-row[data-category="Origins & Early History"] {
-    --cat-color: var(--cat-history-text, #c99a72);
-  }
-
-  .bi-row[data-category="Prophecies & Eschatology"] {
-    --cat-color: var(--cat-prophecies-text, #c8705f);
-  }
-
-  .bi-row[data-category="Theology & Epistemology"] {
-    --cat-color: var(--cat-theology-text, #7fa389);
-  }
-
-  .bi-row[data-category="Transmission & Narrators"] {
-    --cat-color: var(--cat-philosophy-text, #8595b5);
-  }
-
-  .bi-row:hover {
-    background: radial-gradient(
-      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 9%, transparent) 0%,
-      transparent 75%
-    );
-    border-bottom-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 35%, var(--hc-rule));
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--cat-color, var(--hc-gold)) 22%, transparent);
-  }
-
-  .bi-row__link {
-    display: grid;
-    grid-template-columns: 150px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: clamp(1.2rem, 2.5vw, 2.4rem);
-    padding: clamp(1.3rem, 1.8vw, 1.7rem) clamp(0.75rem, 1.2vw, 1.35rem);
-    text-decoration: none;
-  }
-
-  /* Meta column */
-  .bi-row__meta {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    font-family: var(--font-ui);
-  }
-
-  .bi-row__folio {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.2rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs, 2px);
-    background: rgba(216, 177, 102, 0.05);
-    color: var(--hc-gold);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    font-variant-numeric: tabular-nums;
-    width: fit-content;
-    transition: border-color 200ms ease, background-color 200ms ease;
-  }
-
-  .bi-row__folio-glyph {
-    font-size: 0.75rem;
-    color: var(--cat-color, var(--hc-gold));
-    opacity: 0.5;
-    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
-  }
-
-  .bi-row:hover .bi-row__folio {
-    background: rgba(216, 177, 102, 0.1);
-    border-color: color-mix(in srgb, var(--cat-color, var(--hc-gold)) 40%, var(--hc-rule));
-  }
-
-  .bi-row:hover .bi-row__folio-glyph {
-    opacity: 1;
-    transform: scale(1.2) rotate(45deg);
-  }
-
-  .bi-row__date {
-    color: var(--hc-text-tertiary);
-    font-size: 0.82rem;
-  }
-
-  .bi-row__readtime {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.32rem;
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .bi-row__readtime-icon {
-    color: var(--hc-gold-dim);
-    flex-shrink: 0;
-  }
-
-  /* Neutral gold "New" mark — no traffic-light semantics */
-  .bi-row__badge-new {
-    display: inline-flex;
-    align-items: center;
-    width: fit-content;
-    padding: 0.14rem 0.5rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.1);
-    border: 1px solid rgba(216, 177, 102, 0.4);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  /* Body column */
-  .bi-row__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-
-  .bi-row__header {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .bi-row__cat {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    width: fit-content;
-    padding: 0.2rem 0.65rem;
-    border: 1px solid var(--badge-border, rgba(216, 177, 102, 0.3));
-    border-radius: 999px;
-    color: var(--badge-color, var(--hc-gold-soft));
-    background: var(--badge-bg, rgba(216, 177, 102, 0.08));
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    transition: border-color 200ms ease, transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .bi-row__cat-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    flex-shrink: 0;
-    transition: transform 200ms ease;
-  }
-
-  .bi-row:hover .bi-row__cat {
-    transform: translateY(-1px);
-    border-color: var(--badge-color);
-  }
-
-  .bi-row:hover .bi-row__cat-dot {
-    transform: scale(1.3);
-  }
-
-  .bi-row__cat[data-category="Origins & Early History"] {
-    --badge-color: var(--cat-history-text, #c99a72);
-    --badge-bg: rgba(201, 154, 114, 0.1);
-    --badge-border: rgba(201, 154, 114, 0.35);
-  }
-
-  .bi-row__cat[data-category="Prophecies & Eschatology"] {
-    --badge-color: var(--cat-prophecies-text, #c8705f);
-    --badge-bg: rgba(200, 112, 95, 0.1);
-    --badge-border: rgba(200, 112, 95, 0.35);
-  }
-
-  .bi-row__cat[data-category="Theology & Epistemology"] {
-    --badge-color: var(--cat-theology-text, #7fa389);
-    --badge-bg: rgba(127, 163, 137, 0.1);
-    --badge-border: rgba(127, 163, 137, 0.35);
-  }
-
-  .bi-row__cat[data-category="Transmission & Narrators"] {
-    --badge-color: var(--cat-philosophy-text, #8595b5);
-    --badge-bg: rgba(133, 149, 181, 0.1);
-    --badge-border: rgba(133, 149, 181, 0.35);
-  }
-
-  .bi-row__title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 500;
-    font-size: clamp(1.3rem, 2vw, 1.55rem);
-    line-height: 1.24;
-    letter-spacing: -0.015em;
-    color: var(--hc-text-primary);
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    text-underline-offset: 6px;
-    text-decoration-thickness: 1.5px;
-    transition: color 200ms ease, text-decoration-color 240ms ease;
-  }
-
-  .bi-row:hover .bi-row__title {
-    color: var(--hc-gold-soft);
-    text-decoration-color: var(--cat-color, var(--hc-gold));
-  }
-
-  .bi-row__desc {
-    margin: 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    color: var(--hc-text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.58;
-  }
-
-  .bi-row__desc[hidden] {
-    display: none !important;
-  }
-
-  .bi-row__match {
-    margin-top: 0.35rem;
-  }
-
-  /* ── Deep-search citation plaque (injected via JS, hence :global) ── */
-  :global(.search-citation) {
-    display: flex;
-    flex-direction: column;
-    border-radius: var(--radius-xs, 2px);
-    background: var(--hc-surface-2);
-    border: 1px solid var(--hc-rule);
-    outline: 1px solid var(--hc-rule-soft);
-    outline-offset: -5px;
-    overflow: hidden;
-    transition: border-color 200ms ease;
-  }
-
-  .bi-row:hover :global(.search-citation) {
-    border-color: var(--hc-gold-dim);
-  }
-
-  :global(.search-citation__header) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.55rem 0.9rem;
-    background: rgba(216, 177, 102, 0.06);
-    border-bottom: 1px solid var(--hc-rule-soft);
-    flex-wrap: wrap;
-  }
-
-  :global(.search-citation__meta) {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    min-width: 0;
-  }
-
-  :global(.search-citation__badge) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.12);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    line-height: 1;
-  }
-
-  :global(.search-citation__section) {
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    font-weight: 600;
-    color: var(--hc-text-primary);
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  :global(.search-citation__jump) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-    padding: 0.24rem 0.65rem;
-    border-radius: 999px;
-    background: rgba(216, 177, 102, 0.08);
-    border: 1px solid rgba(216, 177, 102, 0.25);
-    white-space: nowrap;
-    line-height: 1.2;
-    transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
-  }
-
-  :global(.search-citation__jump) svg {
-    transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  .bi-row:hover :global(.search-citation__jump) {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse, #0f0f10);
-    border-color: var(--hc-gold);
-  }
-
-  .bi-row:hover :global(.search-citation__jump) svg {
-    transform: translateX(3px);
-  }
-
-  :global(.search-citation__body) {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
-    padding: 0.75rem 0.95rem;
-  }
-
-  :global(.search-citation__quote-mark) {
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 1.6rem;
-    line-height: 0.8;
-    color: var(--hc-gold);
-    opacity: 0.55;
-    user-select: none;
-    flex-shrink: 0;
-    margin-top: 0.15rem;
-  }
-
-  :global(.search-citation__text) {
-    margin: 0;
-    color: var(--hc-text-secondary);
-    font-size: 0.92rem;
-    line-height: 1.6;
-    font-style: italic;
-  }
-
-  :global(.search-match-mark) {
-    background: rgba(216, 177, 102, 0.26);
-    color: #fcebc7;
-    border-bottom: 2px solid var(--hc-gold);
-    font-weight: 700;
-    font-style: normal;
-    padding: 0.08em 0.3em;
-    border-radius: var(--radius-xs, 2px);
-  }
-
-  /* Action column */
-  .bi-row__action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-shrink: 0;
-  }
-
-  .bi-row__action-label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--cat-color, var(--hc-gold));
-    opacity: 0;
-    transform: translateX(6px);
-    transition: opacity 200ms ease, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
-    white-space: nowrap;
-    pointer-events: none;
-  }
-
-  .bi-row__arrow {
-    display: grid;
-    place-items: center;
-    width: 38px;
-    height: 38px;
-    border: 1px solid var(--hc-rule);
-    border-radius: 50%;
-    color: var(--hc-gold);
-    background: var(--hc-surface-1);
-    transition: all 200ms ease;
-  }
-
-  .bi-row:hover .bi-row__action-label {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  .bi-row:hover .bi-row__arrow {
-    color: var(--hc-text-inverse, #141312);
-    border-color: var(--cat-color, var(--hc-gold));
-    background: var(--cat-color, var(--hc-gold));
-    transform: translateX(3px);
-    box-shadow: 0 0 16px color-mix(in srgb, var(--cat-color, var(--hc-gold)) 45%, transparent);
-  }
-
-  /* ═══════════════════════════════════════════
-     EMPTY STATE
-     ═══════════════════════════════════════════ */
-  .bi-empty {
-    margin: 3rem auto 0;
-    max-width: 520px;
-    padding: 3.5rem 2rem;
-    border: 1px dashed var(--hc-rule-strong);
-    border-radius: var(--radius-xs, 2px);
-    text-align: center;
-    background: var(--hc-surface-1);
-  }
-
-  .bi-empty__icon {
-    display: inline-flex;
-    color: var(--hc-gold-dim);
-    margin-bottom: 0.85rem;
-  }
-
-  .bi-empty h3 {
-    margin: 0 0 0.5rem;
-    font-family: var(--font-display);
-    font-size: 1.35rem;
-    color: var(--hc-text-primary);
-  }
-
-  .bi-empty p {
-    margin: 0 0 1.5rem;
-    color: var(--hc-text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.55;
-  }
-
-  .bi-empty__reset {
-    background: transparent;
-    color: var(--hc-gold);
-    border: 1px solid var(--hc-rule);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    padding: 0.6rem 1.3rem;
-    border-radius: var(--radius-sm, 4px);
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .bi-empty__reset:hover {
-    background: var(--hc-gold);
-    color: var(--hc-text-inverse, #0f0b0d);
-    border-color: var(--hc-gold);
-  }
-
-  /* ═══════════════════════════════════════════
-     LIGHT THEME ADAPTATION
-     ═══════════════════════════════════════════ */
-  :global([data-theme="light"]) .bi-hero {
-    background:
-      radial-gradient(ellipse 60% 40% at 50% -10%, rgba(176, 126, 44, 0.08), transparent 70%),
-      var(--hc-surface-0);
-  }
-
-  :global([data-theme="light"]) .bi-chip__count {
-    background: rgba(43, 40, 36, 0.08);
-  }
-
-  :global([data-theme="light"]) .bi-row:hover {
-    background: radial-gradient(
-      700px circle at var(--mouse-x, 35%) var(--mouse-y, 50%),
-      color-mix(in srgb, var(--cat-color, var(--hc-gold)) 12%, transparent) 0%,
-      transparent 75%
-    );
-  }
-
-  /* ═══════════════════════════════════════════
-     RESPONSIVE
-     ═══════════════════════════════════════════ */
-  @media (max-width: 900px) {
-    .bi-row__link {
-      grid-template-columns: 130px minmax(0, 1fr) auto;
-      gap: 1.2rem;
-      padding: 1.2rem 0.6rem;
-    }
-
-    .bi-row__action-label {
-      display: none;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .bi-hero {
-      padding: 3rem 0 2.25rem;
-    }
-
-    .bi-search-kbd {
-      display: none;
-    }
-
-    .bi-row__link {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      padding: 1.15rem 0.6rem;
-      align-items: stretch;
-    }
-
-    .bi-row__meta {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding-bottom: 0.45rem;
-      border-bottom: 1px dashed var(--hc-rule-soft);
-      gap: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .bi-row__date {
-      font-size: 0.78rem;
-    }
-
-    .bi-row__title {
-      font-size: 1.24rem;
-    }
-
-    .bi-row__action {
-      display: none;
-    }
-  }
-
-  /* ═══════════════════════════════════════════
-     REDUCED MOTION
-     ═══════════════════════════════════════════ */
-  @media (prefers-reduced-motion: reduce) {
-    .bi-row,
-    .bi-row__cat,
-    .bi-row__folio-glyph,
-    .bi-row__title,
-    .bi-row__arrow,
-    .bi-row__action-label,
-    .bi-chip,
-    .bi-chip__dot {
-      transition: none;
-    }
-
-    .bi-row:hover .bi-row__arrow {
-      transform: none;
-    }
-  }
-</style>
+<script>import '../../lib/blog-index';</script>

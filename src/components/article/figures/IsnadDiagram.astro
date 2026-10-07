@@ -1,0 +1,1354 @@
+---
+export interface DiagramNode {
+  id: string;
+  x: number;
+  y: number;
+  label?: string;
+  sublabel?: string;
+  labelPos?: 'right' | 'left' | 'above' | 'below';
+  labelDx?: number;
+  labelDy?: number;
+  kind?: 'root' | 'cl' | 'pcl' | 'collector' | 'ghost' | 'normal';
+}
+
+export interface DiagramEdge {
+  from: string;
+  to: string;
+  kind?: 'trunk' | 'normal' | 'dive';
+}
+
+export interface DiagramTier {
+  y: number;
+  label: string;
+}
+
+export interface DiagramAnnotation {
+  x: number;
+  y: number;
+  text: string;
+  anchor?: 'start' | 'middle' | 'end';
+  kind?: 'dive' | 'note';
+  dx?: number;
+  dy?: number;
+}
+
+interface Props {
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+  tiers?: DiagramTier[];
+  annotations?: DiagramAnnotation[];
+  width?: number;
+  height?: number;
+  caption?: string;
+  href?: string;
+  hrefLabel?: string;
+  ariaLabel?: string;
+  legend?: boolean;
+  orientation?: 'top-down' | 'bottom-up';
+}
+
+const {
+  nodes,
+  edges,
+  tiers = [],
+  annotations = [],
+  width = 760,
+  height = 620,
+  caption,
+  href,
+  hrefLabel = 'Open in Silsilah',
+  ariaLabel = 'Isnad transmission diagram',
+  legend = true,
+  orientation = 'top-down'
+} = Astro.props as Props;
+
+const isTopDown = orientation === 'top-down';
+const transformY = (yVal: number) => isTopDown ? height - yVal : yVal;
+
+const effectiveNodes: DiagramNode[] = nodes.map((node) => {
+  let labelPos = node.labelPos;
+  if (isTopDown) {
+    if (labelPos === 'above') labelPos = 'below';
+    else if (labelPos === 'below') labelPos = 'above';
+  }
+  return {
+    ...node,
+    y: transformY(node.y),
+    labelPos,
+    labelDy: isTopDown && node.labelDy !== undefined ? -node.labelDy : node.labelDy,
+  };
+});
+
+const effectiveTiers: DiagramTier[] = tiers.map((tier) => ({
+  ...tier,
+  y: transformY(tier.y),
+}));
+
+const effectiveAnnotations: DiagramAnnotation[] = annotations.map((ann) => ({
+  ...ann,
+  y: transformY(ann.y),
+  dy: isTopDown && ann.dy !== undefined ? -ann.dy : ann.dy,
+}));
+
+const byId = new Map<string, DiagramNode>(effectiveNodes.map((node) => [node.id, node]));
+
+const at = (id: string): DiagramNode => {
+  const node = byId.get(id);
+  if (!node) {
+    throw new Error('IsnadDiagram: unknown node id ' + id);
+  }
+  return node;
+};
+
+const curve = (a: DiagramNode, b: DiagramNode): string => {
+  const top = a.y <= b.y ? a : b;
+  const bottom = a.y <= b.y ? b : a;
+  const midY = (top.y + bottom.y) / 2;
+
+  return `M ${top.x} ${top.y} C ${top.x} ${midY}, ${bottom.x} ${midY}, ${bottom.x} ${bottom.y}`;
+};
+
+const getLabelOffset = (node: DiagramNode) => {
+  let x = node.x + 16;
+  let y = node.y + 4;
+  let anchor: 'start' | 'middle' | 'end' = 'start';
+
+  if (node.labelPos === 'left') {
+    x = node.x - 16;
+    y = node.y + 4;
+    anchor = 'end';
+  }
+
+  if (node.labelPos === 'above') {
+    x = node.x;
+    y = node.y - 16;
+    anchor = 'middle';
+  }
+
+  if (node.labelPos === 'below') {
+    x = node.x;
+    y = node.y + 24;
+    anchor = 'middle';
+  }
+
+  return {
+    x: x + (node.labelDx ?? 0),
+    y: y + (node.labelDy ?? 0),
+    anchor
+  };
+};
+
+const getLabelLines = (label?: string): string[] => {
+  if (!label) return [];
+  return label.split('\n');
+};
+
+const getNodeClass = (node: DiagramNode): string => {
+  const classes = ['node'];
+
+  if (node.kind === 'root') classes.push('node--root');
+  if (node.kind === 'cl') classes.push('node--cl');
+  if (node.kind === 'pcl') classes.push('node--pcl');
+  if (node.kind === 'collector') classes.push('node--coll');
+  if (node.kind === 'ghost') classes.push('node--ghost');
+
+  return classes.join(' ');
+};
+
+const getLabelClass = (node: DiagramNode): string => {
+  const classes = ['lbl'];
+
+  if (node.kind === 'cl') classes.push('lbl--cl');
+  if (node.kind === 'pcl') classes.push('lbl--pcl');
+  if (node.kind === 'collector') classes.push('lbl--coll');
+  if (node.kind === 'ghost') classes.push('lbl--ghost');
+
+  return classes.join(' ');
+};
+
+const getEdgeClass = (edge: DiagramEdge): string => {
+  const classes = ['edge'];
+
+  if (edge.kind === 'trunk') classes.push('edge--trunk');
+
+  return classes.join(' ');
+};
+
+const getAnnotationClass = (annotation: DiagramAnnotation): string => {
+  const classes = ['lbl', 'lbl--note'];
+
+  if (annotation.kind === 'dive') classes.push('lbl--dive');
+
+  return classes.join(' ');
+};
+
+const getNodeRadius = (node: DiagramNode): number => {
+  if (node.kind === 'root') return 8;
+  if (node.kind === 'cl') return 7.5;
+  if (node.kind === 'pcl') return 6.5;
+  if (node.kind === 'collector') return 6;
+  return 5.5;
+};
+
+const STEP = 190;
+
+const mainEdges = edges.filter((edge) => edge.kind !== 'dive');
+const diveEdges = edges.filter((edge) => edge.kind === 'dive');
+
+const orderedMain = [...mainEdges].sort((a, b) => {
+  const aMin = Math.min(at(a.from).y, at(a.to).y);
+  const bMin = Math.min(at(b.from).y, at(b.to).y);
+  return aMin - bMin;
+});
+
+const edgeDelay = new Map<DiagramEdge, number>();
+
+orderedMain.forEach((edge, index) => {
+  edgeDelay.set(edge, index * STEP);
+});
+
+const lastMain = orderedMain.length ? (orderedMain.length - 1) * STEP + 700 : 0;
+const diveDelay = lastMain + 700;
+
+const nodeDelay = new Map<string, number>();
+
+for (const node of effectiveNodes) {
+  let best = Infinity;
+
+  for (const edge of mainEdges) {
+    if (edge.from !== node.id && edge.to !== node.id) continue;
+
+    const delay = edgeDelay.get(edge) ?? 0;
+    const topId = at(edge.from).y <= at(edge.to).y ? edge.from : edge.to;
+
+    best = Math.min(best, topId === node.id ? delay : delay + 420);
+  }
+
+  diveEdges.forEach((edge, index) => {
+    if (edge.from !== node.id && edge.to !== node.id) return;
+    const delay = diveDelay + index * 250;
+    const topId = at(edge.from).y <= at(edge.to).y ? edge.from : edge.to;
+    best = Math.min(best, topId === node.id ? delay : delay + 420);
+  });
+
+  nodeDelay.set(node.id, Number.isFinite(best) ? best : 0);
+}
+
+const tierDelay = (tier: DiagramTier): number => {
+  let best = Infinity;
+
+  for (const node of effectiveNodes) {
+    if (Math.abs(node.y - tier.y) < 48) {
+      best = Math.min(best, nodeDelay.get(node.id) ?? 0);
+    }
+  }
+
+  return Number.isFinite(best) ? best : 0;
+};
+
+const hasDive = diveEdges.length > 0;
+const hasCl = effectiveNodes.some((node) => node.kind === 'cl');
+const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
+---
+
+<figure class="isnad-figure" data-isnad>
+  <div class="isnad-toolbar">
+    <span class="isnad-hint">Select a narrator to trace their strand</span>
+    <div class="isnad-actions">
+      <button
+        type="button"
+        class="isnad-btn"
+        data-isnad-replay
+        title="Replay transmission animation"
+        aria-label="Replay transmission animation"
+      >
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7" />
+          <polyline points="3 4 3 9 8 9" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="isnad-btn"
+        data-isnad-expand
+        title="Explore in Fullscreen & Zoom"
+        aria-label="Explore in Fullscreen & Zoom"
+      >
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="15 3 21 3 21 9" />
+          <polyline points="9 21 3 21 3 15" />
+          <line x1="21" y1="3" x2="14" y2="10" />
+          <line x1="3" y1="21" x2="10" y2="14" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="isnad-frame" data-isnad-stage>
+    <svg class="isnad-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
+      {effectiveTiers.map((tier) => (
+        <text class="tier" x="18" y={tier.y + 4} style={`--d:${tierDelay(tier)}ms`}>
+          {tier.label}
+        </text>
+      ))}
+
+      {orderedMain.map((edge) => (
+        <path
+          class={getEdgeClass(edge)}
+          data-edge="true"
+          data-from={edge.from}
+          data-to={edge.to}
+          d={curve(at(edge.from), at(edge.to))}
+          pathLength="1"
+          style={`--d:${edgeDelay.get(edge)}ms`}
+        />
+      ))}
+
+      {diveEdges.map((edge, index) => (
+        <g class="dive" style={`--d:${diveDelay + index * 250}ms`}>
+          <path
+            class="edge--dive"
+            data-edge="true"
+            data-from={edge.from}
+            data-to={edge.to}
+            d={curve(at(edge.from), at(edge.to))}
+          />
+        </g>
+      ))}
+
+      {effectiveNodes.map((node) => {
+        const offset = getLabelOffset(node);
+        const delay = nodeDelay.get(node.id) ?? 0;
+        const lines = getLabelLines(node.label);
+
+        return (
+          <g
+            class="node-group"
+            data-node="true"
+            data-node-id={node.id}
+            data-node-kind={node.kind ?? 'normal'}
+            data-label={node.label ?? ''}
+            data-sublabel={node.sublabel ?? ''}
+            tabindex="0"
+            role="button"
+            aria-label={`${node.label ?? node.id} (${node.kind ?? 'narrator'})`}
+          >
+            {node.kind === 'cl' && (
+              <>
+                <circle class="cl-ring" cx={node.x} cy={node.y} r="14" style={`--d:${delay + 250}ms`} />
+                <circle class="cl-ring cl-ring--pulse" cx={node.x} cy={node.y} r="20" />
+              </>
+            )}
+
+            {node.kind === 'collector' ? (
+              <polygon
+                class={getNodeClass(node)}
+                points={`${node.x},${node.y - 7} ${node.x + 7},${node.y} ${node.x},${node.y + 7} ${node.x - 7},${node.y}`}
+                style={`--d:${delay}ms`}
+              />
+            ) : (
+              <circle
+                class={getNodeClass(node)}
+                cx={node.x}
+                cy={node.y}
+                r={getNodeRadius(node)}
+                style={`--d:${delay}ms`}
+              />
+            )}
+
+            {node.label && (
+              <text
+                class={getLabelClass(node)}
+                x={offset.x}
+                y={offset.y}
+                text-anchor={offset.anchor}
+                style={`--d:${delay + 140}ms`}
+              >
+                {lines.map((line, index) => (
+                  <tspan x={offset.x} dy={index === 0 ? 0 : 14}>
+                    {line}
+                  </tspan>
+                ))}
+                {node.sublabel && (
+                  <tspan class="lbl--sub" x={offset.x} dy="14">
+                    {node.sublabel}
+                  </tspan>
+                )}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {effectiveAnnotations.map((annotation) => (
+        <text
+          class={getAnnotationClass(annotation)}
+          x={annotation.x + (annotation.dx ?? 0)}
+          y={annotation.y + (annotation.dy ?? 0)}
+          text-anchor={annotation.anchor ?? 'start'}
+          style={`--d:${annotation.kind === 'dive' ? diveDelay + 200 : lastMain}ms`}
+        >
+          {annotation.text}
+        </text>
+      ))}
+    </svg>
+
+    <!-- Floating Hover/Tap Inspector Tooltip -->
+    <div class="isnad-tooltip" data-isnad-tooltip aria-hidden="true">
+      <div class="isnad-tooltip__head">
+        <span class="isnad-tooltip__badge" data-tooltip-badge>Transmitter</span>
+      </div>
+      <div class="isnad-tooltip__title" data-tooltip-title></div>
+      <div class="isnad-tooltip__sub" data-tooltip-sub></div>
+      <div class="isnad-tooltip__meta" data-tooltip-meta></div>
+    </div>
+  </div>
+
+  {(caption || href || legend) && (
+    <figcaption class="isnad-caption-wrap">
+      {legend && (
+        <span class="isnad-legend">
+          <i class="key key--strand"></i>
+          <span>transmission strand</span>
+          {hasCl && (
+            <>
+              <i class="key key--cl"></i>
+              <span>common link (CL)</span>
+            </>
+          )}
+          {hasPcl && (
+            <>
+              <i class="key key--pcl"></i>
+              <span>partial common link (PCL)</span>
+            </>
+          )}
+          {hasDive && (
+            <>
+              <i class="key key--dive"></i>
+              <span>diving strand</span>
+            </>
+          )}
+        </span>
+      )}
+
+      {caption && <p class="isnad-caption">{caption}</p>}
+
+      {href && (
+        <a class="isnad-cta" href={href}>
+          {hrefLabel}
+        </a>
+      )}
+    </figcaption>
+  )}
+
+  <!-- Fullscreen / Pinch-to-Zoom Modal -->
+  <dialog class="isnad-modal" data-isnad-modal aria-label="Expanded Isnad Visualizer">
+    <div class="isnad-modal__bar">
+      <div class="isnad-modal__info">
+        <span class="isnad-modal__caption">{caption || ariaLabel}</span>
+      </div>
+      <div class="isnad-modal__controls">
+        <button type="button" class="isnad-modal__btn" data-modal-zoom-out title="Zoom Out" aria-label="Zoom Out">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <span class="isnad-modal__zoom-val" data-modal-zoom-val>100%</span>
+        <button type="button" class="isnad-modal__btn" data-modal-zoom-in title="Zoom In" aria-label="Zoom In">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button type="button" class="isnad-modal__btn isnad-modal__btn--reset" data-modal-zoom-reset title="Reset View" aria-label="Reset View">
+          1:1
+        </button>
+        <button type="button" class="isnad-modal__btn isnad-modal__btn--close" data-modal-close title="Close Fullscreen" aria-label="Close Fullscreen">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="isnad-modal__viewport" data-modal-viewport>
+      <div class="isnad-modal__stage" data-modal-stage>
+        <!-- Populated via script for high-res vector zooming -->
+      </div>
+    </div>
+    <div class="isnad-modal__gesture-hint">
+      <span>Use pinch or the wheel to zoom. Drag to pan. Select a narrator to trace.</span>
+    </div>
+  </dialog>
+</figure>
+
+<style>
+  /* The diagram sits on the page ground between two hairlines, drawn in the
+     reader's ink and accent so it reads the same in both themes. Colours come
+     from the article palette (src/styles/article.css) with the site tokens as
+     a fallback for any use outside an article. */
+  .isnad-figure {
+    --i-ink: var(--r-ink, var(--hc-text-primary));
+    --i-ink-2: var(--r-ink-2, var(--hc-text-secondary));
+    --i-ink-3: var(--r-ink-3, var(--hc-text-tertiary));
+    --i-accent: var(--r-accent, var(--hc-gold));
+    --i-bg: var(--r-bg, var(--hc-surface-0));
+    --i-rule: var(--r-rule-strong, var(--hc-rule));
+    --i-dive: var(--r-mark-amber, var(--hc-umber));
+    position: relative;
+    width: 100%;
+    margin: var(--space-block, 2.25rem) 0;
+    box-sizing: border-box;
+  }
+
+  .isnad-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .isnad-hint {
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.4 var(--font-ui);
+  }
+
+  .isnad-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .isnad-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: none;
+    color: var(--i-ink-3);
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .isnad-btn:hover {
+    color: var(--i-ink);
+  }
+
+  .isnad-frame {
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: clamp(0.75rem, 1.6vw, 1.25rem) 0;
+    border-block: 1px solid var(--i-rule);
+  }
+
+  svg.isnad-svg {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .node-group {
+    cursor: pointer;
+    transition: opacity 240ms ease;
+  }
+
+  .edge {
+    fill: none;
+    stroke: color-mix(in srgb, var(--i-accent) 55%, transparent);
+    stroke-width: 1.3;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: opacity 240ms ease, stroke 240ms ease, stroke-width 240ms ease;
+  }
+
+  .edge--trunk {
+    stroke: var(--i-accent);
+    stroke-width: 1.7;
+  }
+
+  .edge--dive {
+    fill: none;
+    stroke: var(--i-dive);
+    stroke-width: 1.4;
+    stroke-dasharray: 6 5;
+    transition: opacity 240ms ease, stroke 240ms ease;
+  }
+
+  .dive {
+    opacity: 0;
+  }
+
+  .node {
+    fill: var(--i-bg);
+    stroke: var(--i-accent);
+    stroke-width: 1.4;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0.2);
+    transition: fill 200ms ease, stroke 200ms ease, transform 200ms ease;
+  }
+
+  .node--root,
+  .node--cl {
+    fill: var(--i-accent);
+  }
+
+  .node--pcl {
+    fill: color-mix(in srgb, var(--i-accent) 40%, var(--i-bg));
+  }
+
+  .node--coll {
+    fill: color-mix(in srgb, var(--i-accent) 22%, var(--i-bg));
+  }
+
+  .node--ghost {
+    fill: transparent;
+    stroke: var(--i-dive);
+    stroke-dasharray: 3 2.4;
+  }
+
+  .cl-ring {
+    fill: none;
+    stroke: var(--i-accent);
+    stroke-width: 0.8;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .cl-ring--pulse {
+    display: none;
+  }
+
+  .lbl,
+  .tier {
+    fill: var(--i-ink);
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    opacity: 0;
+    paint-order: stroke fill;
+    stroke: var(--i-bg);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    transition: fill 200ms ease, opacity 240ms ease;
+  }
+
+  .tier {
+    fill: var(--i-ink-3);
+  }
+
+  .lbl--sub {
+    font-size: 12px;
+    fill: var(--i-ink-2);
+  }
+
+  .lbl--cl {
+    font-weight: 600;
+    fill: var(--i-accent);
+  }
+
+  .lbl--pcl {
+    font-weight: 500;
+  }
+
+  .lbl--coll {
+    font-size: 12px;
+  }
+
+  .lbl--note {
+    font-size: 12px;
+    fill: var(--i-ink-2);
+  }
+
+  .lbl--dive {
+    fill: var(--i-dive);
+  }
+
+  /* Tracing a strand dims everything else. */
+  :global([data-isnad].is-strand-active) .edge.is-dimmed,
+  :global([data-isnad].is-strand-active) .node-group.is-dimmed,
+  :global([data-isnad].is-strand-active) .dive.is-dimmed {
+    opacity: 0.14 !important;
+  }
+
+  :global([data-isnad].is-strand-active) .edge.is-active {
+    stroke: var(--i-accent) !important;
+    stroke-width: 2.3px !important;
+    opacity: 1 !important;
+  }
+
+  :global([data-isnad].is-strand-active) .node-group.is-active .node {
+    stroke: var(--i-ink) !important;
+    stroke-width: 2px !important;
+    transform: scale(1.2);
+  }
+
+  :global([data-isnad].is-strand-active) .node-group.is-active .lbl {
+    font-weight: 600;
+  }
+
+  .isnad-tooltip {
+    position: absolute;
+    z-index: 10;
+    max-width: 260px;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: var(--i-bg);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -100%) translateY(-12px);
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .isnad-tooltip.is-visible {
+    opacity: 1;
+    transform: translate(-50%, -100%) translateY(-16px);
+  }
+
+  .isnad-tooltip__head {
+    margin-bottom: 0.15rem;
+  }
+
+  .isnad-tooltip__badge {
+    color: var(--i-ink-3);
+    font: 500 0.95rem/1.2 var(--font-body);
+    font-variant-caps: small-caps;
+    letter-spacing: 0.05em;
+  }
+
+  .isnad-tooltip__title {
+    color: var(--i-ink);
+    font: 600 1rem/1.25 var(--font-body);
+  }
+
+  .isnad-tooltip__sub {
+    margin-top: 0.15rem;
+    color: var(--i-ink-2);
+    font-size: 0.85rem;
+  }
+
+  .isnad-tooltip__meta {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--i-rule);
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.3 var(--font-ui);
+  }
+
+  .isnad-tooltip__meta:empty,
+  .isnad-tooltip__sub:empty {
+    display: none;
+  }
+
+  /* Fullscreen view */
+  .isnad-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    background: var(--i-bg);
+    color: var(--i-ink);
+  }
+
+  .isnad-modal[open] {
+    display: flex;
+  }
+
+  .isnad-modal::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .isnad-modal__bar {
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--i-rule);
+    background: var(--i-bg);
+  }
+
+  .isnad-modal__caption {
+    color: var(--i-ink-2);
+    font: 400 1rem/1.4 var(--font-body);
+  }
+
+  .isnad-modal__controls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .isnad-modal__btn {
+    display: grid;
+    place-items: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 0.5rem;
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: none;
+    color: var(--i-ink-2);
+    font: 500 0.85rem var(--font-ui);
+    cursor: pointer;
+    transition: color 160ms ease, border-color 160ms ease;
+  }
+
+  .isnad-modal__btn:hover {
+    color: var(--i-ink);
+    border-color: var(--i-ink-3);
+  }
+
+  .isnad-modal__btn--close {
+    margin-left: 0.5rem;
+  }
+
+  .isnad-modal__zoom-val {
+    min-width: 44px;
+    color: var(--i-ink-3);
+    font: 500 0.85rem var(--font-ui);
+    text-align: center;
+  }
+
+  .isnad-modal__viewport {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .isnad-modal__viewport.is-dragging {
+    cursor: grabbing;
+  }
+
+  .isnad-modal__stage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+    will-change: transform;
+  }
+
+  .isnad-modal__stage svg {
+    width: auto;
+    height: auto;
+    max-width: 90vw;
+    max-height: 80vh;
+  }
+
+  .isnad-modal__gesture-hint {
+    position: absolute;
+    bottom: 1rem;
+    left: 50%;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: var(--i-bg);
+    color: var(--i-ink-2);
+    font: 400 0.82rem var(--font-ui);
+    pointer-events: none;
+    transform: translateX(-50%);
+    animation: fadeOutHint 4s forwards 3s;
+  }
+
+  @keyframes fadeOutHint {
+    to { opacity: 0; transform: translate(-50%, 8px); }
+  }
+
+  /* Caption and legend */
+  .isnad-caption-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+  }
+
+  .isnad-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.9rem;
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.4 var(--font-ui);
+  }
+
+  .key {
+    display: inline-block;
+    width: 16px;
+    height: 1.5px;
+    margin-right: 0.3rem;
+    background: var(--i-accent);
+    vertical-align: middle;
+  }
+
+  .key--cl {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .key--pcl {
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--i-accent);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--i-accent) 40%, transparent);
+  }
+
+  .key--dive {
+    height: 0;
+    border-top: 1.5px dashed var(--i-dive);
+    background: transparent;
+  }
+
+  .isnad-caption {
+    margin: 0;
+    color: var(--i-ink-3);
+    font: 400 0.84em/1.55 var(--font-body);
+  }
+
+  .isnad-cta {
+    color: var(--i-accent);
+    font: 400 0.86rem/1.4 var(--font-ui);
+    text-decoration: none;
+  }
+
+  .isnad-cta:hover {
+    text-decoration: underline;
+  }
+
+  /* Drawing in */
+  :global([data-isnad].play) .edge {
+    animation: drawEdge 0.8s var(--ease) var(--d, 0ms) forwards;
+  }
+
+  :global([data-isnad].play) .node {
+    animation: popNode 0.4s var(--ease) var(--d, 0ms) forwards;
+  }
+
+  :global([data-isnad].play) .cl-ring {
+    animation: ringPop 0.6s var(--ease) var(--d, 0ms) forwards;
+  }
+
+  :global([data-isnad].play) .lbl,
+  :global([data-isnad].play) .tier,
+  :global([data-isnad].play) .dive {
+    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) forwards;
+  }
+
+  @keyframes drawEdge {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes popNode {
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes ringPop {
+    to { opacity: 0.55; transform: scale(1); }
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge { stroke-dashoffset: 0; }
+    .node, .lbl, .tier, .dive { opacity: 1; transform: none; }
+    .cl-ring { opacity: 0.5; }
+    :global([data-isnad].play) .edge,
+    :global([data-isnad].play) .node,
+    :global([data-isnad].play) .lbl,
+    :global([data-isnad].play) .tier,
+    :global([data-isnad].play) .cl-ring,
+    :global([data-isnad].play) .dive {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .isnad-frame {
+      padding-block: 0.6rem;
+    }
+  }
+</style>
+
+<script>
+  function initIsnadDiagrams() {
+    for (const figure of document.querySelectorAll('[data-isnad]')) {
+      if (!(figure instanceof HTMLElement)) continue;
+      if (figure.dataset.isnadInitialized) continue;
+      figure.dataset.isnadInitialized = 'true';
+
+      const svg = figure.querySelector('svg.isnad-svg');
+      if (!svg) continue;
+
+      const stage = figure.querySelector('[data-isnad-stage]');
+      const tooltip = figure.querySelector('[data-isnad-tooltip]');
+      const replayBtn = figure.querySelector('[data-isnad-replay]');
+      const expandBtn = figure.querySelector('[data-isnad-expand]');
+      const modal = figure.querySelector('[data-isnad-modal]');
+      const modalStage = figure.querySelector('[data-modal-stage]');
+      const modalViewport = figure.querySelector('[data-modal-viewport]');
+      const zoomVal = figure.querySelector('[data-modal-zoom-val]');
+
+      // 1. Build Adjacency Graph for Strand Tracing
+      const nodeElements = Array.from(figure.querySelectorAll<HTMLElement>('[data-node]'));
+      const edgeElements = Array.from(figure.querySelectorAll<SVGElement>('[data-edge]'));
+
+      const childrenMap = new Map<string, string[]>();
+      const parentsMap = new Map<string, string[]>();
+
+      for (const nodeEl of nodeElements) {
+        const id = nodeEl.dataset.nodeId;
+        if (id) {
+          childrenMap.set(id, []);
+          parentsMap.set(id, []);
+        }
+      }
+
+      for (const edgeEl of edgeElements) {
+        const from = edgeEl.dataset.from;
+        const to = edgeEl.dataset.to;
+        if (from && to) {
+          if (!childrenMap.has(from)) childrenMap.set(from, []);
+          childrenMap.get(from)!.push(to);
+
+          if (!parentsMap.has(to)) parentsMap.set(to, []);
+          parentsMap.get(to)!.push(from);
+        }
+      }
+
+      function getConnectedStrand(startId: string) {
+        const activeNodes = new Set<string>();
+        const activeEdges = new Set<Element>();
+
+        // Collect ancestors (upward)
+        const queueUp = [startId];
+        activeNodes.add(startId);
+
+        while (queueUp.length > 0) {
+          const curr = queueUp.shift()!;
+          const parents = parentsMap.get(curr) || [];
+          for (const parent of parents) {
+            if (!activeNodes.has(parent)) {
+              activeNodes.add(parent);
+              queueUp.push(parent);
+            }
+          }
+        }
+
+        // Collect descendants (downward)
+        const queueDown = [startId];
+        while (queueDown.length > 0) {
+          const curr = queueDown.shift()!;
+          const children = childrenMap.get(curr) || [];
+          for (const child of children) {
+            if (!activeNodes.has(child)) {
+              activeNodes.add(child);
+              queueDown.push(child);
+            }
+          }
+        }
+
+        // Collect matching edges
+        for (const edgeEl of edgeElements) {
+          const from = edgeEl.dataset.from;
+          const to = edgeEl.dataset.to;
+          if (from && to && activeNodes.has(from) && activeNodes.has(to)) {
+            activeEdges.add(edgeEl);
+          }
+        }
+
+        return { activeNodes, activeEdges };
+      }
+
+      let lockedNodeId: string | null = null;
+
+      function highlightStrand(nodeId: string, nodeEl: HTMLElement) {
+        const { activeNodes, activeEdges } = getConnectedStrand(nodeId);
+
+        figure.classList.add('is-strand-active');
+
+        for (const el of nodeElements) {
+          const id = el.dataset.nodeId;
+          if (id && activeNodes.has(id)) {
+            el.classList.add('is-active');
+            el.classList.remove('is-dimmed');
+          } else {
+            el.classList.remove('is-active');
+            el.classList.add('is-dimmed');
+          }
+        }
+
+        for (const el of edgeElements) {
+          if (activeEdges.has(el)) {
+            el.classList.add('is-active');
+            el.classList.remove('is-dimmed');
+          } else {
+            el.classList.remove('is-active');
+            el.classList.add('is-dimmed');
+          }
+        }
+
+        // Position and populate tooltip
+        if (tooltip && stage) {
+          const kind = nodeEl.dataset.nodeKind || 'normal';
+          const label = nodeEl.dataset.label || nodeId;
+          const sublabel = nodeEl.dataset.sublabel || '';
+
+          const badgeEl = tooltip.querySelector('[data-tooltip-badge]');
+          const titleEl = tooltip.querySelector('[data-tooltip-title]');
+          const subEl = tooltip.querySelector('[data-tooltip-sub]');
+          const metaEl = tooltip.querySelector('[data-tooltip-meta]');
+
+          if (badgeEl) {
+            const roleLabels: Record<string, string> = {
+              root: 'Companion / Origin',
+              cl: 'Common Link (CL)',
+              pcl: 'Partial Common Link (PCL)',
+              collector: 'Canonical Collector',
+              ghost: 'Diverted Route',
+              normal: 'Transmitter'
+            };
+            badgeEl.textContent = roleLabels[kind] || 'Transmitter';
+            badgeEl.setAttribute('data-kind', kind);
+          }
+          if (titleEl) titleEl.textContent = label;
+          if (subEl) {
+            subEl.textContent = sublabel;
+            (subEl as HTMLElement).style.display = sublabel ? 'block' : 'none';
+          }
+          if (metaEl) {
+            metaEl.textContent = `Connected: ${activeNodes.size} links in strand`;
+          }
+
+          const stageRect = stage.getBoundingClientRect();
+          const nodeCircle = nodeEl.querySelector('circle, polygon');
+          const nodeRect = (nodeCircle || nodeEl).getBoundingClientRect();
+
+          const left = nodeRect.left + nodeRect.width / 2 - stageRect.left;
+          const top = nodeRect.top - stageRect.top;
+
+          (tooltip as HTMLElement).style.left = `${left}px`;
+          (tooltip as HTMLElement).style.top = `${top}px`;
+          tooltip.classList.add('is-visible');
+        }
+      }
+
+      function clearStrand() {
+        figure.classList.remove('is-strand-active');
+        for (const el of nodeElements) {
+          el.classList.remove('is-active', 'is-dimmed');
+        }
+        for (const el of edgeElements) {
+          el.classList.remove('is-active', 'is-dimmed');
+        }
+        if (tooltip) {
+          tooltip.classList.remove('is-visible');
+        }
+      }
+
+      for (const nodeEl of nodeElements) {
+        const id = nodeEl.dataset.nodeId;
+        if (!id) continue;
+
+        nodeEl.addEventListener('pointerenter', () => {
+          if (!lockedNodeId) highlightStrand(id, nodeEl);
+        });
+
+        nodeEl.addEventListener('pointerleave', () => {
+          if (!lockedNodeId) clearStrand();
+        });
+
+        nodeEl.addEventListener('click', (e: Event) => {
+          e.stopPropagation();
+          if (lockedNodeId === id) {
+            lockedNodeId = null;
+            clearStrand();
+          } else {
+            lockedNodeId = id;
+            highlightStrand(id, nodeEl);
+          }
+        });
+      }
+
+      document.addEventListener('click', (e: Event) => {
+        if (!figure.contains(e.target as Node)) {
+          lockedNodeId = null;
+          clearStrand();
+        }
+      });
+
+      // 2. Animation Entrance & Replay
+      const start = () => figure.classList.add('play');
+
+      if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (entry.isIntersecting) {
+                start();
+                observer.disconnect();
+              }
+            }
+          },
+          { threshold: 0.25 }
+        );
+        observer.observe(figure);
+      } else {
+        start();
+      }
+
+      replayBtn?.addEventListener('click', () => {
+        figure.classList.remove('play');
+        lockedNodeId = null;
+        clearStrand();
+        void figure.offsetWidth;
+        figure.classList.add('play');
+      });
+
+      // 3. Fullscreen Modal & Pan/Zoom
+      if (modal instanceof HTMLDialogElement && expandBtn && modalStage && modalViewport) {
+        let zoom = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+
+        function updateModalTransform() {
+          if (modalStage) {
+            (modalStage as HTMLElement).style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+          }
+          if (zoomVal) {
+            zoomVal.textContent = `${Math.round(zoom * 100)}%`;
+          }
+        }
+
+        function resetZoom() {
+          zoom = 1;
+          panX = 0;
+          panY = 0;
+          updateModalTransform();
+        }
+
+        expandBtn.addEventListener('click', () => {
+          modalStage.innerHTML = '';
+          const clonedSvg = svg.cloneNode(true) as SVGSVGElement;
+          clonedSvg.removeAttribute('style');
+          modalStage.appendChild(clonedSvg);
+          resetZoom();
+          modal.showModal();
+        });
+
+        modal.querySelector('[data-modal-close]')?.addEventListener('click', () => {
+          modal.close();
+        });
+
+        modal.querySelector('[data-modal-zoom-in]')?.addEventListener('click', () => {
+          zoom = Math.min(zoom * 1.25, 3.5);
+          updateModalTransform();
+        });
+
+        modal.querySelector('[data-modal-zoom-out]')?.addEventListener('click', () => {
+          zoom = Math.max(zoom / 1.25, 0.5);
+          updateModalTransform();
+        });
+
+        modal.querySelector('[data-modal-zoom-reset]')?.addEventListener('click', () => {
+          resetZoom();
+        });
+
+        modalViewport.addEventListener('pointerdown', (e: Event) => {
+          const pe = e as PointerEvent;
+          if (pe.target instanceof Element && pe.target.closest('button')) return;
+          isDragging = true;
+          startX = pe.clientX - panX;
+          startY = pe.clientY - panY;
+          modalViewport.classList.add('is-dragging');
+        });
+
+        window.addEventListener('pointermove', (e: Event) => {
+          if (!isDragging) return;
+          const pe = e as PointerEvent;
+          panX = pe.clientX - startX;
+          panY = pe.clientY - startY;
+          updateModalTransform();
+        });
+
+        window.addEventListener('pointerup', () => {
+          if (isDragging) {
+            isDragging = false;
+            modalViewport.classList.remove('is-dragging');
+          }
+        });
+
+        modalViewport.addEventListener('wheel', (e: Event) => {
+          const we = e as WheelEvent;
+          we.preventDefault();
+          const delta = we.deltaY < 0 ? 1.12 : 0.89;
+          zoom = Math.min(Math.max(zoom * delta, 0.4), 4.0);
+          updateModalTransform();
+        }, { passive: false });
+
+        let initialDistance = 0;
+        let initialZoom = 1;
+
+        modalViewport.addEventListener('touchstart', (e: Event) => {
+          const te = e as TouchEvent;
+          if (te.touches && te.touches.length === 2) {
+            initialDistance = Math.hypot(
+              te.touches[0].clientX - te.touches[1].clientX,
+              te.touches[0].clientY - te.touches[1].clientY
+            );
+            initialZoom = zoom;
+          }
+        }, { passive: true });
+
+        modalViewport.addEventListener('touchmove', (e: Event) => {
+          const te = e as TouchEvent;
+          if (te.touches && te.touches.length === 2 && initialDistance > 0) {
+            const currentDist = Math.hypot(
+              te.touches[0].clientX - te.touches[1].clientX,
+              te.touches[0].clientY - te.touches[1].clientY
+            );
+            zoom = Math.min(Math.max(initialZoom * (currentDist / initialDistance), 0.4), 4.0);
+            updateModalTransform();
+          }
+        }, { passive: true });
+
+        modal.addEventListener('close', () => {
+          modalStage.innerHTML = '';
+        });
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIsnadDiagrams);
+  } else {
+    initIsnadDiagrams();
+  }
+  document.addEventListener('astro:page-load', initIsnadDiagrams);
+</script>

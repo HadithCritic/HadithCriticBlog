@@ -1,0 +1,67 @@
+---
+/**
+ * A Qur'anic passage, looked up by reference: <QuranVerse verse="6:74-76" />.
+ * Accepts a single verse, a range, or a comma list ("2:255, 24:13").
+ */
+import Source from './Source.astro';
+import verses from '../../../data/quran-verses.json';
+
+export interface Props {
+  verse: string;
+  /** Overrides the citation line, which defaults to "Quran <refs>". */
+  label?: string;
+}
+
+const data = verses as Record<string, { ar: string; en: string }>;
+const { verse, label } = Astro.props;
+
+function expand(ref: string): string[] {
+  const out: string[] = [];
+  for (const part of ref.split(',').map((s) => s.trim()).filter(Boolean)) {
+    const range = part.match(/^(\d+):(\d+)-(\d+)$/);
+    if (range) {
+      for (let v = Number(range[2]); v <= Number(range[3]); v++) out.push(`${range[1]}:${v}`);
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+const found = expand(verse).map((ref) => ({ ref, num: ref.split(':')[1] ?? '', ...(data[ref] ?? {}) }));
+const missing = found.filter((f) => !f.ar && !f.en).map((f) => f.ref);
+if (missing.length) console.warn(`[QuranVerse] No data for: ${missing.join(', ')} (verse="${verse}")`);
+
+/* The āyah-end marker is drawn as a small numbered badge in Arabic-Indic
+   digits: most faces render U+06DD as an oversized, misaligned circle. */
+const INDIC = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+const indic = (n: string) => n.replace(/\d/g, (d) => INDIC[Number(d)]);
+
+const arabic = found.filter((f) => f.ar);
+const english = found.filter((f) => f.en);
+const reference = label || `Quran ${verse}`;
+---
+
+{arabic.length || english.length ? (
+  <Source kind="quran" reference={reference} shareTitle="Quran citation">
+    {arabic.length > 0 && (
+      <Fragment slot="arabic">
+        {arabic.map((a) => (
+          <span class="qv-ayah">{a.ar}{a.num && <span class="qv-ayah-end" aria-hidden="true">{indic(a.num)}</span>}</span>
+        ))}
+      </Fragment>
+    )}
+    {english.length > 0 && (
+      <p>
+        {english.map((e, i) => (
+          <>
+            <span class="qv-verse">{e.en}</span>
+            {i < english.length - 1 && <span class="qv-verse-num" aria-label={`Verse ${e.num}`}>{e.num}</span>}{' '}
+          </>
+        ))}
+      </p>
+    )}
+  </Source>
+) : (
+  <p class="hc-source-missing">Verse data unavailable for {reference}.</p>
+)}

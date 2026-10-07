@@ -101,6 +101,8 @@ export interface Entry {
   content_tags?: string[];
   cross_references?: { surah_number: number; verse_start?: number; verse_end?: number; verse_number?: number; reference_text?: string; reference_text_ar?: string }[];
   printed_label?: string | null;
+  /** The last page, when a passage runs past the one it starts on. */
+  page_end?: string | null;
   source_record_serial?: string | null;
   source_entry_id?: string | null;
   sequence_position?: number | null;

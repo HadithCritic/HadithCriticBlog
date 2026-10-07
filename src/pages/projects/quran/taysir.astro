@@ -1,0 +1,140 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { OG } from "../../../lib/seo";
+import vanPutten from "../../../data/qiraat/van-putten-taysir.json";
+import "../../../styles/qiraat.css";
+import "../../../styles/qiraat-ui.css";
+
+/*
+ * al-Dani's at-Taysir: the general principles (usul) that precede the
+ * sura-by-sura section, in Marijn van Putten's translation (Open Book
+ * Publishers, 2026, CC BY-NC 4.0). The sura pages carry his entries verse by
+ * verse; this page carries the rest, in the book's order, so every statement
+ * of the translation is shown somewhere. Parsed by
+ * scripts/quran/qiraat/parse-van-putten.py; the text is reproduced as parsed.
+ */
+type Statement = {
+  id: string; section: string; kind: string; heading: string; pretzl_pages: number[];
+  text: string; footnotes: { n: number; text: string }[];
+};
+const source = vanPutten.source as { title: string; author: string; publisher: string; year: number; license: string; edition_translated: string };
+const usul = (vanPutten.statements as Statement[]).filter((st) => st.section === "usul");
+
+/* "U.8.2.1. Title" is depth 4; the opening paragraph has no heading. */
+const depthOf = (heading: string) => {
+  const match = /^(?:U|F)\.((?:\d+\.)*)/.exec(heading);
+  return match ? Math.max(1, match[1].split(".").filter(Boolean).length) : 1;
+};
+const slug = (st: Statement) => `principle-${st.id.replace(/^vp-0*/, "")}`;
+const pageLabel = (pages: number[]) => {
+  if (!pages.length) return "";
+  const sorted = [...pages].sort((a, b) => a - b);
+  return sorted.length === 1 ? `p. ${sorted[0]}` : `pp. ${sorted[0]}–${sorted[sorted.length - 1]}`;
+};
+const headed = usul.filter((st) => st.heading);
+const firstPage = Math.min(...usul.flatMap((st) => st.pretzl_pages));
+const lastPage = Math.max(...usul.flatMap((st) => st.pretzl_pages));
+---
+
+<BaseLayout image={OG.quran}
+  title="at-Taysīr: the general principles | Quran | HadithCritic Projects"
+  description="The general principles of al-Dānī’s at-Taysīr, the rules each of the seven readers applies across the Qurʾān, in Marijn van Putten’s English translation with the page of Pretzl’s edition."
+>
+  <div class="qr q-ui ty">
+    <header class="qr-hero" aria-labelledby="ty-title">
+      <div class="hc-container qr-hero__inner">
+        <div class="qr-hero__main">
+          <p class="qr-kicker">Qurʾān · al-Dānī, d. 444 AH</p>
+          <h1 id="ty-title">at-Taysīr: the general principles</h1>
+          <p class="qr-hero__lead">
+            Before he goes through the Qurʾān sura by sura, al-Dānī sets out the rules each of the seven readers applies wherever a case arises:
+            their teachers and chains, assimilation, the hamza, lengthening, imāla, pausing and the possessive yāʾ.
+            This is the whole of that section in Marijn van Putten’s English translation. His entries for each verse are on the
+            <a href="/projects/quran/">sura pages</a>.
+          </p>
+          <nav class="qr-nav" aria-label="Sections of this page">
+            <a href="#contents">Contents <span>{headed.length}</span></a>
+            <a href="#source">The translation</a>
+            <a href="/projects/quran/rules/">General rules, by book</a>
+          </nav>
+        </div>
+        <aside class="qr-coverage" aria-label="The text">
+          <p class="hc-project-hero__aside-label">The principles</p>
+          <p class="hc-project-hero__figure">{headed.length}</p>
+          <p class="hc-project-hero__caption">Sections, Pretzl pp. {firstPage}–{lastPage}</p>
+          <p class="qr-coverage__note">Translated by {source.author}, {source.publisher}, {source.year}, {source.license}. The translation follows Pretzl’s edition, whose pages Shamela book 5527 reproduces.</p>
+        </aside>
+      </div>
+    </header>
+
+    <div class="hc-container qr-body">
+      <section class="sec" id="contents" aria-labelledby="contents-h">
+        <header class="sec__head">
+          <h2 id="contents-h" class="sec__title">Contents</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+          <span class="sec__count">{headed.length}</span>
+        </header>
+        <ol class="ty-toc">
+          {headed.map((st) => (
+            <li class={`ty-toc__item ty-toc__item--${Math.min(depthOf(st.heading), 4)}`}>
+              <a href={`#${slug(st)}`}>{st.heading}</a>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <div class="ty-text">
+        {usul.map((st) => {
+          const depth = Math.min(depthOf(st.heading), 4);
+          const Heading = depth === 1 ? "h2" : depth === 2 ? "h3" : "h4";
+          return (
+            <section class={`ty-section ty-section--${depth}`} id={slug(st)} aria-labelledby={st.heading ? `${slug(st)}-h` : undefined}>
+              {st.heading && <Heading class="ty-section__title" id={`${slug(st)}-h`}>{st.heading}</Heading>}
+              {st.text && <p class="ty-section__text">{st.text}</p>}
+              {st.pretzl_pages.length > 0 && <p class="ty-section__src">al-Dānī, <i>at-Taysīr</i>, ed. Pretzl, {pageLabel(st.pretzl_pages)}.</p>}
+              {st.footnotes.length > 0 && (
+                <details class="ty-section__notes">
+                  <summary>Translator’s notes ({st.footnotes.length})</summary>
+                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                </details>
+              )}
+            </section>
+          );
+        })}
+      </div>
+
+      <section class="sec" id="source" aria-labelledby="source-h">
+        <header class="sec__head">
+          <h2 id="source-h" class="sec__title">The translation</h2>
+          <span class="sec__rule" aria-hidden="true"></span>
+        </header>
+        <p class="lede">
+          {source.author}, <i>{source.title}</i> ({source.publisher}, {source.year}), licensed {source.license}.
+          It translates {source.edition_translated}. The text here is taken from the published book as it is laid out,
+          with its footnote numbers and Pretzl’s page breaks; a heading or paragraph split across pages is joined. The English is the translator’s;
+          nothing is added to it. Square brackets inside the text are his.
+        </p>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .ty-toc { columns: 2 22rem; column-gap: 2.5rem; margin: 0; padding: 0; list-style: none; }
+  .ty-toc__item { break-inside: avoid; padding: 0.3rem 0; border-bottom: 1px solid var(--hc-rule-soft); }
+  .ty-toc__item a { color: var(--hc-text-primary); text-decoration: none; font: 400 0.95rem/1.4 var(--font-body); }
+  .ty-toc__item a:hover { color: var(--hc-gold); }
+  .ty-toc__item--2 { padding-left: 1rem; }
+  .ty-toc__item--3, .ty-toc__item--4 { padding-left: 2rem; }
+  .ty-toc__item--3 a, .ty-toc__item--4 a { color: var(--hc-text-secondary); }
+  .ty-text { max-width: 46rem; margin: clamp(2rem, 4vw, 3rem) auto; }
+  .ty-section { padding: 0.9rem 0 1.1rem; border-bottom: 1px solid var(--hc-rule-soft); scroll-margin-top: calc(var(--site-header-height, 73px) + 1rem); }
+  .ty-section__title { margin: 0 0 0.6rem; color: var(--hc-text-primary); text-wrap: balance; }
+  h2.ty-section__title { font: 600 clamp(1.5rem, 2.6vw, 1.9rem)/1.2 var(--font-editorial); }
+  h3.ty-section__title { font: 600 1.3rem/1.25 var(--font-editorial); }
+  h4.ty-section__title { font: 600 1.05rem/1.35 var(--font-body); }
+  .ty-section__text { margin: 0; color: var(--hc-text-primary); font: 400 1.05rem/1.75 var(--font-body); }
+  .ty-section__src { margin: 0.6rem 0 0; color: var(--hc-text-tertiary); font: 500 0.8rem/1.5 var(--font-ui); }
+  .ty-section__notes summary { display: inline-flex; align-items: center; min-height: 36px; margin-top: 0.25rem; color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); cursor: pointer; }
+  .ty-section__notes ol { margin: 0.3rem 0 0; padding-left: 1.6rem; color: var(--hc-text-secondary); font: 400 0.9rem/1.6 var(--font-body); }
+</style>

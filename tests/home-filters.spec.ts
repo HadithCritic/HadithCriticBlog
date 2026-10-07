@@ -10,12 +10,13 @@ test.describe('Home Page Mobile Filter Tabs', () => {
     await filterContainer.scrollIntoViewIfNeeded();
     await expect(filterContainer).toBeVisible();
 
-    // Check that pills are not vertically stretched into tall ovals
+    // Revealed by script; the control does not exist for a reader without it.
+    // Each tab stays a compact row, never a tall stretched block.
     const allTab = page.locator('.home-filter-tab[data-home-filter="all"]');
     await expect(allTab).toBeVisible();
     const box = await allTab.boundingBox();
     expect(box).not.toBeNull();
-    // Pill should be compact (~36px high), never 100px+
+
     expect(box!.height).toBeLessThan(45);
     expect(box!.height).toBeGreaterThan(28);
 

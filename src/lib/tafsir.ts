@@ -34,7 +34,7 @@ export const registry = worksFile as unknown as WorksFile;
 export const works: Work[] = [...registry.works].sort((a, b) => a.death_ah - b.death_ah);
 
 export const eraIdOf = (work: Work): string => eraOf(registry.eras, work.century)?.id ?? "e1";
-export const shortName = (work: Work): string => work.title.replace(/^Tafsīrs+/, "");
+export const shortName = (work: Work): string => work.title.replace(/^Tafsīr\s+/, "");
 
 export interface CenturyGroup {
   century: (typeof registry.centuries)[number];
@@ -83,6 +83,24 @@ const entryFiles = import.meta.glob("../data/tafsir/sura-*.json", { eager: true,
 const entriesBySura = new Map<number, SuraEntriesFile>(
   Object.entries(entryFiles).map(([path, data]) => [Number(path.match(/sura-(\d+)\.json$/)![1]), data as SuraEntriesFile]),
 );
+
+/*
+ * Works imported by their own builder (src/data/tafsir/works/<id>/sura-NNN.json,
+ * al-Ṭabarī first) are merged into the sura they belong to, so each builder can
+ * rewrite its own files without touching another's.
+ */
+const workFiles = import.meta.glob("../data/tafsir/works/*/sura-*.json", { eager: true, import: "default" });
+for (const [path, data] of Object.entries(workFiles)) {
+  const n = Number(path.match(/sura-(\d+)\.json$/)![1]);
+  const file = data as SuraEntriesFile;
+  const base = entriesBySura.get(n) ?? { schemaVersion: file.schemaVersion, sura: n, entries: [], silent: {}, surahMaterial: [] };
+  entriesBySura.set(n, {
+    ...base,
+    entries: [...base.entries, ...file.entries],
+    silent: { ...base.silent, ...file.silent },
+    surahMaterial: [...(base.surahMaterial ?? []), ...(file.surahMaterial ?? [])],
+  });
+}
 
 const workIds = new Set(works.map((w) => w.id));
 for (const [n, file] of entriesBySura) {

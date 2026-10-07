@@ -1,0 +1,62 @@
+---
+/**
+ * What follows the last note: the article's topics, further reading from its
+ * own branch, then the studies on either side of it in the archive. Set as
+ * text and hairlines, never cards, so the essay ends rather than gives way to
+ * a feed.
+ */
+export interface Neighbour {
+  href: string;
+  title: string;
+}
+
+export interface FurtherStudy {
+  href: string;
+  title: string;
+  folio: string;
+  dateLabel: string;
+}
+
+export interface Props {
+  tags?: string[];
+  category: string;
+  categoryHref: string;
+  categoryCount: number;
+  earlier?: Neighbour;
+  later?: Neighbour;
+  further: FurtherStudy[];
+}
+
+const { tags = [], category, categoryHref, categoryCount, earlier, later, further } = Astro.props;
+---
+
+<footer class="hc-end">
+  {tags.length > 0 && (
+    <p class="hc-end__topics"><span class="hc-end__label">Topics</span> {tags.join(', ')}</p>
+  )}
+
+  {further.length > 0 && (
+    <section class="hc-further" aria-labelledby="hc-further-title">
+      <h2 id="hc-further-title" class="hc-further__title">
+        More in <a href={categoryHref} data-category={category} aria-label={`${category}, all ${categoryCount} studies`}>{category}</a>
+      </h2>
+      <ol class="hc-further__list">
+        {further.map((study) => (
+          <li>
+            <a href={study.href}>{study.title}</a>
+            <span class="hc-further__date">{study.dateLabel}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )}
+
+  {(earlier || later) && (
+    <nav class="hc-turn" aria-label="Adjacent studies">
+      {earlier
+        ? <a class="hc-turn__link" href={earlier.href} rel="prev"><span class="hc-end__label">Earlier study</span><span class="hc-turn__title">{earlier.title}</span></a>
+        : <span />}
+      {later && <a class="hc-turn__link hc-turn__link--later" href={later.href} rel="next"><span class="hc-end__label">Later study</span><span class="hc-turn__title">{later.title}</span></a>}
+    </nav>
+  )}
+</footer>
