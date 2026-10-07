@@ -253,10 +253,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
 <figure class="isnad-figure" data-isnad>
   <div class="isnad-toolbar">
-    <span class="isnad-hint">
-      <span class="isnad-hint__dot"></span>
-      <span>Hover/tap links to trace strand</span>
-    </span>
+    <span class="isnad-hint">Select a narrator to trace their strand</span>
     <div class="isnad-actions">
       <button
         type="button"
@@ -478,11 +475,21 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 </figure>
 
 <style>
+  /* The diagram sits on the page ground between two hairlines, drawn in the
+     reader's ink and accent so it reads the same in both themes. Colours come
+     from the article palette (src/styles/article.css) with the site tokens as
+     a fallback for any use outside an article. */
   .isnad-figure {
+    --i-ink: var(--r-ink, var(--hc-text-primary));
+    --i-ink-2: var(--r-ink-2, var(--hc-text-secondary));
+    --i-ink-3: var(--r-ink-3, var(--hc-text-tertiary));
+    --i-accent: var(--r-accent, var(--hc-gold));
+    --i-bg: var(--r-bg, var(--hc-surface-0));
+    --i-rule: var(--r-rule-strong, var(--hc-rule));
+    --i-dive: var(--r-mark-amber, var(--hc-umber));
     position: relative;
     width: 100%;
-    max-width: none;
-    margin: clamp(2rem, 4vw, 3rem) 0;
+    margin: var(--space-block, 2.25rem) 0;
     box-sizing: border-box;
   }
 
@@ -490,61 +497,36 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.45rem 0.6rem;
-    margin-bottom: 0.4rem;
+    gap: 1rem;
+    margin-bottom: 0.35rem;
   }
 
   .isnad-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: var(--hc-gold-dim);
-    font-family: var(--font-ui);
-    font-size: 0.81rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .isnad-hint__dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-    box-shadow: 0 0 8px var(--hc-gold);
-    animation: isnadPulse 2s ease-in-out infinite;
-  }
-
-  @keyframes isnadPulse {
-    0%, 100% { opacity: 0.4; transform: scale(0.9); }
-    50% { opacity: 1; transform: scale(1.2); }
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.4 var(--font-ui);
   }
 
   .isnad-actions {
     display: flex;
-    gap: 0.45rem;
+    gap: 0.25rem;
   }
 
   .isnad-btn {
     display: grid;
     place-items: center;
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     padding: 0;
-    border: 1px solid var(--hc-rule);
-    border-radius: 50%;
-    background: rgba(15, 15, 16, 0.65);
-    color: var(--hc-gold-dim);
+    border: 0;
+    border-radius: 2px;
+    background: none;
+    color: var(--i-ink-3);
     cursor: pointer;
-    backdrop-filter: blur(8px);
-    transition: color 200ms ease, border-color 200ms ease, background 200ms ease, transform 200ms var(--ease);
+    transition: color 160ms ease;
   }
 
   .isnad-btn:hover {
-    color: var(--hc-gold);
-    border-color: var(--hc-rule-strong);
-    background: rgba(216, 177, 102, 0.12);
-    transform: scale(1.08);
+    color: var(--i-ink);
   }
 
   .isnad-frame {
@@ -552,48 +534,26 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-sm);
-    background:
-      radial-gradient(circle at 50% 112%, rgba(216, 177, 102, 0.09), transparent 54%),
-      radial-gradient(circle at 16% 12%, rgba(216, 177, 102, 0.045), transparent 36%),
-      linear-gradient(180deg, rgba(30, 29, 27, 0.68), rgba(15, 15, 16, 0.94));
-    padding: clamp(0.75rem, 1.6vw, 1.25rem);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.035),
-      0 24px 70px rgba(0, 0, 0, 0.22);
-  }
-
-  .isnad-frame::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(90deg, rgba(216, 177, 102, 0.035), transparent 18%, transparent 82%, rgba(216, 177, 102, 0.025)),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 22%);
-    opacity: 0.9;
+    padding: clamp(0.75rem, 1.6vw, 1.25rem) 0;
+    border-block: 1px solid var(--i-rule);
   }
 
   svg.isnad-svg {
     position: relative;
-    z-index: 1;
     display: block;
     width: 100%;
     height: auto;
     overflow: visible;
   }
 
-  /* Node and Edge Interactive Strand States */
-
   .node-group {
     cursor: pointer;
-    transition: opacity 240ms ease, transform 240ms ease;
+    transition: opacity 240ms ease;
   }
 
   .edge {
     fill: none;
-    stroke: rgba(216, 177, 102, 0.5);
+    stroke: color-mix(in srgb, var(--i-accent) 55%, transparent);
     stroke-width: 1.3;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
@@ -601,15 +561,15 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   .edge--trunk {
-    stroke: rgba(216, 177, 102, 0.82);
-    stroke-width: 1.75;
+    stroke: var(--i-accent);
+    stroke-width: 1.7;
   }
 
   .edge--dive {
     fill: none;
-    stroke: var(--hc-umber);
-    stroke-width: 1.45;
-    stroke-dasharray: 7 5;
+    stroke: var(--i-dive);
+    stroke-width: 1.4;
+    stroke-dasharray: 6 5;
     transition: opacity 240ms ease, stroke 240ms ease;
   }
 
@@ -618,91 +578,77 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   .node {
-    fill: #14130f;
-    stroke: var(--hc-gold);
-    stroke-width: 1.5;
+    fill: var(--i-bg);
+    stroke: var(--i-accent);
+    stroke-width: 1.4;
     opacity: 0;
     transform-box: fill-box;
     transform-origin: center;
     transform: scale(0.2);
-    transition: fill 200ms ease, stroke 200ms ease, r 200ms ease, transform 200ms ease;
+    transition: fill 200ms ease, stroke 200ms ease, transform 200ms ease;
   }
 
-  .node--root {
-    fill: var(--hc-gold);
-    stroke: var(--hc-gold-soft);
-  }
-
+  .node--root,
   .node--cl {
-    fill: var(--hc-gold);
-    stroke: var(--hc-gold-soft);
+    fill: var(--i-accent);
   }
 
   .node--pcl {
-    fill: rgba(216, 177, 102, 0.4);
-    stroke: var(--hc-gold-soft);
-    stroke-width: 1.5;
+    fill: color-mix(in srgb, var(--i-accent) 40%, var(--i-bg));
   }
 
   .node--coll {
-    fill: rgba(216, 177, 102, 0.25);
-    stroke: var(--hc-gold);
-    stroke-width: 1.3;
+    fill: color-mix(in srgb, var(--i-accent) 22%, var(--i-bg));
   }
 
   .node--ghost {
     fill: transparent;
+    stroke: var(--i-dive);
     stroke-dasharray: 3 2.4;
-    stroke: var(--hc-umber);
   }
 
   .cl-ring {
     fill: none;
-    stroke: var(--hc-gold);
-    stroke-width: 1;
+    stroke: var(--i-accent);
+    stroke-width: 0.8;
     opacity: 0;
     transform-box: fill-box;
     transform-origin: center;
   }
 
   .cl-ring--pulse {
-    stroke: rgba(216, 177, 102, 0.4);
-    stroke-width: 0.8;
-    opacity: 0.35;
-    animation: clPulse 3s ease-out infinite;
-  }
-
-  @keyframes clPulse {
-    0% { transform: scale(0.7); opacity: 0.8; }
-    100% { transform: scale(1.6); opacity: 0; }
+    display: none;
   }
 
   .lbl,
   .tier {
-    fill: var(--hc-parchment, #e8dfcf);
+    fill: var(--i-ink);
     font-family: var(--font-ui);
     font-size: 12.5px;
     opacity: 0;
     paint-order: stroke fill;
-    stroke: rgba(15, 15, 16, 0.95);
+    stroke: var(--i-bg);
     stroke-width: 4px;
     stroke-linejoin: round;
     transition: fill 200ms ease, opacity 240ms ease;
   }
 
+  .tier {
+    fill: var(--i-ink-3);
+  }
+
   .lbl--sub {
     font-size: 12px;
-    fill: var(--hc-muted, #a69e92);
+    fill: var(--i-ink-2);
   }
 
   .lbl--cl {
     font-weight: 600;
-    fill: var(--hc-gold-soft);
+    fill: var(--i-accent);
   }
 
   .lbl--pcl {
-    font-weight: 550;
-    fill: var(--hc-parchment);
+    font-weight: 500;
   }
 
   .lbl--coll {
@@ -711,149 +657,99 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
   .lbl--note {
     font-size: 12px;
-    fill: var(--hc-gold-dim);
+    fill: var(--i-ink-2);
   }
 
   .lbl--dive {
-    fill: var(--hc-umber);
+    fill: var(--i-dive);
   }
 
-  /* Strand Highlighting & Dimming */
-
+  /* Tracing a strand dims everything else. */
   :global([data-isnad].is-strand-active) .edge.is-dimmed,
   :global([data-isnad].is-strand-active) .node-group.is-dimmed,
   :global([data-isnad].is-strand-active) .dive.is-dimmed {
-    opacity: 0.12 !important;
+    opacity: 0.14 !important;
   }
 
   :global([data-isnad].is-strand-active) .edge.is-active {
-    stroke: var(--hc-gold-bright, #e8c87a) !important;
-    stroke-width: 2.4px !important;
+    stroke: var(--i-accent) !important;
+    stroke-width: 2.3px !important;
     opacity: 1 !important;
-    filter: drop-shadow(0 0 6px rgba(216, 177, 102, 0.6));
   }
 
   :global([data-isnad].is-strand-active) .node-group.is-active .node {
-    stroke: #ffffff !important;
-    stroke-width: 2.2px !important;
-    transform: scale(1.25);
-    filter: drop-shadow(0 0 8px rgba(216, 177, 102, 0.8));
+    stroke: var(--i-ink) !important;
+    stroke-width: 2px !important;
+    transform: scale(1.2);
   }
 
   :global([data-isnad].is-strand-active) .node-group.is-active .lbl {
-    fill: #ffffff !important;
-    font-weight: 700;
+    font-weight: 600;
   }
-
-  /* Tooltip Inspector */
 
   .isnad-tooltip {
     position: absolute;
     z-index: 10;
+    max-width: 260px;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: var(--i-bg);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    white-space: nowrap;
     pointer-events: none;
     opacity: 0;
     transform: translate(-50%, -100%) translateY(-12px);
-    background: rgba(20, 19, 18, 0.95);
-    border: 1px solid var(--hc-rule-strong);
-    border-radius: var(--radius-xs, 6px);
-    padding: 0.55rem 0.8rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(10px);
     transition: opacity 160ms ease, transform 160ms ease;
-    white-space: nowrap;
-    max-width: 260px;
   }
 
   .isnad-tooltip.is-visible {
     opacity: 1;
-    transform: translate(-50%, -100%) translateY(-18px);
+    transform: translate(-50%, -100%) translateY(-16px);
   }
 
   .isnad-tooltip__head {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.15rem;
   }
 
   .isnad-tooltip__badge {
-    display: inline-block;
-    padding: 0.14rem 0.5rem;
-    border-radius: 999px;
-    font: 700 0.77rem/1 var(--font-ui);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--hc-gold);
-    background: rgba(216, 177, 102, 0.12);
-    border: 1px solid rgba(216, 177, 102, 0.25);
-  }
-
-  .isnad-tooltip__badge[data-kind="root"] {
-    background: rgba(216, 177, 102, 0.25);
-    border-color: var(--hc-gold);
-    color: var(--hc-gold-bright);
-  }
-
-  .isnad-tooltip__badge[data-kind="cl"] {
-    background: rgba(216, 177, 102, 0.2);
-    border-color: var(--hc-gold);
-    color: var(--hc-gold);
-  }
-
-  .isnad-tooltip__badge[data-kind="pcl"] {
-    background: rgba(200, 150, 80, 0.18);
-    border-color: var(--hc-gold-dim);
-    color: var(--hc-gold-soft);
-  }
-
-  .isnad-tooltip__badge[data-kind="collector"] {
-    background: rgba(180, 120, 70, 0.18);
-    border-color: var(--hc-copper);
-    color: var(--hc-copper, #c48b68);
-  }
-
-  .isnad-tooltip__badge[data-kind="ghost"] {
-    background: rgba(160, 90, 70, 0.18);
-    border-color: var(--hc-umber);
-    color: var(--hc-umber);
-  }
-
-  .isnad-tooltip__badge[data-kind="normal"] {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: var(--hc-rule);
-    color: var(--hc-text-secondary);
+    color: var(--i-ink-3);
+    font: 500 0.95rem/1.2 var(--font-body);
+    font-variant-caps: small-caps;
+    letter-spacing: 0.05em;
   }
 
   .isnad-tooltip__title {
-    font-family: var(--font-display, Georgia, serif);
-    font-size: 1.06rem;
-    font-weight: 500;
-    color: var(--hc-parchment, #ffffff);
-    line-height: 1.2;
+    color: var(--i-ink);
+    font: 600 1rem/1.25 var(--font-body);
   }
 
   .isnad-tooltip__sub {
-    font-size: 0.85rem;
-    color: var(--hc-muted, #b3aa9d);
     margin-top: 0.15rem;
+    color: var(--i-ink-2);
+    font-size: 0.85rem;
   }
 
   .isnad-tooltip__meta {
     margin-top: 0.35rem;
     padding-top: 0.35rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--hc-gold-soft, #d8b166);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    border-top: 1px solid var(--i-rule);
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.3 var(--font-ui);
   }
 
-  /* Fullscreen Modal */
+  .isnad-tooltip__meta:empty,
+  .isnad-tooltip__sub:empty {
+    display: none;
+  }
 
+  /* Fullscreen view */
   .isnad-modal {
     position: fixed;
     inset: 0;
     z-index: 1000;
+    display: none;
+    flex-direction: column;
     width: 100vw;
     height: 100vh;
     max-width: 100vw;
@@ -861,12 +757,9 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     margin: 0;
     padding: 0;
     border: 0;
-    background: rgba(10, 10, 11, 0.94);
-    backdrop-filter: blur(16px);
-    color: var(--hc-text-primary);
     overflow: hidden;
-    display: none;
-    flex-direction: column;
+    background: var(--i-bg);
+    color: var(--i-ink);
   }
 
   .isnad-modal[open] {
@@ -874,69 +767,67 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   .isnad-modal::backdrop {
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.6);
   }
 
   .isnad-modal__bar {
+    z-index: 20;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--hc-rule);
-    background: rgba(15, 15, 16, 0.85);
-    z-index: 20;
+    gap: 1rem;
+    padding: 0.7rem 1.25rem;
+    border-bottom: 1px solid var(--i-rule);
+    background: var(--i-bg);
   }
 
   .isnad-modal__caption {
-    font-family: var(--font-display);
-    font-size: clamp(0.95rem, 1.5vw, 1.2rem);
-    color: var(--hc-gold-soft);
+    color: var(--i-ink-2);
+    font: 400 1rem/1.4 var(--font-body);
   }
 
   .isnad-modal__controls {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
   }
 
   .isnad-modal__btn {
     display: grid;
     place-items: center;
-    min-width: 32px;
-    height: 32px;
+    min-width: 36px;
+    height: 36px;
     padding: 0 0.5rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs, 4px);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--hc-text-primary);
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: none;
+    color: var(--i-ink-2);
+    font: 500 0.85rem var(--font-ui);
     cursor: pointer;
-    font: 600 0.87rem var(--font-ui);
-    transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+    transition: color 160ms ease, border-color 160ms ease;
   }
 
   .isnad-modal__btn:hover {
-    background: rgba(216, 177, 102, 0.15);
-    color: var(--hc-gold);
-    border-color: var(--hc-rule-strong);
+    color: var(--i-ink);
+    border-color: var(--i-ink-3);
   }
 
   .isnad-modal__btn--close {
     margin-left: 0.5rem;
-    background: rgba(255, 255, 255, 0.08);
   }
 
   .isnad-modal__zoom-val {
-    font: 700 0.87rem var(--font-ui);
-    color: var(--hc-gold-dim);
     min-width: 44px;
+    color: var(--i-ink-3);
+    font: 500 0.85rem var(--font-ui);
     text-align: center;
   }
 
   .isnad-modal__viewport {
+    position: relative;
     flex: 1;
     width: 100%;
     height: 100%;
-    position: relative;
     overflow: hidden;
     cursor: grab;
     touch-action: none;
@@ -951,35 +842,32 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     position: absolute;
     left: 50%;
     top: 50%;
-    transform-origin: center center;
-    will-change: transform;
     display: flex;
     align-items: center;
     justify-content: center;
+    transform-origin: center center;
+    will-change: transform;
   }
 
   .isnad-modal__stage svg {
+    width: auto;
+    height: auto;
     max-width: 90vw;
     max-height: 80vh;
-    height: auto;
-    width: auto;
   }
 
   .isnad-modal__gesture-hint {
     position: absolute;
     bottom: 1rem;
     left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none;
     padding: 0.35rem 0.8rem;
-    border-radius: 999px;
-    background: rgba(15, 15, 16, 0.8);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-text-secondary);
-    font: 600 0.81rem var(--font-ui);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    backdrop-filter: blur(8px);
+    border: 1px solid var(--i-rule);
+    border-radius: 2px;
+    background: var(--i-bg);
+    color: var(--i-ink-2);
+    font: 400 0.82rem var(--font-ui);
+    pointer-events: none;
+    transform: translateX(-50%);
     animation: fadeOutHint 4s forwards 3s;
   }
 
@@ -987,278 +875,75 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     to { opacity: 0; transform: translate(-50%, 8px); }
   }
 
-  /* Caption & Legend */
-
+  /* Caption and legend */
   .isnad-caption-wrap {
-    margin-top: 0.85rem;
     display: flex;
     flex-direction: column;
-    gap: 0.45rem;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
   }
 
   .isnad-legend {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.85rem;
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-    color: var(--hc-text-secondary);
+    gap: 0.3rem 0.9rem;
+    color: var(--i-ink-3);
+    font: 400 0.8rem/1.4 var(--font-ui);
   }
 
   .key {
     display: inline-block;
     width: 16px;
-    height: 2px;
-    background: var(--hc-gold);
-    vertical-align: middle;
+    height: 1.5px;
     margin-right: 0.3rem;
+    background: var(--i-accent);
+    vertical-align: middle;
   }
 
   .key--cl {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    border: 1px solid var(--hc-gold);
-  }
-
-  .key--dive {
-    border-top: 2px dashed var(--hc-umber);
-    background: transparent;
-  }
-
-  .isnad-caption {
-    margin: 0;
-    font-size: 1.03rem;
-    color: var(--hc-text-secondary);
-    line-height: 1.6;
-  }
-
-  .isnad-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.94rem;
-    color: var(--hc-gold);
-    text-decoration: none;
-    font-weight: 600;
-  }
-
-  .isnad-cta:hover {
-    color: var(--hc-gold-bright);
-  }
-
-  /* Animation Play States */
-
-  :global([data-isnad].play) .edge {
-    animation: drawEdge 0.8s var(--ease) var(--d, 0ms) forwards;
-  }
-
-  :global([data-isnad].play) .node {
-    animation: popNode 0.45s cubic-bezier(0.18, 0.89, 0.32, 1.28) var(--d, 0ms) forwards;
-  }
-
-  :global([data-isnad].play) .cl-ring {
-    animation: ringPop 0.6s var(--ease) var(--d, 0ms) forwards;
-  }
-
-  :global([data-isnad].play) .lbl,
-  :global([data-isnad].play) .tier {
-    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) forwards;
-  }
-
-  :global([data-isnad].play) .dive {
-    animation: fadeIn 0.6s var(--ease) var(--d, 0ms) forwards;
-  }
-
-  @keyframes drawEdge {
-    to { stroke-dashoffset: 0; }
-  }
-
-  @keyframes popNode {
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  @keyframes ringPop {
-    to { opacity: 0.6; transform: scale(1); }
-  }
-
-  @keyframes fadeIn {
-    to { opacity: 1; }
-  }
-
-  /* Light Theme Overrides */
-
-  :global([data-theme="light"]) .isnad-frame {
-    background: color-mix(in srgb, var(--hc-surface-1) 90%, transparent);
-    border-color: var(--hc-rule);
-    box-shadow: 0 10px 40px rgba(43, 40, 36, 0.08);
-  }
-
-  :global([data-theme="light"]) .isnad-btn {
-    background: rgba(251, 249, 244, 0.8);
-    border-color: var(--hc-rule);
-    color: var(--hc-gold);
-  }
-
-  :global([data-theme="light"]) .lbl {
-    stroke: rgba(251, 249, 244, 0.98);
-    fill: var(--hc-text-primary);
-  }
-
-  :global([data-theme="light"]) .lbl--sub {
-    fill: var(--hc-text-secondary);
-  }
-
-  :global([data-theme="light"]) .tier {
-    fill: var(--hc-text-secondary);
-    stroke: rgba(251, 249, 244, 0.98);
-  }
-
-  :global([data-theme="light"]) .node {
-    fill: var(--hc-surface-0);
-  }
-
-  :global([data-theme="light"]) .node--root,
-  :global([data-theme="light"]) .node--cl {
-    fill: var(--hc-gold);
-  }
-
-  :global([data-theme="light"]) .isnad-tooltip {
-    background: rgba(251, 249, 244, 0.98);
-    border-color: var(--hc-rule-strong);
-    box-shadow: 0 10px 30px rgba(43, 40, 36, 0.16);
-  }
-
-  :global([data-theme="light"]) .isnad-tooltip__title {
-    color: var(--hc-text-primary);
-  }
-
-  :global([data-theme="light"]) .isnad-modal {
-    background: rgba(245, 241, 232, 0.96);
-  }
-
-  :global([data-theme="light"]) .isnad-modal__bar {
-    background: rgba(251, 249, 244, 0.92);
-  }
-
-  :global([data-theme="light"]) .isnad-modal__btn {
-    background: var(--hc-surface-1);
-    color: var(--hc-text-primary);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .edge { stroke-dashoffset: 0; }
-    .node, .lbl, .tier, .dive { opacity: 1; transform: none; }
-    .cl-ring { opacity: 0.5; }
-    :global([data-isnad].play) .edge,
-    :global([data-isnad].play) .node,
-    :global([data-isnad].play) .lbl,
-    :global([data-isnad].play) .tier,
-    :global([data-isnad].play) .cl-ring,
-    :global([data-isnad].play) .dive {
-      animation: none;
-    }
-  }
-
-  @media (max-width: 760px) {
-    .isnad-figure { margin: 1.5rem 0; }
-    .isnad-frame { padding: 0.6rem; }
-    transform: translateX(-50%);
-    pointer-events: none;
-    padding: 0.35rem 0.8rem;
-    border-radius: 999px;
-    background: rgba(15, 15, 16, 0.8);
-    border: 1px solid var(--hc-rule);
-    color: var(--hc-text-secondary);
-    font: 600 0.81rem var(--font-ui);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    backdrop-filter: blur(8px);
-    animation: fadeOutHint 4s forwards 3s;
-  }
-
-  @keyframes fadeOutHint {
-    to { opacity: 0; transform: translate(-50%, 8px); }
-  }
-
-  /* Caption & Legend */
-
-  .isnad-caption-wrap {
-    margin-top: 0.85rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-  }
-
-  .isnad-legend {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.85rem;
-    font-family: var(--font-ui);
-    font-size: 0.83rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .key {
-    display: inline-block;
-    width: 16px;
-    height: 2px;
-    background: var(--hc-gold);
-    vertical-align: middle;
-    margin-right: 0.3rem;
-  }
-
-  .key--cl {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: 1px solid var(--hc-gold);
   }
 
   .key--pcl {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--i-accent);
     border-radius: 50%;
-    background: rgba(216, 177, 102, 0.45);
-    border: 1px solid var(--hc-gold-soft);
+    background: color-mix(in srgb, var(--i-accent) 40%, transparent);
   }
 
   .key--dive {
-    border-top: 2px dashed var(--hc-umber);
+    height: 0;
+    border-top: 1.5px dashed var(--i-dive);
     background: transparent;
   }
 
   .isnad-caption {
     margin: 0;
-    font-size: 1.03rem;
-    color: var(--hc-text-secondary);
-    line-height: 1.6;
+    color: var(--i-ink-3);
+    font: 400 0.84em/1.55 var(--font-body);
   }
 
   .isnad-cta {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.94rem;
-    color: var(--hc-gold);
+    color: var(--i-accent);
+    font: 400 0.86rem/1.4 var(--font-ui);
     text-decoration: none;
-    font-weight: 600;
   }
 
   .isnad-cta:hover {
-    color: var(--hc-gold-bright);
+    text-decoration: underline;
   }
 
-  /* Animation Play States */
-
+  /* Drawing in */
   :global([data-isnad].play) .edge {
     animation: drawEdge 0.8s var(--ease) var(--d, 0ms) forwards;
   }
 
   :global([data-isnad].play) .node {
-    animation: popNode 0.45s cubic-bezier(0.18, 0.89, 0.32, 1.28) var(--d, 0ms) forwards;
+    animation: popNode 0.4s var(--ease) var(--d, 0ms) forwards;
   }
 
   :global([data-isnad].play) .cl-ring {
@@ -1266,12 +951,9 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   :global([data-isnad].play) .lbl,
-  :global([data-isnad].play) .tier {
-    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) forwards;
-  }
-
+  :global([data-isnad].play) .tier,
   :global([data-isnad].play) .dive {
-    animation: fadeIn 0.6s var(--ease) var(--d, 0ms) forwards;
+    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) forwards;
   }
 
   @keyframes drawEdge {
@@ -1283,71 +965,11 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   @keyframes ringPop {
-    to { opacity: 0.6; transform: scale(1); }
+    to { opacity: 0.55; transform: scale(1); }
   }
 
   @keyframes fadeIn {
     to { opacity: 1; }
-  }
-
-  /* Light Theme Overrides */
-
-  :global([data-theme="light"]) .isnad-frame {
-    background: color-mix(in srgb, var(--hc-surface-1) 90%, transparent);
-    border-color: var(--hc-rule);
-    box-shadow: 0 10px 40px rgba(43, 40, 36, 0.08);
-  }
-
-  :global([data-theme="light"]) .isnad-btn {
-    background: rgba(251, 249, 244, 0.8);
-    border-color: var(--hc-rule);
-    color: var(--hc-gold);
-  }
-
-  :global([data-theme="light"]) .lbl {
-    stroke: rgba(251, 249, 244, 0.98);
-    fill: var(--hc-text-primary);
-  }
-
-  :global([data-theme="light"]) .lbl--sub {
-    fill: var(--hc-text-secondary);
-  }
-
-  :global([data-theme="light"]) .tier {
-    fill: var(--hc-text-secondary);
-    stroke: rgba(251, 249, 244, 0.98);
-  }
-
-  :global([data-theme="light"]) .node {
-    fill: var(--hc-surface-0);
-  }
-
-  :global([data-theme="light"]) .node--root,
-  :global([data-theme="light"]) .node--cl {
-    fill: var(--hc-gold);
-  }
-
-  :global([data-theme="light"]) .isnad-tooltip {
-    background: rgba(251, 249, 244, 0.98);
-    border-color: var(--hc-rule-strong);
-    box-shadow: 0 10px 30px rgba(43, 40, 36, 0.16);
-  }
-
-  :global([data-theme="light"]) .isnad-tooltip__title {
-    color: var(--hc-text-primary);
-  }
-
-  :global([data-theme="light"]) .isnad-modal {
-    background: rgba(245, 241, 232, 0.96);
-  }
-
-  :global([data-theme="light"]) .isnad-modal__bar {
-    background: rgba(251, 249, 244, 0.92);
-  }
-
-  :global([data-theme="light"]) .isnad-modal__btn {
-    background: var(--hc-surface-1);
-    color: var(--hc-text-primary);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1365,12 +987,9 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   @media (max-width: 760px) {
-    .isnad-figure { margin: 1.5rem 0; }
-    .isnad-frame { padding: 0.6rem; }
-    .lbl, .tier { font-size: 12px; stroke-width: 3.5px; }
-    .lbl--cl { font-size: 12px; }
-    .lbl--coll { font-size: 12px; }
-    .isnad-hint { font-size: 0.78rem; }
+    .isnad-frame {
+      padding-block: 0.6rem;
+    }
   }
 </style>
 

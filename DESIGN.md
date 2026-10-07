@@ -195,7 +195,9 @@ search hits. `::selection` is `--hc-gold-soft` with `--hc-text-inverse`.
 
 ### Panel washes: `--hc-scrim`
 
-Long-form articles inset their own plates, ledgers and matrices with an alpha
+Articles no longer use this (since 2026-10-06 their figures are drawn by the
+shared `.hc-fig` vocabulary with no fills); it remains for the pages that still
+inset panels. Long-form articles used to inset their own plates, ledgers and matrices with an alpha
 wash over the sheet. Written dark-first as a near-black, the same declaration
 composited to grey mud on paper and dropped body text as low as 1.02:1 across
 fourteen articles. The text colours were theme-aware all along; only the fill
@@ -216,7 +218,8 @@ same bug: it reads as an 18% black veil on paper, which is mid grey.
 
 ### Fixed-dark plates: `.hc-plate`
 
-Some article figures are lamp-lit instruments rather than panels: a night sky
+No article uses a plate any more; the front-of-house pages and heroes do. Some
+article figures were lamp-lit instruments rather than panels: a night sky
 behind a moon diagram, an isnād chart drawn as a dark ledger. They were composed
 on black and their own labels are written in fixed parchment and gold, so they
 stay dark in both themes.
@@ -349,7 +352,11 @@ tracking is now −0.005em to −0.015em.
 
 - **12px floor.** No body or label text below 12px anywhere, MDX `<style>`
   blocks included. Uppercase micro-labels sit at 12–13px.
-- **Prose measure 68–75ch**, 1.7–1.75 leading. Never above 75ch.
+- **Prose measure: about 80 characters a line in the article reader** (the
+  owner asked for a wider column on 2026-10-06), 68–75 characters elsewhere,
+  1.7–1.75 leading. Count characters in the browser, not `ch`: Source Serif 4
+  sets oldstyle figures, so its `0` is narrow and `ch` overstates the measure
+  by about a quarter.
 - **Arabic runs at `--leading-arabic` (2.05)**, never at Latin leading. A Naskh face
   sits small on the em and its ḥarakāt occupy the space above and below the
   baseline that Latin leading would absorb.
@@ -367,91 +374,94 @@ tracking is now −0.005em to −0.015em.
 
 ### Article reader
 
-Redesigned 2026-10-05. An article is set as a critical edition, not a desk of
-widgets: one reading column, the header as a title page, the apparatus set
-with type, indentation and rules. `src/styles/article.css` carries the whole
-language; components emit plain class names and carry no styles of their own
-(except the two bespoke figures).
+Redesigned again 2026-10-06, as a whole system rather than per article. An
+article is set like a journal: one reading column, a title page, and four
+settings that cover every kind of content. `src/styles/article.css` carries the
+whole language; components emit plain class names and carry no styles of their
+own (except the isnad figures, which draw SVG).
 
-**Page.** One column, `--measure: 43rem` (about 70 characters at the body
-size). At 1200px and wider, the contents sit in a quiet sticky margin to the
-left and the column stays centred; below that, the contents become a closed
-native disclosure under the header. There is no progress bar, toolbar,
-breadcrumb strip, reading-settings panel, back-to-top button or floating
-control, and the article footer gap is zero (`--hc-footer-gap: 0`).
+**Palette.** The reader defines its own ramp on `.hc-article` (`--r-ink`,
+`--r-ink-2`, `--r-ink-3`, `--r-accent`, `--r-rule`, `--r-rule-strong`,
+`--r-rule-accent`, the five `--r-mark-*` hues) for both themes, and re-points
+the site tokens (`--hc-text-*`, `--hc-gold*`, `--hc-rule*`) to it, so any
+component inside an article inherits one palette. Measured on the page ground:
+ink 14.7:1 dark and 15.6:1 light, ink-2 8.6 / 8.7, ink-3 5.8 / 5.8, accent
+8.9 / 6.2. The accent is reserved for the branch kicker, note labels, reference
+numerals and link underlines; links are body ink with an accent underline.
 
-**Type.** Source Serif 4, 17px on phones, 18px from 720px, 19px from 1200px,
-1.72 leading, 1.15em between paragraphs, oldstyle figures in prose. Title in
-Cormorant 600 at up to 3.9rem; section heads (`h2`) in Cormorant with a 2.5rem
-gold rule above; `h3` in Source Serif 600; `h4` as an apparatus label. Arabic
-blocks at 1.3em in Noto Naskh with 2.05 leading; Qur'anic Arabic in Amiri Quran
-at 1.45em, centred.
+**Page.** One column, `--measure: 44.5rem` (about 82 characters a line at
+19px; 41rem until 2026-10-06). At 1200px and wider the contents sit in a sticky
+margin to the left, aligned with the title leaf's left edge, with the column
+centred; below that they are a closed native disclosure under the header.
 
-**One technique per block, never a box:**
+**Title leaf.** The opening is a leaf across the top of the page
+(`--page-wide: 1240px`), above the column and its margin, built in
+`ArticleHeader.astro`: meta line (branch behind a lozenge in its own ink, date,
+reading time, author), the title in Cormorant, the standfirst, and the folio
+with a short rule; the artwork on the right. Dark theme: a dark plate with a
+gold double rule and corner ticks, the artwork framed inside it. Light theme:
+the parchment leaf of the homepage's featured study, where an editorial
+engraving (`blogArtwork`) fades into the paper and an older 16:9 thumbnail
+stays framed. Its inks are fixed per theme (`--leaf-*`) rather than read from
+the reader ramp. Every rule is scoped to `.hc-article`, because article.css is
+global and house.css owns `.hc-head` for the homepage-style section heads. No progress bar, toolbar,
+breadcrumb strip, reading settings, back-to-top or floating control. The
+footnote preview dialog is rendered inside `.hc-article` so it reads the
+palette.
 
-| Block | Component | Setting |
+**Type.** Source Serif 4 at 17/18/19px (phones, 720px, 1200px), 1.68 to 1.7
+leading, oldstyle figures in prose, hyphenation on phones only. Title and `h2`
+in Cormorant 600; `h3` in Source Serif 600; `h4` in Source Serif italic.
+Editorial labels (branch kicker, contents, note labels, citations, table heads,
+figure labels) are Source Serif in real small caps (`font-variant-caps:
+small-caps`; the self-hosted face carries `smcp` and `c2sc`). IBM Plex Sans is
+used only for interface apparatus: the byline line, dates, footnote numerals,
+the Share control.
+
+**Four settings, no filled boxes:**
+
+| Setting | Covers | How it is drawn |
 |---|---|---|
-| Thesis | `ClaimBox` | between two gold rules, a step larger |
-| Conclusion | `VerdictBox` | the system's only shaded field, gold head rule |
-| Background | `ContextNote` | indented marginal note, copper rule and label |
-| Qur'an | `QuranVerse` | warm parchment-toned field, Arabic over English, āyah badges |
-| Report | `HadithBlock` | indented under a hairline, title, citation, Share |
-| Bible | `BibleVerse` | as a report, without Arabic |
-| Quotation | `QuoteBlock` | hanging gold mark, attribution line |
-| Markdown `>` | none | indented under a hairline |
-| Table | `SourceComparisonTable`, Markdown, or hand-written | rules above and below, apparatus headings, no cell boxes |
-| Video | `YouTubeEmbed` | 16:9 still that is a real link; swapped for the player in place |
-| Outside work | `QuranTalk`, `XEmbed` | a reference line between hairlines; consecutive ones share rules |
-| Part break | `SectionDivider` | ornament rule and a centred Cormorant `h2` |
+| Prose | paragraphs, `h2` to `h4`, lists, links, `hr` | `hr` is the brand lozenge alone, centred |
+| Extract | `QuranVerse`, `HadithBlock`, `BibleVerse`, `QuoteBlock`, Markdown `>`, `.hc-fig--extract` | indented under one accent hairline, 0.96em, Arabic first, citation last in small caps; the Qur'an keeps Amiri Quran and numbered āyah marks |
+| Note | `ClaimBox`, `VerdictBox`, `ContextNote` | thesis and verdict open under a hairline with an accent small caps label; context is indented, smaller and in ink-2 |
+| Figure | tables, `.hc-fig`, embeds, isnad diagrams | booktabs rules for tables; figures as cells under hairlines |
 
-**End matter, in order.** Notes (numbered, smaller, a "Notes" label only when
-the article has no heading of its own), bibliography (hanging indent, author in
-small capitals), topics as plain text, the earlier and later study as two
-quiet links, then three more studies from the same branch with folio numerals
-and a link to the branch.
+**Figures: the shared vocabulary.** Articles that need structure beyond prose
+build it from `.hc-fig` and its parts, never from their own CSS:
 
-**Kept.** Footnote previews (`FootnoteSheet`), which are a real reading aid on
-phones, and the per-source Share control, revealed by script so it never
-exists without one.
+| Class | Meaning |
+|---|---|
+| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow`, `--rows`, `--lead`, `--extract`) |
+| `.hc-fig__item` | a cell, ruled above |
+| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; the arrow turns down when stacked |
+| `.hc-fig__label`, `__kicker`, `__title` | figure label, cell label (small caps), cell heading (`h3`/`h4` take it too) |
+| `.hc-fig__ar`, `__quote`, `__note`, `__tags` | Arabic, a quoted line, secondary text, a run of short terms |
+| `.hc-fig__caption`, `__ornament` | caption below; an ornament, never shown |
 
-**Removed, and why.**
+`scripts/codemods/article-figures-to-shared.mjs` moved all 46 articles that
+carried their own `<style>` blocks (about 10,000 lines of CSS, some 500
+one-off classes, and the dark `hc-plate` figures) onto this vocabulary. It
+rewrote `class` attributes and deleted the style blocks only; the visible text
+of every article is identical to the previous commit (checked by comparing the
+tag-stripped text of each file). A per-article `<style>` block is no longer
+allowed in an article.
 
-- *Reading settings* (type size, measure, justification). Three controls for a
-  problem the default setting should solve; justified text also broke Arabic
-  runs and table cells. The default is now tuned instead.
-- *Progress bar with section pips*, *desk toolbar with arrows and breadcrumb*,
-  *left rail plus duplicate mobile "Other Studies"*, *footer back and top
-  buttons*, *floating back-to-top*, *floating mobile contents*. Chrome stacked
-  three deep around the text. The contents and the end matter now do the work.
+**End matter, in order.** Notes (smaller, ink-2, a "Notes" head only when the
+article has none of its own; end-matter headings are set smaller and ruled),
+bibliography with hanging indents, topics as plain text, three more studies
+from the same branch with dates, then the earlier and later study.
 
-**Rules this section breaks, deliberately (owner's go-ahead, 2026-10-05).**
-
-- *"Depth comes from a rule, never a fill."* The verdict and the Qur'anic
-  passage each get a shaded field. Two fields in a whole article mark the two
-  things a reader most needs to find; rules alone made every block equal.
-- *Category hue confined to labels.* The branch name in the trail and in "More
-  in" takes its category ink; still never a fill.
-- *Display letter-spacing.* Cormorant headings sit at -0.005em to -0.01em,
-  looser than the house -0.035em, because tight tracking collapses serif
-  counters at display size.
-- *Article figure CSS was edited.* `scripts/codemods/article-figure-styles.py`
-  rewrote only the `<style>` blocks of 45 articles: 87 drop shadows and 77
-  glow layers removed, 57 tight trackings and 27 sub-1 line-heights relaxed,
-  4 heavy weights lowered, 37 display sizes capped at 2.6rem. Prose, markup
-  and research content are byte-identical (verified by diffing the files with
-  style blocks stripped).
+**Kept.** Footnote previews and the per-source Share control, which is created
+by script and shown on hover or focus (always on touch screens).
 
 **Component folder.** `src/components/article/`:
 
 - `shell/`: `ArticleHeader`, `ArticleContents`, `ArticleEnd`, `FootnoteSheet`
-- `text/`: `Note` (and its wrappers `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
-- `sources/`: `Source` (and its wrappers `QuranVerse`, `HadithBlock`, `BibleVerse`), `SourceComparisonTable`, `Bibliography`
+- `text/`: `Note` (and `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
+- `sources/`: `Source` (and `QuranVerse`, `HadithBlock`, `BibleVerse`), `SourceComparisonTable`, `Bibliography`
 - `media/`: `ExternalSource` (and `QuranTalk`, `XEmbed`), `YouTubeEmbed`
 - `figures/`: `IsnadDiagram`, `IsnadDilemmaVisual`, `VariantTree`
-
-Authoring names and props are unchanged except: `HadithBlock` now renders the
-`title` that 13 articles passed and the old component dropped; its `type`
-prop (unused by any article) is gone; `QuranTalkEmbed_v2` is now `QuranTalk`.
 
 ### The button exception
 

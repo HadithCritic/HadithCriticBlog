@@ -13,7 +13,7 @@ these are imported directly inside `.mdx` articles from
 | Hadith report with Arabic + translation | `<HadithBlock label="…" source="…" arabic={`…`} translation={`…`} />` (`sources/HadithBlock.astro`) | `title` is accepted as a synonym for `label`. Arabic and translation may instead go inside the tag as `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`. |
 | Biblical citation | `<BibleVerse reference="Exodus 24:12">…</BibleVerse>` (`sources/BibleVerse.astro`) | |
 | Thesis the article argues | `<ClaimBox title="…">` (`text/ClaimBox.astro`) | One per article, near the top. |
-| Conclusion it reaches | `<VerdictBox title="…" status="…">` (`text/VerdictBox.astro`) | The one shaded field; keep it for the actual conclusion. |
+| Conclusion it reaches | `<VerdictBox title="…" status="…">` (`text/VerdictBox.astro`) | Keep it for the actual conclusion. |
 | Background the argument leans on | `<ContextNote title="…" collapsible>` (`text/ContextNote.astro`) | `collapsible` starts it closed. |
 | General quotation (non-scripture) | `<QuoteBlock author="…" source="…" sourceUrl="…">` (`text/QuoteBlock.astro`) | A plain Markdown `>` is fine for a short unattributed passage. |
 | Inline Arabic in a Latin sentence | `<Arabic>عِكْرِمَة</Arabic>` (`text/Arabic.astro`) | Equivalent to `<span lang="ar" dir="rtl">`. |
@@ -30,6 +30,32 @@ these are imported directly inside `.mdx` articles from
 The page chrome (header, contents, end matter, footnote previews) lives in
 `shell/` and is wired up by `src/pages/blogs/[...id].astro`; articles never
 import it.
+
+## Figures without a component
+
+When a comparison, sequence, ledger or set of profiles does not fit a
+component, build it from the shared figure classes in `src/styles/article.css`
+(`.hc-fig`, `.hc-fig__item`, `.hc-fig__kicker`, `.hc-fig__join` and the rest,
+listed in DESIGN.md, "Article reader"). Do not add a `<style>` block or
+one-off classes to an article: every figure in the archive is drawn by the
+same rules so the reader meets one system.
+
+```html
+<div class="hc-fig hc-fig--flow" aria-label="Al-Shafi'i's hierarchy of proof">
+  <div class="hc-fig__item">
+    <span class="hc-fig__kicker">public proof</span>
+    <h3>Qur'an and public transmission</h3>
+    <p>Known by the community.</p>
+  </div>
+  <div class="hc-fig__join hc-fig__join--arrow" aria-hidden="true">→</div>
+  <div class="hc-fig__item">…</div>
+</div>
+```
+
+Layouts: `hc-fig--cols` (as many cells across as fit), `--c2`/`--c3`/`--c4`
+(a fixed count, stacked on phones), `--flow` (a sequence with joins), `--rows`
+(label against value), `--lead` (an opening summary), `--extract` (a quoted
+passage built by hand).
 
 ## Footnote rules
 

@@ -1,23 +1,92 @@
 /* ═══════════════════════════════════════════════════════════════
-   ARTICLE READER — the critical edition.
+   ARTICLE READER
 
-   One reading column, set in Source Serif; Cormorant for the title and
-   section heads; IBM Plex Sans only for labels and apparatus. Every
-   component is set with type, indentation and rules. Exactly one element
-   in the system has a shaded field, the verdict, and one has a warm
-   field, the Qur'anic passage; nothing else is a box. DESIGN.md,
-   "Article reader", is the reference.
+   One reading column and one set of rules for everything inside it.
+   The article is set like a journal: Cormorant for the title and the
+   section heads, Source Serif 4 for the text and for every editorial
+   label (in real small caps), IBM Plex Sans only for interface
+   apparatus such as the byline, dates and the share control.
 
-   Body rules use child combinators (`.hc-article-body > p`) on purpose:
-   46 articles carry their own figures with their own paragraphs and
-   headings, and those must not inherit the prose rhythm.
+   Four settings cover all content:
+
+     prose     paragraphs, headings, lists, links
+     extract   anything quoted: Qur'an, reports, Bible, quotations,
+               Markdown blockquotes. Indented under one hairline,
+               citation below in small caps.
+     note      the article's own apparatus: thesis, verdict, context
+     figure    tables and the shared figure vocabulary (.hc-fig)
+
+   Nothing is a filled box. Colour is limited to the ink ramp, one
+   accent for links, note labels and reference numerals, and the
+   highlight hues articles use to tie passages together.
+
+   Body rules use child combinators (`.hc-article-body > p`) so that a
+   figure's own paragraphs and headings take the figure setting rather
+   than the prose rhythm.
    ═══════════════════════════════════════════════════════════════ */
 
+/* ── Reader palette ───────────────────────────────────────────── */
+
 .hc-article {
-  --measure: 43rem;
-  --margin-col: 15rem;
-  background: var(--hc-surface-0);
+  /* Ink ramp, measured against --r-bg (dark #0f0f10, light #fbf9f4):
+       ink 14.7:1 / 15.6:1, ink-2 8.6:1 / 8.7:1, ink-3 5.8:1 / 5.8:1,
+       accent 8.9:1 / 6.2:1. Mark hues are underlines, held above 3:1. */
+  --r-bg: var(--hc-surface-0);
+  --r-ink: #e8e1d2;
+  --r-ink-2: #b7ad9b;
+  --r-ink-3: #948d81;
+  --r-accent: #d2ab62;
+  --r-accent-hover: #e6c47f;
+  --r-rule: rgba(232, 225, 210, 0.12);
+  --r-rule-strong: rgba(232, 225, 210, 0.24);
+  --r-rule-accent: rgba(210, 171, 98, 0.5);
+  --r-tint: rgba(232, 225, 210, 0.045);
+
+  --r-mark-gold: #e2c34f;
+  --r-mark-amber: #d99a55;
+  --r-mark-blue: #80a7dd;
+  --r-mark-red: #d77a74;
+  --r-mark-violet: #ad8fcb;
+
+  --measure: 44.5rem; /* about 82 characters a line at the 19px body (DESIGN.md) */
+  --page-wide: 1240px;
+  --margin-col: 14rem;
+  --space-block: 2.25rem;
+
+  /* Re-point the site tokens so figures and components inside the
+     article inherit the reader palette instead of their own. */
+  --hc-text-primary: var(--r-ink);
+  --hc-text-secondary: var(--r-ink-2);
+  --hc-text-tertiary: var(--r-ink-3);
+  --hc-gold: var(--r-accent);
+  --hc-gold-bright: var(--r-accent-hover);
+  --hc-gold-soft: var(--r-accent);
+  --hc-gold-dim: var(--r-ink-3);
+  --hc-rule: var(--r-rule-strong);
+  --hc-rule-soft: var(--r-rule);
+  --hc-rule-strong: var(--r-rule-accent);
+
+  color: var(--r-ink);
+  background: var(--r-bg);
   min-height: 100vh;
+}
+
+[data-theme="light"] .hc-article {
+  --r-ink: #221f1b;
+  --r-ink-2: #4d4740;
+  --r-ink-3: #686157;
+  --r-accent: #7a571c;
+  --r-accent-hover: #5c4012;
+  --r-rule: rgba(34, 31, 27, 0.11);
+  --r-rule-strong: rgba(34, 31, 27, 0.22);
+  --r-rule-accent: rgba(122, 87, 28, 0.45);
+  --r-tint: rgba(34, 31, 27, 0.035);
+
+  --r-mark-gold: #a5850c;
+  --r-mark-amber: #a9651f;
+  --r-mark-blue: #3d68a6;
+  --r-mark-red: #a63f3c;
+  --r-mark-violet: #7a549c;
 }
 
 /* The article ends on its own ground and the footer follows directly. */
@@ -25,10 +94,12 @@ body:has(.hc-article) {
   --hc-footer-gap: 0px;
 }
 
+/* ── Layout ───────────────────────────────────────────────────── */
+
 .hc-article__grid {
   width: min(100% - (var(--pad) * 2), var(--measure));
   margin-inline: auto;
-  padding-block: clamp(2.25rem, 6vw, 4.5rem) clamp(2.5rem, 5vw, 4rem);
+  padding-block: clamp(2.25rem, 5vw, 3.5rem) clamp(3rem, 6vw, 5rem);
 }
 
 .hc-article__main {
@@ -45,7 +116,9 @@ body:has(.hc-article) {
     grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure)) minmax(0, 1fr);
     column-gap: clamp(2.5rem, 4vw, 4rem);
     align-items: start;
-    width: min(100% - (var(--pad) * 2), calc(var(--measure) + (var(--margin-col) * 2) + 8rem));
+    /* As wide as the title leaf, so the contents align with its left edge
+       while the column stays centred. */
+    width: min(100% - (var(--pad) * 2), var(--page-wide));
   }
 
   .hc-article__main {
@@ -56,88 +129,277 @@ body:has(.hc-article) {
     display: block;
     grid-column: 1;
     grid-row: 1;
-    justify-self: end;
+    justify-self: start;
     width: 100%;
     max-width: var(--margin-col);
     height: 100%;
   }
 }
 
-/* ── Header: a title page ─────────────────────────────────────── */
-
-.hc-head__trail {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.6rem;
-  margin: 0;
-  font: 500 0.78rem/1.4 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hc-text-tertiary);
+/* Small caps for editorial labels, used across the system. Source Serif 4
+   carries smcp and c2sc, so these are drawn caps, not shrunken capitals. */
+.hc-article :is(
+  .hc-contents__label,
+  .hc-note__label,
+  .hc-source__title,
+  .hc-source__ref cite,
+  .hc-quote__by,
+  .hc-table__caption,
+  .hc-fig__kicker,
+  .hc-fig__label,
+  .hc-external__kind,
+  .hc-media__kind,
+  .hc-end__label,
+  .hc-further__title
+) {
+  font-family: var(--font-body);
+  font-variant-caps: small-caps;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.06em;
 }
 
-.hc-head__trail a {
-  color: inherit;
+/* ── Header: the title leaf ───────────────────────────────────────
+   A leaf set across the top of the page, wider than the reading column:
+   copy on the left, the artwork on the right. Its inks are fixed per theme
+   rather than read from the reader ramp, because its ground is its own.
+   Dark theme: a dark plate with a gold double rule, the artwork framed in
+   it. Light theme: the parchment leaf of the homepage's featured study
+   (.hc-parchment), where an engraving fades into the paper. Every rule is
+   scoped to .hc-article: this file is global, and house.css uses .hc-head
+   for the homepage-style section heads. */
+
+.hc-article .hc-head {
+  width: min(100% - (var(--pad) * 2), var(--page-wide));
+  margin: clamp(1.25rem, 3vw, 2rem) auto 0;
+}
+
+.hc-article .hc-head__leaf {
+  --leaf-ground: #12110f;
+  --leaf-ink: #f2ebdc;
+  --leaf-ink-2: #c4b9a4;
+  --leaf-ink-3: #a79d8a;
+  --leaf-gold: #d8b166;
+  --leaf-gold-dim: #bf9957;
+  --leaf-rule: rgba(216, 177, 102, 0.32);
+  --leaf-rule-strong: rgba(216, 177, 102, 0.55);
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+  min-height: 18rem;
+  color: var(--leaf-ink);
+  background: radial-gradient(90% 120% at 85% 50%, #1d1a15 0%, var(--leaf-ground) 70%);
+  box-shadow:
+    inset 0 0 0 1px var(--leaf-rule-strong),
+    inset 0 0 0 7px var(--leaf-ground),
+    inset 0 0 0 8px var(--leaf-rule);
+}
+
+.hc-article .hc-head__leaf--plain {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* Corner ticks inside the double rule. */
+.hc-article .hc-head__leaf::after {
+  --tick: var(--leaf-gold-dim);
+  content: "";
+  position: absolute;
+  inset: 14px;
+  pointer-events: none;
+  opacity: 0.8;
+  background:
+    linear-gradient(var(--tick), var(--tick)) 0 0 / 16px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 0 / 1px 16px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0 / 16px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0 / 1px 16px,
+    linear-gradient(var(--tick), var(--tick)) 0 100% / 16px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 100% / 1px 16px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 16px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 1px 16px;
+  background-repeat: no-repeat;
+}
+
+.hc-article .hc-head__copy {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: clamp(1.75rem, 3vw, 2.6rem) clamp(1.6rem, 3vw, 2.75rem) clamp(1.75rem, 3vw, 2.6rem) clamp(2rem, 3.4vw, 3.2rem);
+}
+
+.hc-article .hc-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1.1rem;
+  margin: 0;
+  color: var(--leaf-ink-2);
+  font: 500 0.8rem/1.4 var(--font-ui);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* The branch, in its own ink, behind a lozenge. */
+.hc-article .hc-head__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cat-color, var(--leaf-gold));
   text-decoration: none;
 }
 
-.hc-head__trail a:hover {
-  color: var(--hc-gold);
+.hc-article .hc-head__kicker::before {
+  content: "";
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  background: currentColor;
+  transform: rotate(45deg);
 }
 
-.hc-head__trail .hc-head__branch {
-  color: var(--cat-color, var(--hc-gold));
+.hc-article .hc-head__kicker:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.hc-head__title {
-  margin: 1rem 0 0;
-  color: var(--hc-text-primary);
-  font: 600 clamp(2.45rem, 1.55rem + 3.4vw, 3.9rem)/1.04 var(--font-editorial);
-  letter-spacing: -0.01em;
+.hc-article .hc-head__title {
+  max-width: 30ch;
+  margin: 0;
+  color: var(--leaf-ink);
+  font: 600 clamp(1.9rem, 1rem + 2.4vw, 2.85rem)/1.08 var(--font-editorial);
+  letter-spacing: -0.005em;
   text-wrap: balance;
 }
 
-.hc-head__standfirst {
-  max-width: 36em;
-  margin: 1.25rem 0 0;
-  color: var(--hc-text-secondary);
-  font: 400 clamp(1.13rem, 1rem + 0.45vw, 1.3rem)/1.55 var(--font-body);
+.hc-article .hc-head__standfirst {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--leaf-ink-2);
+  font: 400 clamp(1rem, 0.95rem + 0.2vw, 1.08rem)/1.6 var(--font-body);
   text-wrap: pretty;
 }
 
-.hc-head__meta {
+.hc-article .hc-head__folio {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0;
-  margin: 1.6rem 0 0;
-  padding-block: 0.8rem;
-  border-block: 1px solid var(--hc-rule-soft);
-  color: var(--hc-text-tertiary);
-  font: 500 0.82rem/1.4 var(--font-ui);
-  font-variant-numeric: lining-nums;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  padding-top: 0.55rem;
+  color: var(--leaf-ink-3);
+  font: 500 0.8rem/1.3 var(--font-ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
-.hc-head__meta > * + *::before {
-  content: "·";
-  margin-inline: 0.7rem;
-  color: var(--hc-gold-dim);
+.hc-article .hc-head__folio::after {
+  content: "";
+  width: 3rem;
+  height: 1px;
+  background: var(--leaf-rule-strong);
 }
 
-.hc-head__plate {
-  margin: 2rem 0 0;
-  padding: 6px;
-  border: 1px solid var(--hc-rule-soft);
-  background: var(--hc-surface-1);
+/* The artwork, framed inside the double rule. */
+.hc-article .hc-head__plate {
+  position: relative;
+  min-height: 14rem;
+  margin: 0;
 }
 
-.hc-head__plate img {
-  display: block;
+.hc-article .hc-head__plate img {
+  position: absolute;
+  inset: 22px 22px 22px 0;
+  width: calc(100% - 22px);
+  height: calc(100% - 44px);
+  object-fit: cover;
+  object-position: center;
+  border: 1px solid var(--leaf-gold-dim);
+  box-shadow: 0 0 0 4px var(--leaf-ground), 0 0 0 5px var(--leaf-rule);
+}
+
+.hc-article .hc-head__plate--engraving img {
+  object-position: right center;
+}
+
+/* An older thumbnail carries its title in the image, so it keeps its own
+   16:9 shape, centred in the plate, rather than being cropped to fill it. */
+.hc-article .hc-head__plate:not(.hc-head__plate--engraving) {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  padding: 22px 22px 22px 0;
+}
+
+.hc-article .hc-head__plate:not(.hc-head__plate--engraving) img {
+  position: static;
   width: 100%;
   height: auto;
   aspect-ratio: 16 / 9;
-  object-fit: cover;
+}
+
+[data-theme="light"] .hc-article .hc-head__leaf {
+  --leaf-ground: var(--hc-fixed-parchment);
+  --leaf-ink: var(--hc-fixed-parchment-ink);
+  --leaf-ink-2: #4e4842;
+  --leaf-ink-3: #58534c;
+  --leaf-gold: #6a4c18;
+  --leaf-gold-dim: #7a5920;
+  --leaf-rule: rgba(26, 23, 21, 0.18);
+  --leaf-rule-strong: rgba(26, 23, 21, 0.32);
+  background:
+    radial-gradient(120% 140% at 50% 50%, transparent 55%, rgba(122, 89, 32, 0.16) 100%),
+    linear-gradient(180deg, var(--hc-fixed-parchment) 0%, #ece2cd 100%);
+  box-shadow:
+    inset 0 0 0 6px var(--hc-fixed-parchment),
+    inset 0 0 0 7px rgba(26, 23, 21, 0.24);
+  outline: 1px solid rgba(26, 23, 21, 0.14);
+}
+
+/* On paper an engraving is not framed: it was drawn on parchment, and the
+   mask lets its left edge return to the leaf. */
+[data-theme="light"] .hc-article .hc-head__plate--engraving img {
+  inset: 7px 7px 7px 0;
+  width: calc(100% - 7px);
+  height: calc(100% - 14px);
+  border: 0;
+  box-shadow: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 28%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 28%);
+}
+
+/* Stacked below 1000px: side by side, a landscape engraving would be cut to
+   a tall sliver. The band grows with the viewport. */
+@media (max-width: 1000px) {
+  .hc-article .hc-head__leaf {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hc-article .hc-head__plate {
+    grid-row: 1;
+    min-height: clamp(12rem, 36vw, 20rem);
+  }
+
+  .hc-article .hc-head__plate img {
+    inset: 22px 22px 0;
+    width: calc(100% - 44px);
+    height: calc(100% - 22px);
+  }
+
+  [data-theme="light"] .hc-article .hc-head__plate--engraving img {
+    inset: 7px 7px 0;
+    width: calc(100% - 14px);
+    height: calc(100% - 7px);
+    -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+    mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  }
+
+  .hc-article .hc-head__plate:not(.hc-head__plate--engraving) {
+    padding: 22px 22px 0;
+  }
+
+  .hc-article .hc-head__copy {
+    padding: 1.25rem 1.4rem 1.6rem;
+  }
 }
 
 /* ── Contents ─────────────────────────────────────────────────── */
@@ -150,64 +412,80 @@ body:has(.hc-article) {
 
 .hc-contents a {
   display: block;
-  color: var(--hc-text-secondary);
+  color: var(--r-ink-3);
   text-decoration: none;
+  transition: color var(--motion-fast) ease;
 }
 
 .hc-contents a:hover {
-  color: var(--hc-text-primary);
+  color: var(--r-ink);
+}
+
+.hc-contents__label {
+  margin: 0 0 0.9rem;
+  color: var(--r-ink-3);
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 .hc-contents--margin {
   position: sticky;
-  top: calc(var(--site-header-height) + 2.5rem);
-  max-height: calc(100vh - var(--site-header-height) - 4rem);
+  top: calc(var(--site-header-height) + 2.75rem);
+  max-height: calc(100vh - var(--site-header-height) - 4.5rem);
   overflow-y: auto;
-  scrollbar-width: thin;
-  padding-top: 0.35rem;
-}
-
-.hc-contents__label {
-  margin: 0 0 0.85rem;
-  color: var(--hc-text-tertiary);
-  font: 500 0.75rem/1.3 var(--font-ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  scrollbar-width: none;
+  padding-top: 0.5rem;
 }
 
 .hc-contents--margin a {
-  padding: 0.32rem 0 0.32rem 0.9rem;
-  border-left: 1px solid var(--hc-rule-soft);
-  font: 400 0.9rem/1.4 var(--font-body);
-  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+  position: relative;
+  padding: 0.3rem 0 0.3rem 1rem;
+  font: 400 0.875rem/1.42 var(--font-body);
+  text-wrap: pretty;
+}
+
+.hc-contents--margin a::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.85em;
+  width: 0.4rem;
+  height: 1px;
+  background: var(--r-rule-strong);
+  transition: width var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
 .hc-contents--margin a[aria-current] {
-  border-left-color: var(--hc-gold);
-  color: var(--hc-text-primary);
+  color: var(--r-ink);
+}
+
+.hc-contents--margin a[aria-current]::before {
+  width: 0.65rem;
+  background: var(--r-accent);
 }
 
 .hc-contents--margin .is-sub a {
-  padding-left: 1.6rem;
-  font-size: 0.85rem;
+  padding-left: 1.75rem;
+  font-size: 0.82rem;
+}
+
+.hc-contents--margin .is-sub a::before {
+  left: 0.85rem;
 }
 
 .hc-contents--inline {
-  margin: 1.75rem 0 0;
-  border-bottom: 1px solid var(--hc-rule-soft);
+  margin: 2rem 0 0;
+  border-block: 1px solid var(--r-rule);
 }
 
 .hc-contents--inline summary {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   min-height: 44px;
   padding-block: 0.7rem;
-  color: var(--hc-gold);
-  font: 500 0.78rem/1.4 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--r-ink-2);
+  font: 400 0.95rem/1.5 var(--font-body);
   cursor: pointer;
   list-style: none;
 }
@@ -216,36 +494,43 @@ body:has(.hc-article) {
   display: none;
 }
 
-.hc-contents--inline summary::after {
-  content: "+";
-  color: var(--hc-gold-dim);
+.hc-contents--inline summary .hc-contents__label {
+  margin: 0;
+  color: var(--r-ink);
   font-size: 1rem;
-  letter-spacing: 0;
-}
-
-.hc-contents--inline[open] summary::after {
-  content: "−";
 }
 
 .hc-contents__count {
+  color: var(--r-ink-3);
+  font: 400 0.82rem/1.5 var(--font-ui);
+}
+
+.hc-contents--inline summary::after {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
   margin-left: auto;
-  color: var(--hc-text-tertiary);
-  letter-spacing: 0.04em;
-  text-transform: none;
+  border-right: 1px solid var(--r-ink-3);
+  border-bottom: 1px solid var(--r-ink-3);
+  transform: translateY(-0.2rem) rotate(45deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.hc-contents--inline[open] summary::after {
+  transform: translateY(0.1rem) rotate(225deg);
 }
 
 .hc-contents--inline ol {
-  padding: 0.25rem 0 1rem;
-  counter-reset: contents;
+  padding: 0 0 1rem;
 }
 
 .hc-contents--inline li a {
-  padding: 0.45rem 0;
+  padding: 0.4rem 0;
   font: 400 1rem/1.45 var(--font-body);
 }
 
 .hc-contents--inline .is-sub a {
-  padding-left: 1.25rem;
+  padding-left: 1.1rem;
   font-size: 0.94rem;
 }
 
@@ -258,24 +543,38 @@ body:has(.hc-article) {
 /* ── Prose ────────────────────────────────────────────────────── */
 
 .hc-article-body {
-  margin-top: clamp(2.25rem, 5vw, 3.25rem);
-  color: var(--hc-text-primary);
+  margin-top: clamp(2.25rem, 5vw, 3rem);
+  color: var(--r-ink);
   font-family: var(--font-body);
   font-size: 1.0625rem;
-  line-height: 1.72;
+  line-height: 1.68;
   overflow-wrap: break-word;
   font-variant-numeric: oldstyle-nums proportional-nums;
+  font-kerning: normal;
+}
+
+/* The title now sits above the grid, so with no inline contents the body
+   opens the column and the grid's own padding is the gap. */
+.hc-article__main > .hc-article-body:first-child {
+  margin-top: 0;
 }
 
 @media (min-width: 720px) {
   .hc-article-body {
     font-size: 1.125rem;
+    line-height: 1.7;
   }
 }
 
 @media (min-width: 1200px) {
   .hc-article-body {
     font-size: 1.1875rem;
+  }
+}
+
+@media (max-width: 719px) {
+  .hc-article-body > p {
+    hyphens: auto;
   }
 }
 
@@ -288,129 +587,102 @@ body:has(.hc-article) {
   min-width: 0;
 }
 
+.hc-article-body p {
+  margin: 0 0 1.1em;
+}
+
 .hc-article-body > p {
-  margin: 0 0 1.15em;
   text-wrap: pretty;
 }
 
 .hc-article-body > h2 {
-  margin: 2.4em 0 0.7em;
-  color: var(--hc-text-primary);
-  font: 600 clamp(1.75rem, 1.35rem + 1.5vw, 2.3rem)/1.12 var(--font-editorial);
+  margin: 2.6em 0 0.75em;
+  color: var(--r-ink);
+  font: 600 clamp(1.7rem, 1.3rem + 1.4vw, 2.2rem)/1.15 var(--font-editorial);
   letter-spacing: -0.005em;
   text-wrap: balance;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
 
-/* The section mark: a short gold rule above each section head. */
-.hc-article-body > h2::before {
-  content: "";
-  display: block;
-  width: 2.5rem;
-  height: 1px;
-  margin-bottom: 0.85rem;
-  background: var(--hc-gold-dim);
-}
-
 .hc-article-body > h3 {
-  margin: 2em 0 0.55em;
-  color: var(--hc-text-primary);
-  font: 600 1.22em/1.3 var(--font-display);
+  margin: 2.1em 0 0.6em;
+  color: var(--r-ink);
+  font: 600 1.13em/1.35 var(--font-body);
   text-wrap: balance;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
 
-.hc-article-body > h4 {
-  margin: 1.8em 0 0.5em;
-  color: var(--hc-gold);
-  font: 500 0.78rem/1.35 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.hc-article-body > h4,
+.hc-article-body > h5 {
+  margin: 1.9em 0 0.5em;
+  color: var(--r-ink-2);
+  font: 600 1em/1.4 var(--font-body);
+  font-style: italic;
+}
+
+.hc-article-body > :is(h2, h3, h4) + :is(h3, h4) {
+  margin-top: 0.9em;
 }
 
 .hc-article-body a {
-  color: var(--hc-gold);
+  color: inherit;
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--hc-gold) 42%, transparent);
+  text-decoration-color: var(--r-rule-accent);
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
+  text-underline-offset: 0.18em;
   transition: text-decoration-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .hc-article-body a:hover {
-  color: var(--hc-gold-bright);
+  color: var(--r-accent-hover);
   text-decoration-color: currentColor;
 }
 
-.hc-article-body strong {
+.hc-article-body strong,
+.hc-article-body b {
   font-weight: 600;
 }
 
 .hc-article-body > :is(ul, ol) {
-  margin: 0 0 1.25em;
-  padding-left: 1.45em;
+  margin: 0 0 1.2em;
+  padding-left: 1.4em;
 }
 
 .hc-article-body > :is(ul, ol) li {
-  margin: 0.35em 0;
-  padding-left: 0.2em;
+  margin: 0.3em 0;
+  padding-left: 0.25em;
 }
 
 .hc-article-body > :is(ul, ol) li > :is(ul, ol) {
-  margin: 0.35em 0;
+  margin: 0.3em 0;
   padding-left: 1.3em;
 }
 
+.hc-article-body > :is(ul, ol) li > p {
+  margin: 0 0 0.5em;
+}
+
 .hc-article-body > ul li::marker {
-  color: var(--hc-gold-dim);
+  color: var(--r-ink-3);
 }
 
 .hc-article-body > ol li::marker {
-  color: var(--hc-gold-dim);
-  font: 500 0.82em var(--font-ui);
+  color: var(--r-ink-3);
   font-variant-numeric: lining-nums;
 }
 
-/* A Markdown blockquote: indented under a hairline, no box. */
-.hc-article-body > blockquote {
-  margin: 1.9rem 0;
-  padding: 0.1rem 0 0.1rem 1.4rem;
-  border-left: 1px solid var(--hc-rule-strong);
-  color: var(--hc-text-primary);
-}
-
-.hc-article-body > blockquote > :last-child {
-  margin-bottom: 0;
-}
-
-.hc-article-body > blockquote p {
-  margin: 0 0 0.8em;
-}
-
+/* A section break: the brand lozenge, alone, in the measure's centre. */
 .hc-article-body > hr {
-  position: relative;
-  width: 9rem;
-  height: 9px;
-  margin: 3rem auto;
-  border: 0;
-  background: linear-gradient(var(--hc-gold-dim), var(--hc-gold-dim)) center / 100% 1px no-repeat;
-}
-
-.hc-article-body > hr::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 7px;
   height: 7px;
-  border: 1px solid var(--hc-gold);
-  background: var(--hc-surface-0);
-  transform: translate(-50%, -50%) rotate(45deg);
+  margin: 3.25rem auto;
+  border: 1px solid var(--r-accent);
+  background: none;
+  transform: rotate(45deg);
 }
 
-.hc-article-body > figure,
-.hc-article-body > p > img:only-child {
-  margin: 2.25rem 0;
+.hc-article-body > hr:last-child {
+  display: none;
 }
 
 .hc-article-body img {
@@ -418,25 +690,34 @@ body:has(.hc-article) {
   height: auto;
 }
 
+.hc-article-body > figure,
+.hc-article-body > p > img:only-child {
+  display: block;
+  margin: var(--space-block) 0;
+}
+
 .hc-article-body figcaption {
-  margin-top: 0.6rem;
-  color: var(--hc-text-tertiary);
-  font: 400 0.85rem/1.5 var(--font-body);
+  margin-top: 0.65rem;
+  color: var(--r-ink-3);
+  font: 400 0.84em/1.5 var(--font-body);
 }
 
 .hc-article-body code {
   padding: 0.05em 0.3em;
-  background: var(--hc-surface-2);
-  font-size: 0.88em;
+  border-radius: 2px;
+  background: var(--r-tint);
+  color: inherit;
+  font-size: 0.86em;
 }
 
 .hc-article-body pre {
   overflow-x: auto;
-  margin: 1.75rem 0;
-  padding: 1rem 1.15rem;
-  border: 1px solid var(--hc-rule-soft);
-  background: var(--hc-surface-1);
-  font-size: 0.88rem;
+  margin: var(--space-block) 0;
+  padding: 1rem 0 1rem 1.25rem;
+  border: 0;
+  border-left: 1px solid var(--r-rule-strong);
+  background: none;
+  font-size: 0.86rem;
   line-height: 1.6;
 }
 
@@ -452,27 +733,29 @@ body:has(.hc-article) {
   font-family: var(--font-arabic);
   direction: rtl;
   font-variant-numeric: normal;
+  font-variant-caps: normal;
+  letter-spacing: 0;
 }
 
 .hc-article-body :is(p, div, blockquote)[dir="rtl"],
 .hc-article-body :is(p, div):lang(ar) {
-  font-size: 1.3em;
+  font-size: 1.28em;
   line-height: var(--leading-arabic);
   text-align: right;
 }
 
 /* Only an Arabic run inside Latin text is enlarged. Spans inside an Arabic
-   block (verse segments, the āyah marker) must keep their own sizes. */
+   block (verse segments, the ayah marker) keep their own sizes. */
 .hc-article-body :not(:lang(ar)) > span:lang(ar),
 .hc-article-body .ar-inline {
-  font-size: 1.12em;
+  font-size: 1.1em;
   line-height: inherit;
 }
 
 .hc-article-body .ar-block {
   display: block;
-  margin: 1rem 0;
-  font-size: 1.3em;
+  margin: 1.1rem 0;
+  font-size: 1.28em;
   line-height: var(--leading-arabic);
   text-align: right;
 }
@@ -481,49 +764,219 @@ body:has(.hc-article) {
   font-family: var(--font-quran);
 }
 
-/* Highlight marks inside quoted scripture. The wash stays light enough
-   for body text above 4.5:1; the hue is carried by the underline. */
+/* ── Highlights ───────────────────────────────────────────────── */
+
+/* Marks tie phrases in one passage to phrases in another, so the hue is
+   meaningful. It lives in the underline; the wash stays faint enough
+   that body text keeps its contrast in both themes. */
 .hc-article-body mark,
 .hc-article-body .hc-mark {
   color: inherit;
-  background-color: color-mix(in srgb, var(--hc-mark-hue, var(--hc-gold)) 16%, transparent);
-  border-bottom: 2px solid var(--hc-mark-hue, var(--hc-gold));
-  padding: 0.06em 0.12em 0;
+  background-color: color-mix(in srgb, var(--hc-mark-hue, var(--r-mark-gold)) 11%, transparent);
+  box-shadow: inset 0 -1.5px 0 var(--hc-mark-hue, var(--r-mark-gold));
+  padding: 0 0.08em;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
 
-.hc-mark--gold { --hc-mark-hue: #ebd043; }
-.hc-mark--amber { --hc-mark-hue: #d69a53; }
-.hc-mark--blue { --hc-mark-hue: #749fdc; }
-.hc-mark--red { --hc-mark-hue: #cf6868; }
-.hc-mark--violet { --hc-mark-hue: #a17fbe; }
+.hc-mark--gold { --hc-mark-hue: var(--r-mark-gold); }
+.hc-mark--amber { --hc-mark-hue: var(--r-mark-amber); }
+.hc-mark--blue { --hc-mark-hue: var(--r-mark-blue); }
+.hc-mark--red { --hc-mark-hue: var(--r-mark-red); }
+.hc-mark--violet { --hc-mark-hue: var(--r-mark-violet); }
+
+/* ── Extracts: Qur'an, reports, Bible, quotations ─────────────── */
+
+/* Every quoted text takes one setting: indented under a single hairline,
+   a step smaller than the prose, Arabic first, citation last. The kinds
+   differ only in face: the Qur'an keeps Amiri Quran and its verse marks. */
+.hc-source,
+.hc-quote,
+.hc-article-body > blockquote {
+  margin: var(--space-block) 0;
+  padding: 0.15rem 0 0.15rem clamp(1.1rem, 3vw, 1.6rem);
+  border-left: 1px solid var(--r-rule-accent);
+  font-size: 0.96em;
+  line-height: 1.66;
+}
+
+.hc-source > :last-child,
+.hc-source__text > :last-child,
+.hc-quote__text > :last-child,
+.hc-article-body > blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.hc-source__title {
+  margin: 0 0 0.75rem;
+  color: var(--r-ink-2);
+  font-size: 1.02em;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.hc-source__arabic,
+.hc-source .hadith-block__arabic {
+  margin: 0 0 0.8rem;
+  color: var(--r-ink);
+  font-family: var(--font-arabic);
+  font-size: 1.3em;
+  line-height: var(--leading-arabic);
+  direction: rtl;
+  text-align: right;
+}
+
+.hc-source__text p,
+.hc-source .hadith-block__translation {
+  margin: 0 0 0.65em;
+}
+
+.hc-source__ref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.25rem;
+  margin-top: 0.8rem;
+}
+
+.hc-source__ref cite {
+  color: var(--r-ink-3);
+  font-size: 0.98em;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.hc-source__share {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--r-ink-3);
+  font: 400 0.78rem/1.2 var(--font-ui);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.hc-source:hover .hc-source__share,
+.hc-source:focus-within .hc-source__share,
+.hc-source__share.is-shared {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .hc-source__share {
+    opacity: 1;
+  }
+}
+
+.hc-source__share:hover,
+.hc-source__share.is-shared {
+  color: var(--r-accent);
+}
+
+/* The Qur'an: Amiri Quran, numbered ayah marks, centred when short. */
+.hc-source--quran .hc-source__arabic {
+  font-family: var(--font-quran);
+  font-size: 1.42em;
+  line-height: 2.25;
+}
+
+.qv-ayah-end {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  margin-inline: 0.3em;
+  border: 1px solid var(--r-rule-accent);
+  border-radius: 50%;
+  color: var(--r-accent);
+  font-family: var(--font-arabic);
+  font-size: 0.48em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.qv-verse-num {
+  margin-inline: 0.3em 0.1em;
+  color: var(--r-accent);
+  font: 400 0.68em var(--font-ui);
+  font-variant-numeric: lining-nums;
+  vertical-align: 0.3em;
+}
+
+.hc-source-missing {
+  color: var(--r-ink-3);
+  font-style: italic;
+}
+
+.hc-quote__text {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.hc-quote__text p {
+  margin: 0 0 0.65em;
+}
+
+.hc-quote__by {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
+  margin-top: 0.75rem;
+  color: var(--r-ink-3);
+  font-size: 0.98em;
+  line-height: 1.45;
+}
+
+.hc-quote__by cite {
+  color: var(--r-ink-3);
+  font-variant-caps: normal;
+  letter-spacing: 0;
+  font-style: italic;
+}
+
+.hc-quote__author + cite::before {
+  content: ", ";
+  margin-left: -0.6rem;
+  font-style: normal;
+}
+
+.hc-article-body > blockquote p {
+  margin: 0 0 0.65em;
+}
 
 /* ── Notes: thesis, verdict, context ──────────────────────────── */
 
+/* Thesis and verdict open under a hairline across the measure with a
+   small caps label; the context note is a quieter aside, indented and
+   a step smaller. */
 .hc-note {
-  margin: 2.25rem 0;
+  margin: var(--space-block) 0;
 }
 
 .hc-note__label {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.25rem 0.85rem;
-  margin: 0 0 0.65rem;
-  color: var(--hc-gold);
-  font: 500 0.76rem/1.35 var(--font-ui);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  gap: 0.15rem 0.75rem;
+  margin: 0 0 0.55rem;
+  color: var(--r-accent);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .hc-note__status {
-  color: var(--hc-text-tertiary);
-  letter-spacing: 0.06em;
+  color: var(--r-ink-3);
+  font-weight: 400;
 }
 
 .hc-note__body > :is(p, ul, ol) {
-  margin: 0 0 0.85em;
+  margin: 0 0 0.8em;
 }
 
 .hc-note__body > :last-child {
@@ -534,36 +987,29 @@ body:has(.hc-article) {
   padding-left: 1.3em;
 }
 
-/* Thesis: the statement between two gold rules, a step larger. */
-.hc-note--claim {
-  padding-block: 1.35rem 1.45rem;
-  border-block: 1px solid var(--hc-rule-strong);
+.hc-note--claim,
+.hc-note--verdict {
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--r-rule-accent);
 }
 
-.hc-note--claim .hc-note__body {
-  font-size: 1.07em;
+.hc-note--claim .hc-note__body,
+.hc-note--verdict .hc-note__body {
+  font-size: 1.04em;
   line-height: 1.62;
 }
 
-/* Verdict: the system's one shaded field. */
-.hc-note--verdict {
-  padding: 1.35rem clamp(1.1rem, 3vw, 1.6rem) 1.5rem;
-  border-top: 2px solid var(--hc-gold-dim);
-  background: color-mix(in srgb, var(--hc-gold) 5%, var(--hc-surface-1));
-}
-
-/* Context: a narrower marginal note in the copper register. */
 .hc-note--context {
-  margin-left: clamp(0rem, 4vw, 2rem);
-  padding-left: 1.1rem;
-  border-left: 1px solid color-mix(in srgb, var(--hc-copper) 60%, transparent);
-  color: var(--hc-text-secondary);
-  font-size: 0.93em;
-  line-height: 1.66;
+  padding-left: clamp(1.1rem, 3vw, 1.6rem);
+  color: var(--r-ink-2);
+  font-size: 0.92em;
+  line-height: 1.64;
 }
 
 .hc-note--context .hc-note__label {
-  color: var(--hc-copper);
+  color: var(--r-ink-3);
+  font-size: 1.05em;
+  font-weight: 500;
 }
 
 details.hc-note > summary {
@@ -581,231 +1027,54 @@ details.hc-note > summary::-webkit-details-marker {
 }
 
 details.hc-note > summary::after {
-  content: "Show";
-  color: var(--hc-text-tertiary);
-  letter-spacing: 0.08em;
+  content: "show";
+  color: var(--r-ink-3);
+  font-weight: 400;
 }
 
 details.hc-note[open] > summary::after {
-  content: "Hide";
+  content: "hide";
 }
 
 details.hc-note[open] > summary {
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.55rem;
 }
 
-/* ── Sources: Qur'an, reports, Bible ──────────────────────────── */
+/* ── Tables ───────────────────────────────────────────────────── */
 
-.hc-source {
-  margin: 2.25rem 0;
-}
-
-.hc-source__title {
-  margin: 0 0 0.8rem;
-  color: var(--hc-text-primary);
-  font: 600 1rem/1.4 var(--font-display);
-}
-
-.hc-source__arabic,
-.hc-source .hadith-block__arabic {
-  margin: 0 0 0.85rem;
-  color: var(--hc-text-primary);
-  font-family: var(--font-arabic);
-  font-size: 1.3em;
-  line-height: var(--leading-arabic);
-  direction: rtl;
-  text-align: right;
-}
-
-.hc-source__text > p,
-.hc-source .hadith-block__translation {
-  margin: 0 0 0.6em;
-}
-
-.hc-source__text > :last-child {
-  margin-bottom: 0;
-}
-
-.hc-source__ref {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.35rem 1.25rem;
-  margin-top: 0.9rem;
-}
-
-.hc-source__ref cite {
-  color: var(--hc-text-secondary);
-  font: italic 400 0.9rem/1.5 var(--font-body);
-}
-
-.hc-source__share {
-  min-height: 28px;
-  padding: 0.2rem 0;
-  border: 0;
-  border-bottom: 1px solid var(--hc-rule);
-  background: none;
-  color: var(--hc-text-tertiary);
-  font: 500 0.75rem/1.2 var(--font-ui);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.hc-source__share:hover,
-.hc-source__share.is-shared {
-  border-bottom-color: var(--hc-gold);
-  color: var(--hc-gold);
-}
-
-/* Reports and Biblical passages: indented under a hairline. */
-.hc-source--hadith,
-.hc-source--bible {
-  padding-left: clamp(1rem, 3vw, 1.5rem);
-  border-left: 1px solid var(--hc-rule-strong);
-}
-
-/* The Qur'an: a warm field, Arabic centred over the English. */
-.hc-source--quran {
-  padding: 1.6rem clamp(1.1rem, 3.5vw, 1.9rem) 1.15rem;
-  border-block: 1px solid var(--hc-rule);
-  background: color-mix(in srgb, var(--hc-gold) 6%, var(--hc-surface-1));
-}
-
-.hc-source--quran .hc-source__arabic {
-  font-family: var(--font-quran);
-  font-size: 1.45em;
-  line-height: 2.2;
-  text-align: center;
-}
-
-.hc-source--quran .hc-source__ref cite {
-  font-style: normal;
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hc-gold-dim);
-}
-
-.qv-ayah-end {
-  display: inline-grid;
-  place-items: center;
-  min-width: 1.55em;
-  height: 1.55em;
-  margin-inline: 0.3em;
-  border: 1px solid var(--hc-gold-dim);
-  border-radius: 50%;
-  color: var(--hc-gold);
-  font-family: var(--font-arabic);
-  font-size: 0.5em;
-  line-height: 1;
-  vertical-align: middle;
-}
-
-.qv-verse-num {
-  margin-inline: 0.35em 0.15em;
-  color: var(--hc-gold-dim);
-  font: 500 0.7em var(--font-ui);
-  font-variant-numeric: lining-nums;
-  vertical-align: 0.25em;
-}
-
-.hc-source-missing {
-  color: var(--hc-text-tertiary);
-  font-style: italic;
-}
-
-/* ── Quotations ───────────────────────────────────────────────── */
-
-.hc-quote {
-  position: relative;
-  margin: 2.25rem 0;
-  padding-left: clamp(1.4rem, 4vw, 2rem);
-}
-
-.hc-quote::before {
-  content: "\201C";
-  position: absolute;
-  top: -0.6rem;
-  left: -0.15rem;
-  color: var(--hc-gold-dim);
-  font: 600 3.4rem/1 var(--font-editorial);
-}
-
-.hc-quote__text {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  font-size: 1.04em;
-  line-height: 1.66;
-}
-
-.hc-quote__text > :last-child {
-  margin-bottom: 0;
-}
-
-.hc-quote__text p {
-  margin: 0 0 0.8em;
-}
-
-.hc-quote__by {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.25rem 0.75rem;
-  margin-top: 0.85rem;
-  font: 500 0.78rem/1.4 var(--font-ui);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hc-text-tertiary);
-}
-
-.hc-quote__by cite {
-  color: var(--hc-text-secondary);
-  font: italic 400 0.92rem/1.4 var(--font-body);
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* ── Tables: one table, Markdown or component ─────────────────── */
-
+/* One table for the publication, Markdown or component, set in the
+   booktabs manner: a rule above, a rule under the head, a rule below,
+   nothing vertical. */
 .hc-table {
-  margin: 2.25rem 0;
+  margin: var(--space-block) 0;
 }
 
 .hc-table__caption {
-  margin: 0 0 0.6rem;
-  color: var(--hc-gold);
-  font: 500 0.76rem/1.4 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  margin: 0 0 0.55rem;
+  color: var(--r-ink-2);
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .hc-article-body .hc-table-wrap,
 .hc-table__scroll {
   overflow-x: auto;
   max-width: 100%;
-  border-block: 1px solid var(--hc-rule-strong);
+  border-block: 1px solid var(--r-rule-strong);
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
 }
 
 .hc-article-body .hc-table-wrap {
-  margin: 2.25rem 0;
+  margin: var(--space-block) 0;
 }
 
-/* Every table in the body takes this setting, including the few that
-   articles build by hand: `.hc-article-body table td` outranks an
-   article's own `.variant-table td`, and the hand-made scroll wrappers
-   lose their boxes below. */
 .hc-article-body :is(.variant-table-wrap, .b46-table-container) {
-  margin: 2.25rem 0;
+  margin: var(--space-block) 0;
   overflow-x: auto;
   border: 0;
-  border-block: 1px solid var(--hc-rule-strong);
+  border-block: 1px solid var(--r-rule-strong);
   border-radius: 0;
   background: none;
   box-shadow: none;
@@ -818,29 +1087,31 @@ details.hc-note[open] > summary {
   border-radius: 0;
   border-collapse: collapse;
   background: none;
-  font-size: 0.88em;
+  font-size: 0.86em;
   line-height: 1.5;
   font-variant-numeric: lining-nums tabular-nums;
 }
 
 .hc-article-body table th {
-  padding: 0.8rem 0.9rem 0.6rem;
+  padding: 0.75rem 0.85rem 0.55rem;
   border: 0;
-  border-bottom: 1px solid var(--hc-rule);
+  border-bottom: 1px solid var(--r-rule-strong);
   background: none;
-  color: var(--hc-text-secondary);
-  font: 500 0.75rem/1.35 var(--font-ui);
-  letter-spacing: 0.08em;
+  color: var(--r-ink-2);
+  font: 600 0.92em/1.35 var(--font-body);
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
   text-align: left;
-  text-transform: uppercase;
+  text-transform: none;
   vertical-align: bottom;
 }
 
 .hc-article-body table td {
-  padding: 0.7rem 0.9rem;
+  padding: 0.65rem 0.85rem;
   border: 0;
-  border-bottom: 1px solid var(--hc-rule-soft);
+  border-bottom: 1px solid var(--r-rule);
   background: none;
+  color: var(--r-ink);
   vertical-align: top;
 }
 
@@ -852,47 +1123,530 @@ details.hc-note[open] > summary {
   padding-left: 0;
 }
 
+.hc-article-body table :is(td, th):last-child {
+  padding-right: 0;
+}
+
 .hc-article-body table :is(td, th):lang(ar),
 .hc-article-body table :is(td, th)[dir="rtl"],
 .hc-article-body table td :lang(ar) {
   font-family: var(--font-arabic);
-  font-size: 1.22em;
+  font-size: 1.2em;
   line-height: 1.85;
   text-align: right;
+  font-variant-caps: normal;
+  letter-spacing: 0;
 }
 
 .hc-table--sticky :is(td, th):first-child {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--hc-surface-0);
+  background: var(--r-bg);
 }
 
-/* ── Notes, bibliography ──────────────────────────────────────── */
+/* ── Figures: the shared vocabulary ───────────────────────────── */
+
+/* Articles that need structure beyond prose (a comparison, a sequence,
+   a ledger, a set of profiles) build it from these classes and nothing
+   else, so every figure in the archive is drawn the same way.
+
+     .hc-fig            a figure block
+       --cols           cells across, as many as fit
+       --c2 --c3 --c4   cells across, a fixed count
+       --flow           a sequence; joins between the cells
+       --rows           label and value, one row each
+       --lead           an opening summary: no cell rules
+     .hc-fig__item      a cell
+     .hc-fig__join      text or an arrow between cells of a flow
+     .hc-fig__label     the figure's own label, above it
+     .hc-fig__kicker    a cell's small caps label
+     .hc-fig__title     a cell's heading (h3 and h4 take it too)
+     .hc-fig__ar        Arabic inside a figure
+     .hc-fig__quote     a quoted line inside a figure
+     .hc-fig__note      secondary text
+     .hc-fig__tags      a run of short terms
+     .hc-fig__caption   a caption below the figure                      */
+
+.hc-fig {
+  margin: var(--space-block) 0;
+  font-size: 0.92em;
+  line-height: 1.58;
+}
+
+.hc-fig .hc-fig {
+  margin: 1rem 0 0;
+  font-size: 1em;
+}
+
+.hc-fig > :last-child,
+.hc-fig__item > :last-child {
+  margin-bottom: 0;
+}
+
+.hc-fig :is(p, ul, ol) {
+  margin: 0 0 0.6em;
+}
+
+.hc-fig :is(ul, ol) {
+  padding-left: 1.2em;
+}
+
+.hc-fig li {
+  margin: 0.2em 0;
+}
+
+.hc-fig__label {
+  margin: 0 0 0.6rem;
+  color: var(--r-ink-2);
+  font-size: 1.04em;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.hc-fig__kicker {
+  display: block;
+  margin: 0 0 0.25rem;
+  color: var(--r-ink-3);
+  font-size: 1.02em;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.hc-fig :is(h2, h3, h4, h5),
+.hc-fig__title {
+  display: block;
+  margin: 0 0 0.35rem;
+  color: var(--r-ink);
+  font: 600 1.06em/1.35 var(--font-body);
+  font-variant-caps: normal;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.hc-fig :is(h2) {
+  font: 600 clamp(1.35rem, 1.1rem + 0.8vw, 1.6rem)/1.2 var(--font-editorial);
+}
+
+.hc-fig__ar {
+  display: block;
+  margin: 0.15rem 0 0.4rem;
+  color: var(--r-ink);
+  font-family: var(--font-arabic);
+  font-size: 1.24em;
+  line-height: 1.9;
+  direction: rtl;
+  text-align: right;
+  font-variant-caps: normal;
+  letter-spacing: 0;
+}
+
+span.hc-fig__ar {
+  display: inline;
+  font-size: 1.1em;
+}
+
+.hc-fig__quote {
+  font-style: italic;
+}
+
+.hc-fig__note {
+  display: block;
+  color: var(--r-ink-2);
+  font-size: 0.95em;
+}
+
+.hc-fig__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--r-ink-3);
+  font-size: 0.94em;
+  font-style: italic;
+}
+
+.hc-fig__tags > * {
+  margin: 0;
+  font-weight: 400;
+}
+
+.hc-fig__tags > :not(:last-child)::after {
+  content: "·";
+  margin: 0 0.5rem;
+  font-style: normal;
+}
+
+.hc-fig__caption {
+  margin: 0.8rem 0 0;
+  color: var(--r-ink-3);
+  font-size: 0.94em;
+}
+
+.hc-fig__ornament {
+  display: none;
+}
+
+/* A link that is a whole entry (a related study with a label and a line of
+   description) is set like a cell: ruled above, its title in the ink. */
+.hc-article-body .hc-fig a:has(> :is(p, strong, span)) {
+  display: block;
+  padding: 0.75rem 0 0.9rem;
+  border-top: 1px solid var(--r-rule-strong);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hc-fig a:has(> :is(p, strong, span)) > span:first-child {
+  display: block;
+  color: var(--r-ink-3);
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+}
+
+.hc-fig a:has(> :is(p, strong, span)) > strong {
+  display: block;
+  margin: 0.1rem 0 0.25rem;
+  transition: color var(--motion-fast) ease;
+}
+
+.hc-fig a:has(> :is(p, strong, span)) > p {
+  margin: 0;
+  color: var(--r-ink-2);
+}
+
+.hc-fig a:has(> :is(p, strong, span)):hover > strong {
+  color: var(--r-accent-hover);
+}
+
+/* A disclosure inside a figure: a small caps line that opens in place. */
+.hc-fig details {
+  margin: 0.6rem 0 0;
+  border-top: 1px solid var(--r-rule);
+}
+
+.hc-fig details > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-height: 40px;
+  padding: 0.55rem 0 0.35rem;
+  color: var(--r-ink-2);
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+  list-style: none;
+  cursor: pointer;
+}
+
+.hc-fig details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hc-fig details > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--r-ink-3);
+  font-variant-caps: normal;
+}
+
+.hc-fig details[open] > summary::after {
+  content: "\2212";
+}
+
+.hc-fig details > summary:hover {
+  color: var(--r-ink);
+}
+
+/* Cells: across, divided by a rule above each. */
+.hc-fig--cols,
+.hc-fig--c2,
+.hc-fig--c3,
+.hc-fig--c4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
+  column-gap: 1.75rem;
+}
+
+.hc-fig--c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hc-fig--c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hc-fig--c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Anything in a grid that is not a cell (a head, a paragraph, a nested
+   figure, a disclosure) takes the whole row, so cells pair up between them. */
+:is(.hc-fig--cols, .hc-fig--c2, .hc-fig--c3, .hc-fig--c4) > :not(.hc-fig__item) {
+  grid-column: 1 / -1;
+}
+
+.hc-fig__item {
+  min-width: 0;
+  padding: 0.8rem 0 1.05rem;
+  border-top: 1px solid var(--r-rule-strong);
+}
+
+/* Bare inline parts written straight into a cell (a label span, a bold
+   heading) each take their own line: a leading span reads as the cell's
+   label and a bold run as its heading. */
+.hc-fig__item > :is(span, b, strong):not(.hc-fig__ar, .hc-fig__quote) {
+  display: block;
+}
+
+.hc-fig__item > span:first-child:not([class]) {
+  margin-bottom: 0.2rem;
+  color: var(--r-ink-3);
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.05em;
+}
+
+.hc-fig__item > :is(b, strong) {
+  margin-bottom: 0.3rem;
+  color: var(--r-ink);
+  line-height: 1.35;
+}
+
+/* A label made of parts reads as one line with a point between them. */
+.hc-fig__kicker > :not(:last-child)::after {
+  content: " · ";
+}
+
+.hc-fig__kicker :is(b, strong) {
+  font-weight: inherit;
+}
+
+/* Four cells pair up rather than leaving one alone on a second row. */
+.hc-fig--cols:has(> :nth-child(4 of .hc-fig__item):nth-last-child(1 of .hc-fig__item)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* A head row inside a column grid: a cell that is only a label. */
+.hc-fig__item.hc-fig__kicker {
+  margin: 0;
+  padding-bottom: 0.4rem;
+  border-top-color: var(--r-rule-accent);
+}
+
+.hc-fig :is(.hc-fig--cols, .hc-fig--c2, .hc-fig--c3, .hc-fig--c4) > .hc-fig__item:last-child {
+  padding-bottom: 0.2rem;
+}
+
+@media (max-width: 899px) {
+  .hc-fig--c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 599px) {
+  .hc-fig--c2,
+  .hc-fig--c3,
+  .hc-fig--c4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hc-fig__item.hc-fig__kicker {
+    display: none;
+  }
+}
+
+/* A sequence: cells side by side with their joins; stacked when narrow. */
+.hc-fig--flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0 0.9rem;
+}
+
+.hc-fig--flow > .hc-fig__item {
+  flex: 1 1 0;
+}
+
+.hc-fig--flow > :is(.hc-fig__label, .hc-fig__caption) {
+  display: none;
+}
+
+.hc-fig__join {
+  flex: 0 0 auto;
+  align-self: center;
+  max-width: 7rem;
+  margin: 0;
+  color: var(--r-ink-3);
+  font-size: 0.95em;
+  font-style: italic;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.hc-fig__join--arrow {
+  font-style: normal;
+  font-size: 1.1em;
+}
+
+.hc-fig__join > :is(b, strong) {
+  display: block;
+  font-size: 1.3em;
+  font-style: normal;
+  font-weight: 400;
+}
+
+/* Four steps or more do not fit across the measure: run them downward. */
+.hc-fig--flow:has(> :nth-child(4 of .hc-fig__item)) {
+  flex-direction: column;
+}
+
+.hc-fig--flow:has(> :nth-child(4 of .hc-fig__item)) > .hc-fig__join {
+  max-width: none;
+  padding: 0.3rem 0 0.45rem;
+}
+
+.hc-fig--flow:has(> :nth-child(4 of .hc-fig__item)) > .hc-fig__join--arrow {
+  transform: rotate(90deg);
+}
+
+@media (max-width: 639px) {
+  .hc-fig--flow {
+    flex-direction: column;
+  }
+
+  .hc-fig__join {
+    max-width: none;
+    padding: 0.35rem 0 0.5rem;
+  }
+
+  .hc-fig__join--arrow {
+    transform: rotate(90deg);
+  }
+}
+
+/* A chain: bare terms joined by arrows, run as one wrapping line. */
+.hc-fig--chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.6rem;
+  padding-block: 0.7rem;
+  border-block: 1px solid var(--r-rule);
+}
+
+.hc-fig--chain > .hc-fig__item {
+  padding: 0;
+  border: 0;
+  font-weight: 600;
+}
+
+.hc-fig--chain > .hc-fig__join,
+.hc-fig--chain > .hc-fig__join--arrow {
+  max-width: none;
+  padding: 0;
+  transform: none;
+}
+
+/* Rows: a label against its value. */
+.hc-fig--rows > .hc-fig__item {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  gap: 0.2rem 1.5rem;
+  padding: 0.7rem 0;
+}
+
+.hc-fig--rows > .hc-fig__item > :first-child {
+  margin: 0;
+}
+
+/* Parts of a cell or row are not cells of their own. */
+.hc-fig__item > .hc-fig__item {
+  padding: 0;
+  border: 0;
+}
+
+.hc-fig--rows > .hc-fig__item > :nth-child(n + 3) {
+  grid-column: 2;
+}
+
+.hc-fig--rows > .hc-fig__item:last-child {
+  border-bottom: 1px solid var(--r-rule-strong);
+}
+
+@media (max-width: 599px) {
+  .hc-fig--rows > .hc-fig__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hc-fig--rows > .hc-fig__item > :nth-child(n + 3) {
+    grid-column: 1;
+  }
+}
+
+/* A quoted passage built by hand takes the extract setting. */
+.hc-fig--extract {
+  padding: 0.15rem 0 0.15rem clamp(1.1rem, 3vw, 1.6rem);
+  border-left: 1px solid var(--r-rule-accent);
+  font-size: 0.96em;
+  line-height: 1.66;
+}
+
+.hc-fig--extract .hc-fig__quote {
+  font-style: normal;
+}
+
+.hc-fig--extract > .hc-fig__kicker:last-child {
+  margin: 0.7rem 0 0;
+}
+
+.hc-fig__tags :is(b, strong) {
+  margin-right: 0.35em;
+  color: var(--r-ink-2);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* An opening summary sits under the header like an abstract. */
+.hc-fig--lead {
+  padding-block: 1.25rem 1.4rem;
+  border-block: 1px solid var(--r-rule-strong);
+  font-size: 0.98em;
+}
+
+.hc-fig--lead .hc-fig__item {
+  padding: 0;
+  border: 0;
+}
+
+.hc-fig .hc-fig--lead {
+  padding: 0;
+  border: 0;
+}
+
+/* ── Notes and works cited ────────────────────────────────────── */
+
+.hc-article-body sup {
+  line-height: 0;
+}
 
 .hc-article-body sup a[data-footnote-ref] {
-  padding: 0 0.12em;
-  color: var(--hc-gold);
-  font: 600 0.72em var(--font-ui);
+  padding: 0 0.1em;
+  color: var(--r-accent);
+  font: 500 0.7em var(--font-ui);
   font-variant-numeric: lining-nums;
   text-decoration: none;
 }
 
 .hc-article-body sup a[data-footnote-ref]:hover {
-  text-decoration: underline;
+  color: var(--r-accent-hover);
 }
 
 .hc-article-body > .footnotes {
   margin-top: 3.5rem;
-  padding-top: 1.35rem;
-  border-top: 1px solid var(--hc-rule);
-  color: var(--hc-text-secondary);
-  font-size: 0.88em;
-  line-height: 1.62;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--r-rule-strong);
+  color: var(--r-ink-2);
+  font-size: 0.86em;
+  line-height: 1.6;
 }
 
-/* Most articles introduce their notes with their own "## Footnotes"; the
-   label and rule only appear when nothing does. */
+/* Most articles introduce their notes with their own heading; the label
+   and rule only appear when nothing does. */
 .hc-article-body > h2 + .footnotes {
   margin-top: 0;
   padding-top: 0;
@@ -907,27 +1661,25 @@ details.hc-note[open] > summary {
   content: "Notes";
   display: block;
   margin-bottom: 1rem;
-  color: var(--hc-gold);
-  font: 500 0.76rem/1.3 var(--font-ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--r-ink);
+  font: 600 1.5rem/1.2 var(--font-editorial);
 }
 
 .hc-article-body > .footnotes ol {
   margin: 0;
-  padding-left: 1.9em;
+  padding-left: 2em;
 }
 
 .hc-article-body > .footnotes li {
-  margin: 0 0 0.7em;
-  padding-left: 0.3em;
+  margin: 0 0 0.6em;
+  padding-left: 0.35em;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
 
 .hc-article-body > .footnotes li::marker {
-  color: var(--hc-gold-dim);
-  font: 500 0.85em var(--font-ui);
-  font-variant-numeric: lining-nums;
+  color: var(--r-ink-3);
+  font: 400 0.92em var(--font-ui);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .hc-article-body > .footnotes li p {
@@ -936,24 +1688,39 @@ details.hc-note[open] > summary {
 }
 
 .hc-article-body > .footnotes li:target {
-  background: var(--hc-highlight);
+  background: var(--r-tint);
+  box-shadow: -0.5rem 0 0 var(--r-tint), 0.5rem 0 0 var(--r-tint);
 }
 
 .hc-article-body > .footnotes a[data-footnote-backref] {
-  margin-left: 0.35em;
-  color: var(--hc-gold);
+  margin-left: 0.3em;
+  color: var(--r-ink-3);
   font-family: var(--font-ui);
   text-decoration: none;
 }
 
-/* Works cited: the component, or a list under a bibliography heading. */
+.hc-article-body > .footnotes a[data-footnote-backref]:hover {
+  color: var(--r-accent);
+}
+
+/* Section heads over the end matter of an article (Notes, Bibliography,
+   References) are set smaller than argument sections. */
+.hc-article-body > h2:is(#footnotes, #notes, #footnote-label, #bibliography, #references, #sources, #source-notes, [id*="bibliography"], [id*="references"], [id*="footnote"]) {
+  margin-top: 3.25rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--r-rule-strong);
+  font-size: 1.5rem;
+}
+
 .hc-works {
-  margin-top: 3rem;
+  margin-top: 3.25rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--r-rule-strong);
 }
 
 .hc-works > h2 {
   margin: 0 0 1rem;
-  font: 600 clamp(1.6rem, 1.3rem + 1vw, 2rem)/1.15 var(--font-editorial);
+  font: 600 1.5rem/1.2 var(--font-editorial);
 }
 
 .hc-works__list,
@@ -961,13 +1728,14 @@ details.hc-note[open] > summary {
   margin: 0 0 1.5rem;
   padding: 0;
   list-style: none;
-  font-size: 0.9em;
+  color: var(--r-ink-2);
+  font-size: 0.86em;
   line-height: 1.55;
 }
 
 .hc-works__list li,
 .hc-article-body > :is(h2#bibliography, h2#references, h2[id*="bibliography"], h2[id*="references"], h3#primary-sources, h3#secondary-sources) ~ :is(ul, ol) > li {
-  margin: 0 0 0.65em;
+  margin: 0 0 0.6em;
   padding-left: 1.75em;
   text-indent: -1.75em;
 }
@@ -980,54 +1748,40 @@ details.hc-note[open] > summary {
 /* ── Part divider ─────────────────────────────────────────────── */
 
 .hc-part {
-  margin: 4rem 0 1.75rem;
+  margin: 4rem 0 1.5rem;
   text-align: center;
 }
 
 .hc-part__ornament {
-  position: relative;
   display: block;
-  width: 9rem;
-  height: 9px;
-  margin: 0 auto;
-  background: linear-gradient(var(--hc-gold-dim), var(--hc-gold-dim)) center / 100% 1px no-repeat;
-}
-
-.hc-part__ornament::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 7px;
   height: 7px;
-  border: 1px solid var(--hc-gold);
-  background: var(--hc-surface-0);
-  transform: translate(-50%, -50%) rotate(45deg);
+  margin: 0 auto;
+  border: 1px solid var(--r-accent);
+  transform: rotate(45deg);
 }
 
-/* A Markdown rule written just before a part divider: one ornament, not two. */
 .hc-article-body > hr:has(+ .hc-part) {
   display: none;
 }
 
 .hc-part__title {
-  margin: 1rem 0 0;
-  font: 600 clamp(1.9rem, 1.5rem + 1.6vw, 2.6rem)/1.1 var(--font-editorial);
+  margin: 1.25rem 0 0;
+  color: var(--r-ink);
+  font: 600 clamp(1.9rem, 1.5rem + 1.6vw, 2.5rem)/1.1 var(--font-editorial);
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
 
 .hc-part__subtitle {
   margin: 0.5rem 0 0;
-  color: var(--hc-text-tertiary);
-  font: 500 0.78rem/1.4 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--r-ink-3);
+  font: italic 400 1rem/1.4 var(--font-body);
 }
 
 /* ── Media and outside sources ────────────────────────────────── */
 
 .hc-media {
-  margin: 2.25rem 0;
+  margin: var(--space-block) 0;
 }
 
 .hc-media__frame {
@@ -1035,7 +1789,7 @@ details.hc-note[open] > summary {
   display: block;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border: 1px solid var(--hc-rule-soft);
+  border-radius: 2px;
   background: var(--hc-fixed-black);
 }
 
@@ -1043,7 +1797,7 @@ details.hc-note[open] > summary {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.88;
+  opacity: 0.86;
   transition: opacity var(--motion-base) ease;
 }
 
@@ -1063,11 +1817,17 @@ details.hc-note[open] > summary {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 54px;
-  height: 54px;
-  border: 1px solid var(--hc-fixed-parchment);
-  background: rgba(15, 15, 16, 0.78);
-  transform: translate(-50%, -50%) rotate(45deg);
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(242, 235, 220, 0.8);
+  border-radius: 50%;
+  background: rgba(15, 15, 16, 0.55);
+  transform: translate(-50%, -50%);
+  transition: background var(--motion-fast) ease;
+}
+
+.hc-media__frame:hover .hc-media__play {
+  background: rgba(15, 15, 16, 0.75);
 }
 
 .hc-media__play::after {
@@ -1078,61 +1838,50 @@ details.hc-note[open] > summary {
   border-style: solid;
   border-width: 8px 0 8px 13px;
   border-color: transparent transparent transparent var(--hc-fixed-parchment);
-  transform: translate(-35%, -50%) rotate(-45deg);
+  transform: translate(-38%, -50%);
 }
 
 .hc-media__caption {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.2rem 0.75rem;
-  margin-top: 0.7rem;
-  color: var(--hc-text-tertiary);
-  font: 500 0.8rem/1.45 var(--font-ui);
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.65rem;
+  color: var(--r-ink-3);
+  font: 400 0.86em/1.5 var(--font-body);
 }
 
 .hc-media__kind {
-  color: var(--hc-gold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--r-ink-3);
 }
 
 .hc-media__title {
-  color: var(--hc-text-primary);
-  font: 600 0.98rem/1.4 var(--font-display);
-}
-
-.hc-media__meta {
-  font: 500 0.8rem/1.45 var(--font-ui);
+  color: var(--r-ink);
+  font-weight: 600;
 }
 
 .hc-external {
-  margin: 2rem 0;
-  padding-block: 0.95rem 1rem;
-  border-block: 1px solid var(--hc-rule-soft);
+  margin: var(--space-block) 0;
+  padding-left: clamp(1.1rem, 3vw, 1.6rem);
+  border-left: 1px solid var(--r-rule-strong);
+  font-size: 0.94em;
+  line-height: 1.55;
 }
 
-/* Consecutive references read as one list: shared rules, no gap. */
 .hc-external + .hc-external {
-  margin-top: -2rem;
-  border-top: 0;
+  margin-top: calc(var(--space-block) * -0.5);
 }
 
 .hc-external__kind {
   margin: 0;
-  color: var(--hc-gold);
-  font: 500 0.75rem/1.4 var(--font-ui);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  color: var(--r-ink-3);
+  font-size: 1.02em;
+  line-height: 1.4;
 }
 
 .hc-external__body {
-  margin: 0.4rem 0 0;
-  font: 600 1.04rem/1.45 var(--font-display);
-}
-
-.hc-external__body .hc-external__title {
-  color: var(--hc-text-primary);
+  margin: 0.15rem 0 0;
+  font-weight: 600;
 }
 
 .hc-external__quote {
@@ -1141,63 +1890,120 @@ details.hc-note[open] > summary {
 }
 
 .hc-external__desc {
-  margin: 0.4rem 0 0;
-  color: var(--hc-text-secondary);
-  font-size: 0.95em;
+  margin: 0.3rem 0 0;
+  color: var(--r-ink-2);
 }
 
 .hc-external__meta {
   display: flex;
   flex-wrap: wrap;
-  margin: 0.55rem 0 0;
-  color: var(--hc-text-tertiary);
-  font: 500 0.8rem/1.4 var(--font-ui);
+  margin: 0.35rem 0 0;
+  color: var(--r-ink-3);
+  font: 400 0.8rem/1.45 var(--font-ui);
 }
 
 .hc-external__meta > * + *::before {
   content: "·";
-  margin-inline: 0.55rem;
-  color: var(--hc-gold-dim);
+  margin-inline: 0.5rem;
 }
 
 /* ── End matter ───────────────────────────────────────────────── */
 
 .hc-end {
   margin-top: clamp(3.5rem, 7vw, 5rem);
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--r-rule-strong);
 }
 
 .hc-end__label {
   display: block;
-  margin-bottom: 0.35rem;
-  color: var(--hc-text-tertiary);
-  font: 500 0.75rem/1.3 var(--font-ui);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+  color: var(--r-ink-3);
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 .hc-end__topics {
   margin: 0;
-  padding-block: 1rem;
-  border-top: 1px solid var(--hc-rule);
-  color: var(--hc-text-secondary);
-  font: 400 0.95rem/1.55 var(--font-body);
+  color: var(--r-ink-2);
+  font: 400 0.95rem/1.6 var(--font-body);
 }
 
 .hc-end__topics .hc-end__label {
   display: inline;
-  margin-right: 0.6rem;
+  margin-right: 0.5rem;
+}
+
+.hc-further {
+  margin-top: 2.75rem;
+}
+
+.hc-further__title {
+  margin: 0 0 0.6rem;
+  color: var(--r-ink-3);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.hc-further__title a {
+  color: var(--r-accent);
+  text-decoration: none;
+}
+
+.hc-further__title a:hover {
+  color: var(--r-accent-hover);
+}
+
+.hc-further__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hc-further__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 1.5rem;
+  padding-block: 0.85rem;
+  border-top: 1px solid var(--r-rule);
+}
+
+.hc-further__list li:last-child {
+  border-bottom: 1px solid var(--r-rule);
+}
+
+.hc-further__list a {
+  flex: 1 1 18rem;
+  color: var(--r-ink);
+  font: 600 1.06rem/1.4 var(--font-body);
+  text-decoration: none;
+  text-wrap: balance;
+  transition: color var(--motion-fast) ease;
+}
+
+.hc-further__list a:hover {
+  color: var(--r-accent-hover);
+}
+
+.hc-further__date {
+  color: var(--r-ink-3);
+  font: 400 0.8rem/1.4 var(--font-ui);
+  font-variant-numeric: lining-nums;
+  white-space: nowrap;
 }
 
 .hc-turn {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem 2.5rem;
-  padding-block: 1.4rem;
-  border-block: 1px solid var(--hc-rule);
+  margin-top: 2.75rem;
 }
 
 .hc-turn__link {
-  color: var(--hc-text-primary);
+  color: var(--r-ink);
   text-decoration: none;
 }
 
@@ -1208,82 +2014,15 @@ details.hc-note[open] > summary {
 
 .hc-turn__title {
   display: block;
-  font: 600 1.05rem/1.4 var(--font-display);
+  font: 400 1rem/1.45 var(--font-body);
+  font-style: italic;
   text-wrap: balance;
   transition: color var(--motion-fast) ease;
 }
 
 .hc-turn__link:hover .hc-turn__title {
-  color: var(--hc-gold);
+  color: var(--r-accent-hover);
 }
-
-.hc-further {
-  margin-top: 2.75rem;
-}
-
-.hc-further__title {
-  margin: 0 0 1rem;
-  color: var(--hc-text-primary);
-  font: 600 clamp(1.55rem, 1.3rem + 0.9vw, 1.9rem)/1.15 var(--font-editorial);
-}
-
-.hc-further__title span {
-  color: var(--cat-color, var(--hc-gold));
-}
-
-.hc-further__list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  border-top: 1px solid var(--hc-rule-soft);
-}
-
-.hc-further__list li {
-  display: grid;
-  grid-template-columns: 3.4rem minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 0.25rem 1rem;
-  padding-block: 0.9rem;
-  border-bottom: 1px solid var(--hc-rule-soft);
-}
-
-.hc-further__folio {
-  color: var(--hc-gold-dim);
-  font: 600 1.45rem/1 var(--font-editorial);
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.hc-further__list a {
-  color: var(--hc-text-primary);
-  font: 600 1.02rem/1.4 var(--font-display);
-  text-decoration: none;
-}
-
-.hc-further__list a:hover {
-  color: var(--hc-gold);
-}
-
-.hc-further__date {
-  color: var(--hc-text-tertiary);
-  font: 500 0.78rem/1.4 var(--font-ui);
-  white-space: nowrap;
-}
-
-.hc-further__all {
-  display: inline-block;
-  margin-top: 1rem;
-  padding-bottom: 2px;
-  border-bottom: 1px solid var(--hc-rule);
-  color: var(--hc-gold);
-  font: 500 0.85rem/1.3 var(--font-ui);
-  text-decoration: none;
-}
-
-.hc-further__all:hover {
-  border-color: var(--hc-gold);
-}
-
-/* ── Small screens ────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
   .hc-turn {
@@ -1294,24 +2033,24 @@ details.hc-note[open] > summary {
     grid-column: 1;
     text-align: left;
   }
+}
 
-  .hc-further__list li {
-    grid-template-columns: 2.6rem minmax(0, 1fr);
-  }
+/* ── Small screens ────────────────────────────────────────────── */
 
-  .hc-further__date {
-    grid-column: 2;
-  }
-
-  .hc-note--context {
-    margin-left: 0;
-  }
-
+@media (max-width: 640px) {
   .hc-article-body :is(p, div, blockquote)[dir="rtl"],
   .hc-article-body :is(p, div):lang(ar),
   .hc-source__arabic,
   .hc-source .hadith-block__arabic {
-    font-size: 1.22em;
+    font-size: 1.2em;
+  }
+
+  .hc-source--quran .hc-source__arabic {
+    font-size: 1.3em;
+  }
+
+  .hc-note--context {
+    padding-left: 0.9rem;
   }
 }
 
@@ -1321,5 +2060,13 @@ details.hc-note[open] > summary {
   .hc-end,
   .hc-source__share {
     display: none !important;
+  }
+
+  .hc-article {
+    --r-ink: #000;
+    --r-ink-2: #222;
+    --r-ink-3: #444;
+    --r-accent: #000;
+    background: #fff;
   }
 }

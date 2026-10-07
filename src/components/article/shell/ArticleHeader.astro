@@ -1,8 +1,11 @@
 ---
 /**
- * The article's opening, in reading order: where it sits (Studies, then its
- * branch), the title, the standfirst, one line of facts, then the artwork as
- * a plate at the width of the text. Topics are listed at the end of the
+ * The article's opening: a leaf set across the top of the page, wider than
+ * the reading column. Copy on the left in reading order (branch, date,
+ * reading time and author; the title; the standfirst; the folio), the
+ * artwork on the right. In the dark theme the leaf is a dark plate and the
+ * artwork is framed inside it; in the light theme it is a parchment leaf and
+ * an engraving fades into the paper. Topics are listed at the end of the
  * article, not here, so the opening stays a title page.
  */
 export interface Props {
@@ -16,40 +19,44 @@ export interface Props {
   updatedISO?: string;
   updatedLabel?: string;
   readingMinutes: number;
+  folio?: string;
   heroImage?: string;
   heroAlt?: string;
   heroSrcset?: string;
   heroWidth?: number;
   heroHeight?: number;
+  /** True for the editorial engravings, which were drawn on parchment and may fade into it. */
+  heroEngraving?: boolean;
 }
 
 const {
-  title, description, category, categoryHref, author, dateISO, dateLabel,
-  updatedISO, updatedLabel, readingMinutes, heroImage, heroAlt, heroSrcset, heroWidth = 1200, heroHeight = 675
+  title, description, category, categoryHref, author, dateISO, dateLabel, updatedISO, updatedLabel,
+  readingMinutes, folio, heroImage, heroAlt, heroSrcset, heroWidth = 1200, heroHeight = 675, heroEngraving = false
 } = Astro.props;
 ---
 
 <header class="hc-head">
-  <p class="hc-head__trail">
-    <a href="/blogs/">Studies</a>
-    <span aria-hidden="true">/</span>
-    <a href={categoryHref} class="hc-head__branch" data-category={category}>{category}</a>
-  </p>
+  <div class:list={['hc-head__leaf', { 'hc-head__leaf--plain': !heroImage }]}>
+    <div class="hc-head__copy">
+      <p class="hc-head__meta">
+        <a class="hc-head__kicker" href={categoryHref} data-category={category}>{category}</a>
+        <time datetime={dateISO}>{dateLabel}</time>
+        {updatedISO && <span>Revised <time datetime={updatedISO}>{updatedLabel}</time></span>}
+        <span>{readingMinutes} min read</span>
+        <span class="hc-head__author">By {author}</span>
+      </p>
 
-  <h1 class="hc-head__title">{title}</h1>
+      <h1 id="article-title" class="hc-head__title">{title}</h1>
 
-  {description && <p class="hc-head__standfirst">{description}</p>}
+      {description && <p class="hc-head__standfirst">{description}</p>}
 
-  <p class="hc-head__meta">
-    <span>By {author}</span>
-    <time datetime={dateISO}>{dateLabel}</time>
-    {updatedISO && <span>Revised <time datetime={updatedISO}>{updatedLabel}</time></span>}
-    <span>{readingMinutes} min read</span>
-  </p>
+      {folio && <p class="hc-head__folio">Folio {folio}</p>}
+    </div>
 
-  {heroImage && (
-    <figure class="hc-head__plate">
-      <img src={heroImage} srcset={heroSrcset} sizes="(max-width: 800px) 100vw, 900px" alt={heroAlt ?? ''} width={heroWidth} height={heroHeight} decoding="async" fetchpriority="high" />
-    </figure>
-  )}
+    {heroImage && (
+      <figure class:list={['hc-head__plate', { 'hc-head__plate--engraving': heroEngraving }]}>
+        <img src={heroImage} srcset={heroSrcset} sizes="(max-width: 800px) 100vw, 520px" alt={heroAlt ?? ''} width={heroWidth} height={heroHeight} decoding="async" fetchpriority="high" />
+      </figure>
+    )}
+  </div>
 </header>

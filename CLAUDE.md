@@ -214,6 +214,15 @@ No database server is in the request path for any public page.
   you to rebuild 1.6 GB you already had. `build-corpus.mjs` is the only script
   that should mint a version.
 
+- **Articles carry no CSS of their own.** Until 2026-10-06, 46 articles each
+  shipped a `<style>` block (about 10,000 lines, 500 one-off classes), which is
+  what made the reader look like a dashboard. They now draw every figure from
+  the shared `.hc-fig` vocabulary in `src/styles/article.css`, and tables use
+  `SourceComparisonTable`. Do not add a `<style>` block or bespoke classes to an
+  MDX file; extend the vocabulary instead. The reader also re-points the site
+  tokens to its own palette (`--r-*` on `.hc-article`), so a component inside an
+  article that reads `--hc-gold` gets the reader's accent, not the site's.
+
 - **A long-running dev server can lose an optimized dependency.** After many
   edits Vite may re-optimize and drop a file the pages still reference: a 404
   on `node_modules/.vite/deps/sql__js-httpvfs.js?v=...` (every corpus page

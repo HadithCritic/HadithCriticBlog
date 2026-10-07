@@ -1,10 +1,10 @@
 ---
 /**
- * An article page. The reading system is described in DESIGN.md, "Article
- * reader": one text column with its contents in the margin on wide screens,
- * the header as a title page, the body styled by src/styles/article.css, and
- * the end matter after the last note. There is deliberately no progress bar,
- * reading-settings panel, toolbar or floating control.
+ * An article page: one text column with its contents in the margin on wide
+ * screens, the header as a title page, the body styled by
+ * src/styles/article.css, and the end matter after the last note. There is
+ * deliberately no progress bar, reading-settings panel, toolbar or floating
+ * control.
  */
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleHeader from '../../components/article/shell/ArticleHeader.astro';
@@ -40,6 +40,7 @@ export async function getStaticPaths() {
       params: { id: post.id },
       props: {
         post,
+        folio: folio(post),
         further,
         categoryCount: sameBranch.length,
         earlier: earlier ? { href: `/blogs/${earlier.id}/`, title: earlier.data.title } : undefined,
@@ -49,7 +50,7 @@ export async function getStaticPaths() {
   });
 }
 
-const { post, further, categoryCount, earlier, later } = Astro.props;
+const { post, folio, further, categoryCount, earlier, later } = Astro.props;
 const { Content, headings } = await render(post);
 const artwork = blogArtwork[post.id];
 const articleImage = artwork?.src ?? post.data.thumbnail;
@@ -111,6 +112,27 @@ const crumbs = [
   {/* A div, not a second main: BaseLayout supplies the page's one main
       landmark, and tests/routes.spec.ts asserts there is exactly one. */}
   <div class="hc-article" data-category={post.data.category}>
+    {/* The title page spans the page, above the reading column and its margin. */}
+    <ArticleHeader
+      title={post.data.title}
+      description={post.data.description}
+      category={post.data.category}
+      categoryHref={categoryHref}
+      author={post.data.author}
+      dateISO={post.data.date.toISOString()}
+      dateLabel={longDate(post.data.date)}
+      updatedISO={post.data.updated?.toISOString()}
+      updatedLabel={post.data.updated ? longDate(post.data.updated) : undefined}
+      readingMinutes={readingMinutes}
+      folio={folio}
+      heroImage={articleImage}
+      heroSrcset={artwork?.srcset}
+      heroWidth={artwork?.width}
+      heroHeight={artwork?.height}
+      heroAlt={artwork?.alt ?? post.data.heroAlt}
+      heroEngraving={Boolean(artwork)}
+    />
+
     <div class="hc-article__grid">
       {showContents && (
         <aside class="hc-article__margin">
@@ -118,25 +140,7 @@ const crumbs = [
         </aside>
       )}
 
-      <article id="main-article" class="hc-article__main">
-        <ArticleHeader
-          title={post.data.title}
-          description={post.data.description}
-          category={post.data.category}
-          categoryHref={categoryHref}
-          author={post.data.author}
-          dateISO={post.data.date.toISOString()}
-          dateLabel={longDate(post.data.date)}
-          updatedISO={post.data.updated?.toISOString()}
-          updatedLabel={post.data.updated ? longDate(post.data.updated) : undefined}
-          readingMinutes={readingMinutes}
-          heroImage={articleImage}
-          heroSrcset={artwork?.srcset}
-          heroWidth={artwork?.width}
-          heroHeight={artwork?.height}
-          heroAlt={artwork?.alt ?? post.data.heroAlt}
-        />
-
+      <article id="main-article" class="hc-article__main" aria-labelledby="article-title">
         {showContents && <ArticleContents headings={contents} placement="inline" />}
 
         <div class="hc-article-body">
@@ -154,7 +158,8 @@ const crumbs = [
         />
       </article>
     </div>
-  </div>
 
-  <FootnoteSheet />
+    {/* Inside the article so the dialog inherits the reader palette. */}
+    <FootnoteSheet />
+  </div>
 </BaseLayout>
