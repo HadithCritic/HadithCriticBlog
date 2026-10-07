@@ -12,7 +12,7 @@ const crumbs = [
 
 <BaseLayout
   title="Fiqh Compass Quiz | HadithCritic Projects"
-  description="Answer 24 draft questions across twelve provisional dimensions of Islamic legal reasoning."
+  description={`Answer ${questions.length} draft statements across twelve provisional dimensions of Islamic legal reasoning, then see which historical figures stand closest, with the passages each placement rests on.`}
   canonical="/projects/fiqh-compass/quiz/"
   crumbs={crumbs}
   standalone
@@ -30,7 +30,7 @@ const crumbs = [
 
     <section class="fc-quiz-main" id="quiz" data-compass-quiz aria-labelledby="quiz-title">
       <div class="fc-quiz-intro">
-        <p class="fc-kicker">24 draft questions · 12 dimensions</p>
+        <p class="fc-kicker">{questions.length} draft statements · {axes.length} dimensions</p>
         <h1 id="quiz-title">Consider each statement.</h1>
         <p>With JavaScript enabled, your progress stays in this browser. You can skip a statement, go back, or leave the quiz and resume later.</p>
       </div>
@@ -41,7 +41,7 @@ const crumbs = [
           <span data-answered-percent>0% answered</span>
         </div>
         <div class="fc-progress-track" role="progressbar" aria-label="Quiz completion" aria-valuemin="0" aria-valuemax={questions.length} aria-valuenow="0" aria-valuetext={`0 of ${questions.length} answered`} data-progress-track>
-          <div class="fc-progress-segments" aria-hidden="true">
+          <div class="fc-progress-segments" aria-hidden="true" style={`--segments: ${questions.length}`}>
             {questions.map((_, index) => <span data-progress-segment={index}></span>)}
           </div>
         </div>
@@ -105,11 +105,10 @@ const crumbs = [
       </header>
       <aside class="fc-results-caveat">
         <strong>How to read this result</strong>
-        <p>Each coordinate applies the response direction to the answered draft items on that axis. Unknown, not-applicable, and skipped answers are excluded. One or two draft answers are limited coverage; a coordinate is not a probability, identity, historical match, or measure of correctness.</p>
+        <p>Each coordinate applies the response direction to the answered draft items on that axis. Unknown, not-applicable, and skipped answers are excluded. One or two draft answers are limited coverage; a coordinate is not a probability, an identity, or a measure of correctness.</p>
       </aside>
-      <p class="fc-results-evidence" data-evidence-note hidden>
-        No reviewed historical source passage is cleared for display on any dimension yet, so this map summarizes only your answers to the draft statements. It does not compare you with a jurist or a school. <a href="/projects/fiqh-compass/profiles/">See the profile research status</a>.
-      </p>
+      <section class="fc-figures" data-figure-results aria-label="Closest historical figures"></section>
+      <h2 class="fc-results-subhead">Your answers, dimension by dimension</h2>
       <div class="fc-result-list" data-axis-results></div>
       <details class="fc-scoring-note">
         <summary>How is the provisional coordinate calculated?</summary>
@@ -144,14 +143,34 @@ const crumbs = [
   .fc-quiz-brand small { margin-bottom: 0.1rem; color: var(--hc-gold); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.09em; }
   .fc-restart-top { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; padding: 0 1rem; border: 1px solid var(--q-line-strong); border-radius: 0.12rem; background: transparent; color: var(--q-text); font: 600 0.83rem/1.3 var(--font-ui); cursor: pointer; }
   .fc-restart-top:hover { border-color: var(--hc-gold); color: var(--q-ink); }
-  .fc-results-evidence { margin: 0 0 1.5rem; padding: 0.85rem 1rem; border-inline-start: 2px solid var(--hc-gold-dim); background: var(--hc-surface-1); color: var(--q-text); font-size: 0.9rem; line-height: 1.6; }
-  .fc-results-evidence a { color: var(--hc-gold); }
-  .fc-results-evidence[hidden] { display: none; }
-  :global(.fc-result-basis) { margin-top: 0.75rem; }
+  :global(.fc-result-basis) { grid-column: 1 / -1; margin-top: 0.75rem; }
   :global(.fc-result-basis summary) { display: inline-flex; align-items: center; min-height: 2.5rem; color: var(--q-text); font: 600 0.82rem/1.4 var(--font-ui); cursor: pointer; }
   :global(.fc-result-basis ol) { display: grid; gap: 0.7rem; margin: 0.35rem 0 0; padding-left: 1.2rem; }
   :global(.fc-result-basis li p) { margin: 0; color: var(--q-ink); font-size: 0.9rem; line-height: 1.55; }
   :global(.fc-result-basis .fc-result-basis__answer) { margin-top: 0.2rem; color: var(--hc-gold); font: 600 0.8rem/1.4 var(--font-ui); }
+  .fc-results-subhead { margin: 2.2rem 0 0.8rem; color: var(--q-ink); font: 600 1.25rem/1.3 var(--font-display); }
+  :global(.fc-figures) { margin: 0 0 1rem; }
+  :global(.fc-figures__title) { margin: 0 0 0.5rem; color: var(--hc-text-primary); font: 600 1.25rem/1.3 var(--font-display); }
+  :global(.fc-figures__lede), :global(.fc-figures__few), :global(.fc-figures__empty) { max-width: 70ch; margin: 0 0 0.9rem; color: var(--hc-text-secondary); font-size: 0.86rem; line-height: 1.6; }
+  :global(.fc-figures__stability) { margin: 0 0 1rem; padding: 0.7rem 0.9rem; border-inline-start: 2px solid var(--hc-gold-dim); background: var(--hc-surface-1); color: var(--hc-text-primary); font: 500 0.85rem/1.5 var(--font-ui); }
+  :global(.fc-figures__list) { display: grid; gap: 0.9rem; }
+  :global(.fc-figure) { padding: 1rem 1.1rem; border: 1px solid var(--hc-rule-soft); background: var(--hc-surface-1); }
+  :global(.fc-figure__name) { margin: 0; color: var(--hc-text-primary); font: 600 1.1rem/1.3 var(--font-display); }
+  :global(.fc-figure__meta) { margin: 0.15rem 0 0; color: var(--hc-text-tertiary); font: 500 0.78rem/1.4 var(--font-ui); }
+  :global(.fc-figure__score) { margin: 0.45rem 0 0.6rem; color: var(--hc-text-primary); font: 600 0.88rem/1.4 var(--font-ui); }
+  :global(.fc-figure__axes) { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+  :global(.fc-figure__axes li) { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 0.75rem; padding: 0.35rem 0; border-top: 1px solid var(--hc-rule-soft); color: var(--hc-text-secondary); font: 400 0.8rem/1.45 var(--font-ui); }
+  :global(.fc-figure__axis) { color: var(--hc-text-primary); }
+  :global(.fc-figure__relation) { color: var(--hc-text-tertiary); text-align: end; }
+  :global(.fc-figure__sources), :global(.fc-figures__more), :global(.fc-figures-axis) { margin-top: 0.6rem; }
+  :global(.fc-figures__more) { margin-block: 0.9rem; }
+  :global(.fc-figures__more > .fc-figure) { margin-top: 0.75rem; }
+  :global(.fc-figures-axis) { grid-column: 1 / -1; }
+  :global(.fc-figure__sources > summary), :global(.fc-figures__more > summary), :global(.fc-figures-axis > summary) { display: inline-flex; align-items: center; min-height: 2.5rem; color: var(--hc-text-secondary); font: 600 0.82rem/1.4 var(--font-ui); cursor: pointer; }
+  :global(.fc-source) { margin: 0.4rem 0 0.9rem; padding-top: 0.6rem; border-top: 1px solid var(--hc-rule-soft); }
+  :global(.fc-source__statement) { margin: 0; color: var(--hc-text-primary); font-size: 0.88rem; line-height: 1.55; }
+  :global(.fc-source__ar) { margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-inline-start: 2px solid var(--hc-gold-dim); background: var(--hc-surface-2); color: var(--hc-text-primary); font: 400 1.12rem/1.9 "Noto Naskh Arabic", var(--font-critical); }
+  :global(.fc-source__cite) { margin: 0; color: var(--hc-text-tertiary); font: 400 0.75rem/1.5 var(--font-ui); }
   .fc-quiz-main, .fc-quiz-results { width: min(100% - 2.5rem, 47rem); margin: 0 auto; padding-block: clamp(2.2rem, 6vw, 4.5rem) 5rem; }
   .fc-quiz-intro { margin-bottom: 2rem; }
   .fc-kicker { margin: 0 0 0.6rem; color: var(--q-gold); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.13em; text-transform: uppercase; }
@@ -163,7 +182,7 @@ const crumbs = [
   :global(html.js) [data-question] { display: none; }
   :global(html.js) [data-question][data-active="true"] { display: block; }
   .fc-progress-track { height: 0.42rem; margin-bottom: 0.9rem; }
-  .fc-progress-segments { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 0.22rem; height: 100%; }
+  .fc-progress-segments { display: grid; grid-template-columns: repeat(var(--segments, 24), minmax(0, 1fr)); gap: 1px; height: 100%; }
   .fc-progress-segments span { border-radius: 999px; background: var(--hc-surface-3); transition: background 150ms ease; }
   .fc-progress-segments span.is-current { background: var(--hc-text-tertiary); }
   .fc-progress-segments span.is-answered { background: var(--q-green); }
@@ -207,25 +226,25 @@ const crumbs = [
   .fc-results-caveat strong { color: var(--q-ink); font: 600 0.9rem/1.4 var(--font-display); }
   .fc-results-caveat p { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.65; }
   .fc-result-list { border-top: 1px solid var(--q-line); }
-  .fc-result-row { display: grid; grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.2fr); gap: 0.35rem 1.5rem; padding: 1.15rem 0; border-bottom: 1px solid var(--q-line); }
-  .fc-result-row h2 { margin: 0; color: var(--q-ink); font: 600 1rem/1.4 var(--font-display); }
-  .fc-result-meta { grid-column: 1; margin: 0; color: var(--q-muted); font: 400 0.77rem/1.5 var(--font-ui); }
-  .fc-meter { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) 6rem minmax(0, 1fr); gap: 0.7rem; align-items: center; }
-  .fc-meter__label { color: var(--q-text); font-size: 0.75rem; line-height: 1.4; }
-  .fc-meter__label--high { text-align: right; }
-  .fc-meter__track { position: relative; height: 3px; background: var(--q-line-strong); }
-  .fc-meter__track::before { position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border: 1px solid var(--q-muted); border-radius: 50%; background: var(--q-bg); content: ""; transform: translate(-50%, -50%); }
-  .fc-meter__marker { position: absolute; top: 50%; width: 13px; height: 13px; border: 2px solid var(--q-bg); border-radius: 50%; background: var(--q-green); box-shadow: 0 0 0 1px var(--q-green); transform: translate(-50%, -50%); }
-  .fc-result-note { grid-column: 1 / -1; margin: 0.35rem 0 0; color: var(--q-text); font-size: 0.83rem; line-height: 1.55; }
-  .fc-evidence-disclosure { grid-column: 1 / -1; margin-top: 0.35rem; border-top: 1px solid var(--q-line); color: var(--q-text); font-size: 0.82rem; line-height: 1.6; }
-  .fc-evidence-disclosure > summary { width: fit-content; padding: 0.65rem 0; color: var(--q-ink); font: 600 0.8rem/1.45 var(--font-ui); cursor: pointer; text-underline-offset: 0.18em; }
-  .fc-evidence-disclosure > p { max-width: 72ch; margin: 0.35rem 0 0.7rem; }
-  .fc-evidence-disclosure > a { display: inline-block; margin-bottom: 0.8rem; color: var(--q-ink); text-underline-offset: 0.18em; }
-  .fc-evidence-entry { margin: 0.25rem 0 1rem; padding: 0.8rem 0; border-top: 1px solid var(--q-line); }
-  .fc-evidence-entry > p { margin: 0.45rem 0; }
-  .fc-evidence-entry .fc-evidence-citation { color: var(--q-ink); font-weight: 600; }
-  .fc-evidence-entry blockquote { margin: 0.65rem 0; padding: 0.65rem 0.9rem; border-inline-start: 2px solid var(--hc-gold); background: var(--q-paper); color: var(--q-ink); }
-  .fc-evidence-entry blockquote[lang="ar"] { font-family: "Noto Naskh Arabic", var(--font-critical); font-size: 1.15rem; line-height: 1.9; }
+  :global(.fc-result-row) { display: grid; grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.2fr); gap: 0.35rem 1.5rem; padding: 1.15rem 0; border-bottom: 1px solid var(--q-line); }
+  :global(.fc-result-row h2) { margin: 0; color: var(--q-ink); font: 600 1rem/1.4 var(--font-display); }
+  :global(.fc-result-meta) { grid-column: 1; margin: 0; color: var(--q-muted); font: 400 0.77rem/1.5 var(--font-ui); }
+  :global(.fc-meter) { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) 6rem minmax(0, 1fr); gap: 0.7rem; align-items: center; }
+  :global(.fc-meter__label) { color: var(--q-text); font-size: 0.75rem; line-height: 1.4; }
+  :global(.fc-meter__label--high) { text-align: right; }
+  :global(.fc-meter__track) { position: relative; height: 3px; background: var(--q-line-strong); }
+  :global(.fc-meter__track::before) { position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; border: 1px solid var(--q-muted); border-radius: 50%; background: var(--q-bg); content: ""; transform: translate(-50%, -50%); }
+  :global(.fc-meter__marker) { position: absolute; top: 50%; width: 13px; height: 13px; border: 2px solid var(--q-bg); border-radius: 50%; background: var(--q-green); box-shadow: 0 0 0 1px var(--q-green); transform: translate(-50%, -50%); }
+  :global(.fc-result-note) { grid-column: 1 / -1; margin: 0.35rem 0 0; color: var(--q-text); font-size: 0.83rem; line-height: 1.55; }
+  :global(.fc-evidence-disclosure) { grid-column: 1 / -1; margin-top: 0.35rem; border-top: 1px solid var(--q-line); color: var(--q-text); font-size: 0.82rem; line-height: 1.6; }
+  :global(.fc-evidence-disclosure > summary) { width: fit-content; padding: 0.65rem 0; color: var(--q-ink); font: 600 0.8rem/1.45 var(--font-ui); cursor: pointer; text-underline-offset: 0.18em; }
+  :global(.fc-evidence-disclosure > p) { max-width: 72ch; margin: 0.35rem 0 0.7rem; }
+  :global(.fc-evidence-disclosure > a) { display: inline-block; margin-bottom: 0.8rem; color: var(--q-ink); text-underline-offset: 0.18em; }
+  :global(.fc-evidence-entry) { margin: 0.25rem 0 1rem; padding: 0.8rem 0; border-top: 1px solid var(--q-line); }
+  :global(.fc-evidence-entry > p) { margin: 0.45rem 0; }
+  :global(.fc-evidence-entry .fc-evidence-citation) { color: var(--q-ink); font-weight: 600; }
+  :global(.fc-evidence-entry blockquote) { margin: 0.65rem 0; padding: 0.65rem 0.9rem; border-inline-start: 2px solid var(--hc-gold); background: var(--q-paper); color: var(--q-ink); }
+  :global(.fc-evidence-entry blockquote[lang="ar"]) { font-family: "Noto Naskh Arabic", var(--font-critical); font-size: 1.15rem; line-height: 1.9; }
   .fc-scoring-note { margin-top: 1.5rem; padding: 0.9rem 0; border-block: 1px solid var(--q-line); }
   .fc-scoring-note summary { color: var(--q-ink); font: 600 0.88rem/1.45 var(--font-ui); cursor: pointer; }
   .fc-scoring-note p, .fc-results-privacy { color: var(--q-text); font-size: 0.82rem; line-height: 1.65; }
@@ -250,16 +269,19 @@ const crumbs = [
     .fc-question-card__prompt { font-size: 1.15rem; }
     .fc-answer-option { min-height: 3rem; font-size: 0.84rem; }
     .fc-results-actions .fc-nav-button { flex: 1; }
-    .fc-result-row { grid-template-columns: minmax(0, 1fr); gap: 0.45rem; }
-    .fc-meter { grid-column: 1; grid-row: auto; }
-    .fc-result-meta { grid-column: 1; }
+    :global(.fc-result-row) { grid-template-columns: minmax(0, 1fr); gap: 0.45rem; }
+    :global(.fc-meter) { grid-column: 1; grid-row: auto; }
+    :global(.fc-result-meta) { grid-column: 1; }
     .fc-quiz-footer { flex-direction: column; gap: 0.35rem; }
+    :global(.fc-figure__axes li) { grid-template-columns: minmax(0, 1fr) auto; }
+    :global(.fc-figure__values) { grid-column: 1; grid-row: 2; }
+    :global(.fc-figure__relation) { grid-row: 1 / span 2; align-self: center; }
   }
   @media (prefers-reduced-motion: reduce) { .fc-progress-segments span, .fc-answer-option, .fc-auto-advance__switch, .fc-auto-advance__switch::after { transition: none; } }
   @media print {
     :global(body.standalone-page) { background: var(--hc-fixed-parchment); }
     .fc-quiz-header, .fc-quiz-footer, .fc-quiz-intro, .fc-quiz-controls, .fc-results-actions, .fc-results-footer { display: none !important; }
     .fc-quiz-results { width: 100%; padding: 0; }
-    .fc-result-row, .fc-results-caveat { break-inside: avoid; }
+    :global(.fc-result-row), .fc-results-caveat { break-inside: avoid; }
   }
 </style>

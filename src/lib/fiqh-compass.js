@@ -2,8 +2,10 @@ import { answerOptions, axes, contentVersion, questions } from "../data/fiqh-com
 import { fiqhCompassPublicEvidence } from "../data/fiqh-compass-evidence.ts";
 import { selectPublicEvidence } from "./fiqh-compass-evidence.js";
 import { scoreAxes } from "./fiqh-compass-scoring.js";
+import { axisFigureDisclosure, renderFigureComparison } from "./fiqh-compass-figures-view.js";
+import figureData from "../data/fiqh-compass-figures.json";
 
-const STORAGE_KEY = "hadithcritic:fiqh-compass:prototype-1";
+const STORAGE_KEY = `hadithcritic:fiqh-compass:${contentVersion}`;
 const form = document.querySelector("[data-compass-form]");
 
 if (form instanceof HTMLElement) {
@@ -101,13 +103,12 @@ if (form instanceof HTMLElement) {
     const rows = results.querySelector("[data-axis-results]");
     if (!(rows instanceof HTMLElement)) return;
     rows.replaceChildren();
-    const axisScores = new Map(scoreAxes(axes, questions, answers).map((entry) => [entry.axisId, entry]));
+    const scored = scoreAxes(axes, questions, answers);
+    const axisScores = new Map(scored.map((entry) => [entry.axisId, entry]));
+    const figureResults = results.querySelector("[data-figure-results]");
+    if (figureResults instanceof HTMLElement) renderFigureComparison(figureResults, axes, scored, figureData);
     const publishedEvidence = await selectPublicEvidence(fiqhCompassPublicEvidence);
     const answerLabel = new Map(answerOptions.map((option) => [option.value, option.label]));
-
-    // Until a reviewed passage is cleared for display, say so once rather than under every axis.
-    const evidenceNote = results.querySelector("[data-evidence-note]");
-    if (evidenceNote instanceof HTMLElement) evidenceNote.hidden = publishedEvidence.length > 0;
 
     for (const axis of axes) {
       const axisQuestions = questions.filter((question) => question.axis === axis.id);
@@ -170,6 +171,8 @@ if (form instanceof HTMLElement) {
       }
       basis.append(basisList);
       row.append(basis);
+      const placed = axisFigureDisclosure(axis.id, figureData);
+      if (placed) row.append(placed);
 
       const evidenceEntries = publishedEvidence.filter((entry) => entry.axisIds.includes(axis.id));
       if (!evidenceEntries.length) {

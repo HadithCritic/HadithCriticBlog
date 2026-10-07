@@ -372,7 +372,8 @@ for (const theme of THEMES) {
       await settle(page);
       if (QUIZ_RESULT_MODES) {
         await page.locator('[data-compass-auto-advance]').uncheck({ force: true });
-        for (let index = 0; index < 24; index += 1) {
+        const questionCount = await page.locator('[data-question]').count();
+        for (let index = 0; index < questionCount; index += 1) {
           if (QUIZ_RESULTS || QUIZ_RESULTS_UNKNOWN) {
             const value = QUIZ_RESULTS ? '0' : 'unknown';
             await page.locator(`[data-question-index="${index}"] input[type="radio"][value="${value}"]`).check({ force: true });
@@ -381,17 +382,17 @@ for (const theme of THEMES) {
         }
         await page.locator('[data-compass-results]:not([hidden])').waitFor({ state: 'visible' });
         const resultRows = await page.locator('.fc-result-row').count();
-        // Every row carries the answers behind it; evidence disclosures appear only on
-        // axes with a cleared passage, and a single note stands in while there are none.
-        const disclosures = page.locator('.fc-result-basis, .fc-evidence-disclosure');
+        // Every row carries the answers behind it and the figures placed on it; a scored
+        // run also names the closest figures, each with the passages behind it.
+        const disclosures = page.locator('.fc-result-basis, .fc-evidence-disclosure, .fc-figures-axis, .fc-figure__sources, .fc-figures__more');
         const basisCount = await page.locator('.fc-result-basis').count();
         const evidenceDisclosureCount = await page.locator('.fc-evidence-disclosure').count();
-        const evidenceNoteShown = await page.locator('[data-evidence-note]:not([hidden])').count();
+        const figureCards = await page.locator('.fc-figure').count();
         const noScoreRows = await page.locator('.fc-result-meta').filter({ hasText: 'No scored answers' }).count();
         const meters = await page.locator('.fc-meter').count();
         const expectsNoScore = QUIZ_RESULTS_EMPTY || QUIZ_RESULTS_UNKNOWN;
-        if (resultRows !== 12 || basisCount !== 12 || (evidenceDisclosureCount === 0 && evidenceNoteShown !== 1) || (expectsNoScore && (noScoreRows !== 12 || meters !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12))) {
-          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${basisCount} answer lists, ${evidenceDisclosureCount} evidence disclosures, ${noScoreRows} without scores, ${meters} meters`);
+        if (resultRows !== 12 || basisCount !== 12 || (expectsNoScore && (noScoreRows !== 12 || meters !== 0 || figureCards !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12 || figureCards === 0))) {
+          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${basisCount} answer lists, ${evidenceDisclosureCount} evidence disclosures, ${figureCards} figure cards, ${noScoreRows} without scores, ${meters} meters`);
         }
         await disclosures.evaluateAll((elements) => elements.forEach((element) => { element.open = true; }));
         await settle(page);
