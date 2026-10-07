@@ -597,6 +597,58 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
   };
 }
 
+export interface HadithNeighbour {
+  id: number;
+  hadith_num: string | null;
+}
+
+/**
+ * The narrations either side of one record in its collection, in the order the
+ * collection edition lists them (by id within the book). Two seeks on the same
+ * (book_id, id) path the edition pager already uses.
+ */
+export async function getHadithNeighbours(
+  bookId: number,
+  id: number
+): Promise<{ prev: HadithNeighbour | null; next: HadithNeighbour | null }> {
+  const [prev, next] = await Promise.all([
+    queryOne<HadithNeighbour>(
+      'SELECT h.id, h.hadith_num FROM hadith h WHERE h.book_id = ? AND h.id < ? ORDER BY h.id DESC LIMIT 1',
+      [bookId, id]
+    ),
+    queryOne<HadithNeighbour>(
+      'SELECT h.id, h.hadith_num FROM hadith h WHERE h.book_id = ? AND h.id > ? ORDER BY h.id LIMIT 1',
+      [bookId, id]
+    )
+  ]);
+  return { prev: prev ?? null, next: next ?? null };
+}
+
+/**
+ * The narrations of one chapter, which the collection structure gives as an id
+ * range within a collection. Read a page at a time by seeking past the last id,
+ * so a chapter of several thousand reports costs no more per page than one of
+ * three.
+ */
+export async function getRecordsInRange(params: {
+  bookId: number;
+  first: number;
+  last: number;
+  after?: number | null;
+  size?: number;
+}): Promise<HadithRecord[]> {
+  const size = Math.min(100, Math.max(1, params.size || 25));
+  const from = params.after ? params.after + 1 : params.first;
+  return query<HadithRecord>(
+    `SELECT h.id, h.hadith_num, h.chapter_en, h.chapter_ar, h.matn_en, h.text_en,
+            h.matn_ar, h.text_ar, h.narrator_count, h.parallel_count
+       FROM hadith h
+      WHERE h.book_id = ? AND h.id BETWEEN ? AND ?
+      ORDER BY h.id LIMIT ?`,
+    [params.bookId, from, params.last, size]
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* One collection                                                              */
 /* -------------------------------------------------------------------------- */

@@ -245,7 +245,7 @@ test.describe('narration record', () => {
       timeout: CORPUS_TIMEOUT
     });
     await expect(page.locator('.edition-reference-summary__pages')).toContainText('[1/217]');
-    await expect(page.getByText('English report rendering')).toBeVisible();
+    await expect(page.locator('.hr-leaf__note')).toContainText('machine translation');
     await expect(page.locator('.source-narrators summary')).toContainText('Source narrator name forms');
     await expect(page.locator('.ladder-verb')).toHaveCount(0);
 
