@@ -267,6 +267,14 @@ function main() {
       ['hadith_reference', 'SELECT * FROM hadith_reference WHERE hadith_id IN (__IDS__)'],
       ['hadith_text_parts', 'SELECT * FROM hadith_text_parts WHERE hadith_id IN (__IDS__)']
     ]) {
+      // A release carries only the optional tables its master had.
+      const present = src
+        .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(table).n;
+      if (!present) {
+        console.log(`  ${table}: not in this release`);
+        continue;
+      }
       const rows = src.prepare(sql.replace('__IDS__', inHadith)).all(...hadithIds);
       if (rows.length) {
         const columns = Object.keys(rows[0]);
