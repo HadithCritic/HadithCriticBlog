@@ -1,24 +1,3 @@
----
-import { getCollection } from 'astro:content';
-
-const allArticles = await getCollection('articles', ({ data }) => import.meta.env.DEV || !data.draft);
-const searchIndex = allArticles.map((article) => {
-  const d = article.data.date ? new Date(article.data.date) : null;
-  const formattedDate = d && !isNaN(d.getTime())
-    ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    : '';
-
-  return {
-    url: `/blogs/${article.id}/`,
-    title: article.data.title,
-    description: article.data.description || '',
-    category: article.data.category,
-    tags: article.data.tags || [],
-    date: formattedDate
-  };
-});
----
-
 <dialog class="search-dialog" id="site-search-dialog" aria-label="Search HadithCritic Archive">
   <div class="search-dialog__surface">
     <!-- Top Search Input Bar (Enterprise Command Palette Hero) -->
@@ -183,8 +162,6 @@ const searchIndex = allArticles.map((article) => {
     </div>
   </div>
 </dialog>
-
-<script id="hc-article-catalog" type="application/json" is:inline set:html={JSON.stringify(searchIndex)} />
 
 <style>
   .search-dialog {
@@ -935,15 +912,22 @@ const searchIndex = allArticles.map((article) => {
   const chipButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-cat-filter]')) : [];
   const suggestButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-suggest]')) : [];
 
+  // Titles, descriptions and tags only: small enough to answer before the
+  // full-text index below arrives on a slow connection.
   let localCatalog: ArticleEntry[] = [];
-  try {
-    const catalogEl = document.getElementById('hc-article-catalog');
-    if (catalogEl?.textContent) {
-      localCatalog = JSON.parse(catalogEl.textContent);
-    }
-  } catch (err) {
-    console.error('Failed to load local article catalog', err);
-  }
+  let localCatalogRequest: Promise<void> | null = null;
+
+  const loadLocalCatalog = () => {
+    if (localCatalogRequest) return localCatalogRequest;
+    localCatalogRequest = fetch('/article-catalog.json')
+      .then((res) => res.json() as Promise<ArticleEntry[]>)
+      .then((entries) => {
+        localCatalog = entries;
+        if (!deepCatalog.length && input?.value.trim()) runSearch(input.value);
+      })
+      .catch((err) => console.error('Failed to load local article catalog', err));
+    return localCatalogRequest;
+  };
 
   let deepCatalog: SearchDoc[] = [];
   let deepCatalogRequest: Promise<void> | null = null;
@@ -968,6 +952,7 @@ const searchIndex = allArticles.map((article) => {
   const open = (button?: HTMLElement) => {
     if (!dialog?.open) {
       invoker = button || (document.activeElement as HTMLElement);
+      loadLocalCatalog();
       loadDeepCatalog();
       dialog?.showModal();
       setTimeout(() => input?.focus(), 50);
@@ -979,6 +964,16 @@ const searchIndex = allArticles.map((article) => {
   };
 
   document.addEventListener('hc:search-open', (event) => open((event as CustomEvent).detail));
+
+  // Fetch the small catalog as soon as a search button is pointed at, focused
+  // or touched, so it is usually in hand by the time the dialog opens. The
+  // full-text index still waits for the dialog, to keep it off pages where
+  // nobody searches.
+  const warmOnTrigger = (event: Event) => {
+    if ((event.target as Element | null)?.closest?.('[data-search-trigger]')) loadLocalCatalog();
+  };
+  document.addEventListener('pointerover', warmOnTrigger, { passive: true });
+  document.addEventListener('focusin', warmOnTrigger);
   
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
