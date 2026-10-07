@@ -151,6 +151,15 @@ type Worker = Awaited<ReturnType<typeof createDbWorker>>;
 let workerPromise: Promise<Worker> | null = null;
 let structuredSchemaPromise: Promise<boolean> | null = null;
 let textPartsSchemaPromise: Promise<boolean> | null = null;
+let narratorDiacPromise: Promise<boolean> | null = null;
+
+/** Whether this release stores vocalized narrator name forms, checked once. */
+function narratorDiacColumn(): Promise<boolean> {
+  narratorDiacPromise ??= queryOne<{ n: number }>(
+    `SELECT count(*) AS n FROM pragma_table_info('hadith_narrator') WHERE name = 'surface_diac'`
+  ).then((row) => Number(row?.n ?? 0) > 0);
+  return narratorDiacPromise;
+}
 
 /**
  * Prove the host answers range requests before trusting a byte of it.
@@ -580,15 +589,18 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
       'SELECT word_ar, word_en FROM hadith_gloss WHERE hadith_id = ?',
       [id]
     ),
-    supportsStructure
-      ? query<HadithNarratorSurface>(
-          `SELECT hn.pos, hn.narrator_id, hn.surface, hn.surface_diac, n.name_en, n.name_ar
-             FROM hadith_narrator hn
-             LEFT JOIN narrator n ON n.id = hn.narrator_id
-            WHERE hn.hadith_id = ? ORDER BY hn.pos`,
-          [id]
-        )
-      : Promise.resolve([] as HadithNarratorSurface[]),
+    // Every release carries the name forms; only the structured pilot added their
+    // vocalized copy. Gating the list on hadith_structure hid it on every record.
+    narratorDiacColumn().then((hasDiac) =>
+      query<HadithNarratorSurface>(
+        `SELECT hn.pos, hn.narrator_id, hn.surface,
+                ${hasDiac ? 'hn.surface_diac' : 'NULL AS surface_diac'}, n.name_en, n.name_ar
+           FROM hadith_narrator hn
+           LEFT JOIN narrator n ON n.id = hn.narrator_id
+          WHERE hn.hadith_id = ? ORDER BY hn.pos`,
+        [id]
+      )
+    ),
     supportsStructure
       ? query<HadithReference>(
           `SELECT r.reference_ordinal, r.edition_id, r.volume, r.page, r.source_marker,

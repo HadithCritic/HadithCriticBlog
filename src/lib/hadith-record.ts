@@ -261,7 +261,9 @@ function chainPanel(paths: Map<number, ChainNode[]>, detail: HadithDetail): stri
         </div>`
         )
         .join('')}
-      <p class="hr-panel__note">Names as the Rijāl Register identifies them. The forms the report itself uses are listed below.</p>
+      <p class="hr-panel__note">Names as the Rijāl Register identifies them.${
+        detail.sourceNarrators.length ? ' The forms the report itself uses are listed below.' : ''
+      }</p>
       ${sourceNarratorMarkup(detail.sourceNarrators)}
     </section>`;
 }

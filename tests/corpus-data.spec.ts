@@ -98,11 +98,11 @@ test('the sample narration keeps its identity, chain and apparatus', async ({ pa
   await expect(page).toHaveTitle(new RegExp(EXPECTED.sampleReference.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
   // Two branches, and the chain that ends at the compiler.
-  await expect(page.locator('.isnad-path-card')).toHaveCount(2);
-  await expect(page.locator('.role-pill--compiler').first()).toBeVisible();
+  await expect(page.locator('.hr-chain-block')).toHaveCount(2);
+  await expect(page.locator('.hr-chain__label').first()).toHaveText('Chain 1 of 2');
   await expect(
-    page.locator(`.ladder-card__name[href="/narrators/${EXPECTED.malikId}/"]`).first()
-  ).toBeVisible();
+    page.locator(`.hr-chain__compiler a[href="/narrators/${EXPECTED.malikId}/"]`).first()
+  ).toHaveText(EXPECTED.malikName);
 
   // All four sections, which only this record's shape produces.
   for (const anchor of ['matn-heading', 'report-heading', 'isnad-heading', 'apparatus-heading']) {
