@@ -34,6 +34,7 @@ import {
   statSync
 } from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import { ROOT, buildPaths, heading, megabytes, parseArgs } from './lib/corpus-dist.mjs';
 
@@ -134,17 +135,22 @@ function pruneOtherVersions(root, keep) {
 }
 
 async function publishToR2(build, args) {
-  const { S3Client, PutObjectCommand, PutBucketCorsCommand } = await import('@aws-sdk/client-s3');
+  const { S3Client, PutObjectCommand, PutBucketCorsCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
 
-  const endpoint = readEnvFile('CLOUDFLARE_S3_API_ENDPOINT');
-  const accessKeyId = readEnvFile('CLOUDFLARE_ACCESS_KEY_ID');
+  // The R2_* names are the current token. The CLOUDFLARE_* names are an older
+  // one still present in .dev.vars, which this file reads first, so they are
+  // only a fallback: preferring them signed every upload with a revoked key.
+  const endpoint = readEnvFile('R2_ENDPOINT') || readEnvFile('CLOUDFLARE_S3_API_ENDPOINT');
+  const accessKeyId = readEnvFile('R2_ACCESS_KEY_ID') || readEnvFile('CLOUDFLARE_ACCESS_KEY_ID');
   const secretAccessKey =
-    readEnvFile('CLOUDFLARE_SECRET_ACCESS_KEY') || readEnvFile('CLOURDLARE_SECRET_ACCESS_KEY');
+    readEnvFile('R2_SECRET_KEY') ||
+    readEnvFile('CLOUDFLARE_SECRET_ACCESS_KEY') ||
+    readEnvFile('CLOURDLARE_SECRET_ACCESS_KEY');
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
     throw new Error(
-      'R2 credentials missing. Set CLOUDFLARE_S3_API_ENDPOINT, CLOUDFLARE_ACCESS_KEY_ID and ' +
-        'CLOUDFLARE_SECRET_ACCESS_KEY in .dev.vars or the environment.'
+      'R2 credentials missing. Set R2_ENDPOINT, R2_ACCESS_KEY_ID and R2_SECRET_KEY in .env, ' +
+        '.dev.vars or the environment.'
     );
   }
 
@@ -177,33 +183,56 @@ async function publishToR2(build, args) {
     console.log(`  CORS rules applied to ${R2_BUCKET} for ${CORS_ORIGINS.join(', ')}`);
   }
 
-  const put = (key, file, contentType, cacheControl) =>
-    s3.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: key,
-        Body: readFileSync(file),
-        ContentType: contentType,
-        CacheControl: cacheControl
-      })
-    );
+  // R2 answers the odd PUT with a transient "internal error"; one of those
+  // used to abort a 1.6 GB upload at chunk 140. Each object retries alone.
+  const put = async (key, file, contentType, cacheControl) => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await s3.send(
+          new PutObjectCommand({
+            Bucket: R2_BUCKET,
+            Key: key,
+            Body: readFileSync(file),
+            ContentType: contentType,
+            CacheControl: cacheControl
+          })
+        );
+      } catch (error) {
+        if (attempt === 5) throw error;
+        console.log(`  retrying ${key} after: ${error.message}`);
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+      }
+    }
+  };
+
+  // A chunk already in the bucket with the same MD5 (a single-part upload's
+  // ETag) is this exact file, so a rerun after a failure resumes rather than
+  // sending every chunk again.
+  const alreadyThere = async (key, file) => {
+    try {
+      const head = await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      const md5 = createHash('md5').update(readFileSync(file)).digest('hex');
+      return head.ETag?.replaceAll('"', '') === md5;
+    } catch {
+      return false;
+    }
+  };
 
   const prefix = `${build.version}/`;
   const chunkFiles = readdirSync(build.chunksDir);
   const concurrency = Number(args.concurrency) || 6;
   let done = 0;
+  let skipped = 0;
   const t0 = Date.now();
 
   const queue = [...chunkFiles];
   await Promise.all(
     Array.from({ length: concurrency }, async () => {
       for (let name = queue.pop(); name; name = queue.pop()) {
-        await put(
-          `${prefix}chunks/${name}`,
-          path.join(build.chunksDir, name),
-          'application/octet-stream',
-          IMMUTABLE
-        );
+        const key = `${prefix}chunks/${name}`;
+        const file = path.join(build.chunksDir, name);
+        if (await alreadyThere(key, file)) skipped += 1;
+        else await put(key, file, 'application/octet-stream', IMMUTABLE);
         done += 1;
         if (done % 20 === 0 || done === chunkFiles.length) {
           console.log(`  ${done}/${chunkFiles.length} chunks (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
@@ -211,6 +240,8 @@ async function publishToR2(build, args) {
       }
     })
   );
+
+  if (skipped) console.log(`  ${skipped} chunks were already uploaded and unchanged`);
 
   // Manifest last. Until it lands, the version does not exist as far as a
   // client is concerned, so a partial upload is never a half-published corpus.

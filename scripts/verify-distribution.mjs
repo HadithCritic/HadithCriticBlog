@@ -35,6 +35,20 @@ import {
   resolveMasterDb
 } from './lib/corpus-dist.mjs';
 
+/*
+ * Tables only a structured release carries (the Ibn Abi Shaybah pilot). A
+ * release built from a master without them is still valid: corpus-client.ts
+ * checks for hadith_structure once and reads these fields only when present.
+ * They are counted, and their probe run, exactly when the master has them.
+ */
+const STRUCTURED_TABLES = new Set([
+  'hadith_edition',
+  'hadith_kitab',
+  'hadith_bab',
+  'hadith_structure',
+  'hadith_reference'
+]);
+
 const COUNTED_TABLES = [
   'hadith',
   'hadith_edition',
@@ -158,6 +172,7 @@ const PROBES = [
   },
   {
     name: 'structured source record: hierarchy, vocalization, and page evidence',
+    requires: 'hadith_structure',
     sql: `SELECT h.id, h.text_ar_diac, h.matn_ar_diac, k.ordinal AS kitab_ordinal,
                  b.ordinal AS bab_ordinal, r.source_marker, e.year_hijri
             FROM hadith h
@@ -289,8 +304,15 @@ async function main() {
   const dist = new DatabaseSync(build.db, { readOnly: true });
 
   try {
+    const masterHas = (table) =>
+      master.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = ?").get(table).n === 1;
+    if (!masterHas('hadith_structure')) {
+      console.log('\n  The master has no structured tables; their counts and probe are skipped.');
+    }
+
     console.log('\n  Row counts');
     for (const table of COUNTED_TABLES) {
+      if (STRUCTURED_TABLES.has(table) && !masterHas(table)) continue;
       const a = master.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
       const b = dist.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
       note(a === b, `${table}: ${Number(b).toLocaleString()}`);
@@ -298,6 +320,7 @@ async function main() {
 
     console.log('\n  Query behaviour');
     for (const probe of PROBES) {
+      if (probe.requires && !masterHas(probe.requires)) continue;
       let masterRows;
       let distRows;
       try {
