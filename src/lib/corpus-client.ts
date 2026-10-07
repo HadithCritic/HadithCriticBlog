@@ -150,6 +150,7 @@ type Worker = Awaited<ReturnType<typeof createDbWorker>>;
 
 let workerPromise: Promise<Worker> | null = null;
 let structuredSchemaPromise: Promise<boolean> | null = null;
+let textPartsSchemaPromise: Promise<boolean> | null = null;
 
 /**
  * Prove the host answers range requests before trusting a byte of it.
@@ -547,6 +548,21 @@ export async function getHadithDetail(id: number): Promise<HadithDetail | null> 
         WHERE h.id = ?`;
   const hadith = await queryOne<HadithRecord>(detailSql, [id]);
   if (!hadith) return null;
+
+  // Releases from 2026-10-07 split each text into lead, narration and notes.
+  if (!textPartsSchemaPromise) {
+    textPartsSchemaPromise = queryOne<{ n: number }>(
+      `SELECT count(*) AS n FROM sqlite_master
+        WHERE type = 'table' AND name = 'hadith_text_parts'`
+    ).then((row) => Number(row?.n ?? 0) > 0);
+  }
+  if (await textPartsSchemaPromise) {
+    const parts = await queryOne<Pick<HadithRecord, 'lead_end' | 'notes_start' | 'page_start' | 'page_end'>>(
+      'SELECT lead_end, notes_start, page_start, page_end FROM hadith_text_parts WHERE hadith_id = ?',
+      [id]
+    );
+    if (parts) Object.assign(hadith, parts);
+  }
 
   const [chain, rawSubjects, glosses, sourceNarrators, references] = await Promise.all([
     query<ChainNode>(

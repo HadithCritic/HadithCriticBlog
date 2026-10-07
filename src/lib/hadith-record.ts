@@ -127,14 +127,73 @@ function chapterMarkup(detail: HadithDetail): string {
     </div>`;
 }
 
+interface TextParts { lead: string; narration: string; notes: string }
+
+const VOWEL_MARKS = /[ً-ٰٟۖ-ۭ]/g;
+const ARABIC_LETTER = /[ء-ي]/;
+const PAGE_MARKER = /\[\d+\/\d+\]/g;
+
 /**
- * The leaf: English on the left and first in the DOM, the full Arabic report
+ * The Arabic as the edition prints it, in three parts: its headings and front
+ * matter, the narration, and the editor's notes (hadith_text_parts). Each part
+ * is a slice of the unchanged text, so nothing is reworded. The offsets index
+ * text_ar; a vowelled text is sliced at the same letters only when removing its
+ * marks gives text_ar exactly. Otherwise, or on a release without the table,
+ * the text is shown whole as the narration.
+ */
+export function textParts(detail: HadithDetail): TextParts {
+  const { hadith } = detail;
+  const plain = hadith.text_ar || '';
+  const shown = hadith.text_ar_diac || plain;
+  const whole = { lead: '', narration: shown, notes: '' };
+  const leadEnd = hadith.lead_end;
+  const notesStart = hadith.notes_start;
+  if (leadEnd == null || notesStart == null || leadEnd < 0 || leadEnd > notesStart || notesStart > plain.length) {
+    return whole;
+  }
+  let at: (offset: number) => number = (offset) => offset;
+  if (shown !== plain) {
+    if (shown.replace(VOWEL_MARKS, '') !== plain) return whole;
+    const index: number[] = [];
+    for (let i = 0; i < shown.length; i += 1) {
+      if (!/[ً-ٰٟۖ-ۭ]/.test(shown[i])) index.push(i);
+    }
+    index.push(shown.length);
+    at = (offset) => index[offset];
+  }
+  return {
+    lead: shown.slice(0, at(leadEnd)),
+    narration: shown.slice(at(leadEnd), at(notesStart)),
+    notes: shown.slice(at(notesStart))
+  };
+}
+
+/** A lead is worth showing only if it holds words, not just page markers. */
+const hasWords = (text: string) => ARABIC_LETTER.test(text.replace(PAGE_MARKER, ''));
+
+/** "1/219" and "1/220" as "vol. 1, pp. 219–220". */
+export function pageLabel(start?: string | null, end?: string | null): string {
+  const parse = (value?: string | null) => {
+    const m = /^(\d+)\/(\d+)$/.exec(value || '');
+    return m ? { volume: Number(m[1]), page: Number(m[2]) } : null;
+  };
+  const a = parse(start);
+  if (!a) return '';
+  const b = parse(end) ?? a;
+  if (b.volume !== a.volume) return `vol. ${a.volume}, p. ${a.page} to vol. ${b.volume}, p. ${b.page}`;
+  if (b.page !== a.page) return `vol. ${a.volume}, pp. ${a.page}–${b.page}`;
+  return `vol. ${a.volume}, p. ${a.page}`;
+}
+
+/**
+ * The leaf: English on the left and first in the DOM, the Arabic narration
  * beside it for checking. Below 780px the Arabic leads, by grid placement only.
+ * The edition's headings and the editor's notes are in the references panel.
  */
 function leafMarkup(detail: HadithDetail): string {
   const { hadith } = detail;
   const english = splitEnglish(hadith.text_en, hadith.matn_en);
-  const arabic = hadith.text_ar_diac || hadith.text_ar;
+  const arabic = textParts(detail).narration;
   return `
     <section class="hr-text" aria-labelledby="report-heading">
       <h2 id="report-heading" class="hr-visually-hidden">The report</h2>
@@ -224,14 +283,31 @@ function sourceNarratorMarkup(surfaces: HadithNarratorSurface[]): string {
     </details>`;
 }
 
+/**
+ * The citation a reader can copy by hand: collection, kitab (filled in once
+ * the structure file is read), number, and the printed pages.
+ */
+function citationMarkup(detail: HadithDetail): string {
+  const { hadith } = detail;
+  const pages = pageLabel(hadith.page_start, hadith.page_end);
+  return `<span class="hr-cite">${escapeHtml(hadith.book_en)}<span data-kitab-cite hidden></span>${
+    hadith.hadith_num ? `, no. ${escapeHtml(hadith.hadith_num)}` : ''
+  }${pages ? `, ${pages}` : ''}</span>`;
+}
+
 function refsPanel(detail: HadithDetail, id: number): string {
   const { hadith } = detail;
+  const parts = textParts(detail);
+  const pages = pageLabel(hadith.page_start, hadith.page_end);
   const rows: [string, string][] = [
-    ['Reference', `<a href="/hadith/collection/${escapeHtml(hadith.book_slug)}/">${escapeHtml(hadith.book_en)}</a>${hadith.hadith_num ? ` ${escapeHtml(hadith.hadith_num)}` : ''}`],
-    ['Printed edition', referenceSummaryMarkup(detail)],
-    ['Corpus record', `HadithCritic ${id}`]
+    ['Citation', citationMarkup(detail)],
+    ['Reference', `<a href="/hadith/collection/${escapeHtml(hadith.book_slug)}/">${escapeHtml(hadith.book_en)}</a>${hadith.hadith_num ? ` ${escapeHtml(hadith.hadith_num)}` : ''}`]
   ];
+  if (pages) rows.push(['Printed page', `${pages} <span class="hr-refs__basis">as marked on the Ifta’ Sunnah platform</span>`]);
+  if (detail.references.length || !pages) rows.push(['Printed edition', referenceSummaryMarkup(detail)]);
+  rows.push(['Corpus record', `HadithCritic ${id}`]);
   const structure = structureMarkup(detail);
+  const lead = hasWords(parts.lead) ? parts.lead : '';
   return `
     <section class="hr-panel hr-panel--refs" aria-labelledby="refs-heading">
       <h2 class="hr-panel__title" id="refs-heading">References &amp; source notes</h2>
@@ -240,6 +316,24 @@ function refsPanel(detail: HadithDetail, id: number): string {
         <div data-kitab-row hidden><dt>Kitāb</dt><dd data-kitab-ref></dd></div>
         ${structure ? `<div><dt>In the book</dt><dd>${structure}</dd></div>` : ''}
       </dl>
+      ${
+        lead
+          ? `<details class="hr-refs__more">
+               <summary>As headed in the edition</summary>
+               <p class="hr-refs__ar" lang="ar" dir="rtl">${renderArabic(lead)}</p>
+               <p class="hr-refs__note">The edition’s headings and front matter before this narration, as printed.</p>
+             </details>`
+          : ''
+      }
+      ${
+        parts.notes.trim()
+          ? `<details class="hr-refs__more">
+               <summary>Editor’s notes</summary>
+               <p class="hr-refs__ar" lang="ar" dir="rtl">${renderArabic(parts.notes)}</p>
+               <p class="hr-refs__note">The printed edition’s footnotes, comparing printings and manuscripts, reproduced as given.</p>
+             </details>`
+          : ''
+      }
       <p class="hr-refs__note">The Arabic is the source text, from the Ifta’ Sunnah platform; the English rendering is unreviewed machine translation.</p>
     </section>`;
 }
@@ -395,6 +489,11 @@ async function fillKitab(detail: HadithDetail): Promise<void> {
     if (ar && kitab.title_ar) {
       ar.textContent = kitab.title_ar;
       ar.hidden = false;
+    }
+    const cite = document.querySelector<HTMLElement>('[data-kitab-cite]');
+    if (cite) {
+      cite.textContent = `, Book ${kitab.n}${kitab.title_en ? ` (${kitab.title_en})` : ''}`;
+      cite.hidden = false;
     }
     const row = document.querySelector<HTMLElement>('[data-kitab-row]');
     const ref = document.querySelector<HTMLElement>('[data-kitab-ref]');

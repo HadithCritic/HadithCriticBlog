@@ -239,13 +239,30 @@ test.describe('narration record', () => {
     noDatabaseTraffic(urls);
   });
 
+  test('shows the narration alone, with the edition headings, notes and pages as apparatus', async ({ page }) => {
+    await page.goto('/hadith/237072');
+    // The record opens a kitab: the edition prints its heading, a basmala and
+    // the book's transmission frame before the narration, and the editor's
+    // notes after it. None of that is the narration.
+    const arabic = page.locator('.hr-leaf__ar');
+    await expect(arabic).toContainText('حدثنا هشيم', { timeout: CORPUS_TIMEOUT });
+    await expect(arabic).not.toContainText('كتاب الطهارة');
+    await expect(arabic).not.toContainText('طبعة');
+    await expect(page.locator('.hr-cite')).toContainText('vol. 1, pp. 219–220');
+
+    const headed = page.locator('.hr-refs__more', { hasText: 'As headed in the edition' });
+    await headed.locator('summary').click();
+    await expect(headed.locator('.hr-refs__ar')).toContainText('كتاب الطهارة');
+    const notes = page.locator('.hr-refs__more', { hasText: 'Editor’s notes' });
+    await notes.locator('summary').click();
+    await expect(notes.locator('.hr-refs__ar')).toContainText('طبعة دار القبلة');
+  });
+
   test('keeps the source wording distinct from the normalized transmitter index', async ({ page }) => {
     await page.goto('/hadith/237072');
-    await expect(page.locator('.edition-source-path')).toContainText('Kitāb 1', {
+    await expect(page.locator('.hr-leaf__note')).toContainText('machine translation', {
       timeout: CORPUS_TIMEOUT
     });
-    await expect(page.locator('.edition-reference-summary__pages')).toContainText('[1/217]');
-    await expect(page.locator('.hr-leaf__note')).toContainText('machine translation');
     await expect(page.locator('.source-narrators summary')).toContainText('Source narrator name forms');
     await expect(page.locator('.ladder-verb')).toHaveCount(0);
 
