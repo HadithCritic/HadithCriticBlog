@@ -57,6 +57,33 @@ function englishNote(status: string | null | undefined): string {
   return status;
 }
 
+/*
+ * How a passage came to sit at its verse, in plain English, from the
+ * locator_status the build records. Every placement is still a proposal.
+ */
+function placementBasis(status: string | null | undefined): string {
+  const s = status ?? "";
+  if (/corrected/i.test(s)) return "placement corrected after checking the wording and its verse reference";
+  if (/numbered verse marker/i.test(s)) return "placed by the verse number printed in the text";
+  if (/heading quotation/i.test(s)) return /outside the forward window/i.test(s)
+    ? "placed by the verse its heading quotes, found beyond the expected range"
+    : "placed by the verse its heading quotes";
+  if (/cross-reference/i.test(s)) return "placed by a cross-reference in its section";
+  if (/source section/i.test(s)) return "placed by a verse cited in its section";
+  if (/Arabic verse citation/i.test(s)) return "placed by a verse it cites";
+  if (/source catalogue/i.test(s)) return "placed by the source catalogue's verse locator";
+  if (/English text/i.test(s)) return "placed by a verse locator in its English";
+  return "placed by its source";
+}
+
+/* Whether a work's passages here come with English: all, some, or none. */
+function languageOf(entries: Entry[]): string {
+  const withEnglish = entries.filter((entry) => entry.text_en).length;
+  if (withEnglish === 0) return "Arabic only";
+  if (withEnglish === entries.length) return "English and Arabic";
+  return `English for ${withEnglish} of ${entries.length}`;
+}
+
 /* Hiding a work is one rule per work on a native checkbox, so it works with scripting off. */
 const pickerRules = present
   .map((work) => `.tf:has(#tf-w-${work.id}:not(:checked)) [data-work="${work.id}"] { display: none; }`)
@@ -89,8 +116,8 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
         <p class="tf-eyebrow" id="tf-status-title">How to read the labels</p>
         <dl>
           <div><dt>Arabic</dt><dd>As printed in the Shamela edition named for each work, with its volume and page.</dd></div>
-          <div><dt>Placement</dt><dd>Proposed. Each passage sits at the verse its source marks or cites; no reviewer has checked the placements yet.</dd></div>
-          <div><dt>English</dt><dd>Shown only where the source supplies it, and labelled with where it comes from. None of it is reviewed.</dd></div>
+          <div><dt>Placement</dt><dd>Proposed. Each passage says how it was placed: a verse number printed in the text, the verse its heading quotes, or a verse cited in its section. No reviewer has checked the placements yet.</dd></div>
+          <div><dt>English</dt><dd>Shown first wherever the source supplies it, and labelled with where it comes from; none of it is reviewed. Each commentary says whether its passages here have English. Most of the early works are not translated yet.</dd></div>
         </dl>
       </aside>
     </div>
@@ -163,6 +190,7 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
                         <span class="tf-work__name">{shortName(work)}</span>
                         <span class="tf-work__meta">d. {work.death_ah} AH</span>
                         <span class="tf-work__n">{entries.length} {entries.length === 1 ? "passage" : "passages"}</span>
+                        <span class="tf-work__lang">{languageOf(entries)}</span>
                       </summary>
                       {entries.map((entry) => (
                         <article class:list={["tf-pass", { "tf-pass--bi": Boolean(entry.text_en) }]}>
@@ -179,7 +207,7 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
                             <span>{cite(entry)}</span>
                             {entry.printed_label && <span>Printed no. <span lang="ar" dir="rtl">{entry.printed_label.replace(/\s*-\s*$/, "")}</span></span>}
                             {range(entry) && <span>Covers {range(entry)}</span>}
-                            <span>Placement proposed</span>
+                            <span>Placement proposed: {placementBasis(entry.locator_status)}</span>
                           </p>
                           {(entry.foot_note_ar || entry.foot_note_en) && (
                             <details class="tf-pass__notes">
@@ -317,6 +345,7 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
   .tf-work__name { color: var(--hc-text-primary); font: 600 0.95rem/1.3 var(--font-body); }
   .tf-work__meta { color: var(--hc-text-tertiary); font: 400 0.78rem/1.4 var(--font-ui); }
   .tf-work__n { color: var(--hc-text-secondary); font: 500 0.78rem/1.4 var(--font-ui); }
+  .tf-work__lang { padding: 0.05rem 0.45rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); font: 500 0.75rem/1.4 var(--font-ui); }
   .tf-work__carried { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0; padding: 0.35rem 0.2rem; color: var(--hc-text-tertiary); font: 400 0.82rem/1.5 var(--font-ui); }
   .tf-work__carried a { color: var(--hc-text-secondary); }
 

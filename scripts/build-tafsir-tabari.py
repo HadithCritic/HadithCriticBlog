@@ -72,6 +72,10 @@ WINDOW = 6000  # Qur'an words searched forward from the last match
 
 
 def skeleton(word: str) -> str:
+    # The Cairo rasm writes a long a as ى with a superscript alif (ءَاتَىٰهُ);
+    # the edition spells it with an alif (آتاه), which is dropped below.
+    # Only inside a word: a final ىٰ (مُوسَىٰ) is spelled ى in the edition too.
+    word = re.sub("ىٰ(?=[ً-ٟۖ-ۭ]*[ء-ي])", "", word)
     word = re.sub(MARKS, "", word)
     word = word.replace("ٱ", "").replace("ا", "").replace("أ", "").replace("إ", "").replace("آ", "")
     word = word.replace("ى", "ي").replace("ة", "ه").replace("ؤ", "و").replace("ئ", "ي").replace("ء", "")
@@ -82,7 +86,24 @@ def skeleton(word: str) -> str:
 
 
 def words_of(text: str) -> list[str]:
-    return [w for w in (skeleton(t) for t in re.split(r"[\s\u06DD*]+", text)) if w]
+    # The vocative is one word in the Cairo rasm (\u064A\u064E\u0670\u0628\u064E\u0646\u0650\u0649\u0653) and often two in the
+    # edition (\u064A\u0627 \u0628\u0646\u064A); a written "\u064A\u0627" is joined to the word after it.
+    joined: list[str] = []
+    vocative = False
+    for token in re.split(r"[\s\u06DD*]+", text):
+        w = skeleton(token)
+        if not w:
+            continue
+        if vocative:
+            joined.append("\u064A" + w)
+            vocative = False
+        elif re.sub(MARKS, "", token) == "\u064A\u0627":
+            vocative = True
+        else:
+            joined.append(w)
+    if vocative:
+        joined.append("\u064A")
+    return joined
 
 
 def near(a: str, b: str) -> bool:
@@ -199,6 +220,10 @@ def main() -> int:
             if found is None:
                 found = match(quotes[0], words, 0, len(words))
                 fallback = found is not None
+            if found is None and len(quotes[0]) >= 3:
+                # A heading can repeat its quotation, which breaks a six-word
+                # probe; three words, in the forward window only.
+                found = match(quotes[0][:3], words, cursor, cursor + WINDOW)
         if found is None:
             # Kept, but never given a verse: it goes to the sura being read.
             report["unplaced"].append({"citation": citation, "heading": head[:160]})

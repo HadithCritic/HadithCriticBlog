@@ -130,6 +130,34 @@ For the five second-century editions, `works[].extent` is measured from the cata
 explicit placement under a sura. It describes the extent represented in this reader,
 not necessarily every sura present in the complete printed edition.
 
+## English, and how each passage is placed
+
+The reader leads with English wherever there is English: each verse's English
+sits above its Arabic, and a passage with English shows it first. Most of the
+early works have none yet. Of 21,318 passages, 1,534 carry English (all of
+al-Thawri and Ibn Wahb, from their catalogues; 475 of Muqatil, an AI
+translation the source supplies); Yahya ibn Sallam, Mujahid and al-Tabari are
+Arabic only. Each commentary's box on a sura page says which: "Arabic only",
+"English and Arabic", or "English for n of m". The rest is translation work,
+and none of it is to be presented as reviewed.
+
+Every passage states how it was placed, in plain English, from its
+`locator_status`: the verse number printed in the text (Muqatil), the verse
+its heading quotes (al-Tabari), a verse cited in its section, a cross-reference,
+the source catalogue's locator, or a locator in its English. Every placement
+remains a proposal.
+
+al-Tabari's headings are matched to the Cairo text by their quotation. Three
+fixes in `scripts/build-tafsir-tabari.py` (2026-10-07) placed 12 headings that
+had been left at sura level: a long a written as ى with a superscript alif
+inside a word (ءَاتَىٰهُ for the edition's آتاه), a vocative written as two
+words in the edition (يا بني) and one in the Cairo rasm, and a heading that
+repeats its quotation. Four verse ranges were corrected to the quotation's own
+verse markers. 5,008 of 5,013 headings are now placed; 18 were found by global
+search and each was checked against its quotation; 5 remain at sura level
+(listed in `docs/research/tafsir/tabari-placement.json`). The range for 74:26
+still ends at 27 although the quotation runs to 31.
+
 ## Adding a century
 
 Add the century to `works.json` `centuries`, then its works. The hub groups by century
