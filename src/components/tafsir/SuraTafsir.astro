@@ -1,125 +1,353 @@
 ---
+import "../../styles/tafsir.css";
 import names from "../../data/quran-sura-names.json";
-import versesText from "../../data/quran-verses.json";
-import { tafsirPartUrl, versePartsOf, type VersePart } from "../../lib/tafsir-core";
+import { eraIdOf, loadTafsirSura, shortName, tafsirPartUrl, versePartsOf, works, type Entry, type VersePart } from "../../lib/tafsir";
 
 type SuraName = (typeof names)[number];
 interface Props { name: SuraName; part: VersePart }
 
 const { name, part } = Astro.props;
-const verseTexts = versesText as Record<string, { ar: string; en: string }>;
-const verses = Array.from({ length: part.last - part.first + 1 }, (_, i) => {
-  const number = part.first + i;
-  const text = verseTexts[`${name.n}:${number}`];
-  return { number, ar: text?.ar ?? "", en: text?.en ?? "" };
-});
+const sura = loadTafsirSura(name.n);
 const parts = versePartsOf(name.verses);
-const previous = names[name.n - 2];
-const next = names[name.n];
 const urlFor = (p: VersePart) => tafsirPartUrl(name.n, p);
 const otherPart = (offset: number) => parts.find((p) => p.index === part.index + offset);
 const previousPart = otherPart(-1);
 const nextPart = otherPart(1);
+
+/*
+ * An entry that spans several verses is indexed under each of them. It is printed once, at the
+ * first of its verses on this page, and labelled with its range; the later verses point back to it.
+ */
+const verses = sura.verses
+  .filter((verse) => verse.number >= part.first && verse.number <= part.last)
+  .map((verse) => {
+    const byWork = works
+      .map((work) => {
+        const all = verse.byWork[work.id]?.entries ?? [];
+        const first = all.filter((entry) => Math.max(entry.verses.from, part.first) === verse.number);
+        const carried = all.filter((entry) => Math.max(entry.verses.from, part.first) !== verse.number);
+        return { work, entries: first, carried };
+      })
+      .filter((row) => row.entries.length > 0 || row.carried.length > 0);
+    return { ...verse, byWork };
+  });
+
+/* Works that say anything in this sura, for the picker. A count of verses, not a ranking. */
+const present = works.filter((work) => sura.coverage[work.id] > 0 || (sura.surahMaterial[work.id]?.length ?? 0) > 0);
+const surahMaterialCount = works.reduce((sum, work) => sum + (sura.surahMaterial[work.id]?.length ?? 0), 0);
+const showSurahMaterial = part.index === 1 && surahMaterialCount > 0;
+const versesWithComment = sura.verses.filter((verse) => Object.values(verse.byWork).some((w) => w.entries.length > 0)).length;
+
+const range = (entry: Entry) =>
+  entry.verses.from === entry.verses.to ? null : `${name.n}:${entry.verses.from} to ${name.n}:${entry.verses.to}`;
+const cite = (entry: { citation: { volume: string | null; page: string }; page_end?: string | null }) =>
+  `${entry.citation.volume ? `vol. ${entry.citation.volume}, ` : ""}p. ${entry.citation.page}${entry.page_end ? ` to ${entry.page_end}` : ""}`;
+
+/* A long discussion (al-Ṭabarī can run for pages on one verse) starts folded, so a verse stays scannable. */
+const FOLD_AT = 2400;
+const lengthOf = (entries: Entry[]) => entries.reduce((sum, entry) => sum + (entry.text_ar ?? entry.text).length, 0);
+
+/* The source marks Qurʾānic wording with braces. The braces are kept; the span only sets them apart. */
+const quranSpans = (text: string) => text.split(/(\{[^{}]*\})/u);
+
+function englishNote(status: string | null | undefined): string {
+  if (!status) return "English, not reviewed";
+  if (/AI translation/i.test(status)) return "Machine translation (AI), not reviewed";
+  if (/supplied in catalog/i.test(status)) return "English from the source catalogue, translator not recorded, not reviewed";
+  return status;
+}
+
+/* Hiding a work is one rule per work on a native checkbox, so it works with scripting off. */
+const pickerRules = present
+  .map((work) => `.tf:has(#tf-w-${work.id}:not(:checked)) [data-work="${work.id}"] { display: none; }`)
+  .join("\n");
+const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some((row) => row.work.id === id && row.entries.length > 0)).length;
 ---
 
-<main class="reader-sura">
+<main class="tf">
   <header class="hc-masthead" aria-labelledby="reader-title">
     <div class="hc-container hc-masthead__inner">
       <div>
-        <h1 id="reader-title" class="hc-masthead__title">{name.latin} <span class="hc-quran reader-sura__title-ar" lang="ar" dir="rtl">{name.ar}</span></h1>
+        <nav class="tf-crumbs" aria-label="Suras">
+          {sura.prev ? <a href={`/projects/tafsir/sura/${sura.prev.n}/`} rel="prev">{sura.prev.n}. {sura.prev.latin}</a> : <span></span>}
+          <a href="/projects/tafsir/#suras">Sura {name.n} of 114</a>
+          {sura.next ? <a href={`/projects/tafsir/sura/${sura.next.n}/`} rel="next">{sura.next.n}. {sura.next.latin}</a> : <span></span>}
+        </nav>
+        <h1 id="reader-title" class="hc-masthead__title">{name.latin} <span class="hc-quran tf-title-ar" lang="ar" dir="rtl">{name.ar}</span></h1>
         <p class="hc-masthead__lead">
-          Sura {name.n}, {name.verses} verses{part.of > 1 ? `. Part ${part.index} of ${part.of}, verses ${part.first} to ${part.last}` : ""}.
+          Sura {name.n}, {name.verses} verses{part.of > 1 ? `; this page holds verses ${part.first} to ${part.last}` : ""}.
+          {present.length > 0
+            ? <> {present.length} of the {works.length} early commentaries comment here, on {versesWithComment} of its verses.</>
+            : <> None of the {works.length} early commentaries is placed at this sura yet.</>}
         </p>
         <div class="hc-masthead__actions">
           <a class="hc-btn" href="#verses">Read the verses</a>
-          <a class="hc-back-link hc-back-link--ruled" href="/projects/tafsir/#suras">All suras</a>
+          {sura.collated && <a class="hc-btn hc-btn--ghost" href={`/projects/quran/sura/${name.n}/`}>Variant readings in this sura</a>}
         </div>
       </div>
-      <aside class="reader-sura__status" aria-label="Reader status">
-        <span class="reader-sura__eyebrow">Reader framework</span>
-        <p>Verse text is shown as the reading anchor.</p>
-        <p class="reader-sura__status-muted">The commentary layer is being redesigned.</p>
+      <aside class="tf-status" aria-labelledby="tf-status-title">
+        <p class="tf-eyebrow" id="tf-status-title">How to read the labels</p>
+        <dl>
+          <div><dt>Arabic</dt><dd>As printed in the Shamela edition named for each work, with its volume and page.</dd></div>
+          <div><dt>Placement</dt><dd>Proposed. Each passage sits at the verse its source marks or cites; no reviewer has checked the placements yet.</dd></div>
+          <div><dt>English</dt><dd>Shown only where the source supplies it, and labelled with where it comes from. None of it is reviewed.</dd></div>
+        </dl>
       </aside>
     </div>
   </header>
 
-  <div class="hc-container reader-sura__layout">
-    <section class="reader-sura__verses" id="verses" aria-labelledby="verses-title">
-      <header class="reader-sura__section-head">
-        <div>
-          <p class="reader-sura__eyebrow">Sura {name.n}</p>
-          <h2 id="verses-title">{part.of > 1 ? `Verses ${part.first} to ${part.last}` : "Verse text"}</h2>
-        </div>
-        <span>{verses.length} verses</span>
+  <div class="hc-container tf-layout">
+    <aside class="tf-panel" aria-labelledby="tf-panel-title">
+      <p class="tf-eyebrow">Commentaries</p>
+      <h2 id="tf-panel-title" class="tf-panel__title">Show or hide a work</h2>
+      {present.length > 0 ? (
+        <fieldset class="tf-picker">
+          <legend class="sr-only">Commentaries shown on this page</legend>
+          {present.map((work) => (
+            <label class={`tf-pick era-${eraIdOf(work)}`}>
+              <input type="checkbox" id={`tf-w-${work.id}`} checked />
+              <i class="e-sq" aria-hidden="true"></i>
+              <span class="tf-pick__name">{shortName(work)}</span>
+              <span class="tf-pick__meta">d. {work.death_ah} AH · {workCountHere(work.id)} {workCountHere(work.id) === 1 ? "verse" : "verses"} on this page</span>
+            </label>
+          ))}
+        </fieldset>
+      ) : (
+        <p class="tf-panel__note">No commentary is placed in this sura yet.</p>
+      )}
+      <p class="tf-panel__note">The color marks the era its author died in, not the book. Counts are verses with a passage, not a ranking.</p>
+      <a class="hc-back-link hc-back-link--ruled" href="/projects/tafsir/#works">About the works</a>
+    </aside>
+
+    <section class="tf-verses" id="verses" aria-labelledby="verses-title">
+      <header class="tf-section-head">
+        <h2 id="verses-title">{part.of > 1 ? `Verses ${part.first} to ${part.last}` : "The verses"}</h2>
+        <span>{verses.length} {verses.length === 1 ? "verse" : "verses"}</span>
       </header>
 
       {part.of > 1 && (
-        <nav class="reader-sura__parts" aria-label="Parts of this sura">
+        <nav class="tf-parts" aria-label="Parts of this sura">
           {parts.map((p) => <a href={urlFor(p)} aria-current={p.index === part.index ? "page" : undefined}>{p.first}–{p.last}</a>)}
         </nav>
       )}
 
-      <ol class="reader-sura__list">
-        {verses.map((verse) => (
-          <li id={`v${verse.number}`}>
-            <a class="reader-sura__ref" href={`#v${verse.number}`} aria-label={`Sura ${name.n}, verse ${verse.number}`}>{name.n}:{verse.number}</a>
-            <div class="reader-sura__languages">
-              <p class="reader-sura__english" lang="en">{verse.en || "English verse text is unavailable."}</p>
-              <p class="reader-sura__arabic hc-quran" lang="ar" dir="rtl">{verse.ar || "نص الآية غير متوفر"}</p>
-            </div>
-          </li>
-        ))}
+      <ol class="tf-list">
+        {verses.map((verse) => {
+          const count = verse.byWork.filter((row) => row.entries.length > 0).length;
+          return (
+            <li class="tf-verse" id={`v${verse.number}`}>
+              <div class="tf-verse__head">
+                <a class="tf-verse__ref" href={`#v${verse.number}`} aria-label={`Sura ${name.n}, verse ${verse.number}`}>{name.n}:{verse.number}</a>
+                <span class="tf-verse__count">{count > 0 ? `${count} ${count === 1 ? "commentary" : "commentaries"}` : "No commentary placed here"}</span>
+                {verse.features.length > 0 && (
+                  <span class="tf-verse__readings">
+                    Readings differ at{" "}
+                    {verse.features.map((feature, i) => (
+                      <>{i > 0 && ", "}<a href={feature.href} class="hc-quran" lang="ar">{feature.word}</a></>
+                    ))}
+                  </span>
+                )}
+              </div>
+
+              <div class="tf-plate">
+                <p class="tf-plate__en" lang="en">{verse.en ?? "English verse text is unavailable."}</p>
+                <p class="tf-plate__ar hc-quran" lang="ar" dir="rtl">{verse.words.map((word) => word.text).join(" ")}</p>
+              </div>
+
+              {verse.byWork.map(({ work, entries, carried }) => (
+                <div class={`tf-work era-${eraIdOf(work)}`} data-work={work.id}>
+                  {entries.length > 0 ? (
+                    <details class="tf-work__box" open={lengthOf(entries) <= FOLD_AT}>
+                      <summary class="tf-work__summary">
+                        <i class="e-sq" aria-hidden="true"></i>
+                        <span class="tf-work__name">{shortName(work)}</span>
+                        <span class="tf-work__meta">d. {work.death_ah} AH</span>
+                        <span class="tf-work__n">{entries.length} {entries.length === 1 ? "passage" : "passages"}</span>
+                      </summary>
+                      {entries.map((entry) => (
+                        <article class:list={["tf-pass", { "tf-pass--bi": Boolean(entry.text_en) }]}>
+                          {entry.text_en && (
+                            <div class="tf-pass__en" lang="en">
+                              <p>{entry.text_en}</p>
+                              <p class="tf-pass__label">{englishNote(entry.translation_status)}</p>
+                            </div>
+                          )}
+                          <p class="tf-pass__ar" lang="ar" dir="rtl">
+                            {quranSpans(entry.text_ar ?? entry.text).map((piece) => piece.startsWith("{") ? <span class="tf-q">{piece}</span> : piece)}
+                          </p>
+                          <p class="tf-pass__cite">
+                            <span>{cite(entry)}</span>
+                            {entry.printed_label && <span>Printed no. <span lang="ar" dir="rtl">{entry.printed_label.replace(/\s*-\s*$/, "")}</span></span>}
+                            {range(entry) && <span>Covers {range(entry)}</span>}
+                            <span>Placement proposed</span>
+                          </p>
+                          {(entry.foot_note_ar || entry.foot_note_en) && (
+                            <details class="tf-pass__notes">
+                              <summary>Editor's notes</summary>
+                              {entry.foot_note_en && <p lang="en">{entry.foot_note_en}</p>}
+                              {entry.foot_note_ar && <p lang="ar" dir="rtl">{entry.foot_note_ar}</p>}
+                            </details>
+                          )}
+                        </article>
+                      ))}
+                    </details>
+                  ) : (
+                    <p class="tf-work__carried">
+                      <i class="e-sq" aria-hidden="true"></i>
+                      {shortName(work)}: {carried.length === 1 ? "a passage" : `${carried.length} passages`} on a range of verses, printed at{" "}
+                      {carried.map((entry, i) => {
+                        const at = Math.max(entry.verses.from, part.first);
+                        return <>{i > 0 && ", "}<a href={`#v${at}`}>{name.n}:{at}</a></>;
+                      })}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </li>
+          );
+        })}
       </ol>
 
-      <nav class="reader-sura__pager" aria-label="Sura navigation">
+      {showSurahMaterial && (
+        <section class="tf-surah" aria-labelledby="tf-surah-title">
+          <header class="tf-section-head">
+            <h2 id="tf-surah-title">Placed at the sura, not a verse</h2>
+            <span>{surahMaterialCount} {surahMaterialCount === 1 ? "passage" : "passages"}</span>
+          </header>
+          <p class="tf-surah__lede">The sources put these passages under {name.latin} without a verse marker or citation that places them safely. They are kept here rather than given a verse.</p>
+          {works.filter((work) => (sura.surahMaterial[work.id]?.length ?? 0) > 0).map((work) => (
+            <details class={`tf-work tf-work__box era-${eraIdOf(work)}`} data-work={work.id}>
+              <summary class="tf-work__summary">
+                <i class="e-sq" aria-hidden="true"></i>
+                <span class="tf-work__name">{shortName(work)}</span>
+                <span class="tf-work__meta">d. {work.death_ah} AH</span>
+                <span class="tf-work__n">{sura.surahMaterial[work.id].length} {sura.surahMaterial[work.id].length === 1 ? "passage" : "passages"}</span>
+              </summary>
+              {sura.surahMaterial[work.id].map((entry) => (
+                <article class:list={["tf-pass", { "tf-pass--bi": Boolean(entry.text_en) }]}>
+                  {entry.text_en && (
+                    <div class="tf-pass__en" lang="en">
+                      <p>{entry.text_en}</p>
+                      <p class="tf-pass__label">{englishNote(entry.translation_status)}</p>
+                    </div>
+                  )}
+                  <p class="tf-pass__ar" lang="ar" dir="rtl">
+                    {quranSpans(entry.text_ar ?? entry.text).map((piece) => piece.startsWith("{") ? <span class="tf-q">{piece}</span> : piece)}
+                  </p>
+                  <p class="tf-pass__cite"><span>{cite(entry)}</span><span>Sura-level placement</span></p>
+                </article>
+              ))}
+            </details>
+          ))}
+        </section>
+      )}
+      {part.index > 1 && surahMaterialCount > 0 && (
+        <p class="tf-surah__lede">{surahMaterialCount} passages placed at the sura but not at a verse are listed on <a href={urlFor(parts[0])}>the first page of {name.latin}</a>.</p>
+      )}
+
+      <nav class="tf-pager" aria-label="Sura navigation">
         {previousPart
-          ? <a href={urlFor(previousPart)}>Previous: verses {previousPart.first} to {previousPart.last}</a>
-          : previous ? <a href={`/projects/tafsir/sura/${previous.n}/`}>Previous: {previous.n}. {previous.latin}</a> : <span></span>}
+          ? <a href={urlFor(previousPart)} data-dir="prev">Verses {previousPart.first} to {previousPart.last}</a>
+          : sura.prev ? <a href={`/projects/tafsir/sura/${sura.prev.n}/`} data-dir="prev">{sura.prev.n}. {sura.prev.latin}</a> : <span></span>}
         {nextPart
-          ? <a href={urlFor(nextPart)}>Next: verses {nextPart.first} to {nextPart.last}</a>
-          : next ? <a href={`/projects/tafsir/sura/${next.n}/`}>Next: {next.n}. {next.latin}</a> : <span></span>}
+          ? <a href={urlFor(nextPart)} data-dir="next">Verses {nextPart.first} to {nextPart.last}</a>
+          : sura.next ? <a href={`/projects/tafsir/sura/${sura.next.n}/`} data-dir="next">{sura.next.n}. {sura.next.latin}</a> : <span></span>}
       </nav>
     </section>
-
-    <aside class="reader-sura__panel" aria-labelledby="panel-title">
-      <p class="reader-sura__eyebrow">Reading layer</p>
-      <h2 id="panel-title">Commentary space</h2>
-      <p>This area is reserved for the verse-linked reading model. No commentary text or source list is currently loaded.</p>
-      <a href="/projects/tafsir/">Return to reader overview</a>
-    </aside>
   </div>
 </main>
 
+<style is:inline set:html={pickerRules}></style>
+
 <style>
-  .reader-sura__title-ar { margin-inline-start: 0.5rem; font-size: 0.78em; }
-  .reader-sura__status { align-self: center; max-width: 22rem; padding: 1.4rem; border-inline-start: 2px solid var(--hc-gold); background: var(--hc-surface-1); }
-  .reader-sura__eyebrow { margin: 0; color: var(--hc-gold); font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
-  .reader-sura__status p { margin: 0.7rem 0 0; color: var(--hc-text-primary); font: 500 0.95rem/1.55 var(--font-body); }
-  .reader-sura__status .reader-sura__status-muted { color: var(--hc-text-secondary); font-weight: 400; }
-  .reader-sura__layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.32fr); align-items: start; gap: clamp(2rem, 5vw, 4.5rem); padding-block: clamp(2.5rem, 6vw, 5rem); }
-  .reader-sura__section-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--hc-rule); }
-  .reader-sura__section-head h2, .reader-sura__panel h2 { margin: 0.3rem 0 0; color: var(--hc-text-primary); font: 500 clamp(1.35rem, 2.5vw, 1.8rem)/1.2 var(--font-display); }
-  .reader-sura__section-head > span { color: var(--hc-text-secondary); font: 500 0.78rem/1.5 var(--font-ui); }
-  .reader-sura__parts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-block: 1rem; }
-  .reader-sura__parts a { padding: 0.45rem 0.7rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); font: 600 0.75rem/1.3 var(--font-ui); text-decoration: none; }
-  .reader-sura__parts a[aria-current="page"] { border-color: var(--hc-gold); color: var(--hc-gold); }
-  .reader-sura__list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
-  .reader-sura__list > li { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); gap: 1rem; padding: 1.25rem 0; border-bottom: 1px solid var(--hc-rule-soft); scroll-margin-top: 7rem; }
-  .reader-sura__ref { padding-top: 0.2rem; color: var(--hc-gold); font: 600 0.75rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; text-decoration: none; }
-  .reader-sura__languages { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
-  .reader-sura__english, .reader-sura__arabic { margin: 0; color: var(--hc-text-primary); font: 400 1rem/1.9 var(--font-body); }
-  .reader-sura__arabic { text-align: right; font-size: 1.3rem; line-height: 2; }
-  .reader-sura__panel { position: sticky; top: calc(var(--site-header-height) + 2rem); padding: 1.4rem; border: 1px solid var(--hc-rule); background: var(--hc-surface-1); }
-  .reader-sura__panel > p:not(.reader-sura__eyebrow) { color: var(--hc-text-secondary); font: 400 0.9rem/1.75 var(--font-body); }
-  .reader-sura__panel a { color: var(--hc-gold); font: 600 0.8rem/1.5 var(--font-ui); text-decoration: none; }
-  .reader-sura__pager { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; }
-  .reader-sura__pager a { color: var(--hc-text-secondary); font: 500 0.8rem/1.5 var(--font-ui); text-decoration: none; }
-  .reader-sura__pager a:hover, .reader-sura__pager a:focus-visible { color: var(--hc-gold); }
+  .tf-title-ar { margin-inline-start: 0.5rem; font-size: 0.78em; }
+  .tf-crumbs { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem 1rem; max-width: 34rem; margin: 0 0 1.25rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--hc-rule-soft); font: 500 0.85rem/1.4 var(--font-ui); }
+  .tf-crumbs a { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 44px; color: var(--hc-text-secondary); text-decoration: none; }
+  .tf-crumbs a:hover { color: var(--hc-gold-bright); }
+  .tf-crumbs a[rel="prev"]::before { content: "←" / ""; }
+  .tf-crumbs a[rel="next"]::after { content: "→" / ""; }
+  .tf-pager a[data-dir="prev"]::before { content: "←" / ""; }
+  .tf-pager a[data-dir="next"]::after { content: "→" / ""; }
+  .tf-eyebrow { margin: 0; color: var(--hc-gold); font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  .tf-status { align-self: center; max-width: 24rem; padding: 1.25rem 1.4rem; border-inline-start: 2px solid var(--hc-gold); background: var(--hc-surface-1); }
+  .tf-status dl { display: grid; gap: 0.7rem; margin: 0.8rem 0 0; }
+  .tf-status dt { color: var(--hc-text-primary); font: 600 0.85rem/1.4 var(--font-ui); }
+  .tf-status dd { margin: 0.15rem 0 0; color: var(--hc-text-secondary); font: 400 0.88rem/1.55 var(--font-body); }
+
+  .tf-layout { display: grid; grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr); align-items: start; gap: clamp(1.5rem, 4vw, 3.5rem); padding-block: clamp(2rem, 5vw, 4rem); }
+  .tf-panel { position: sticky; top: calc(var(--site-header-height, 72px) + 1.5rem); padding: 1.2rem; border: 1px solid var(--hc-rule); background: var(--hc-surface-1); }
+  .tf-panel__title { margin: 0.3rem 0 0.9rem; color: var(--hc-text-primary); font: 500 1.15rem/1.3 var(--font-display); }
+  .tf-panel__note { margin: 0.9rem 0; color: var(--hc-text-tertiary); font: 400 0.8rem/1.6 var(--font-body); }
+  .tf-picker { display: grid; gap: 0.15rem; margin: 0; padding: 0; border: 0; }
+  .tf-pick { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 0.15rem 0.55rem; min-height: 44px; padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--hc-rule-soft); cursor: pointer; }
+  .tf-pick input { width: 1rem; height: 1rem; margin: 0; accent-color: var(--hc-gold); }
+  .tf-pick__name { color: var(--hc-text-primary); font: 600 0.9rem/1.3 var(--font-body); }
+  .tf-pick__meta { grid-column: 3; color: var(--hc-text-tertiary); font: 400 0.75rem/1.4 var(--font-ui); }
+  .tf-pick:has(input:not(:checked)) .tf-pick__name { color: var(--hc-text-tertiary); text-decoration: line-through; }
+
+  .tf-section-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--hc-rule); }
+  .tf-section-head h2 { margin: 0; color: var(--hc-text-primary); font: 500 clamp(1.35rem, 2.5vw, 1.8rem)/1.2 var(--font-display); }
+  .tf-section-head > span { color: var(--hc-text-secondary); font: 500 0.8rem/1.5 var(--font-ui); }
+  .tf-parts { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-block: 1rem; }
+  .tf-parts a { display: inline-flex; align-items: center; min-height: 36px; padding: 0 0.7rem; border: 1px solid var(--hc-rule); color: var(--hc-text-secondary); font: 600 0.78rem/1.3 var(--font-ui); font-variant-numeric: tabular-nums; text-decoration: none; }
+  .tf-parts a:hover { color: var(--hc-text-primary); border-color: var(--hc-gold-dim); }
+  .tf-parts a[aria-current="page"] { border-color: var(--hc-gold); color: var(--hc-gold); }
+
+  .tf-list { margin: 0; padding: 0; list-style: none; }
+  .tf-verse { padding: 1.5rem 0 1.75rem; border-bottom: 1px solid var(--hc-rule-soft); scroll-margin-top: 6.5rem; }
+  .tf-verse__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1rem; margin-bottom: 0.75rem; }
+  .tf-verse__ref { color: var(--hc-gold); font: 700 0.85rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; text-decoration: none; }
+  .tf-verse__count { color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); }
+  .tf-verse__readings { color: var(--hc-text-tertiary); font: 400 0.8rem/1.6 var(--font-ui); }
+  .tf-verse__readings a { color: var(--hc-text-secondary); font-size: 1.05rem; text-decoration-color: var(--hc-rule); }
+  .tf-verse__readings a:hover { color: var(--hc-gold-bright); }
+
+  .tf-plate { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+  .tf-plate__en, .tf-plate__ar { margin: 0; color: var(--hc-text-primary); }
+  .tf-plate__en { font: 400 1rem/1.85 var(--font-body); }
+  .tf-plate__ar { font-size: 1.45rem; line-height: 2.05; text-align: right; }
+
+  .tf-work { margin-top: 0.9rem; }
+  .tf-work__box { border: 1px solid var(--hc-rule-soft); border-inline-start: 3px solid var(--e-line); background: var(--hc-surface-1); }
+  .tf-work__summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.7rem; min-height: 44px; padding: 0.55rem 0.9rem; cursor: pointer; list-style: none; }
+  .tf-work__summary::-webkit-details-marker { display: none; }
+  .tf-work__summary::after { content: '+'; margin-inline-start: auto; color: var(--hc-gold); font: 600 1rem/1 var(--font-ui); }
+  details[open] > .tf-work__summary::after { content: '−'; }
+  .tf-work__name { color: var(--hc-text-primary); font: 600 0.95rem/1.3 var(--font-body); }
+  .tf-work__meta { color: var(--hc-text-tertiary); font: 400 0.78rem/1.4 var(--font-ui); }
+  .tf-work__n { color: var(--hc-text-secondary); font: 500 0.78rem/1.4 var(--font-ui); }
+  .tf-work__carried { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; margin: 0; padding: 0.35rem 0.2rem; color: var(--hc-text-tertiary); font: 400 0.82rem/1.5 var(--font-ui); }
+  .tf-work__carried a { color: var(--hc-text-secondary); }
+
+  .tf-pass { display: grid; gap: 0.6rem; margin: 0; padding: 0.9rem 1rem 1rem; border-top: 1px solid var(--hc-rule-soft); }
+  .tf-pass--bi { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.25rem; }
+  .tf-pass--bi .tf-pass__cite, .tf-pass--bi .tf-pass__notes { grid-column: 1 / -1; }
+  .tf-pass__en p { margin: 0; color: var(--hc-text-primary); font: 400 0.95rem/1.75 var(--font-body); }
+  .tf-pass__en .tf-pass__label { margin-top: 0.45rem; color: var(--hc-text-tertiary); font: 500 0.75rem/1.45 var(--font-ui); }
+  .tf-pass__ar { margin: 0; color: var(--hc-text-primary); font: 400 1.2rem/2 var(--font-arabic); text-align: right; white-space: pre-line; }
+  .tf-q { color: var(--hc-gold); }
+  .tf-pass__cite { display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; margin: 0; color: var(--hc-text-tertiary); font: 500 0.75rem/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
+  .tf-pass__notes summary { display: inline-flex; align-items: center; min-height: 36px; color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); cursor: pointer; }
+  .tf-pass__notes p { margin: 0.35rem 0; color: var(--hc-text-secondary); font: 400 1rem/1.8 var(--font-arabic); white-space: pre-line; }
+  .tf-pass__notes p[lang="en"] { font: 400 0.88rem/1.6 var(--font-body); }
+
+  .tf-surah { margin-top: clamp(2.5rem, 5vw, 3.5rem); }
+  .tf-surah__lede { max-width: 66ch; margin: 0 0 1rem; color: var(--hc-text-secondary); font: 400 0.92rem/1.7 var(--font-body); }
+  .tf-surah .tf-work__box + .tf-work__box { margin-top: 0.6rem; }
+
+  .tf-pager { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.75rem; padding-top: 1rem; border-top: 1px solid var(--hc-rule-soft); }
+  .tf-pager a { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; color: var(--hc-text-secondary); font: 500 0.85rem/1.5 var(--font-ui); text-decoration: none; }
+  .tf-pager a:hover { color: var(--hc-gold-bright); }
+
+  /* English is first in the DOM and visual-left when wide; Arabic leads once the columns stack. */
   @media (max-width: 780px) {
-    .reader-sura__layout { grid-template-columns: 1fr; }
-    .reader-sura__panel { position: static; grid-row: 1; }
-    .reader-sura__languages { grid-template-columns: 1fr; gap: 0.3rem; }
-    .reader-sura__arabic { grid-row: 1; }
-    .reader-sura__english { grid-row: 2; }
+    .tf-layout { grid-template-columns: minmax(0, 1fr); }
+    .tf-panel { position: static; }
+    .tf-plate, .tf-pass--bi { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+    .tf-plate__ar, .tf-pass--bi .tf-pass__ar { grid-row: 1; }
+    .tf-plate__en, .tf-pass--bi .tf-pass__en { grid-row: 2; }
+    .tf-pass--bi .tf-pass__cite { grid-row: 3; }
+    .tf-pass--bi .tf-pass__notes { grid-row: 4; }
   }
 </style>

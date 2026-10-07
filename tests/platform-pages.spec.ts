@@ -31,14 +31,19 @@ test('ICMA filters retain family counts, query state, and reset behavior',async(
  await expect(matching).toHaveCount(total);
 });
 
-test('Tafsir keeps all suras and opens the verse-first reading framework',async({page})=>{
+test('Tafsir keeps all suras and shows cited commentary under each verse',async({page})=>{
  await page.goto('/projects/tafsir/');
  await expect(page.locator('.reader-home__grid > li')).toHaveCount(114);
- await expect(page.locator('.rp-hero__lead')).toContainText('commentary content is not currently displayed');
+ await expect(page.locator('.rp-hero__lead')).toContainText('Placements are proposed');
  await page.locator('.reader-home__grid a').first().click();
  await expect(page).toHaveURL(/\/projects\/tafsir\/sura\/1\//);
  await expect(page.locator('h1')).toContainText('Fāti');
  await expect(page.locator('[lang="ar"]').first()).toBeVisible();
+ // Every passage carries its printed locator and says its placement is unreviewed.
+ const passage=page.locator('.tf-pass').first();
+ await expect(passage).toBeVisible();
+ await expect(passage.locator('.tf-pass__cite')).toContainText(/p\. \d+/);
+ await expect(passage.locator('.tf-pass__cite')).toContainText('Placement proposed');
 });
 
 test('Qiraat reader profiles and original sura destinations remain available',async({page})=>{

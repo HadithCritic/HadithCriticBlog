@@ -7,7 +7,7 @@ import { academicStudies } from "../data/academic-studies";
 import { studyFamily } from "../data/icma-families";
 import researchGraph from "../data/research-graph.json";
 import qiraatIndex from "../data/qiraat/index.json";
-import names from "../data/quran-sura-names.json";
+import { totalEntries, works as tafsirWorkList } from "../lib/tafsir";
 import "../styles/projects.css";
 
 /* Every figure on this page is read from the data the project is built from. */
@@ -16,7 +16,8 @@ const corpus = CORPUS_META.counts;
 const icma = academicStudies.filter((study) => study.category === "icma");
 const icmaFamilies = new Set(icma.map((study) => studyFamily[study.slug] ?? "network")).size;
 const citations = researchGraph.edges.filter((edge) => edge.type === "cites").length;
-const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
+const tafsirPassages = totalEntries();
+const tafsirWorks = tafsirWorkList.length;
 const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
 interface Entry {
@@ -102,15 +103,15 @@ const databases: Project[] = [
     kind: "Verse-first reader",
     arabic: "التفسير",
     title: "Tafsir Reader",
-    desc: "A reading framework built around the verse as its stable unit, sura by sura. Commentary texts are not displayed yet.",
-    figures: ["114 suras", `${n(totalVerses)} verses`],
+    desc: "The earliest commentaries, from Mujāhid to al-Ṭabarī’s Jāmiʿ al-bayān, set under the verse each passage comments on, with the volume and page of the printed edition.",
+    figures: [`${n(tafsirPassages)} passages`, `${tafsirWorks} works`, "114 suras"],
     entries: [
       { label: "Choose a sura", href: "/projects/tafsir/#suras" },
       { label: "Begin at al-Fātiḥa", href: "/projects/tafsir/sura/1/" },
     ],
     action: "Open the reader",
-    scope: `114 suras, ${n(totalVerses)} verses`,
-    status: "Framework; commentary not yet displayed",
+    scope: `${n(tafsirPassages)} passages from ${tafsirWorks} works, 114 suras`,
+    status: "Placements proposed; none reviewed",
   },
 ];
 

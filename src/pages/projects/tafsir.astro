@@ -4,22 +4,29 @@ import { OG } from '../../lib/seo';
 import ResearchHero from "../../components/ResearchHero.astro";
 import names from "../../data/quran-sura-names.json";
 import verses from "../../data/quran-verses.json";
+import { entriesForWork, entryCount, eraIdOf, totalEntries, works } from "../../lib/tafsir";
+import "../../styles/tafsir.css";
+import tabariPlacement from "../../../docs/research/tafsir/tabari-placement.json";
 
 const ordinal = (n: number) => String(n).padStart(3, "0");
 const opening = verses["1:1"];
 const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
+const passages = totalEntries();
+const counts = names.map((sura) => entryCount(sura.n));
+const maxCount = Math.max(1, ...counts);
+const n = (value: number) => value.toLocaleString("en-US");
 ---
 
 <BaseLayout image={OG.tafsir}
   title="Tafsir reader | HadithCritic Projects"
-  description="A verse-first reader framework for the Qur’an, under structural revision."
+  description="The early commentaries on the Qur'an, from Mujāhid to al-Ṭabarī, placed verse by verse, each passage cited to its printed edition."
 >
   <div class="reader-home rp-page rp-tafsir">
-    <ResearchHero artwork="tafsir" variant="reader" title="Tafsir Reader" titleId="reader-title" kicker="Verse-first reading framework" arabic="التفسير">
-      <p>The reader is being reshaped around the verse as its stable unit. The text and page structure are available to refine; commentary content is not currently displayed.</p>
+    <ResearchHero artwork="tafsir" variant="reader" title="Tafsir Reader" titleId="reader-title" kicker="Verse-first commentary reader" arabic="التفسير">
+      <p>The earliest surviving commentaries, set under the verse each passage comments on. Every passage keeps its volume and page in the printed edition. Placements are proposed and not yet reviewed.</p>
       <div slot="actions">
         <a class="hc-btn" href="#suras">Choose a sura</a>
-        <a class="hc-btn hc-btn--ghost" href="/projects/tafsir/sura/1/">Begin at al-Fātiḥa</a>
+        <a class="hc-btn hc-btn--ghost" href="#works">The works</a>
       </div>
       <figure slot="signature" class="rp-verse">
         <p class="rp-verse__ar hc-quran" lang="ar" dir="rtl">{opening.ar}</p>
@@ -28,11 +35,42 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
           <span class="rp-verse__ref">Q 1:1, the unit the reader is built around</span>
         </figcaption>
       </figure>
-      <div slot="stats" class="rp-figures" aria-label="Reader structure">
-        <p><span class="hc-project-hero__figure">{names.length}</span> suras to browse</p>
-        <p><span>{totalVerses.toLocaleString("en-US")}</span> verses, each its own page anchor</p>
+      <div slot="stats" class="rp-figures" aria-label="Reader contents">
+        <p><span class="hc-project-hero__figure">{n(passages)}</span> passages placed</p>
+        <p><span>{works.length}</span> works, Mujāhid to al-Ṭabarī</p>
+        <p><span>{n(totalVerses)}</span> verses, each its own anchor</p>
       </div>
     </ResearchHero>
+
+    <section class="hc-container reader-home__works" id="works" aria-labelledby="works-title">
+      <header class="reader-home__section-head">
+        <div>
+          <p class="reader-home__eyebrow">Sources</p>
+          <h2 id="works-title">The works</h2>
+        </div>
+        <span>Ordered by the author's death</span>
+      </header>
+      <ol class="reader-home__works-list">
+        {works.map((work) => (
+          <li class={`era-${eraIdOf(work)}`}>
+            <i class="e-sq" aria-hidden="true"></i>
+            <div class="reader-home__work">
+              <h3>{work.title} <span class="reader-home__work-ar" lang="ar" dir="rtl">{work.title_ar}</span></h3>
+              <p class="reader-home__work-by">{work.author}, d. {work.death_ah} AH</p>
+              <p class="reader-home__work-ed" lang="ar" dir="rtl">{[work.edition.editor_ar, work.edition.publisher_ar, work.edition.edition_ar].filter(Boolean).join("، ")}</p>
+            </div>
+            <dl class="reader-home__work-facts">
+              <div><dt>Passages</dt><dd>{n(entriesForWork(work.id))}</dd></div>
+              <div><dt>Suras reached</dt><dd>{work.extent.status === "measured" ? work.extent.suras.length : "Not measured"}</dd></div>
+              <div><dt>Shamela book</dt><dd>{work.edition.shamela_book_id}</dd></div>
+            </dl>
+          </li>
+        ))}
+      </ol>
+      <p class="reader-home__note">
+        Arabic is reproduced from the named Shamela edition. English appears only where the source catalogue supplies it, and is labelled as either catalogue English (translator not recorded) or machine translation; none of it has been reviewed. Which qirāʾa each commentator follows is not yet established for any of them. Al-Ṭabarī is placed by matching the Qurʾānic words quoted in each of his headings to the Cairo text; {tabariPlacement.unplaced_count} of his {n(tabariPlacement.headings)} headings could not be matched and are kept at sura level.
+      </p>
+    </section>
 
     <section class="hc-container reader-home__suras" id="suras" aria-labelledby="suras-title">
       <header class="reader-home__section-head">
@@ -40,10 +78,10 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
           <p class="reader-home__eyebrow">Browse</p>
           <h2 id="suras-title">Choose a sura</h2>
         </div>
-        <span>114 suras</span>
+        <span>The bar is the number of passages placed in each sura</span>
       </header>
       <ol class="reader-home__grid">
-        {names.map((sura) => (
+        {names.map((sura, i) => (
           <li>
             <a href={`/projects/tafsir/sura/${sura.n}/`}>
               <span class="reader-home__number">{ordinal(sura.n)}</span>
@@ -51,7 +89,8 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
                 <span class="reader-home__latin">{sura.latin}</span>
                 <span class="reader-home__arabic hc-quran" lang="ar" dir="rtl">{sura.ar}</span>
               </span>
-              <span class="reader-home__verses">{sura.verses} verses</span>
+              <span class="reader-home__verses">{sura.verses} verses · {n(counts[i])} passages</span>
+              <span class="reader-home__bar" aria-hidden="true"><i style={`--w:${(counts[i] / maxCount) * 100}%`}></i></span>
             </a>
           </li>
         ))}
@@ -62,23 +101,43 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
 
 <style>
   .reader-home__eyebrow { margin: 0; color: var(--hc-gold); font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
-  .reader-home__suras { padding-block: clamp(2.5rem, 6vw, 5rem); }
+  .reader-home__suras, .reader-home__works { padding-block: clamp(2.5rem, 6vw, 5rem) 0; }
+  .reader-home__suras { padding-bottom: clamp(2.5rem, 6vw, 5rem); }
   .reader-home__section-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--hc-rule); }
   .reader-home__section-head h2 { margin: 0.3rem 0 0; color: var(--hc-text-primary); font: 600 clamp(2rem, 3vw, 2.6rem)/1.05 var(--font-editorial); }
-  .reader-home__section-head > span { color: var(--hc-text-secondary); font: 500 0.8rem/1.5 var(--font-ui); }
+  .reader-home__section-head > span { color: var(--hc-text-secondary); font: 500 0.8rem/1.5 var(--font-ui); text-align: right; }
+
+  .reader-home__works-list { margin: 0; padding: 0; list-style: none; }
+  .reader-home__works-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 0.5rem 1rem; padding: 1.1rem 0; border-bottom: 1px solid var(--hc-rule-soft); }
+  .reader-home__works-list .e-sq { margin-top: 0.45rem; }
+  .reader-home__work h3 { margin: 0; color: var(--hc-text-primary); font: 600 1.1rem/1.4 var(--font-display); }
+  .reader-home__work-ar { margin-inline-start: 0.5rem; color: var(--hc-text-secondary); font: 400 1rem/1.6 var(--font-arabic); }
+  .reader-home__work-by { margin: 0.2rem 0 0; color: var(--hc-text-secondary); font: 400 0.9rem/1.5 var(--font-body); }
+  .reader-home__work-ed { margin: 0.25rem 0 0; color: var(--hc-text-tertiary); font: 400 0.92rem/1.7 var(--font-arabic); text-align: right; }
+  .reader-home__work-facts { display: grid; grid-template-columns: repeat(3, auto); gap: 0 1.5rem; margin: 0; }
+  .reader-home__work-facts dt { color: var(--hc-text-tertiary); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; }
+  .reader-home__work-facts dd { margin: 0.15rem 0 0; color: var(--hc-text-primary); font: 500 1rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
+  .reader-home__note { max-width: 70ch; margin: 1rem 0 0; color: var(--hc-text-secondary); font: 400 0.9rem/1.7 var(--font-body); }
+
   .reader-home__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
   .reader-home__grid li { min-width: 0; border-bottom: 1px solid var(--hc-rule-soft); }
-  .reader-home__grid a { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) auto; align-items: center; gap: 0.8rem; min-height: 4.5rem; padding: 0.7rem 0.65rem; color: var(--hc-text-primary); text-decoration: none; transition: background var(--motion-fast) var(--ease-standard); }
+  .reader-home__grid a { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) auto; align-items: center; gap: 0.3rem 0.8rem; min-height: 4.5rem; padding: 0.7rem 0.65rem; color: var(--hc-text-primary); text-decoration: none; transition: background var(--motion-fast) var(--ease-standard); }
   .reader-home__grid a:hover, .reader-home__grid a:focus-visible { background: var(--hc-surface-1); }
   .reader-home__number { color: var(--hc-gold); font: 600 0.8rem/1 var(--font-ui); font-variant-numeric: tabular-nums; }
   .reader-home__name { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; }
   .reader-home__latin { font: 500 0.9rem/1.4 var(--font-body); }
   .reader-home__arabic { color: var(--hc-text-secondary); font-size: 1.05rem; }
-  .reader-home__verses { color: var(--hc-text-tertiary); font: 400 0.75rem/1.4 var(--font-ui); white-space: nowrap; }
+  .reader-home__verses { color: var(--hc-text-tertiary); font: 400 0.75rem/1.4 var(--font-ui); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .reader-home__bar { grid-column: 2 / -1; display: block; height: 3px; background: var(--hc-rule-soft); }
+  .reader-home__bar i { display: block; width: var(--w); min-width: 1px; height: 100%; background: var(--hc-gold-dim); }
   @media (max-width: 760px) {
     .reader-home__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .reader-home__grid a { grid-template-columns: 2.2rem minmax(0, 1fr); gap: 0.55rem; }
+    .reader-home__grid a { grid-template-columns: 2.2rem minmax(0, 1fr); gap: 0.3rem 0.55rem; }
     .reader-home__verses { grid-column: 2; }
+    .reader-home__works-list li { grid-template-columns: auto minmax(0, 1fr); }
+    .reader-home__work-facts { grid-column: 2; }
+    .reader-home__section-head { align-items: start; flex-direction: column; }
+    .reader-home__section-head > span { text-align: left; }
   }
   @media (max-width: 480px) { .reader-home__grid { grid-template-columns: 1fr; } }
 </style>
