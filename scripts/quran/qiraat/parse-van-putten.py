@@ -41,7 +41,8 @@ SUPERSCRIPT_MAX = 7.0    # footnote references in the body are 6.5 pt
 HEADER_Y = 60            # running heads sit at y ~ 34
 
 PAGE_MARK = re.compile(r"\(P:(\d+)\)")
-VERSE_START = re.compile(r"^(\d+):\s*")
+# "12:", or a range or list of verses, "13‒14:" or "25, 26:", numbered by the first.
+VERSE_START = re.compile(r"^(\d+)(?:\s*(?:[‒–-]|,)\s*\d+)*:\s*")
 FARSH_HEADING = re.compile(r"^F\.(\d+)\.(?:\s|–|-)")
 YA_HEADING = re.compile(r"^F\.\d+\.\d+\.\s*\[(?P<kind>Yāʾs?|Removed yāʾs?) of Q(?P<sura>\d+)\]")
 USUL_HEADING = re.compile(r"^U\.(\d+(?:\.\d+)*)\.\s+(.*)")
@@ -80,9 +81,24 @@ def line_text(spans: list[dict]) -> tuple[str, list[int]]:
     """Body spans, with 6.5 pt footnote references turned into [n]."""
     out, refs = [], []
     for span in spans:
+        # Most references are 6.5 pt; a few are set a little larger, still well
+        # under the 11 pt body, so a small digit run counts too.
+        # PyMuPDF flags a superscript span with bit 0 even at body size.
+        if span["text"].strip().isdigit() and (span["size"] < BODY_MIN * 0.8 or span.get("flags", 0) & 1):
+            out.append(f"[{span['text'].strip()}]")
+            refs.append(int(span["text"].strip()))
+            continue
         if span["size"] <= SUPERSCRIPT_MAX:
             if PAGE_MARK.search(span["text"]):
-                out.append(span["text"])  # Pretzl page breaks are also set small
+                # Pretzl page breaks are also set small, sometimes in the same
+                # span as a footnote number ("457 (P:224)"): keep the page mark,
+                # and turn the number into a reference.
+                for mark, number in re.findall(r"(\(P:\d+\))|(\d+)", span["text"]):
+                    if mark:
+                        out.append(mark)
+                    else:
+                        out.append(f"[{number}]")
+                        refs.append(int(number))
                 continue
             number = span["text"].strip()
             if number.isdigit():
@@ -91,6 +107,23 @@ def line_text(spans: list[dict]) -> tuple[str, list[int]]:
             continue
         out.append(span["text"])
     return "".join(out), refs
+
+
+def heading_text(spans: list[dict]) -> tuple[str, list[int]]:
+    """A heading line, its footnote references turned into [n]. A heading is set
+    larger than body text, so its references are small relative to the line
+    rather than below the body's 7 pt cutoff."""
+    visible = [s for s in spans if s["text"].strip()]
+    top = max(s["size"] for s in visible) if visible else 0
+    out, refs = [], []
+    for span in spans:
+        number = span["text"].strip()
+        if number.isdigit() and span["size"] < top * 0.8:
+            out.append(f"[{number}]")
+            refs.append(int(number))
+            continue
+        out.append(span["text"])
+    return re.sub(r"\s+", " ", "".join(out)).strip(), refs
 
 
 def parse(pdf_path: Path) -> dict:
@@ -103,10 +136,22 @@ def parse(pdf_path: Path) -> dict:
     footnotes: dict[int, str] = {}
     current: Statement | None = None
     section, heading, sura, kind = "usul", "", None, "statement"
+    heading_refs: list[int] = []
+    heading_used = True  # whether the current heading has text under it yet
     page = None  # the Pretzl page the running text is on
 
+    def close_heading() -> None:
+        """Keep a heading with no text of its own (U.2 introduces U.2.1 to U.2.7)."""
+        if not heading_used and heading:
+            st = Statement(section, heading, sura, None, "heading", pdf_page=index + 1)
+            st.notes.extend(heading_refs)
+            statements.append(st)
+
     def open_statement(verse: int | None, pdf_page: int) -> Statement:
+        nonlocal heading_used
+        heading_used = True
         st = Statement(section, heading, sura, verse, kind, pdf_page=pdf_page)
+        st.notes.extend(heading_refs)
         if page is not None:
             st.pages.append(page)
         statements.append(st)
@@ -140,18 +185,34 @@ def parse(pdf_path: Path) -> dict:
                     ya = YA_HEADING.match(stripped)
                     farsh = FARSH_HEADING.match(stripped)
                     usul = USUL_HEADING.match(stripped)
+                    htext, hrefs = heading_text(spans)
+                    if ya or farsh or usul:
+                        close_heading()
+                        heading_used = False
                     if ya:
                         section, kind, sura = "farsh", "ya-list", int(ya.group("sura"))
-                        heading, current = stripped, None
+                        heading, heading_refs, current = htext, hrefs, None
+                        continue
+                    if farsh and int(farsh.group(1)) > 114:
+                        # F.115, the takbir at the end of the recitation, is a general
+                        # chapter after the sura-by-sura section: it joins the principles.
+                        section, kind, sura = "usul", "statement", None
+                        heading, heading_refs, current = htext, hrefs, None
                         continue
                     if farsh:
                         section, kind = "farsh", "statement"
-                        sura = int(farsh.group(1)) if int(farsh.group(1)) <= 114 else sura
-                        heading, current = stripped, None
+                        sura = int(farsh.group(1))
+                        heading, heading_refs, current = htext, hrefs, None
                         continue
                     if usul:
                         section, kind, sura = "usul", "statement", None
-                        heading, current = stripped, None
+                        heading, heading_refs, current = htext, hrefs, None
+                        continue
+                    # A heading too long for one line wraps onto a second bold
+                    # line before any body text: it continues the heading.
+                    if bold and current is None and heading and not VERSE_START.match(stripped):
+                        heading = f"{heading} {htext}"
+                        heading_refs = heading_refs + hrefs
                         continue
 
                 verse_match = VERSE_START.match(stripped) if section == "farsh" else None
@@ -177,10 +238,11 @@ def parse(pdf_path: Path) -> dict:
                             current.pages.append(page)
                 current.notes.extend(refs)
 
+    close_heading()
     records = []
     for n, st in enumerate(statements):
         text = join_lines(st.lines)
-        if not text:
+        if not text and st.kind != "heading":
             continue
         records.append({
             "id": f"vp-{n:05d}",

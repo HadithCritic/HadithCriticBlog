@@ -5,6 +5,7 @@ import ResearchHero from "../../components/ResearchHero.astro";
 import names from "../../data/quran-sura-names.json";
 import index from "../../data/qiraat/index.json";
 import silent from "../../data/qiraat/silent-suras.json";
+import vanPutten from "../../data/qiraat/van-putten-taysir.json";
 import authorities from "../../data/qiraat/sura-001.json";
 import QiraatReaderCard from "../../components/qiraat/QiraatReaderCard.astro";
 import "../../styles/qiraat.css";
@@ -16,6 +17,12 @@ import QiraatBadge from "../../components/qiraat/QiraatBadge.astro";
 /* The hub for the qirāʾāt module: every sura, what has been extracted, and how to read the colors. */
 const bySura = new Map(index.suras.map((entry) => [entry.sura, entry]));
 const silentOf = new Map(Object.entries(silent.suras).map(([n, entry]) => [Number(n), entry]));
+/* al-Danis words on a silent sura, in van Putten's translation, shown before the Arabic quotations. */
+type VpEntry = { sura: number | null; section: string; pretzl_pages: number[]; text: string };
+const vpSilent = new Map<number, VpEntry[]>();
+for (const st of vanPutten.statements as VpEntry[]) {
+  if (st.section === "farsh" && st.sura !== null && silentOf.has(st.sura)) vpSilent.set(st.sura, [...(vpSilent.get(st.sura) ?? []), st]);
+}
 const SILENT_META: Record<string, string> = { none: "No difference stated", rule: "Only a general rule", report: "Only an outside report" };
 const rulesCount = index.rules?.rules ?? 0;
 const sevenIds = ["nafi", "ibn_kathir", "abu_amr", "ibn_amir", "asim", "hamza", "kisai"];
@@ -142,6 +149,11 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
                     <QiraatBadge class="silent__tag">{SILENT_META[entry.status]}</QiraatBadge>
                   </summary>
                   <p class="silent__say">{entry.summary}</p>
+                  {(vpSilent.get(n) ?? []).map((st) => (
+                    <p class="silent__en">
+                      al-Dānī, in van Putten’s translation: “{st.text}” <span class="silent__ref">at-Taysīr, ed. Pretzl, p. {st.pretzl_pages.join("–")}; CC BY-NC 4.0.</span>
+                    </p>
+                  ))}
                   <ul class="silent__quotes">
                     {entry.quotes.map((quote) => (
                       <li>

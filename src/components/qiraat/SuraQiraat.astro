@@ -138,7 +138,7 @@ const sources = data.books.map((book) => book.short_title).join("; ");
  * cite. English leads; each book's Arabic quotation stays on the cards below.
  * A verse with several positions prints the statement at its first position.
  */
-type VpStatement = { sura: number | null; verse: number | null; section: string; pretzl_pages: number[]; text: string; footnotes: { n: number; text: string }[] };
+type VpStatement = { id: string; sura: number | null; verse: number | null; section: string; kind: string; heading: string; pretzl_pages: number[]; text: string; footnotes: { n: number; text: string }[] };
 const taysirByVerse = new Map<number, VpStatement[]>();
 for (const statement of vanPutten.statements as VpStatement[]) {
   if (statement.section !== "farsh" || statement.sura !== data.sura || statement.verse === null) continue;
@@ -149,6 +149,17 @@ for (const position of positions) {
   const verse = verseNumber(position.verse);
   if (taysirByVerse.has(verse) && !taysirFirstAt.has(verse)) taysirFirstAt.set(verse, position.id);
 }
+/*
+ * What no position carries, shown once on the sura's main page: the lists
+ * al-Dani closes the sura with (its yaʾs, numbered but with no verse), and his
+ * entries on verses the module has no position for yet. Together with the
+ * positions and the general principles page, every statement of the
+ * translation is shown somewhere.
+ */
+const taysirOfSura = (vanPutten.statements as VpStatement[]).filter((st) => st.section === "farsh" && st.sura === data.sura);
+const taysirClosing = part === null ? taysirOfSura.filter((st) => st.verse === null) : [];
+const verseHasPosition = new Set(positions.map((position) => verseNumber(position.verse)));
+const taysirUnplaced = part === null ? taysirOfSura.filter((st) => st.verse !== null && !verseHasPosition.has(st.verse)) : [];
 const vpPages = (statements: VpStatement[]) => {
   const pages = [...new Set(statements.flatMap((st) => st.pretzl_pages))].sort((a, b) => a - b);
   return pages.length === 1 ? `p. ${pages[0]}` : `pp. ${pages[0]} to ${pages[pages.length - 1]}`;
@@ -645,6 +656,57 @@ const vpPages = (statements: VpStatement[]) => {
     </section>
     )}
 
+    {(taysirClosing.length > 0 || taysirUnplaced.length > 0) && (
+    <section class="sec" id="taysir" aria-labelledby="taysir-h">
+      <header class="sec__head">
+        <h2 id="taysir-h" class="sec__title">More from al-Dānī’s at-Taysīr</h2>
+        <span class="sec__rule" aria-hidden="true"></span>
+        <span class="sec__count">{taysirClosing.length + taysirUnplaced.length}</span>
+      </header>
+      <p class="lede">
+        al-Dānī’s entries for this sura that no position above carries: any verse the module has no position for yet, and the lists he closes the sura with.
+        In Marijn van Putten’s translation (Open Book Publishers, 2026, CC BY-NC 4.0), with the page of Pretzl’s edition.
+        The general principles they rest on are on <a href="/projects/quran/taysir/">their own page</a>.
+      </p>
+      {taysirUnplaced.length > 0 && (
+        <div class="taysir-more">
+          <h3 class="taysir-more__title">Verses with no position here yet</h3>
+          {taysirUnplaced.map((st) => (
+            <div class="pos__en">
+              <p class="taysir-more__ref">{data.sura}:{st.verse}</p>
+              <p class="pos__en-text">{st.text}</p>
+              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+              {st.footnotes.length > 0 && (
+                <details class="pos__en-notes">
+                  <summary>Translator’s notes ({st.footnotes.length})</summary>
+                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {taysirClosing.length > 0 && (
+        <div class="taysir-more">
+          <h3 class="taysir-more__title">The lists that close the sura</h3>
+          {taysirClosing.map((st) => (
+            <div class="pos__en">
+              <p class="taysir-more__ref">{st.heading}</p>
+              <p class="pos__en-text">{st.text}</p>
+              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+              {st.footnotes.length > 0 && (
+                <details class="pos__en-notes">
+                  <summary>Translator’s notes ({st.footnotes.length})</summary>
+                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                </details>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+    )}
+
     <section class="sec" id="books" aria-labelledby="books-h">
       <header class="sec__head">
         <h2 id="books-h" class="sec__title">Books cited</h2>
@@ -896,6 +958,9 @@ const vpPages = (statements: VpStatement[]) => {
   .pos__en-src { margin: 0; color: var(--hc-text-tertiary); font: 500 0.78rem/1.55 var(--font-ui); }
   .pos__en-notes summary { display: inline-flex; align-items: center; min-height: 36px; margin-top: 0.3rem; color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); cursor: pointer; }
   .pos__en-notes ol { margin: 0.3rem 0 0; padding-left: 1.4rem; color: var(--hc-text-secondary); font: 400 0.85rem/1.6 var(--font-body); }
+  .taysir-more { margin-top: 1.25rem; }
+  .taysir-more__title { margin: 0 0 0.6rem; color: var(--hc-text-primary); font: 600 1.15rem/1.3 var(--font-editorial); }
+  .taysir-more__ref { margin: 0 0 0.35rem; color: var(--hc-gold); font: 500 0.82rem/1.4 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
   .pos__en-ref { margin: 0.25rem 0 1rem; color: var(--hc-text-tertiary); font: 400 0.85rem/1.5 var(--font-body); }
   .pos__en-ref a { color: var(--hc-text-secondary); }
   .sura-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--hc-rule-soft); }
