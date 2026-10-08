@@ -1,5 +1,6 @@
 ---
 import "../../styles/qiraat.css";
+import "../../styles/project-pages.css";
 import { partUrl, verseNumber, type PartSpan } from "../../lib/qiraat-parts";
 import type { SuraData } from "../../lib/qiraat-suras";
 import vanPutten from "../../data/qiraat/van-putten-taysir.json";
@@ -57,17 +58,24 @@ const positions = features.map((feature, index) => ({
 }));
 const positionNo = new Map(positions.map((p) => [p.id, p.no]));
 const lemmaOf = (position: (typeof positions)[number]) => (position.anchored ? position.words[0].text : position.lemma);
-/* A long sura gets the compact overview; a short one keeps the full tiles. */
+/* A long sura gets the compact overview; a short one keeps the full grid. */
 const dense = overview || positions.length > 14;
 /* A long sura shows only the verses that hold a position; a short one shows its whole text. */
 const partial = part !== null || data.verses.length > 20;
 const shownVerses = partial ? data.verses.filter((verse) => verse.words.some((word) => word.features.length > 0)) : data.verses;
 const bookName = (id: string) => bookOf.get(id)?.short_title ?? id;
-const labelLang = (text: string | undefined) => /[\u0600-\u06ff]/u.test(text ?? "") ? "ar" : undefined;
-const noteParts = (text: string) => text.split(/([\u0600-\u06ff]+(?:\s+[\u0600-\u06ff]+)*)/u);
+const labelLang = (text: string | undefined) => /[؀-ۿ]/u.test(text ?? "") ? "ar" : undefined;
+const noteParts = (text: string) => text.split(/([؀-ۿ]+(?:\s+[؀-ۿ]+)*)/u);
 /* A is always the reading that includes Ḥafṣ (the Cairo text); B, C and D follow inside one position. */
 const letter = (group: Group) => String.fromCharCode(65 + (group.tone ?? 0));
 const tally = (position: Feature) => position.groups.map((g) => `${g.kind === "reading" ? letter(g) : g.short} ${g.member_count}`);
+/* The one-line summary: each reading by letter, then each state once with its total. */
+const summary = (position: Feature) => {
+  const readings = position.groups.filter((g) => g.kind === "reading").map((g) => `${letter(g)} ${g.member_count}`);
+  const states = new Map<string, number>();
+  for (const g of position.groups) if (g.kind !== "reading") states.set(g.short, (states.get(g.short) ?? 0) + g.member_count);
+  return [...readings, ...[...states].map(([label, n]) => `${label} ${n}`)];
+};
 const departs = (position: Feature, id: string) => {
   const group = position.groups[position.cells[id].g];
   return group.kind === "reading" && group.tone !== 0;
@@ -93,23 +101,19 @@ const SET_LABEL: Record<string, string> = { seven: "Seven readers", ten: "Ten re
 const SCOPE: Record<string, string> = { wherever: "Wherever the word occurs", listed: "At the places the book lists" };
 const KIND_LABEL = { differs: "The books differ", reported: "Reported, not listed", unstated: "Not stated in the books cited" };
 const KIND_TITLE = { differs: "What each book gives", reported: "Reports only", unstated: "No book states these readers" };
+/* A grid cell names its state in words; the overview, at 22px a cell, uses a sign the legend explains. */
+const STATE_WORD = { differs: "differs", reported: "reported", unstated: "not stated" };
+const STATE_SIGN = { differs: "≠", reported: "r", unstated: "–" };
 
-/* Bento spans on a six-column grid; every card goes full width on narrow screens. */
-function spans(groups: Group[]): number[] {
-  if (groups.length === 1) return [6];
-  if (groups.length === 2) {
-    const [a, b] = groups.map((group) => group.member_count);
-    return Math.max(a, b) >= 14 ? (a >= b ? [4, 2] : [2, 4]) : [3, 3];
-  }
-  return groups.map((group, index) => (index === 0 && group.member_count >= 10 ? 6 : 3));
-}
-
-/* One dot per book, in the fixed book order: listed, reported or silent. */
-function dots(feature: Feature, marks: string) {
-  return bookIds.map((id) => {
-    const at = feature.books.indexOf(id);
-    return at < 0 ? "-" : marks[at];
-  });
+/* What each book says for one transmitter at one position: lists it, reports it, or is silent. */
+const MARK: Record<string, string> = { l: "lists it", r: "reports it", "-": "silent" };
+function bookTrail(feature: Feature, marks: string) {
+  return bookIds
+    .map((id) => {
+      const at = feature.books.indexOf(id);
+      return `${bookOf.get(id)?.mark ?? id} ${MARK[at < 0 ? "-" : marks[at]]}`;
+    })
+    .join(", ");
 }
 
 function citedBooks(claims: Claim[] = []) {
@@ -122,11 +126,10 @@ function citedBooks(claims: Claim[] = []) {
 const readerRules = data.qaris
   .map(
     (q) => `
-.qq:has(#qq-r-${q.id}:checked) .m-row[data-q="${q.id}"] .tile { box-shadow: 0 0 0 2px var(--hc-gold); }
-.qq:has(#qq-r-${q.id}:checked) .m-row[data-q="${q.id}"] .m-rh { box-shadow: inset 7px 0 0 var(--bg), inset 0 0 0 2px var(--hc-gold); }
-.qq:has(#qq-r-${q.id}:checked) .ov__row[data-q="${q.id}"] :is(.ov__name, .ov__base) { box-shadow: 0 0 0 2px var(--hc-gold); }
-.qq:has(#qq-r-${q.id}:checked) :is(.card, .rep):not([data-qaris~="${q.id}"]) { display: none; }
-.qq:has(#qq-r-${q.id}:checked) .who[data-q="${q.id}"] { font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.25em; }`,
+.qq:has(#qq-r-${q.id}:checked) .m-row[data-q="${q.id}"] :is(.m-rh, .tile) { box-shadow: inset 0 0 0 2px var(--hc-gold); }
+.qq:has(#qq-r-${q.id}:checked) .ov__row[data-q="${q.id}"] .ov__name { box-shadow: inset 0 0 0 2px var(--hc-gold); }
+.qq:has(#qq-r-${q.id}:checked) :is(.rdg, .rep):not([data-qaris~="${q.id}"]) { display: none; }
+.qq:has(#qq-r-${q.id}:checked) .who[data-q="${q.id}"] { border-color: var(--hc-gold); color: var(--hc-text-primary); font-weight: 700; }`,
   )
   .join("\n");
 /* Short titles read "Author, Title", so a comma between books would run them together. */
@@ -135,7 +138,7 @@ const sources = data.books.map((book) => book.short_title).join("; ");
 /*
  * at-Taysir in Marijn van Putten's translation (CC BY-NC 4.0), keyed by verse.
  * It translates Pretzl's edition, the pagination Shamela 5527 and the claims
- * cite. English leads; each book's Arabic quotation stays on the cards below.
+ * cite. English leads; each book's Arabic quotation stays with its reading below.
  * A verse with several positions prints the statement at its first position.
  */
 type VpStatement = { id: string; sura: number | null; verse: number | null; section: string; kind: string; heading: string; pretzl_pages: number[]; text: string; footnotes: { n: number; text: string }[] };
@@ -164,90 +167,143 @@ const vpPages = (statements: VpStatement[]) => {
   const pages = [...new Set(statements.flatMap((st) => st.pretzl_pages))].sort((a, b) => a - b);
   return pages.length === 1 ? `p. ${pages[0]}` : `pp. ${pages[0]} to ${pages[pages.length - 1]}`;
 };
+const swatchFor = (reader: Reader) =>
+  reader.whole ? "sw" : `sw sw--${data.qaris.find((q) => q.id === reader.qari)!.riwayat.indexOf(reader.riwayat[0].id)}`;
 ---
 
-<div class="qq">
-  <header class="hc-masthead" aria-labelledby="qq-title">
-    <div class="hc-container hc-masthead__inner">
-      <div>
-        <nav class="qq-crumbs" aria-label="Suras">
-          {prev ? <a href={`/projects/quran/sura/${prev.n}/`} rel="prev">{prev.n}. {prev.latin}</a> : <span></span>}
-          <a href="/projects/quran/#suras">Sura {name.n} of 114{part ? `, part ${part.index} of ${part.of}` : ""}</a>
-          {next ? <a href={`/projects/quran/sura/${next.n}/`} rel="next">{next.n}. {next.latin}</a> : <span></span>}
-        </nav>
-        <h1 id="qq-title" class="hc-masthead__title">{name.latin} <span class="hc-quran qq-ar" lang="ar">{name.ar}</span></h1>
-        <p class="hc-masthead__lead">
-          {part ? (
-            <>Part {part.index} of {part.of}: verses {name.n}:{part.firstVerse} to {name.n}:{part.lastVerse}, positions {positions[0].no} to {positions[positions.length - 1].no}. </>
-          ) : (
-            <>Sura {name.n}, {name.verses} verses. </>
-          )}
-          The ten qirāʾāt word by word, as reported in {sources}.
-          Every reading below is a proposal that no reviewer has checked yet.
-        </p>
-        <div class="hc-masthead__actions">
-          <a class="hc-btn" href={overview ? "#parts" : "#collation"}>{overview ? "Choose a part" : "See the collation"}</a>
-          <a class="hc-btn hc-btn--ghost" href="/projects/quran/transmission/">How the readings were transmitted</a>
-          <a class="hc-back-link hc-back-link--ruled" href="#books">Books cited</a>
-        </div>
+<div class="qq pj">
+  <header class="pj-hero" aria-labelledby="qq-title">
+    <div class="pj-shell pj-hero__inner">
+      <nav class="pj-hero__eyebrow" aria-label="Suras">
+        {prev && <a class="pj-hero__step" href={`/projects/quran/sura/${prev.n}/`} rel="prev">{prev.n}. {prev.latin}</a>}
+        <a href="/projects/quran/#suras">Sura {name.n} of 114{part ? `, part ${part.index} of ${part.of}` : ""}</a>
+        {next && <a class="pj-hero__step" href={`/projects/quran/sura/${next.n}/`} rel="next">{next.n}. {next.latin}</a>}
+      </nav>
+      <h1 id="qq-title" class="pj-hero__title">{name.latin} <span class="pj-hero__ar hc-quran" lang="ar">{name.ar}</span></h1>
+      <p class="pj-hero__lede">
+        {part && <>Part {part.index} of {part.of}: verses {name.n}:{part.firstVerse} to {name.n}:{part.lastVerse}, positions {positions[0].no} to {positions[positions.length - 1].no}. </>}
+        The ten qirāʾāt word by word, as reported in {sources}.
+      </p>
+      <ul class="pj-hero__facts" aria-label="This sura at a glance">
+        <li>Sura {name.n}, {name.verses} verses</li>
+        <li>{positions.length} {positions.length === 1 ? "position" : "positions"}</li>
+        <li>{total} transmitters</li>
+        <li>{data.books.length} books</li>
+      </ul>
+      <p class="pj-hero__notice">Every reading below is a proposal that no reviewer has checked yet.</p>
+      <div class="pj-hero__actions">
+        <a class="pj-chip pj-chip--gold" href="#books">Books cited</a>
+        <a class="pj-chip pj-chip--go" href="/projects/quran/transmission/">How the readings were transmitted</a>
       </div>
-
-      <aside class="hc-instrument" aria-label={`This sura at a glance`}>
-        <div class="hc-instrument__well">
-          <div class="hc-instrument__plate glance">
-            <dl class="glance__figures">
-              <div><dt>Positions</dt><dd class="hc-instrument__figure">{positions.length}</dd></div>
-              <div><dt>Transmitters</dt><dd class="hc-instrument__figure">{total}</dd></div>
-              <div><dt>Books</dt><dd class="hc-instrument__figure">{data.books.length}</dd></div>
-            </dl>
-            <ol class="dep" aria-label="Positions where each transmitter reads other than the Cairo text">
-              {departures.map(({ q, rows }) => (
-                <li class={`dep__q q-${q.id}`}>
-                  <span class="dep__name">{q.display}</span>
-                  <span class="dep__bars">
-                    {rows.map((row) => (
-                      <span class={`dep__line shade-${row.shade}`}>
-                        <span class="dep__who">{riwayaOf.get(row.id)?.display ?? row.id}</span>
-                        <i class="dep__bar" style={`--w:${positions.length ? (row.count / positions.length) * 100 : 0}%`}></i>
-                        <b class="dep__n">{row.count}</b>
-                      </span>
-                    ))}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </div>
-          <p class="hc-instrument__cap">Positions where each transmitter reads other than the Cairo text (the reading that includes Ḥafṣ). A count, not a ranking.</p>
-        </div>
-      </aside>
     </div>
   </header>
 
-  <div class="hc-container dockwrap">
-    <fieldset class="dock">
-      <legend class="dock__label">Focus on</legend>
-      <label class="chip">
-        <input class="chip__input" type="radio" name="qq-reader" id="qq-r-all" checked />
-        <span>All ten</span>
-      </label>
-      {data.qaris.map((q) => (
-        <label class={`chip q-${q.id}`}>
-          <input class="chip__input" type="radio" name="qq-reader" id={`qq-r-${q.id}`} />
-          <i class="sw" aria-hidden="true"></i><span>{q.display}</span><span class="chip__ar" lang="ar">{q.name_ar}</span>
-        </label>
-      ))}
-    </fieldset>
+  <div class="pj-about">
+    <div class="pj-shell pj-about__row">
+      <details class="pj-disc">
+        <summary><span class="pj-disc__title">Summary by reader</span></summary>
+        <div class="pj-disc__body">
+          <p>Positions where each transmitter reads other than the Cairo text (the reading that includes Ḥafṣ). A count, not a ranking.</p>
+          <ol class="dep" aria-label="Positions where each transmitter reads other than the Cairo text">
+            {departures.map(({ q, rows }) => (
+              <li class={`dep__q q-${q.id}`}>
+                <span class="dep__name">{q.display} <span lang="ar">{q.name_ar}</span></span>
+                <span class="dep__bars">
+                  {rows.map((row) => (
+                    <span class={`dep__line shade-${row.shade}`}>
+                      <span class="dep__who">{riwayaOf.get(row.id)?.display ?? row.id}</span>
+                      <span class="dep__track" aria-hidden="true"><i class="dep__bar" style={`--w:${positions.length ? (row.count / positions.length) * 100 : 0}%`}></i></span>
+                      <b class="dep__n">{row.count}</b>
+                    </span>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </details>
+      <details class="pj-disc">
+        <summary><span class="pj-disc__title">How to read this</span></summary>
+        <div class="pj-disc__body">
+          <dl>
+            <div><dt>Quotations</dt><dd>Each quotation is the book’s own wording, with the vowel marks of the edition we hold. Short Arabic labels are excerpts of its descriptions. English labels and the grouping are ours.</dd></div>
+            <div><dt>Reader sets</dt><dd>When a book says “the others”, we apply it to the readers that book covers. A seven-reader book says nothing about the other three, and the page says so.</dd></div>
+            <div><dt>Reports</dt><dd>A book may pass on a reading through a named student, record one and reject it, say a reader’s reading is disputed, or permit another way of beginning a word. These stay apart from what the book lists outright.</dd></div>
+            <div><dt>Review</dt><dd>No reading has been reviewed. Each is checked only for one thing: that the quoted words appear on the cited page. Whether a reader was assigned to the right reading has not been checked by a person.</dd></div>
+          </dl>
+        </div>
+      </details>
+    </div>
   </div>
 
-  <div class="hc-container qq-body">
+  <div class="pj-toolbar pj-toolbar--sticky">
+    <div class="pj-shell pj-toolbar__row">
+      <div class="pj-toolbar__group pj-toolbar__group--scroll" role="radiogroup" aria-labelledby="qq-focus-label">
+        <span class="pj-toolbar__label" id="qq-focus-label">Focus on</span>
+        <label class="pj-chip">
+          <input class="pj-chip__input" type="radio" name="qq-reader" id="qq-r-all" checked />
+          <span>All ten</span>
+        </label>
+        {data.qaris.map((q) => (
+          <label class={`pj-chip q-${q.id}`}>
+            <input class="pj-chip__input" type="radio" name="qq-reader" id={`qq-r-${q.id}`} />
+            <i class="sw" aria-hidden="true"></i><span>{q.display}</span>
+          </label>
+        ))}
+      </div>
+      <div class="pj-toolbar__end">
+        <details class="pj-legend">
+          <summary class="pj-chip">Legend</summary>
+          <div class="pj-legend__panel">
+            <div class="pj-legend__group">
+              <p class="pj-legend__cap">Readers</p>
+              <p class="legend__line">Each reader has one color. His two transmitters are its deeper and its lighter shade.</p>
+              <ul class="pj-legend__cols">
+                {data.qaris.map((q) => (
+                  <li class={`q-${q.id}`}><span class="legend__pair" aria-hidden="true"><i class="sw sw--0"></i><i class="sw sw--1"></i></span>{q.display} <span lang="ar">{q.name_ar}</span></li>
+                ))}
+              </ul>
+            </div>
+            <div class="pj-legend__group">
+              <p class="pj-legend__cap">Readings</p>
+              <ul>
+                <li><b class="lt" aria-hidden="true">A</b>The letter is the reading. A is the reading of the Cairo text, the one that includes Ḥafṣ.</li>
+                <li><b class="lt" aria-hidden="true">B</b>B, C and D are the other readings at the same position.</li>
+              </ul>
+            </div>
+            <div class="pj-legend__group">
+              <p class="pj-legend__cap">States</p>
+              <ul>
+                <li><span class="tile tile--key q-asim shade-0 is-differs" aria-hidden="true"><span class="tile__state">differs</span></span>The books differ. The overview marks it ≠.</li>
+                <li><span class="tile tile--key q-asim shade-0 is-reported" aria-hidden="true"><i class="pj-dot"></i><span class="tile__state">reported</span></span>Reported, not listed. A dashed border; the overview marks it r.</li>
+                <li><span class="tile tile--key q-asim shade-0 is-unstated" aria-hidden="true"><i class="pj-dot"></i><span class="tile__state">not stated</span></span>Not stated in the books cited. A dotted border; the overview marks it –.</li>
+              </ul>
+            </div>
+            <div class="pj-legend__group">
+              <p class="pj-legend__cap">Books</p>
+              <p class="legend__line">In the grid, point at or focus a cell to see what each book says for that transmitter: lists it, reports it, or silent. The books, in order: {data.books.map((book) => book.mark).join(" ")}.</p>
+            </div>
+          </div>
+        </details>
+        {!overview && (
+          <>
+            <button type="button" class="pj-btn" data-qq-expand hidden>Expand all</button>
+            <button type="button" class="pj-btn" data-qq-collapse hidden>Collapse all</button>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+
+  <div class="pj-shell qq-body">
     {overview && (
-      <section class="sec" id="parts" aria-labelledby="parts-h">
-        <header class="sec__head">
-          <h2 id="parts-h" class="sec__title">Parts of the sura</h2>
-          <span class="sec__rule" aria-hidden="true"></span>
-          <span class="sec__count">{parts.length}</span>
+      <section class="pj-section" id="parts" aria-labelledby="parts-h">
+        <header class="pj-head">
+          <h2 id="parts-h" class="pj-head__title">Parts of the sura</h2>
+          <span class="pj-head__rule" aria-hidden="true"></span>
+          <span class="pj-head__count">{parts.length} parts</span>
         </header>
-        <p class="lede">
+        <p class="pj-lede">
           {positions.length} positions are too many for one page, so the sura is set out in {parts.length} parts. A part never splits a verse, and a position keeps its number from part to part.
           The overview below shows all of them at once, left to right through the sura.
         </p>
@@ -272,197 +328,22 @@ const vpPages = (statements: VpStatement[]) => {
     )}
 
     {!overview && (
-    <section class="sec" id="passage" aria-labelledby="passage-h">
-      <header class="sec__head">
-        <h2 id="passage-h" class="sec__title">{partial ? "The verses with a difference" : "The passage"}</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{shownVerses.length}</span>
-      </header>
-      <div class="passage">
-        <div class="leaf">
-          <p class="leaf__cap">Cairo 1924 edition</p>
-          <ol class="verses">
-            {shownVerses.map((verse) => (
-              <li class="verse">
-                <span class="verse__ref">{data.sura}:{verse.number}</span>
-                <p class="verse__text hc-quran" lang="ar">
-                  {verse.words.map((word, index) => (
-                    <>
-                      {index > 0 && " "}
-                      {word.features.length > 0 ? (
-                        <a class="w" href={`#${word.features[0]}`}>{word.text}<span class="disc" aria-label={`position ${positionNo.get(word.features[0])}`}>{positionNo.get(word.features[0])}</span></a>
-                      ) : (
-                        <span>{word.text}</span>
-                      )}
-                    </>
-                  ))}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <nav class="index" aria-labelledby="index-cap">
-          <p class="index__cap" id="index-cap">Where the ten differ</p>
-          <ol>
-            {positions.map((position) => (
-              <li>
-                <a class="index__row" href={`#${position.id}`}>
-                  <span class="disc disc--lg">{position.no}</span>
-                  <span class="index__name">{position.ref}</span>
-                  <span class="index__ar hc-quran" lang="ar">{position.anchored ? position.words[0].text : position.lemma}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
-      </div>
-    </section>
-    )}
-
-    <section class="sec" id="collation" aria-labelledby="collation-h">
-      <header class="sec__head">
-        <h2 id="collation-h" class="sec__title">The collation</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{total}</span>
+    <section class="pj-section" id="positions" aria-labelledby="positions-h">
+      <header class="pj-head">
+        <h2 id="positions-h" class="pj-head__title">Position by position</h2>
+        <span class="pj-head__rule" aria-hidden="true"></span>
+        <span class="pj-head__count">{positions.length} {positions.length === 1 ? "position" : "positions"}</span>
       </header>
 
-      {!dense && (
-        <>
-          <p class="lede">
-            Each row is a transmitter, each column a word. A tile is in his reader’s color and carries a letter for the reading he has there. The dots show which of the {bookIds.length} {bookIds.length === 1 ? "book says" : "books say"} so.
-          </p>
-          <div class="frame">
-            <div class="matrix" role="region" aria-label="Collation matrix" tabindex="0">
-              <table>
-                <caption class="sr-only">Readings of the twenty transmitters at {positions.length} positions in {name.latin}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col" class="m-corner">Transmitter</th>
-                    {positions.map((position) => (
-                      <th scope="col" class="m-col">
-                        <a href={`#${position.id}`}>
-                          <span class="m-col__top"><span class="disc">{position.no}</span><span class="m-col__ref">{position.ref}</span></span>
-                          <span class="m-col__ar hc-quran" lang="ar">{position.anchored ? position.words[0].text : position.lemma}</span>
-                          <span class="m-col__tally">{tally(position).join(" · ")}</span>
-                        </a>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                {data.qaris.map((q) => (
-                  <tbody class="m-group">
-                    {q.riwayat.map((id, index) => (
-                      <tr class="m-row" data-q={q.id}>
-                        <th scope="row" class={`m-rh ${wear.get(id)}`}>
-                          {index === 0 && <span class="m-rh__q">{q.display} <span lang="ar">{q.name_ar}</span></span>}
-                          <span class="m-rh__r">{riwayaOf.get(id)!.display}</span>
-                        </th>
-                        {positions.map((position) => {
-                          const cell = position.cells[id];
-                          const group = position.groups[cell.g];
-                          const marks = dots(position, cell.b);
-                          const state = group.kind === "reading" ? (group.tone === 0 ? "" : " dev") : ` is-${group.kind}`;
-                          return (
-                            <td>
-                              <a class={`tile ${wear.get(id)}${state}`} href={`#${position.id}`}
-                                aria-label={`${riwayaOf.get(id)!.display}, ${position.ref}: ${group.kind === "reading" ? `reading ${letter(group)}, ` : ""}${group.short}. ${marks.filter((m) => m === "l").length} of ${bookIds.length} books list it.`}>
-                                <span class="tile__label">{group.kind === "reading" && <b class="lt">{letter(group)}</b>}<bdi lang={labelLang(group.short)}>{group.short}</bdi></span>
-                                <span class="dots" aria-hidden="true">{marks.map((m) => <i class={`dot dot--${m === "-" ? "off" : m}`}></i>)}</span>
-                              </a>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                ))}
-              </table>
-            </div>
-            <ul class="key" aria-label="How to read a tile">
-              <li><span class="key__pair q-nafi" aria-hidden="true"><i class="sw sw--0"></i><i class="sw sw--1"></i></span>Each reader has one color. His two transmitters are its deeper and its lighter shade.</li>
-              <li><span class="tile tile--mini q-yaqub shade-0" aria-hidden="true"><b class="lt">A</b></span>The letter is the reading. A is the reading of the Cairo text, the one that includes Ḥafṣ.</li>
-              <li><span class="tile tile--mini q-yaqub shade-0 dev" aria-hidden="true"><b class="lt">B</b></span>A ring marks any reading other than A.</li>
-              <li><span class="tile tile--mini q-asim shade-0 is-differs" aria-hidden="true"></span>Hatched: the books differ.</li>
-              <li><span class="tile tile--mini q-asim shade-0 is-reported" aria-hidden="true"></span>Dashed: reported, not listed.</li>
-              <li><span class="tile tile--mini q-asim shade-0 is-unstated" aria-hidden="true"></span>Dotted: not stated in the books cited.</li>
-              <li class="key__dots">
-                <span class="dots dots--key" aria-hidden="true"><i class="dot dot--l"></i><i class="dot dot--r"></i><i class="dot dot--off"></i></span>
-                One dot per book, in this order: {data.books.map((book) => book.mark).join(" ")}. Round: lists it. Square: reports it. Ring: silent.
-              </li>
-            </ul>
-          </div>
-        </>
-      )}
-
-      {dense && (
-        <>
-          <p class="lede">
-            One row per transmitter, one column per position, left to right through the sura. A colored square with a letter is a reading other than the Cairo text; a plain baseline means he reads as the Cairo text does.
-            {overview
-              ? "Scroll sideways to follow the sura. The parts above set the same facts out in words, with the quotations."
-              : "Scroll sideways, or use the jump links to reach a position. The same facts are set out in words in each position below."}
-          </p>
-          {overview ? (
-            <nav class="jump" aria-label="Jump to a part">
-              {parts.map((span) => <a href={partUrl(name.n, span.index)}>{name.n}:{span.firstVerse}</a>)}
-            </nav>
-          ) : (
-            <nav class="jump" aria-label="Jump to a position">
-              {positions.filter((_, i) => i % Math.ceil(positions.length / 12) === 0).map((position) => (
-                <a href={`#${position.id}`}>{position.ref}</a>
-              ))}
-            </nav>
-          )}
-          <div class="frame">
-            <div class="ov" role="region" aria-label="Overview of departures from the Cairo text" tabindex="0">
-              <div class="ov__grid" style={`--n:${positions.length}`} aria-hidden="true">
-                {data.qaris.flatMap((q) =>
-                  q.riwayat.map((id) => (
-                    <div class={`ov__row ${wear.get(id)}`} data-q={q.id}>
-                      <span class="ov__name">{riwayaOf.get(id)!.display}</span>
-                      <i class="ov__base"></i>
-                      {positions.map((position, index) => {
-                        const group = position.groups[position.cells[id].g];
-                        const col = `grid-column:${index + 2}`;
-                        if (group.kind === "reading" && group.tone === 0) return null;
-                        return group.kind === "reading"
-                          ? <i class="ov__t is-dev" style={col}>{letter(group)}</i>
-                          : <i class={`ov__t is-${group.kind}`} style={col}></i>;
-                      })}
-                    </div>
-                  )),
-                )}
-              </div>
-            </div>
-            <ul class="key" aria-label="How to read the overview">
-              <li><span class="key__pair q-nafi" aria-hidden="true"><i class="sw sw--0"></i><i class="sw sw--1"></i></span>Each reader has one color. His two transmitters are its deeper and its lighter shade.</li>
-              <li><span class="ov__t is-dev q-yaqub shade-0 ov__t--key" aria-hidden="true">B</span>A letter marks a reading other than A. A is the Cairo text, the one that includes Ḥafṣ.</li>
-              <li><span class="ov__t is-differs q-asim shade-0 ov__t--key" aria-hidden="true"></span>Hatched: the books differ.</li>
-              <li><span class="ov__t is-reported q-asim shade-0 ov__t--key" aria-hidden="true"></span>Dashed: reported, not listed.</li>
-              <li><span class="ov__t is-unstated q-asim shade-0 ov__t--key" aria-hidden="true"></span>Dotted: the book states nothing for this transmitter.</li>
-            </ul>
-          </div>
-        </>
-      )}
-    </section>
-
-    {!overview && (
-    <section class="sec" id="positions" aria-labelledby="positions-h">
-      <header class="sec__head">
-        <h2 id="positions-h" class="sec__title">Position by position</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{positions.length}</span>
-      </header>
-
-      {positions.map((position) => {
-        const layout = spans(position.groups);
-        return (
-          <article class="pos" id={position.id} aria-labelledby={`${position.id}-h`}>
+      <ol class="poslist">
+      {positions.map((position) => (
+        <li>
+          <article class="pos pj-card" id={position.id} aria-labelledby={`${position.id}-h`}>
             <header class="pos__head">
-              <div>
+              <div class="pos__id">
                 <p class="pos__no">
-                  <span class="disc disc--lg">{position.no}</span> {position.ref}
+                  <span class="disc">{position.no}</span>
+                  <a href={`#${position.id}`}>{position.ref}</a>
                   {position.scope && position.scope !== "here" && <span class="pos__scope">{SCOPE[position.scope]}</span>}
                 </p>
                 {position.farsh ? (
@@ -470,16 +351,9 @@ const vpPages = (statements: VpStatement[]) => {
                 ) : (
                   <h3 class="pos__title" id={`${position.id}-h`}>{position.label}</h3>
                 )}
-                <div class="gs" role="img" aria-label={`Who reads what: ${tally(position).join(", ")}`}>
-                  {position.groups.map((group) => (
-                    <div class="gs__g">
-                      <span class="gs__k">{group.kind === "reading" ? letter(group) : group.short} <b>{group.member_count}</b></span>
-                      <span class="gs__cells">{group.members.map((id) => <i class={`cell ${wear.get(id)}`} title={riwayaOf.get(id)!.display}></i>)}</span>
-                    </div>
-                  ))}
-                </div>
+                <p class="pos__tally" aria-label={`Who reads what: ${tally(position).join(", ")}`}>{summary(position).join(" · ")}</p>
               </div>
-              {position.anchored && <p class="specimen hc-quran" lang="ar">{position.words.map((word) => word.text).join(" ")}</p>}
+              {position.anchored && <p class="pos__word hc-quran" lang="ar">{position.words.map((word) => word.text).join(" ")}</p>}
             </header>
 
             {(() => {
@@ -488,17 +362,17 @@ const vpPages = (statements: VpStatement[]) => {
               if (!statements) return null;
               const first = taysirFirstAt.get(verse);
               if (first !== position.id) {
-                return <p class="pos__en-ref">al-Dānī’s entry for {data.sura}:{verse} is translated at <a href={`#${first}`}>position {positionNo.get(first!)}</a>.</p>;
+                return <p class="pj-note">al-Dānī’s entry for {data.sura}:{verse} is translated at <a href={`#${first}`}>position {positionNo.get(first!)}</a>.</p>;
               }
               const notes = statements.flatMap((st) => st.footnotes);
               return (
-                <div class="pos__en">
-                  {statements.map((st) => <p class="pos__en-text">{st.text}</p>)}
-                  <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages(statements)}, on {data.sura}:{verse}. Translated by Marijn van Putten (Open Book Publishers, 2026, CC BY-NC 4.0). The Arabic of each book is quoted on the cards below.</p>
+                <div class="en">
+                  {statements.map((st) => <p class="en__text">{st.text}</p>)}
+                  <p class="en__src">al-Dānī, <i>at-Taysīr</i>, {vpPages(statements)}, on {data.sura}:{verse}. Translated by Marijn van Putten (Open Book Publishers, 2026, CC BY-NC 4.0). The Arabic of each book is quoted with its reading below.</p>
                   {notes.length > 0 && (
-                    <details class="pos__en-notes">
+                    <details class="pj-disc pj-disc--quiet">
                       <summary>Translator’s notes ({notes.length})</summary>
-                      <ol>{notes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                      <ol class="en__notes">{notes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
                     </details>
                   )}
                 </div>
@@ -506,31 +380,42 @@ const vpPages = (statements: VpStatement[]) => {
             })()}
 
             {!position.anchored && position.farsh && (
-              <p class="pos__flag">The book’s word could not be matched to a word of this verse, so it is shown at the verse the extraction named.</p>
+              <p class="pj-note"><span class="pj-note__k">Note</span>The book’s word could not be matched to a word of this verse, so it is shown at the verse the extraction named.</p>
             )}
-            {position.note && <p class="pos__flag">{noteParts(position.note).map((text) => <bdi lang={labelLang(text)}>{text}</bdi>)}</p>}
+            {position.note && <p class="pj-note"><span class="pj-note__k">Note</span>{noteParts(position.note).map((text) => <bdi lang={labelLang(text)}>{text}</bdi>)}</p>}
             {position.unresolved && position.unresolved.length > 0 && (
-              <p class="pos__flag">
-                Not assigned to any reader:{" "}
+              <p class="pj-note">
+                <span class="pj-note__k">Note</span>Not assigned to any reader:{" "}
                 {position.unresolved.map((u, i) => (
                   <>{i > 0 && "; "}<bdi lang="ar">{u.span}</bdi> ({noteParts(u.reason).map((text) => <bdi lang={labelLang(text)}>{text}</bdi>)})</>
                 ))}
               </p>
             )}
 
-            <ol class="cards">
-              {position.groups.map((group, index) => {
+            <ol class="rdgs" aria-label="Readings at this position">
+              {position.groups.map((group) => {
                 const books = citedBooks(group.claims);
                 return (
-                  <li class={`card card--${group.kind}${group.tone === 0 ? " card--base" : ""}`} style={`grid-column: span ${layout[index]}`} data-qaris={group.qaris.join(" ")}>
-                    <div class="card__top">
-                      <p class="card__kind">
-                        {group.kind === "reading" && <b class="lt lt--lg">{letter(group)}</b>}
-                        {group.kind === "reading" ? (group.includes_hafs ? "Includes Ḥafṣ, the Cairo text" : "Reading") : KIND_LABEL[group.kind]}
-                      </p>
-                      <p class="card__n"><b>{group.member_count}</b> of {total}</p>
+                  <li class={`rdg rdg--${group.kind}`} data-qaris={group.qaris.join(" ")}>
+                    <div class="rdg__head">
+                      {group.kind === "reading"
+                        ? <b class="lt lt--lg" aria-label={`Reading ${letter(group)}`}>{letter(group)}</b>
+                        : <span class="rdg__state">{KIND_LABEL[group.kind]}</span>}
+                      <div class="rdg__what">
+                        <p class="rdg__value"><bdi lang={labelLang(group.value_label)}>{group.kind === "reading" ? group.value_label : KIND_TITLE[group.kind]}</bdi></p>
+                        {group.kind === "reading" && group.includes_hafs && <p class="rdg__kind">Includes Ḥafṣ, the Cairo text</p>}
+                      </div>
+                      <p class="rdg__n"><b>{group.member_count}</b> of {total}</p>
                     </div>
-                    <h4 class="card__title"><bdi lang={labelLang(group.value_label)}>{group.kind === "reading" ? group.value_label : KIND_TITLE[group.kind]}</bdi></h4>
+
+                    <ul class="rdg__who" aria-label="Read by">
+                      {group.readers.map((reader) => (
+                        <li><a class={`who q-${reader.qari}`} data-q={reader.qari} href={`/projects/quran/readers/${reader.qari}/`}>
+                          <i class={swatchFor(reader)} aria-hidden="true"></i>
+                          {reader.display}{!reader.whole && ` (${reader.riwayat.map((r) => r.display).join(", ")})`}
+                        </a></li>
+                      ))}
+                    </ul>
 
                     {group.forms && group.forms.length > 0 && (
                       <ul class="forms" aria-label="As written in the books">
@@ -540,46 +425,36 @@ const vpPages = (statements: VpStatement[]) => {
                       </ul>
                     )}
                     {group.by_book && (
-                      <ul class="bybook">
+                      <ul class="bybook" aria-label="What each book gives">
                         {group.by_book.map((entry) => (
-                          <li><b class="mk mk--on">{bookOf.get(entry.book_id)?.mark}</b>{entry.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}</li>
+                          <li><b class="mk">{bookOf.get(entry.book_id)?.mark}</b><span>{entry.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}</span></li>
                         ))}
                       </ul>
                     )}
-                    {group.values && <p class="card__note">Reports only: {group.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}. See below.</p>}
-
-                    <p class="card__who">
-                      <span class="card__k">Read by</span>
-                      {group.readers.map((reader, i) => (
-                        <>
-                          {i > 0 && " "}
-                          <span class={`who q-${reader.qari}`} data-q={reader.qari}>
-                            <i class={reader.whole ? "sw" : `sw sw--${data.qaris.find((q) => q.id === reader.qari)!.riwayat.indexOf(reader.riwayat[0].id)}`} aria-hidden="true"></i>
-                            {reader.display}{!reader.whole && ` (${reader.riwayat.map((r) => r.display).join(", ")})`}{i < group.readers.length - 1 && ","}
-                          </span>
-                        </>
-                      ))}
-                    </p>
+                    {group.values && <p class="rdg__note">Reports only: {group.values.map((v, i) => <>{i > 0 && "; "}<bdi lang={labelLang(v.label)}>{v.label}</bdi></>)}. See below.</p>}
 
                     {group.claims && group.claims.length > 0 && (
-                      <details class="card__src">
-                        <summary>
-                          <span class="marks" aria-hidden="true">{data.books.map((book) => <b class:list={["mk", { "mk--on": books.some((b) => b.id === book.book_id) }]}>{book.mark}</b>)}</span>
-                          Books and quotations ({group.claims.length})
-                        </summary>
-                        <ul class="pages">{books.map((b) => <li><span>{bookName(b.id)}</span> {b.pages}</li>)}</ul>
-                        <ul class="quotes">
-                          {group.claims.map((claim) => (
-                            <li>
-                              <p class="quotes__ref">{bookName(claim.book_id)}, {claim.page}</p>
-                              <blockquote class="quotes__ar" lang="ar">{claim.quote}</blockquote>
-                              <p class="quotes__how">
-                                {claim.via.map((v) => VIA[v]).join(". ")}{!claim.quote_is_exact_raw && ". The quotation runs over a page break, so its vowel marks are omitted"}
-                              </p>
-                              {claim.note && <p class="quotes__how">{claim.note}</p>}
-                            </li>
-                          ))}
-                        </ul>
+                      <details class="src">
+                        <summary class="pj-chip">Sources ({group.claims.length})</summary>
+                        <div class="src__body">
+                          <p class="src__marks">
+                            <span class="src__k">Cited in</span>
+                            {data.books.map((book) => <b class:list={["mk", { "mk--off": !books.some((b) => b.id === book.book_id) }]} title={book.short_title}>{book.mark}</b>)}
+                          </p>
+                          <ul class="pages">{books.map((b) => <li><span>{bookName(b.id)}</span> {b.pages}</li>)}</ul>
+                          <ul class="quotes">
+                            {group.claims.map((claim) => (
+                              <li>
+                                <p class="quotes__ref">{bookName(claim.book_id)}, {claim.page}</p>
+                                <blockquote class="quotes__ar" lang="ar">{claim.quote}</blockquote>
+                                <p class="quotes__how">
+                                  {claim.via.map((v) => VIA[v]).join(". ")}{!claim.quote_is_exact_raw && ". The quotation runs over a page break, so its vowel marks are omitted"}
+                                </p>
+                                {claim.note && <p class="quotes__how">{claim.note}</p>}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </details>
                     )}
                   </li>
@@ -588,9 +463,9 @@ const vpPages = (statements: VpStatement[]) => {
             </ol>
 
             {position.reports.length > 0 && (
-              <details class="reports">
+              <details class="pj-disc pj-disc--quiet more">
                 <summary>{position.reports.some((report) => report.basis === "permitted") ? "Also reported or permitted in the books" : "Also reported in the books"} ({position.reports.length})</summary>
-                <ul>
+                <ul class="more__list">
                   {position.reports.map((report) => (
                     <li class="rep" data-qaris={[...new Set(report.readers.map((r) => r.qari))].join(" ")}>
                       <p class="quotes__ref">
@@ -605,10 +480,10 @@ const vpPages = (statements: VpStatement[]) => {
             )}
 
             {(position.route_entries ?? []).length > 0 && (
-              <details class="reports routes">
+              <details class="pj-disc pj-disc--quiet more">
                 <summary>Routes read below the transmitters ({position.route_entries!.reduce((n, item) => n + item.entries.length, 0)})</summary>
                 <p class="quotes__how">Narrators outside the twenty transmitters, and what the book says each reports. Read by hand from the passage quoted under each; the reading number links to the readings above only where the form is the same.</p>
-                <ul>
+                <ul class="more__list">
                   {position.route_entries!.map((item) => (
                     <li class="rep">
                       <p class="quotes__ref">{bookName(item.book_id)}, {item.page}.</p>
@@ -630,10 +505,10 @@ const vpPages = (statements: VpStatement[]) => {
               </details>
             )}
             {(position.route_notes ?? []).length > 0 && (
-              <details class="reports routes">
+              <details class="pj-disc pj-disc--quiet more">
                 <summary>Routes named below the transmitters, not read ({position.route_notes!.length})</summary>
                 <p class="quotes__how">The books below give the reading through narrators outside the twenty transmitters. The passages are quoted as printed; they are not entered as readings here.</p>
-                <ul>
+                <ul class="more__list">
                   {position.route_notes!.map((note) => (
                     <li class="rep">
                       <p class="quotes__ref">{bookName(note.book_id)}, {note.page}. Narrators named: {note.narrators.map((name, index) => (<Fragment><bdi lang="ar">{name}</bdi>{index < note.narrators.length - 1 ? ", " : ""}</Fragment>))}.</p>
@@ -644,359 +519,473 @@ const vpPages = (statements: VpStatement[]) => {
               </details>
             )}
           </article>
-        );
-      })}
+        </li>
+      ))}
+      </ol>
       {part && (
-        <nav class="partnav" aria-label={`Parts of ${name.latin}`}>
-          {part.index > 1 ? <a href={partUrl(name.n, part.index - 1)} rel="prev"> Part {part.index - 1}, from {name.n}:{parts[part.index - 2].firstVerse}</a> : <span></span>}
-          <a href={`/projects/quran/sura/${name.n}/#parts`}>All {part.of} parts</a>
+        <nav class="pj-pager" aria-label={`Parts of ${name.latin}`}>
+          {part.index > 1 ? <a href={partUrl(name.n, part.index - 1)} rel="prev">Part {part.index - 1}, from {name.n}:{parts[part.index - 2].firstVerse}</a> : <span></span>}
+          <a class="pj-pager__index" href={`/projects/quran/sura/${name.n}/#parts`}>All {part.of} parts</a>
           {part.index < part.of ? <a href={partUrl(name.n, part.index + 1)} rel="next">Part {part.index + 1}, from {name.n}:{parts[part.index].firstVerse}</a> : <span></span>}
         </nav>
       )}
     </section>
     )}
 
-    {(taysirClosing.length > 0 || taysirUnplaced.length > 0) && (
-    <section class="sec" id="taysir" aria-labelledby="taysir-h">
-      <header class="sec__head">
-        <h2 id="taysir-h" class="sec__title">More from al-Dānī’s at-Taysīr</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{taysirClosing.length + taysirUnplaced.length}</span>
+    {!overview && (
+    <section class="pj-section" id="passage" aria-labelledby="passage-h">
+      <header class="pj-head">
+        <h2 id="passage-h" class="pj-head__title">{partial ? "The verses with a difference" : "The passage"}</h2>
+        <span class="pj-head__rule" aria-hidden="true"></span>
+        <span class="pj-head__count">{shownVerses.length} {shownVerses.length === 1 ? "verse" : "verses"}</span>
       </header>
-      <p class="lede">
+      <div class="passage pj-card">
+        <p class="passage__cap">Cairo 1924 edition. A numbered word opens its position above.</p>
+        <ol class="verses">
+          {shownVerses.map((verse) => (
+            <li class="verse">
+              <span class="verse__ref">{data.sura}:{verse.number}</span>
+              <p class="verse__text hc-quran" lang="ar">
+                {verse.words.map((word, index) => (
+                  <>
+                    {index > 0 && " "}
+                    {word.features.length > 0 ? (
+                      <a class="w" href={`#${word.features[0]}`}>{word.text}<span class="w__no" aria-label={`position ${positionNo.get(word.features[0])}`}>{positionNo.get(word.features[0])}</span></a>
+                    ) : (
+                      <span>{word.text}</span>
+                    )}
+                  </>
+                ))}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+    )}
+
+    <section class="pj-section" id="collation" aria-labelledby="collation-h">
+      <details class="pj-disc pj-disc--card grid" open={overview}>
+        <summary>
+          <h2 id="collation-h" class="pj-disc__title grid__title">Full collation grid</h2>
+          <span class="pj-disc__meta">{total} transmitters, {positions.length} {positions.length === 1 ? "position" : "positions"}</span>
+        </summary>
+        <div class="pj-disc__body">
+          {!dense && (
+            <>
+              <p class="pj-lede">
+                Each row is a transmitter, each column a word. A cell carries the letter of the reading he has there, in his reader’s color, or names its state. Point at or focus a cell to see which of the {bookIds.length} {bookIds.length === 1 ? "book says" : "books say"} so; the same facts are set out in words in each position above.
+              </p>
+              <div class="matrix" role="region" aria-label="Collation matrix" tabindex="0">
+                <table style={`--cols:${positions.length}`}>
+                  <caption class="sr-only">Readings of the twenty transmitters at {positions.length} positions in {name.latin}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col" class="m-corner">Transmitter</th>
+                      {positions.map((position) => (
+                        <th scope="col" class="m-col">
+                          <a href={`#${position.id}`}>
+                            <span class="m-col__top"><span class="disc">{position.no}</span><span class="m-col__ref">{position.ref}</span></span>
+                            <span class="m-col__ar hc-quran" lang="ar">{lemmaOf(position)}</span>
+                            <span class="m-col__tally">{tally(position).join(" · ")}</span>
+                          </a>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  {data.qaris.map((q) => (
+                    <tbody class="m-group">
+                      {q.riwayat.map((id, index) => (
+                        <tr class="m-row" data-q={q.id}>
+                          <th scope="row" class={`m-rh ${wear.get(id)}`}>
+                            {index === 0 && <span class="m-rh__q">{q.display} <span lang="ar">{q.name_ar}</span></span>}
+                            <span class="m-rh__r"><i class="pj-dot" aria-hidden="true"></i>{riwayaOf.get(id)!.display}</span>
+                          </th>
+                          {positions.map((position) => {
+                            const cell = position.cells[id];
+                            const group = position.groups[cell.g];
+                            const trail = bookTrail(position, cell.b);
+                            const what = group.kind === "reading" ? `reading ${letter(group)}, ${group.short}` : group.short;
+                            return (
+                              <td>
+                                <a class={`tile ${wear.get(id)} is-${group.kind}`} href={`#${position.id}`}
+                                  data-tip={`${riwayaOf.get(id)!.display}, ${position.ref}: ${what}. ${trail}.`}
+                                  title={`${what}. ${trail}.`}
+                                  aria-label={`${riwayaOf.get(id)!.display}, ${position.ref}: ${what}. ${trail}.`}>
+                                  {group.kind === "reading"
+                                    ? <b class="tile__lt">{letter(group)}</b>
+                                    : <>{group.kind !== "differs" && <i class="pj-dot"></i>}<span class="tile__state">{STATE_WORD[group.kind]}</span></>}
+                                </a>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
+                </table>
+              </div>
+              <p class="readout" data-qq-readout aria-live="polite" hidden>Point at or focus a cell to read what each book says.</p>
+            </>
+          )}
+
+          {dense && (
+            <>
+              <p class="pj-lede">
+                One row per transmitter, one column per position, left to right through the sura. A colored square with a letter is a reading other than the Cairo text; a plain baseline means he reads as the Cairo text does.
+                {overview
+                  ? " Scroll sideways to follow the sura. The parts above set the same facts out in words, with the quotations."
+                  : " Scroll sideways, or use the jump links to reach a position. The same facts are set out in words in each position above."}
+              </p>
+              {overview ? (
+                <nav class="pj-chips jump" aria-label="Jump to a part">
+                  {parts.map((span) => <a class="pj-chip" href={partUrl(name.n, span.index)}>{name.n}:{span.firstVerse}</a>)}
+                </nav>
+              ) : (
+                <nav class="pj-chips jump" aria-label="Jump to a position">
+                  {positions.filter((_, i) => i % Math.ceil(positions.length / 12) === 0).map((position) => (
+                    <a class="pj-chip" href={`#${position.id}`}>{position.ref}</a>
+                  ))}
+                </nav>
+              )}
+              <div class="ov" role="region" aria-label="Overview of departures from the Cairo text" tabindex="0">
+                <div class="ov__grid" style={`--n:${positions.length}`} aria-hidden="true">
+                  {data.qaris.flatMap((q) =>
+                    q.riwayat.map((id) => (
+                      <div class={`ov__row ${wear.get(id)}`} data-q={q.id}>
+                        <span class="ov__name"><i class="pj-dot"></i>{riwayaOf.get(id)!.display}</span>
+                        <i class="ov__base"></i>
+                        {positions.map((position, index) => {
+                          const group = position.groups[position.cells[id].g];
+                          const col = `grid-column:${index + 2}`;
+                          if (group.kind === "reading" && group.tone === 0) return null;
+                          return group.kind === "reading"
+                            ? <i class="ov__t is-reading" style={col}>{letter(group)}</i>
+                            : <i class={`ov__t is-${group.kind}`} style={col}>{STATE_SIGN[group.kind]}</i>;
+                        })}
+                      </div>
+                    )),
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </details>
+    </section>
+
+    {(taysirClosing.length > 0 || taysirUnplaced.length > 0) && (
+    <section class="pj-section" id="taysir" aria-labelledby="taysir-h">
+      <header class="pj-head">
+        <h2 id="taysir-h" class="pj-head__title">More from al-Dānī’s at-Taysīr</h2>
+        <span class="pj-head__rule" aria-hidden="true"></span>
+        <span class="pj-head__count">{taysirClosing.length + taysirUnplaced.length} entries</span>
+      </header>
+      <p class="pj-lede">
         al-Dānī’s entries for this sura that no position above carries: any verse the module has no position for yet, and the lists he closes the sura with.
         In Marijn van Putten’s translation (Open Book Publishers, 2026, CC BY-NC 4.0), with the page of Pretzl’s edition.
         The general principles they rest on are on <a href="/projects/quran/taysir/">their own page</a>.
       </p>
       {taysirUnplaced.length > 0 && (
-        <div class="taysir-more">
-          <h3 class="taysir-more__title">Verses with no position here yet</h3>
-          {taysirUnplaced.map((st) => (
-            <div class="pos__en">
-              <p class="taysir-more__ref">{data.sura}:{st.verse}</p>
-              <p class="pos__en-text">{st.text}</p>
-              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
-              {st.footnotes.length > 0 && (
-                <details class="pos__en-notes">
-                  <summary>Translator’s notes ({st.footnotes.length})</summary>
-                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
-                </details>
-              )}
-            </div>
-          ))}
-        </div>
+        <details class="pj-disc pj-disc--card taysir-more">
+          <summary><span class="pj-disc__title">Verses with no position here yet</span><span class="pj-disc__meta">{taysirUnplaced.length}</span></summary>
+          <div class="pj-disc__body">
+            {taysirUnplaced.map((st) => (
+              <div class="en">
+                <p class="en__ref">{data.sura}:{st.verse}</p>
+                <p class="en__text">{st.text}</p>
+                <p class="en__src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+                {st.footnotes.length > 0 && (
+                  <details class="pj-disc pj-disc--quiet">
+                    <summary>Translator’s notes ({st.footnotes.length})</summary>
+                    <ol class="en__notes">{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
       {taysirClosing.length > 0 && (
-        <div class="taysir-more">
-          <h3 class="taysir-more__title">The lists that close the sura</h3>
-          {taysirClosing.map((st) => (
-            <div class="pos__en">
-              <p class="taysir-more__ref">{st.heading}</p>
-              <p class="pos__en-text">{st.text}</p>
-              <p class="pos__en-src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
-              {st.footnotes.length > 0 && (
-                <details class="pos__en-notes">
-                  <summary>Translator’s notes ({st.footnotes.length})</summary>
-                  <ol>{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
-                </details>
-              )}
-            </div>
-          ))}
-        </div>
+        <details class="pj-disc pj-disc--card taysir-more">
+          <summary><span class="pj-disc__title">The lists that close the sura</span><span class="pj-disc__meta">{taysirClosing.length}</span></summary>
+          <div class="pj-disc__body">
+            {taysirClosing.map((st) => (
+              <div class="en">
+                <p class="en__ref">{st.heading}</p>
+                <p class="en__text">{st.text}</p>
+                <p class="en__src">al-Dānī, <i>at-Taysīr</i>, {vpPages([st])}.</p>
+                {st.footnotes.length > 0 && (
+                  <details class="pj-disc pj-disc--quiet">
+                    <summary>Translator’s notes ({st.footnotes.length})</summary>
+                    <ol class="en__notes">{st.footnotes.map((note) => <li value={note.n}>{note.text}</li>)}</ol>
+                  </details>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
       )}
     </section>
     )}
 
-    <section class="sec" id="books" aria-labelledby="books-h">
-      <header class="sec__head">
-        <h2 id="books-h" class="sec__title">Books cited</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{data.books.length}</span>
+    <section class="pj-section" id="books" aria-labelledby="books-h">
+      <header class="pj-head">
+        <h2 id="books-h" class="pj-head__title">Books cited</h2>
+        <span class="pj-head__rule" aria-hidden="true"></span>
+        <span class="pj-head__count">{data.books.length} books</span>
       </header>
-      <p class="lede">Each book covers a different set of readers, which decides what “the others” means in its wording. Dates are the authors’ death years in the Hijri calendar.</p>
+      <p class="pj-lede">Each book covers a different set of readers, which decides what “the others” means in its wording. Dates are the authors’ death years in the Hijri calendar.</p>
       <ol class="books">
         {data.books.map((book) => (
-          <li class="book">
-            <span class="book__mark">{book.mark}</span>
-            <p class="book__name">{book.short_title}</p>
+          <li class="book pj-card">
+            <p class="book__head"><span class="book__mark">{book.mark}</span><span class="book__name">{book.short_title}</span></p>
             <p class="book__ar" lang="ar">{book.title_ar}</p>
-            <p class="book__meta">d. {book.author_year} AH · {SET_LABEL[book.reader_set] ?? "Other scope"}</p>
-            <p class="book__meta">{book.claim_count} readings cited in this sura</p>
-            <p class="book__pages">{book.pages.length > 12 ? `${book.pages.slice(0, 12).join("; ")}; and ${book.pages.length - 12} more pages` : book.pages.join("; ")}</p>
+            <p class="book__meta">d. {book.author_year} AH · {SET_LABEL[book.reader_set] ?? "Other scope"} · {book.claim_count} readings cited in this sura</p>
+            <details class="pj-disc pj-disc--quiet">
+              <summary>Pages cited</summary>
+              <p class="book__pages">{book.pages.length > 12 ? `${book.pages.slice(0, 12).join("; ")}; and ${book.pages.length - 12} more pages` : book.pages.join("; ")}</p>
+            </details>
           </li>
         ))}
       </ol>
-    </section>
-
-    <section class="sec" id="guide" aria-labelledby="guide-h">
-      <header class="sec__head">
-        <h2 id="guide-h" class="sec__title">How to read this</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-      </header>
-      <dl class="guide">
-        <div><dt>Quotations</dt><dd>Each quotation is the book’s own wording, with the vowel marks of the edition we hold. Short Arabic labels are excerpts of its descriptions. English labels and the grouping are ours.</dd></div>
-        <div><dt>Reader sets</dt><dd>When a book says “the others”, we apply it to the readers that book covers. A seven-reader book says nothing about the other three, and the page says so.</dd></div>
-        <div><dt>Reports</dt><dd>A book may pass on a reading through a named student, record one and reject it, say a reader’s reading is disputed, or permit another way of beginning a word. These stay apart from what the book lists outright.</dd></div>
-        <div><dt>Review</dt><dd>No reading has been reviewed. Each is checked only for one thing: that the quoted words appear on the cited page. Whether a reader was assigned to the right reading has not been checked by a person.</dd></div>
-      </dl>
-      <nav class="sura-nav" aria-label="Neighbouring suras">
-        {prev ? <a href={`/projects/quran/sura/${prev.n}/`} rel="prev"> Sura {prev.n}, {prev.latin}</a> : <span></span>}
-        <a href="/projects/quran/">All suras</a>
-        {next ? <a href={`/projects/quran/sura/${next.n}/`} rel="next">Sura {next.n}, {next.latin}</a> : <span></span>}
-      </nav>
       <p class="attribution">
         Verse text: Corpus Coranicum, Cairo 1924 edition, TEI export pinned to commit{" "}
         <code>57cb2b7be321</code>, CC BY-SA 4.0. Quoted readings come from editions in the Maktaba Shamela, cited by page.
       </p>
+      <nav class="pj-pager" aria-label="Neighbouring suras">
+        {prev ? <a href={`/projects/quran/sura/${prev.n}/`} rel="prev">Sura {prev.n}, {prev.latin}</a> : <span></span>}
+        <a class="pj-pager__index" href="/projects/quran/">All suras</a>
+        {next ? <a href={`/projects/quran/sura/${next.n}/`} rel="next">Sura {next.n}, {next.latin}</a> : <span></span>}
+      </nav>
     </section>
   </div>
 </div>
 
 <style is:inline set:html={readerRules}></style>
 
+<script>
+  for (const root of document.querySelectorAll<HTMLElement>(".qq")) {
+    /* Expand all and Collapse all open every disclosure inside the positions. */
+    const scope = root.querySelector("#positions");
+    const expand = root.querySelector<HTMLButtonElement>("[data-qq-expand]");
+    const collapse = root.querySelector<HTMLButtonElement>("[data-qq-collapse]");
+    if (scope && expand && collapse) {
+      const set = (open: boolean) => scope.querySelectorAll("details").forEach((d) => { (d as HTMLDetailsElement).open = open; });
+      expand.hidden = false;
+      collapse.hidden = false;
+      expand.addEventListener("click", () => set(true));
+      collapse.addEventListener("click", () => set(false));
+    }
+    /* The grid's readout: what each book says for the cell under the pointer or the focus. */
+    const readout = root.querySelector<HTMLElement>("[data-qq-readout]");
+    const matrix = root.querySelector<HTMLElement>(".matrix");
+    if (readout && matrix) {
+      readout.hidden = false;
+      const show = (event: Event) => {
+        const tile = (event.target as HTMLElement).closest<HTMLElement>(".tile");
+        if (tile?.dataset.tip) readout.textContent = tile.dataset.tip;
+      };
+      matrix.addEventListener("pointerover", show);
+      matrix.addEventListener("focusin", show);
+    }
+  }
+</script>
+
 <style>
-  .qq-body { padding-block: 0 clamp(4rem, 9vw, 7rem); }
-  .sec { padding-top: clamp(2.75rem, 5vw, 4.25rem); scroll-margin-top: 9rem; }
-  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font: 600 clamp(1.4rem, 3vw, 1.8rem)/1.3 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
-  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
-  .lede { max-width: 66ch; margin: 0 0 1.5rem; color: var(--hc-text-secondary); line-height: 1.72; }
+  .qq-body { padding-bottom: clamp(4rem, 9vw, 7rem); }
 
-  .disc { display: inline-grid; place-items: center; min-width: 1.15rem; height: 1.15rem; padding-inline: 0.15rem; border-radius: 999px; background: var(--hc-fixed-parchment-ink); color: var(--hc-fixed-parchment); font: 700 0.75rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; vertical-align: super; margin-inline-start: 0.2rem; }
-  .disc--lg { min-width: 1.7rem; height: 1.7rem; margin: 0; vertical-align: middle; background: var(--hc-gold); color: var(--hc-text-inverse); font-size: 0.8rem; }
-  /* Reading letter: a small square that keeps the surrounding ink. */
-  .lt { display: inline-grid; place-items: center; min-width: 1.15rem; height: 1.15rem; margin-inline-end: 0.4rem; border: 1px solid currentColor; border-radius: 2px; font: 700 0.75rem/1 var(--font-ui); vertical-align: 0.05em; }
-  .lt--lg { min-width: 1.6rem; height: 1.6rem; margin-inline-end: 0.6rem; border-color: var(--hc-gold); color: var(--hc-gold); font-size: 0.85rem; }
+  /* Position number: a gold disc. Reading letter: a small square that keeps the ink around it. */
+  .disc { display: inline-grid; place-items: center; min-width: 1.7rem; height: 1.7rem; padding-inline: 0.4rem; border-radius: 999px; background: var(--hc-gold); color: var(--hc-text-inverse); font: 700 0.8rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .lt { display: inline-grid; place-items: center; flex: none; min-width: 1.3rem; height: 1.3rem; border: 1px solid currentColor; border-radius: 2px; font: 700 0.78rem/1 var(--font-ui); }
+  .lt--lg { min-width: 1.9rem; height: 1.9rem; border-color: var(--hc-gold); color: var(--hc-gold); font-size: 0.95rem; }
+  .mk { display: inline-grid; place-items: center; min-width: 1.75rem; height: 1.4rem; padding-inline: 0.25rem; border: 1px solid var(--hc-rule); border-radius: 2px; color: var(--hc-text-primary); font: 700 0.78rem/1 var(--font-ui); letter-spacing: 0.04em; }
+  .mk--off { border-style: dashed; color: var(--hc-text-tertiary); }
 
-  /* ── Masthead instrument ─────────────────────────────────────── */
-  .glance { padding: 1.1rem 1.25rem 1.25rem; }
-  .glance__figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1rem; margin: 0; }
-  .glance__figures div { display: flex; flex-direction: column-reverse; gap: 0.5rem; }
-  .glance__figures div + div { padding-inline-start: 1rem; border-inline-start: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
-  .glance dt { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .glance dd { margin: 0; }
+  /* ── Summary by reader ──────────────────────────────────────── */
+  .dep { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+  .dep__q { display: grid; grid-template-columns: 9rem minmax(0, 1fr); align-items: center; gap: 0.75rem; }
+  .dep__name { color: var(--hc-text-primary); font: 600 0.9rem/1.3 var(--font-ui); }
+  .dep__name [lang] { color: var(--hc-text-secondary); font: 400 1rem/1 var(--font-arabic); }
+  .dep__bars { display: grid; gap: 4px; }
+  .dep__line { display: grid; grid-template-columns: 6rem minmax(0, 1fr) 2rem; align-items: center; gap: 0.6rem; }
+  .dep__who { overflow: hidden; color: var(--hc-text-secondary); font: 500 0.82rem/1.2 var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
+  .dep__track { display: block; height: 0.6rem; border-radius: 1px; background: var(--hc-surface-2); }
+  .dep__bar { display: block; width: var(--w); min-width: 2px; height: 100%; border-radius: 1px; background: var(--bg); }
+  .dep__n { color: var(--hc-text-primary); font: 700 0.85rem/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; text-align: end; }
 
-  /* ── Focus dock ──────────────────────────────────────────────── */
-  .dockwrap { padding-top: 1.5rem; }
-  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; padding: 6px 6px 6px 1rem; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
-  .dock__label { float: inline-start; margin-inline-end: 0.5rem; padding: 0; font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
-  .chip { position: relative; display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.9rem var(--font-ui); cursor: pointer; transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background var(--motion-fast) ease; }
-  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
-  .chip__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; appearance: none; background: none; border: 0; border-radius: inherit; cursor: pointer; }
-  .chip:has(:checked) { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
-  .chip__ar { font-size: 1.05rem; line-height: 1; }
-  @media (min-width: 1001px) { .dockwrap { position: sticky; top: 4.75rem; z-index: 20; } }
-  @media (max-width: 1000px) { .dock { flex-wrap: nowrap; overflow-x: auto; } .chip { flex: none; } }
+  /* ── Legend extras ──────────────────────────────────────────── */
+  .legend__line { margin: 0 0 0.6rem; color: var(--hc-text-secondary); font-size: 0.92rem; line-height: 1.55; }
+  .legend__pair { display: inline-flex; flex: none; gap: 2px; }
+  .legend__pair .sw { width: 0.95rem; height: 0.95rem; }
+  .pj-legend li [lang] { color: var(--hc-text-tertiary); font-family: var(--font-arabic); }
+  .pj-legend .lt { color: var(--hc-gold); }
+  .pj-toolbar .sw { width: 0.8rem; height: 0.8rem; }
 
-  /* ── Passage ─────────────────────────────────────────────────── */
-  .passage { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; align-items: start; }
-  .leaf { padding: clamp(1.1rem, 2.4vw, 1.75rem); border-radius: 2px; background: var(--hc-fixed-parchment); color: var(--hc-fixed-parchment-ink); box-shadow: inset 0 0 0 5px var(--hc-fixed-parchment), inset 0 0 0 6px rgba(26, 23, 21, 0.28); }
-  .leaf__cap { margin: 0 0 0.6rem; padding-inline: 0.4rem; font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in srgb, var(--hc-fixed-parchment-ink) 78%, var(--hc-fixed-parchment)); }
-  .verses { margin: 0; padding: 0 0.4rem; list-style: none; }
-  .verse { display: grid; grid-template-columns: 3rem minmax(0, 1fr); align-items: baseline; gap: 0.75rem; padding-block: 0.3rem; border-top: 1px solid color-mix(in srgb, var(--hc-fixed-parchment-ink) 18%, transparent); }
-  .verse__ref { font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.08em; font-variant-numeric: lining-nums tabular-nums; color: color-mix(in srgb, var(--hc-fixed-parchment-ink) 78%, var(--hc-fixed-parchment)); }
-  .verse__text { margin: 0; font-size: clamp(1.6rem, 1.1vw + 1.3rem, 2.15rem); line-height: var(--leading-arabic); color: var(--hc-fixed-parchment-ink); text-align: start; }
-  .w { padding: 0.05em 0.15em; border-radius: 2px; background: color-mix(in srgb, var(--hc-fixed-parchment-ink) 9%, transparent); color: inherit; text-decoration: underline; text-decoration-color: #a3401c; text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
-  .w:hover { background: color-mix(in srgb, var(--hc-fixed-parchment-ink) 16%, transparent); }
-  .index { padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); }
-  .index ol { margin: 0; padding: 0; list-style: none; }
-  .index__cap { margin: 0; padding: 1rem 0.6rem 0.6rem; color: var(--hc-gold-dim); font: 700 0.81rem/1.3 var(--font-ui); letter-spacing: 0.14em; text-transform: uppercase; }
-  .index__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; min-height: 52px; padding: 0.5rem 0.6rem; border-top: 1px solid var(--hc-rule-soft); color: inherit; text-decoration: none; transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
-  .index__row:hover { background: rgba(216, 177, 102, 0.08); box-shadow: inset 2px 0 0 var(--hc-gold-dim); }
-  .index__name { color: var(--hc-text-primary); font-size: 0.96rem; line-height: 1.35; }
-  .index__ar { color: var(--hc-text-primary); font-size: 1.5rem; }
+  /* ── Positions ──────────────────────────────────────────────── */
+  .poslist { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--pj-gap); margin: 0; padding: 0; list-style: none; }
+  .pos { padding: clamp(1rem, 2.4vw, 1.5rem); scroll-margin-top: calc(var(--pj-top) + 5rem); content-visibility: auto; contain-intrinsic-size: auto 30rem; }
+  .pos:target { border-color: var(--hc-gold); }
+  .pos__head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem 1.5rem; align-items: start; margin-bottom: 1rem; }
+  .pos__no { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0 0 0.45rem; color: var(--hc-text-secondary); font: 600 0.88rem/1.3 var(--font-ui); letter-spacing: 0.04em; font-variant-numeric: lining-nums tabular-nums; }
+  .pos__no a { color: inherit; text-decoration: none; }
+  .pos__no a:hover { color: var(--hc-gold-bright); }
+  .pos__scope { color: var(--hc-text-tertiary); font-weight: 500; letter-spacing: 0; }
+  .pos__scope::before { content: "·" / ""; margin-inline-end: 0.6rem; }
+  .pos__title { margin: 0; color: var(--hc-text-primary); font: 600 clamp(1.2rem, 2.2vw, 1.5rem)/1.3 var(--font-display); letter-spacing: -0.015em; }
+  .pos__title--ar { width: fit-content; font-family: var(--font-quran); font-weight: 400; font-size: clamp(1.6rem, 3vw, 2.1rem); line-height: 1.8; letter-spacing: 0; }
+  .pos__tally { margin: 0.45rem 0 0; color: var(--hc-text-secondary); font: 600 0.88rem/1.4 var(--font-ui); letter-spacing: 0.04em; font-variant-numeric: lining-nums tabular-nums; }
+  .pos__word { margin: 0; padding: 0.5rem 1.1rem 0.35rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); background: var(--hc-surface-2); color: var(--hc-text-primary); font-size: clamp(1.8rem, 3vw, 2.4rem); line-height: 2.2; }
 
-  /* ── Collation matrix ────────────────────────────────────────── */
-  .frame { padding: 8px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-1); box-shadow: inset 0 0 0 5px var(--hc-surface-1), inset 0 0 0 6px var(--hc-rule-soft); }
-  .matrix { overflow-x: auto; }
-  .matrix table { width: 100%; min-width: 46rem; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-  .m-corner { width: 12rem; padding: 0.9rem 0.9rem 0.6rem; text-align: start; vertical-align: bottom; font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-text-tertiary); }
-  .m-col { padding: 0.6rem 4px; font-weight: 400; vertical-align: top; }
+  /* al-Dānī in English: a quiet ground, no rule beside it. */
+  .en { margin: 0 0 1rem; padding: 0.85rem 1rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); background: var(--hc-surface-2); }
+  .en + .en { margin-top: 0.6rem; }
+  .en__ref { margin: 0 0 0.35rem; color: var(--hc-gold); font: 500 0.85rem/1.4 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .en__text { max-width: var(--pj-measure); margin: 0 0 0.5rem; color: var(--hc-text-primary); font: 400 1rem/1.7 var(--font-body); }
+  .en__src { margin: 0; color: var(--hc-text-tertiary); font: 500 0.82rem/1.55 var(--font-ui); }
+  .en__notes { margin: 0.2rem 0 0; padding-left: 1.4rem; color: var(--hc-text-secondary); font: 400 0.88rem/1.6 var(--font-body); }
+
+  /* Readings, grouped by variant. A state is named in words and drawn as a border style. */
+  .rdgs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .rdg { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; padding: 0.85rem 1rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); background: var(--hc-surface-0); }
+  .rdg--differs { border-color: var(--hc-rule); }
+  .rdg--reported { border-style: dashed; border-color: var(--hc-text-tertiary); }
+  .rdg--unstated { border-style: dotted; border-color: var(--hc-text-tertiary); }
+  .rdg__head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; }
+  .rdg__state { padding: 0.2rem 0.55rem; border: 1px solid var(--hc-rule); border-radius: 2px; color: var(--hc-text-primary); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  .rdg--reported .rdg__state { border-style: dashed; }
+  .rdg--unstated .rdg__state { border-style: dotted; }
+  .rdg__what { min-width: 0; }
+  .rdg__value { margin: 0; color: var(--hc-text-primary); font: 600 1.08rem/1.35 var(--font-display); }
+  .rdg__value bdi[lang="ar"] { font: 400 1.25rem/1.7 var(--font-arabic); }
+  .rdg__kind { margin: 0.1rem 0 0; color: var(--hc-gold); font: 500 0.82rem/1.4 var(--font-ui); }
+  .rdg__n { margin: 0; color: var(--hc-text-secondary); font: 500 0.85rem/1 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rdg__n b { color: var(--hc-text-primary); font: 600 1.35rem/1 var(--font-display); }
+  .rdg__note { margin: 0; color: var(--hc-text-secondary); font-size: 0.95rem; line-height: 1.6; }
+
+  .rdg__who { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+  .who { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 32px; padding: 0 0.65rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 0.88rem/1.3 var(--font-ui); text-decoration: none; }
+  .who:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
+
+  .forms, .bybook { margin: 0; padding: 0; list-style: none; }
+  .forms li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 1rem; padding-block: 0.1rem; border-top: 1px solid var(--hc-rule-soft); }
+  .forms__ar { color: var(--hc-text-primary); font: 400 1.3rem/1.8 var(--font-arabic); }
+  .forms__src { color: var(--hc-text-tertiary); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.06em; }
+  .bybook li { display: flex; gap: 0.6rem; align-items: baseline; padding-block: 0.25rem; color: var(--hc-text-primary); font-size: 0.96rem; line-height: 1.55; }
+
+  /* Sources: a chip that opens what each book says, with its page. */
+  .src > summary { list-style: none; color: var(--hc-gold); }
+  .src > summary::-webkit-details-marker { display: none; }
+  .src > summary::after { content: ""; width: 0.4rem; height: 0.4rem; margin-inline-start: 0.1rem; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-20%) rotate(45deg); }
+  .src[open] > summary { border-color: var(--hc-gold); }
+  .src[open] > summary::after { transform: translateY(15%) rotate(-135deg); }
+  .src__body { margin-top: 0.6rem; padding-top: 0.5rem; border-top: 1px solid var(--hc-rule-soft); }
+  .src__marks { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; margin: 0 0 0.5rem; }
+  .src__k { margin-inline-end: 0.3rem; color: var(--hc-text-tertiary); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .pages { margin: 0 0 0.25rem; padding: 0; list-style: none; color: var(--hc-text-secondary); font-size: 0.92rem; line-height: 1.55; }
+  .pages span { color: var(--hc-text-primary); font-weight: 600; }
+  .quotes, .more__list { margin: 0.4rem 0 0; padding: 0; list-style: none; }
+  .quotes li, .more__list > li { padding: 0.65rem 0 0.75rem; border-top: 1px solid var(--hc-rule-soft); }
+  .quotes__ref { margin: 0 0 0.3rem; color: var(--hc-text-secondary); font-size: 0.92rem; line-height: 1.5; }
+  .quotes__ar { margin: 0; color: var(--hc-text-primary); font-size: 1.2rem; line-height: var(--leading-arabic); }
+  .quotes__how { max-width: var(--pj-measure); margin: 0.3rem 0 0; color: var(--hc-text-tertiary); font-size: 0.88rem; line-height: 1.5; }
+  .route-rows { margin: 0.3rem 0 0.4rem; padding-left: 1.2rem; color: var(--hc-text-secondary); font-size: 0.95rem; line-height: 1.6; }
+  .more { margin-top: 0.75rem; }
+
+  /* ── Passage ────────────────────────────────────────────────── */
+  .passage { padding: clamp(1rem, 2.4vw, 1.5rem); }
+  .passage__cap { margin: 0 0 0.6rem; color: var(--hc-text-tertiary); font: 500 0.85rem/1.4 var(--font-ui); }
+  .verses { margin: 0; padding: 0; list-style: none; }
+  .verse { display: grid; grid-template-columns: 3rem minmax(0, 1fr); align-items: baseline; gap: 0.75rem; padding-block: 0.3rem; border-top: 1px solid var(--hc-rule-soft); }
+  .verse__ref { color: var(--hc-text-secondary); font: 600 0.85rem/1.3 var(--font-ui); letter-spacing: 0.06em; font-variant-numeric: lining-nums tabular-nums; }
+  .verse__text { margin: 0; color: var(--hc-text-primary); font-size: clamp(1.6rem, 1.1vw + 1.3rem, 2.15rem); line-height: var(--leading-arabic); text-align: start; }
+  .w { color: inherit; text-decoration: underline; text-decoration-color: var(--hc-gold); text-decoration-thickness: 2px; text-underline-offset: 0.35em; }
+  .w:hover { color: var(--hc-gold-bright); }
+  .w__no { display: inline-grid; place-items: center; min-width: 1.25rem; height: 1.25rem; margin-inline-start: 0.2rem; padding-inline: 0.15rem; border-radius: 999px; background: var(--hc-gold); color: var(--hc-text-inverse); font: 700 0.75rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; vertical-align: super; }
+
+  /* ── Collation grid ─────────────────────────────────────────── */
+  .grid { scroll-margin-top: calc(var(--pj-top) + 5rem); }
+  .grid > summary .grid__title { margin: 0; font: 600 clamp(1.2rem, 2.2vw, 1.5rem)/1.3 var(--font-display); }
+  .matrix { max-height: min(78vh, 52rem); overflow: auto; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); }
+  .matrix table { width: 100%; min-width: calc(12rem + var(--cols) * 7rem); border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+  .matrix thead th { position: sticky; top: 0; z-index: 3; background: var(--hc-surface-1); border-bottom: 1px solid var(--hc-rule); }
+  .matrix thead th.m-corner { inset-inline-start: 0; z-index: 4; width: 12rem; padding: 0.9rem; text-align: start; vertical-align: bottom; color: var(--hc-text-tertiary); font: 600 0.78rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .m-col { padding: 0.5rem 4px; font-weight: 400; vertical-align: top; }
   .m-col a { display: grid; gap: 0.15rem; padding: 0.35rem 0.5rem 0.5rem; border-radius: 2px; color: inherit; text-decoration: none; text-align: center; }
-  .m-col a:hover { background: rgba(216, 177, 102, 0.08); }
+  .m-col a:hover { background: color-mix(in srgb, var(--hc-gold) 8%, transparent); }
   .m-col__top { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-  .m-col__top .disc { vertical-align: middle; margin: 0; background: var(--hc-gold); color: var(--hc-text-inverse); }
-  .m-col__ref { font: 600 0.81rem/1 var(--font-ui); letter-spacing: 0.08em; color: var(--hc-text-tertiary); font-variant-numeric: lining-nums tabular-nums; }
-  .m-col__ar { font-size: 1.7rem; line-height: 1.7; color: var(--hc-text-primary); }
-  .m-col__tally { font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.06em; color: var(--hc-text-secondary); font-variant-numeric: tabular-nums; }
+  .m-col__ref { color: var(--hc-text-secondary); font: 600 0.82rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
+  .m-col__ar { color: var(--hc-text-primary); font-size: 1.6rem; line-height: 1.7; }
+  .m-col__tally { color: var(--hc-text-secondary); font: 600 0.78rem/1.4 var(--font-ui); font-variant-numeric: tabular-nums; }
   .m-group .m-row:first-child > * { border-top: 1px solid var(--hc-rule); }
-  .m-rh { position: sticky; inset-inline-start: 0; z-index: 2; padding: 0.35rem 0.9rem 0.35rem 1.2rem; background: var(--hc-surface-1); box-shadow: inset 7px 0 0 var(--bg); text-align: start; font-weight: 400; vertical-align: middle; }
-  .m-rh__q { display: block; margin-bottom: 0.1rem; color: var(--hc-gold); font: 700 0.75rem/1.5 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .m-rh__q [lang] { margin-inline-start: 0.35rem; letter-spacing: 0; font-size: 1rem; }
-  .m-rh__r { display: block; color: var(--hc-text-primary); font: 500 0.98rem/1.3 var(--font-body); }
-  .m-row td { padding: 3px; }
+  .m-rh { position: sticky; inset-inline-start: 0; z-index: 2; padding: 0.35rem 0.9rem; background: var(--hc-surface-1); text-align: start; font-weight: 400; vertical-align: middle; }
+  .m-rh__q { display: block; margin-bottom: 0.1rem; color: var(--hc-gold); font: 700 0.78rem/1.5 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .m-rh__q [lang] { margin-inline-start: 0.35rem; letter-spacing: 0; font-size: 1rem; text-transform: none; }
+  .m-rh__r { display: flex; align-items: center; gap: 0.45rem; color: var(--hc-text-primary); font: 500 0.98rem/1.3 var(--font-body); }
+  .m-row td { padding: 3px; background: var(--hc-surface-0); }
 
-  .tile { display: grid; gap: 0.3rem; align-content: center; min-height: 3.1rem; padding: 0.45rem 0.6rem; border-radius: 2px; background: var(--bg); color: var(--ink); text-decoration: none; text-align: center; transition: box-shadow var(--motion-fast) var(--ease-standard); }
-  .tile:hover { box-shadow: 0 0 0 2px var(--hc-gold); }
-  .tile.dev { box-shadow: inset 0 0 0 2px var(--ink); }
-  .tile.dev:hover { box-shadow: inset 0 0 0 2px var(--ink), 0 0 0 2px var(--hc-gold); }
-  .tile.is-differs { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 14%, transparent) 0 2px, transparent 2px 9px); }
-  .tile.is-reported, .tile.is-unstated { background: transparent; color: var(--hc-text-primary); box-shadow: inset 5px 0 0 var(--bg); }
+  /* A cell: the transmitter's color and the reading's letter, or a state in words with a full
+     dashed or dotted border. Never a bar down one side. */
+  .tile { display: flex; align-items: center; justify-content: center; gap: 0.35rem; min-height: 2.6rem; padding: 0.3rem 0.4rem; border: 1px solid transparent; border-radius: 2px; background: var(--bg); color: var(--ink); text-decoration: none; text-align: center; }
+  .tile:hover { box-shadow: inset 0 0 0 2px var(--hc-gold); }
+  .tile__lt { font: 700 1rem/1 var(--font-ui); }
+  .tile__state { font: 600 0.78rem/1.15 var(--font-ui); }
+  .tile.is-differs { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 16%, transparent) 0 2px, transparent 2px 9px); }
+  .tile.is-reported, .tile.is-unstated { background: transparent; color: var(--hc-text-primary); }
   .tile.is-reported { border: 1px dashed var(--hc-text-tertiary); }
   .tile.is-unstated { border: 1px dotted var(--hc-text-tertiary); color: var(--hc-text-secondary); }
-  .tile__label { font: 600 0.95rem/1.15 var(--font-body); }
-  .tile--mini { display: inline-grid; place-items: center; flex: none; width: 2.4rem; min-height: 1.6rem; padding: 0.15rem; }
-  .dots { display: flex; justify-content: center; gap: 4px; }
-  .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
-  .dot--r { border-radius: 1px; }
-  .dot--off { background: none; box-shadow: inset 0 0 0 1px currentColor; opacity: 0.7; }
-  .key { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 0.7rem 1.5rem; margin: 0; padding: 1rem 0.9rem 0.6rem; list-style: none; color: var(--hc-text-secondary); font-size: 0.9rem; line-height: 1.5; }
-  .key li { display: flex; gap: 0.7rem; align-items: center; }
-  .key__pair { flex: none; display: inline-flex; gap: 2px; }
-  .key__pair .sw { width: 1.1rem; height: 1.1rem; }
-  .key__dots { grid-column: 1 / -1; }
-  .dots--key { flex: none; color: var(--hc-text-primary); }
+  .tile .pj-dot { width: 0.55rem; height: 0.55rem; }
+  .tile--key { display: inline-flex; flex: none; width: 6.5rem; min-height: 1.9rem; }
+  .readout { min-height: 1.5rem; margin: 0.6rem 0 0; color: var(--hc-text-secondary); font: 500 0.88rem/1.5 var(--font-ui); }
 
-  /* ── Position blocks ─────────────────────────────────────────── */
-  .pos { padding-block: clamp(1.75rem, 3.5vw, 2.75rem); border-top: 1px solid var(--hc-rule); scroll-margin-top: 9rem; }
-  .pos:target .pos__title { color: var(--hc-gold-bright); }
-  .pos__head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.5rem; align-items: end; margin-bottom: 1.25rem; }
-  .pos__no { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.5rem; font: 600 0.81rem/1 var(--font-ui); letter-spacing: 0.1em; color: var(--hc-text-tertiary); font-variant-numeric: lining-nums tabular-nums; }
-  .pos__title { margin: 0; font: 600 clamp(1.3rem, 2.4vw, 1.7rem)/1.25 var(--font-display); letter-spacing: -0.02em; color: var(--hc-text-primary); }
-  .specimen { margin: 0; padding: 0.4rem 1.6rem; border-radius: 2px; background: var(--hc-fixed-parchment); color: var(--hc-fixed-parchment-ink); box-shadow: inset 0 0 0 4px var(--hc-fixed-parchment), inset 0 0 0 5px rgba(26, 23, 21, 0.28); font-size: clamp(2rem, 3vw, 2.7rem); line-height: 1.9; }
+  /* The overview of a long sura: one row per transmitter. */
+  .jump { margin-bottom: 1rem; }
+  .jump .pj-chip { min-height: 32px; font-variant-numeric: tabular-nums lining-nums; }
+  .ov { overflow-x: auto; padding: 4px 4px 10px; }
+  .ov__grid { display: grid; grid-template-columns: 9rem repeat(var(--n), 22px); grid-auto-rows: 24px; gap: 3px 2px; width: max-content; }
+  .ov__row { display: contents; }
+  .ov__name { position: sticky; inset-inline-start: 0; z-index: 2; display: flex; align-items: center; gap: 0.4rem; padding-inline: 0.5rem; background: var(--hc-surface-1); color: var(--hc-text-primary); font: 500 0.85rem/1 var(--font-ui); white-space: nowrap; }
+  .ov__name .pj-dot { width: 0.6rem; height: 0.6rem; }
+  .ov__base { grid-column: 2 / -1; align-self: center; height: 2px; background: color-mix(in srgb, var(--bg) 55%, transparent); }
+  .ov__row .ov__base { grid-row: auto; }
+  .ov__t { display: grid; place-items: center; border-radius: 2px; font: 700 0.78rem/1 var(--font-ui); font-style: normal; background: var(--bg); color: var(--ink); }
+  .ov__t.is-differs { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 16%, transparent) 0 2px, transparent 2px 6px); }
+  .ov__t.is-reported { background: var(--hc-surface-0); border: 1px dashed var(--hc-text-tertiary); color: var(--hc-text-primary); }
+  .ov__t.is-unstated { background: var(--hc-surface-0); border: 1px dotted var(--hc-text-tertiary); color: var(--hc-text-secondary); }
+  .ov__grid .ov__row > .ov__t { grid-row: auto; }
 
-  /* Group strip: every transmitter as one square in his reader's shade, gathered by reading. */
-  .gs { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin-top: 0.9rem; }
-  .gs__g { display: grid; gap: 0.3rem; }
-  .gs__k { font: 700 0.75rem/1.2 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--hc-text-secondary); font-variant-numeric: tabular-nums; }
-  .gs__k b { color: var(--hc-text-primary); }
-  .gs__cells { display: flex; flex-wrap: wrap; gap: 3px; }
-  .cell { width: 1rem; height: 1rem; border-radius: 2px; background: var(--bg); }
-
-  .cards { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; gap: 10px; margin: 0; padding: 0; list-style: none; }
-  .card { --fg: var(--hc-text-primary); --fg2: var(--hc-text-secondary); --fg3: var(--hc-text-tertiary); --line: var(--hc-rule-soft); display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; padding: 1.05rem 1.15rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-2); color: var(--fg); }
-  .card--base { border-top: 3px solid var(--hc-gold); }
-  .card--differs { --fg: var(--hc-fixed-parchment-ink); --fg2: color-mix(in srgb, var(--hc-fixed-parchment-ink) 86%, var(--hc-fixed-parchment-deep)); --fg3: color-mix(in srgb, var(--hc-fixed-parchment-ink) 78%, var(--hc-fixed-parchment-deep)); --line: rgba(26, 23, 21, 0.25); border-color: transparent; background: repeating-linear-gradient(135deg, rgba(26, 23, 21, 0.06) 0 2px, transparent 2px 9px), var(--hc-fixed-parchment-deep); }
-  .card--reported { border: 1px dashed var(--hc-text-tertiary); background: transparent; }
-  .card--unstated { border: 1px dotted var(--hc-text-tertiary); background: transparent; }
-  .card__top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-  .card__kind { display: flex; align-items: center; margin: 0; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg2); }
-  .card__n { margin: 0; font: 500 0.85rem/1 var(--font-ui); color: var(--fg2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .card__n b { font: 600 1.5rem/1 var(--font-display); color: var(--fg); }
-  .card__title { margin: 0; font: 600 1.2rem/1.3 var(--font-display); letter-spacing: -0.015em; color: var(--fg); }
-  .card__note, .card__who { margin: 0; color: var(--fg2); font-size: 0.96rem; line-height: 1.7; }
-  .card__k { display: block; margin-bottom: 0.2rem; font: 700 0.75rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg3); }
-  .who { display: inline-flex; align-items: center; gap: 0.35rem; margin-inline-end: 0.15rem; color: var(--fg); white-space: nowrap; }
-  .forms { margin: 0; padding: 0; list-style: none; }
-  .forms li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.1rem 1rem; padding-block: 0.1rem; border-top: 1px solid var(--line); }
-  .forms__ar { font: 400 1.3rem/1.8 var(--font-arabic); color: var(--fg); }
-  .forms__src { font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.08em; color: var(--fg3); }
-  .bybook { margin: 0; padding: 0; list-style: none; font-size: 0.96rem; line-height: 1.55; }
-  .bybook li { display: flex; gap: 0.6rem; align-items: baseline; padding-block: 0.2rem; }
-  .mk { display: inline-grid; place-items: center; min-width: 1.6rem; height: 1.3rem; padding-inline: 0.25rem; border-radius: 2px; box-shadow: inset 0 0 0 1px currentColor; font: 700 0.75rem/1 var(--font-ui); letter-spacing: 0.04em; opacity: 0.55; }
-  .mk--on { opacity: 1; background: color-mix(in srgb, currentColor 14%, transparent); }
-  .card__src { margin-top: auto; padding-top: 0.4rem; }
-  .card__src summary { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-height: 2rem; cursor: pointer; color: var(--fg); font: 600 0.81rem/1.4 var(--font-ui); letter-spacing: 0.06em; }
-  .marks { display: inline-flex; gap: 3px; }
-  .pages { margin: 0.6rem 0 0; padding: 0; list-style: none; font-size: 0.9rem; line-height: 1.55; color: var(--fg2); }
-  .pages span { font-weight: 600; color: var(--fg); }
-  .quotes { margin: 0.5rem 0 0; padding: 0; list-style: none; }
-  .quotes li { padding: 0.65rem 0 0.75rem; border-top: 1px solid var(--line, var(--hc-rule-soft)); }
-  .quotes__ref { margin: 0 0 0.3rem; font-size: 0.9rem; line-height: 1.5; color: var(--fg2, var(--hc-text-secondary)); }
-  .quotes__ar { margin: 0; font-size: 1.2rem; line-height: var(--leading-arabic); color: var(--fg, var(--hc-text-primary)); }
-  .quotes__how { margin: 0.3rem 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--fg3, var(--hc-text-tertiary)); }
-  .reports { margin-top: 0.9rem; }
-  .reports summary { min-height: 2rem; cursor: pointer; color: var(--hc-gold); font: 600 0.81rem/1.6 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .reports ul { margin: 0.4rem 0 0; padding: 0; list-style: none; }
-  .reports li { padding: 0.7rem 0 0.8rem; border-top: 1px solid var(--hc-rule-soft); }
-
-  .qq-ar { display: block; margin: 0.1em 0 0.35em; font-size: 0.8em; font-weight: 400; line-height: 1.7; text-align: start; }
-  .qq-crumbs { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.25rem 1rem; max-width: 34rem; margin: 0 0 1.25rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--hc-rule-soft); font: 500 0.85rem/1.4 var(--font-ui); }
-  .qq-crumbs a { display: inline-flex; align-items: center; gap: 0.35rem; min-height: 44px; color: var(--hc-text-secondary); text-decoration: none; }
-  .qq-crumbs a:hover { color: var(--hc-gold-bright); }
-  .qq-crumbs a[rel="prev"]::before { content: "←" / ""; }
-  .qq-crumbs a[rel="next"]::after { content: "→" / ""; }
-
-  /* ── Departures from the Cairo text (masthead) ──────────────── */
-  .dep { display: grid; gap: 0.5rem; margin: 1.1rem 0 0; padding: 0; list-style: none; }
-  .dep__q { display: grid; grid-template-columns: 6.25rem minmax(0, 1fr); align-items: center; gap: 0.75rem; }
-  .dep__name { font: 600 0.9rem/1.2 var(--font-ui); }
-  .dep__bars { display: grid; gap: 3px; }
-  .dep__line { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 2rem; align-items: center; gap: 0.5rem; }
-  .dep__who { overflow: hidden; font: 500 0.75rem/1.2 var(--font-ui); text-overflow: ellipsis; white-space: nowrap; }
-  .dep__bar { display: block; width: var(--w); min-width: 2px; height: 0.55rem; border-radius: 1px; background: var(--bg); }
-  .dep__n { font: 700 0.81rem/1 var(--font-ui); font-variant-numeric: tabular-nums lining-nums; text-align: end; }
-
-  /* ── Overview of a long sura ─────────────────────────────────── */
-  .jump { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1rem; }
-  .jump a { display: inline-flex; align-items: center; min-height: 32px; padding: 0 0.75rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 500 0.85rem var(--font-ui); text-decoration: none; font-variant-numeric: tabular-nums lining-nums; }
-  .jump a:hover { border-color: var(--hc-gold); color: var(--hc-gold-bright); }
-
-  /* ── Parts of a long sura ────────────────────────────────────── */
-  .parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
-  .part { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "n ref" "n meta" "ar ar"; column-gap: 0.85rem; row-gap: 0.15rem; height: 100%; padding: 0.9rem 1rem; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); color: inherit; text-decoration: none; transition: border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard); }
-  .part:hover { border-color: var(--hc-gold); box-shadow: inset 0 0 0 1px var(--hc-gold); }
+  /* ── Parts of a long sura ───────────────────────────────────── */
+  .parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: var(--pj-gap); margin: 0; padding: 0; list-style: none; }
+  .part { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "n ref" "n meta" "ar ar"; column-gap: 0.85rem; row-gap: 0.15rem; height: 100%; padding: 0.9rem 1rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-xs); background: var(--hc-surface-1); color: inherit; text-decoration: none; transition: border-color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard); }
+  .part:hover { border-color: var(--hc-gold); background: color-mix(in srgb, var(--hc-gold) 6%, var(--hc-surface-1)); }
   .part__n { grid-area: n; align-self: center; display: grid; place-items: center; min-width: 2.1rem; height: 2.1rem; padding-inline: 0.2rem; border-radius: 999px; background: var(--hc-gold); color: var(--hc-text-inverse); font: 700 0.9rem/1 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
   .part__ref { grid-area: ref; color: var(--hc-text-primary); font: 600 1rem/1.3 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
   .part__meta { grid-area: meta; color: var(--hc-text-secondary); font: 500 0.85rem/1.3 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
   .part__ar { grid-area: ar; display: flex; flex-wrap: wrap; gap: 0 0.9rem; margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid var(--hc-rule-soft); color: var(--hc-text-primary); font-size: 1.3rem; line-height: 1.7; }
-  .partnav { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem 1.5rem; margin: 2.5rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--hc-rule-soft); }
-  .partnav a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 1rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-pill); color: var(--hc-text-primary); font: 500 0.95rem var(--font-ui); text-decoration: none; }
-  .partnav a:hover { border-color: var(--hc-gold); color: var(--hc-gold-bright); }
-  .ov { overflow-x: auto; padding: 4px 4px 10px; }
-  .ov__grid { display: grid; grid-template-columns: 8.5rem repeat(var(--n), 20px); grid-auto-rows: 22px; gap: 3px 2px; width: max-content; }
-  .ov__row { display: contents; }
-  .ov__name { position: sticky; inset-inline-start: 0; z-index: 2; display: flex; align-items: center; padding-inline: 0.75rem 0.5rem; background: var(--hc-surface-1); box-shadow: inset 6px 0 0 var(--bg); color: var(--hc-text-primary); font: 500 0.85rem/1 var(--font-ui); white-space: nowrap; }
-  .ov__base { grid-column: 2 / -1; align-self: center; height: 2px; background: color-mix(in srgb, var(--bg) 55%, transparent); }
-  .ov__row .ov__base { grid-row: auto; }
-  .ov__t { display: grid; place-items: center; border-radius: 2px; font: 700 0.75rem/1 var(--font-ui); background: var(--bg); color: var(--ink); }
-  .ov__t.is-dev { box-shadow: inset 0 0 0 2px var(--ink); }
-  .ov__t.is-differs { background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--ink) 14%, transparent) 0 2px, transparent 2px 6px); }
-  .ov__t.is-reported { background: transparent; border: 1px dashed var(--hc-text-tertiary); box-shadow: inset 4px 0 0 var(--bg); }
-  .ov__t.is-unstated { background: transparent; border: 1px dotted var(--hc-text-tertiary); }
-  .ov__t--key { display: inline-grid; flex: none; width: 1.7rem; height: 1.4rem; }
-  .ov__grid .ov__row > .ov__t { grid-row: auto; }
 
-  /* ── Position notes, scope, neighbours ───────────────────────── */
-  .pos { content-visibility: auto; contain-intrinsic-size: auto 42rem; }
-  .pos__scope { margin-inline-start: 0.4rem; padding: 0.15rem 0.6rem; border: 1px solid var(--hc-rule); border-radius: var(--radius-pill); color: var(--hc-text-secondary); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.06em; text-transform: none; }
-  .pos__title--ar { font-family: var(--font-arabic); font-weight: 400; font-size: clamp(1.7rem, 3vw, 2.3rem); line-height: 1.8; letter-spacing: 0; }
-  .pos__flag { max-width: 70ch; margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-inline-start: 3px solid var(--hc-rule-strong); color: var(--hc-text-secondary); font-size: 0.93rem; line-height: 1.6; }
-  .pos__en { margin: 0.25rem 0 1rem; padding: 0.95rem 1.1rem; border-inline-start: 3px solid var(--hc-gold-dim); background: var(--hc-surface-1); }
-  .pos__en-text { max-width: 72ch; margin: 0 0 0.6rem; color: var(--hc-text-primary); font: 400 1.02rem/1.7 var(--font-body); }
-  .pos__en-src { margin: 0; color: var(--hc-text-tertiary); font: 500 0.78rem/1.55 var(--font-ui); }
-  .pos__en-notes summary { display: inline-flex; align-items: center; min-height: 36px; margin-top: 0.3rem; color: var(--hc-text-secondary); font: 500 0.8rem/1.4 var(--font-ui); cursor: pointer; }
-  .pos__en-notes ol { margin: 0.3rem 0 0; padding-left: 1.4rem; color: var(--hc-text-secondary); font: 400 0.85rem/1.6 var(--font-body); }
-  .taysir-more { margin-top: 1.25rem; }
-  .taysir-more__title { margin: 0 0 0.6rem; color: var(--hc-text-primary); font: 600 1.15rem/1.3 var(--font-editorial); }
-  .taysir-more__ref { margin: 0 0 0.35rem; color: var(--hc-gold); font: 500 0.82rem/1.4 var(--font-ui); font-variant-numeric: lining-nums tabular-nums; }
-  .pos__en-ref { margin: 0.25rem 0 1rem; color: var(--hc-text-tertiary); font: 400 0.85rem/1.5 var(--font-body); }
-  .pos__en-ref a { color: var(--hc-text-secondary); }
-  .sura-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem 1.5rem; margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--hc-rule-soft); }
-  .sura-nav a { color: var(--hc-text-secondary); font: 500 0.95rem var(--font-ui); text-decoration: none; }
-  .sura-nav a:hover { color: var(--hc-gold-bright); }
-  .index ol { max-height: 46rem; overflow-y: auto; }
+  .taysir-more + .taysir-more { margin-top: var(--pj-gap); }
+  .taysir-more .en { margin-top: 0.75rem; }
 
-  /* ── Books ───────────────────────────────────────────────────── */
-  .books { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
-  .book { display: flex; flex-direction: column; gap: 0.35rem; min-height: 15rem; padding: 1.05rem 1.1rem; border-top: 3px solid #d8b166; border-radius: 2px; background: var(--hc-fixed-charcoal); color: var(--hc-fixed-parchment); }
-  .book__mark { margin-bottom: 0.6rem; font: 600 2.4rem/1 var(--font-display); letter-spacing: -0.03em; color: #d8b166; }
-  .book__name { margin: 0; font: 600 1.05rem/1.3 var(--font-display); }
-  .book__ar { margin: 0 0 0.4rem; font-size: 1.05rem; color: var(--hc-fixed-muted); }
-  .book__meta { margin: 0; font-size: 0.9rem; color: var(--hc-fixed-muted); }
-  .book__pages { margin: auto 0 0; padding-top: 0.6rem; border-top: 1px solid rgba(242, 235, 220, 0.2); font-size: 0.85rem; line-height: 1.5; color: var(--hc-fixed-muted); }
-
-  /* ── Guide ───────────────────────────────────────────────────── */
-  .guide { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 10px; margin: 0; }
-  .guide div { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-1); }
-  .guide dt { font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; color: var(--hc-gold); }
-  .guide dd { margin: 0.5rem 0 0; color: var(--hc-text-secondary); font-size: 0.96rem; line-height: 1.65; }
-  .attribution { max-width: 70ch; margin: 1.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.85rem; line-height: 1.7; }
+  /* ── Books ──────────────────────────────────────────────────── */
+  .books { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: var(--pj-gap); margin: 0; padding: 0; list-style: none; }
+  .book { display: flex; flex-direction: column; gap: 0.3rem; }
+  .book__head { display: flex; align-items: baseline; gap: 0.6rem; margin: 0; }
+  .book__mark { color: var(--hc-gold); font: 600 1.6rem/1 var(--font-display); letter-spacing: -0.02em; }
+  .book__name { color: var(--hc-text-primary); font: 600 1rem/1.3 var(--font-display); }
+  .book__ar { margin: 0; color: var(--hc-text-secondary); font-size: 1.05rem; }
+  .book__meta { margin: 0; color: var(--hc-text-secondary); font: 500 0.85rem/1.5 var(--font-ui); }
+  .book__pages { margin: 0; color: var(--hc-text-secondary); font-size: 0.88rem; line-height: 1.5; }
+  .book .pj-disc { margin-top: auto; }
+  .attribution { max-width: var(--pj-measure); margin: 1.5rem 0 0; color: var(--hc-text-tertiary); font-size: 0.88rem; line-height: 1.7; }
 
   @media (max-width: 900px) {
-    .passage, .pos__head { grid-template-columns: minmax(0, 1fr); }
-    .cards { grid-template-columns: minmax(0, 1fr); }
-    .card { grid-column: 1 / -1 !important; }
-    .specimen { justify-self: start; }
+    .pos__head { grid-template-columns: minmax(0, 1fr); }
+    .pos__word { justify-self: start; }
   }
   @media (max-width: 640px) {
     .verse { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
-    .glance { padding-inline: 0.9rem; }
-  }
-  @media (max-width: 480px) {
-    .glance__figures { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    .glance__figures div, .glance__figures div + div { flex-direction: row-reverse; justify-content: flex-end; align-items: baseline; gap: 0.9rem; padding: 0.35rem 0; border-inline-start: 0; }
-    .glance__figures div + div { border-top: 1px dashed color-mix(in srgb, var(--hc-fixed-parchment-ink) 40%, transparent); }
+    .rdg__head { grid-template-columns: auto minmax(0, 1fr); }
+    .rdg__n { grid-column: 1 / -1; }
+    .dep__q { grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
   }
 </style>

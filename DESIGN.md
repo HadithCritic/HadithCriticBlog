@@ -101,8 +101,9 @@ Four levels, warm-tinted in both themes. Never pure black, never pure white.
 | `--hc-surface-2` | `#1e1d1b` | `#e8e2d5` | Elevated blocks |
 | `--hc-surface-3` | `#26231f` | `#dfd8cb` | Cards, input wells, borders |
 
-`body` is not a flat fill: two low-opacity radial blooms (gold at 75% 10%, umber
-at 10% 20%) over a 135° `surface-0 → surface-2 → surface-0` gradient.
+`body` is a flat `--hc-surface-0`. Until 2026-10-08 it carried two radial
+blooms over a 135° gradient and a grain layer; both were removed so every page,
+project pages included, sits on one flat ground.
 
 ### Text
 
@@ -145,7 +146,7 @@ Used by `/projects/quran/` and `/projects/quran/transmission/`. **One hue per re
 
 ### Tafsir palette: `tafsir.css`
 
-Used by `/projects/tafsir/` and its sura pages. **One hue per era, not per book.** The library runs to a hundred or more commentaries across fourteen centuries, which hue cannot tell apart, so a book is told apart by its name and death date and its color says only when its author died. Five eras take the site’s own tones: `era-e1` gold (101 to 300 AH), `era-e2` copper (301 to 600), `era-e3` oxblood (601 to 900), `era-e4` sage (901 to 1300), `era-e5` slate (1301 to the present). `--e-bg`/`--e-ink` set a tag (`.e-tag`, AA at 5.4 to 8.3); `--e-line` is the mid-tone for borders and swatches (`.e-sq`) and holds 3:1 or better on both themes. A comment row carries its era as a 5px inline-start border over a 7% tint. Color is chronological and never evaluative; the name is always printed beside it. `tests/tafsir.test.mjs` fails a century that is in no era.
+Used by `/projects/tafsir/` and its sura pages. **One hue per era, not per book.** The library runs to a hundred or more commentaries across fourteen centuries, which hue cannot tell apart, so a book is told apart by its name and death date and its color says only when its author died. Five eras take the site’s own tones: `era-e1` gold (101 to 300 AH), `era-e2` copper (301 to 600), `era-e3` oxblood (601 to 900), `era-e4` sage (901 to 1300), `era-e5` slate (1301 to the present). `--e-bg`/`--e-ink` set a tag (`.e-tag`, AA at 5.4 to 8.3); `--e-line` is the mid-tone for borders and swatches (`.e-sq`) and holds 3:1 or better on both themes. A commentary row carries its era as a round `.e-sq` dot beside the work's name, never as an edge border. Color is chronological and never evaluative; the name is always printed beside it. `tests/tafsir.test.mjs` fails a century that is in no era.
 
 ### Categories
 
@@ -571,7 +572,7 @@ not by shadow.
 
 | Level | Treatment | Use |
 |---|---|---|
-| 0 | `--hc-surface-0` + body gradient | Page ground |
+| 0 | `--hc-surface-0`, flat | Page ground |
 | 1 | `--hc-surface-1`, `1px --hc-rule` | Panels, sticky header, nav |
 | 2 | `--hc-surface-2` | Elevated blocks, details bodies |
 | 3 | `--hc-surface-3` gradient + `--hc-rule`, plus `.hc-card::before` inset hairline at 10px | Cards |
@@ -583,12 +584,18 @@ non-overlay element.
 **No shadow-glow on dark.** A coloured halo around a card on the dark ground is
 a named AI tell and is banned. Depth comes from the inset hairline.
 
-### Paper grain
+### No grain, no edge strips
 
-`body::before` is a fixed, `pointer-events: none`, `mix-blend-mode: soft-light`
-layer of two radial dot fields (180px and 260px tiles) at `opacity .08`
-(light: `.04`), tinted by `--hc-noise` / `--hc-noise-dim`. It is meant to be
-felt, not seen. Do not raise the opacity; do not add a second grain layer.
+The `body::before` grain layer was removed on 2026-10-08. Do not add one back.
+`--hc-noise` and `--hc-noise-dim` remain defined but nothing reads them.
+
+**No edge strips.** A 2 to 6px colored bar on one side of a card, box, row or
+callout (`border-inline-start`, `border-top`, an inset `box-shadow`, or a
+`::before` strip) is not part of this system. Use a full 1px border, a faint
+tint, a dot or chip beside the name, or typography. Where a strip used to carry
+information (a reader's color, a "reported" state), the replacement must carry
+it too: a dot for a person or era, a word plus a dashed or dotted full border
+for a state.
 
 ### Decorative imagery
 
@@ -700,9 +707,11 @@ properties inherited from a `[data-category]` ancestor.
 
 ### `.hc-masthead` / `.hc-instrument`
 
-The split page hero, taken from `/resources`. `.hc-masthead__inner` is a
-1.08fr / 0.92fr grid, `align-items: end`, that stacks below 1000px; title and
-lede sit left, an **instrument** sits right. Padding is bottom-heavy.
+The split page hero. `.hc-masthead__inner` is a 1.08fr / 0.92fr grid,
+`align-items: end`, that stacks below 1000px; title and lede sit left, an
+**instrument** sits right. Flat `--hc-surface-0` and compact, bottom-heavy
+padding since 2026-10-08 (it used to lay two radial glows under up to 9.5rem of
+padding). No page uses it at present; the project pages moved to `.pj-hero`.
 
 The instrument is a tray (`.hc-instrument`, surface-2), a well
 (`.hc-instrument__well`, surface-1) and a fixed-parchment plate
@@ -776,9 +785,10 @@ There is no full-network drawing: density grows in the lists rather than in cros
 ### Row hover
 
 `.book-row__link`, `.corpus-result__link`, `.edition-report__link`,
-`.contents-row`, `.dossier-entry` share one hover: an `inset 2px 0 0
---hc-gold-dim` box-shadow plus a short gold wash and a small inline padding
-shift. **State is carried by shape, not colour alone** (WCAG 1.4.1-adjacent).
+`.contents-row`, `.dossier-entry` share one hover: a flat 7% gold tint. The
+inset 2px gold bar it used to add down the leading edge was retired with the
+other edge strips. Hover is an affordance, not information; each row keeps its
+own arrow or underline as the shape cue.
 
 ### `.hc-skip-link`
 
@@ -1068,3 +1078,34 @@ The seven `public/images/platform/` engravings have 2172px originals and 1086px
 responsive derivatives. These are conceptual illustrations, not reproductions of
 historical artifacts or evidence for research claims. Prompts and subjects are
 recorded in `docs/platform-artwork-prompts.json` and `docs/platform-redesign.md`.
+
+## Project pages (2026-10-08)
+
+The Qur'an sura pages (`SuraQiraat.astro`), the tafsir sura pages
+(`SuraTafsir.astro`), the reader pages (`/projects/quran/readers/[id]`) and the
+Fiqh Compass overview share one layer, `src/styles/project-pages.css`, built
+after `/resources`. Everything in it reads the theme tokens, so these pages keep
+the light theme.
+
+| Part | Class | Rule |
+|---|---|---|
+| Hero | `.pj-hero` | Eyebrow (with prev and next where there are neighbours), title with its Arabic name, one line of context, at most two chips or one button. Flat ground, one hairline below. No side panel. |
+| How to read | `.pj-about` | Closed native disclosures directly under the hero for anything that used to sit in a hero panel. |
+| Disclosure | `.pj-disc`, `--row`, `--card`, `--quiet` | One accordion: a `<details>` with a drawn chevron. Works with scripting off. |
+| Section head | `.pj-head` | Title, a flat 1px rule, a plain count. |
+| Chip | `.pj-chip` | A link, a toggle (`.pj-chip__input` radio or checkbox) or a disclosure summary. Never inert. |
+| Dot | `.pj-dot` | A person's or an era's color beside a name. |
+| Card | `.pj-card` | Surface-1, full 1px border. |
+| Toolbar | `.pj-toolbar` | Filters left, Expand all and Collapse all right. The buttons ship `hidden` and the page's module reveals them. Sticky above 1000px. |
+| Legend | `.pj-legend` | One per page, in a `<details>` popover. |
+| Pager | `.pj-pager` | Previous, the index, next. |
+
+One width and one measure per page: `--pj-width` (1240px for the Qur'an and
+Fiqh pages, 1100px for tafsir, 960px for readers) and `--pj-measure` (42rem).
+Cream is not used as a panel ground on these pages; Arabic sits on the card
+surface. The collation grid states "reported" and "not stated" in words with a
+dashed or dotted full border (the dense overview uses `r` and `–`, explained in
+the legend), and keeps the reader colors from `qiraat.css` unchanged.
+
+`scripts/check-contrast.mjs --open-details` opens every disclosure before
+measuring, because closed text is never painted and so never measured.

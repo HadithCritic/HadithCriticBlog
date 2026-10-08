@@ -127,7 +127,7 @@ def main() -> int:
         raise SystemExit(f"links name persons that were never defined: {unknown}")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"schemaVersion": "qiraat-transmission/0.1.0", "source": "an-Nashr (22642), Ibn al-Jazari",
+    OUT.write_text(json.dumps({"schemaVersion": "qiraat-transmission/0.1.0", "source": "an-Nashr (22642), Ibn al-Jazarī",
                                "persons": persons, "edges": edges}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     firm = sum(1 for e in edges if e["firm"])
     print(f"persons {len(persons)}  links {len(edges)} ({firm} firm, {len(edges) - firm} hedged or loose)  witnesses {sum(len(e['witnesses']) for e in edges)}")

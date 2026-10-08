@@ -32,6 +32,11 @@ No database server is in the request path for any public page.
   first compile. If a page appears to hang for minutes after an edit, it is
   usually dev-server recompilation backlog, not your code: re-request before
   investigating.
+- **Dev has a 4 GiB heap budget.** `scripts/dev-site.mjs` sets it through
+  `NODE_OPTIONS` so Astro's background process inherits it, and preserves an
+  existing explicit heap limit. Vite loads research JSON through `JSON.parse`
+  with named exports disabled to avoid building large data-module ASTs. Keep
+  JSON imports as default imports.
 - Markdown/MDX GFM is declared once on `markdown.processor` in
   `astro.config.mjs`. Do not also pass `remarkPlugins` to the `mdx()`
   integration; that arrangement is deprecated and was already removed.

@@ -1,13 +1,37 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import FiqhCompassNav from "../../components/FiqhCompassNav.astro";
-import { axes, questions } from "../../data/fiqh-compass";
+import { answerOptions, axes, questions } from "../../data/fiqh-compass";
 import figureData from "../../data/fiqh-compass-figures.json";
+import { candidateProfiles, issueGroups } from "../../data/fiqh-compass-research";
+import "../../styles/project-pages.css";
 
 const crumbs = [
   { name: "Home", url: "/" },
   { name: "Projects", url: "/projects/" },
   { name: "Fiqh Compass", url: "/projects/fiqh-compass/" },
+];
+
+const axisOf = new Map(axes.map((axis) => [axis.id, axis]));
+/* Four statements from the question bank, one per dimension, quoted exactly. */
+const examples = ["Q01", "Q09", "Q17", "Q22"].map((id) => {
+  const question = questions.find((q) => q.id === id)!;
+  return { question, axis: axisOf.get(question.axis)! };
+});
+/* The example result uses three real dimensions as its axes. Markers and coverage are illustrative. */
+const itemsPerAxis = Math.round(questions.length / axes.length);
+/* Counts in prose come from the data, so the copy cannot drift from the question bank again
+   (it said 24 statements, two per dimension, after the bank grew to 96, eight per dimension). */
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"];
+const inWords = (n: number) => WORDS[n] ?? String(n);
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const figureCount = figureData.figures.length;
+const candidateCount = candidateProfiles.length;
+const issueCount = issueGroups.reduce((sum, group) => sum + group.issues.length, 0);
+const sampleAxes = [
+  { axis: axisOf.get("A01")!, marker: 62, scored: 2 },
+  { axis: axisOf.get("A05")!, marker: 36, scored: 2 },
+  { axis: axisOf.get("A09")!, marker: 71, scored: 2 },
 ];
 ---
 
@@ -17,172 +41,207 @@ const crumbs = [
   canonical="/projects/fiqh-compass/"
   crumbs={crumbs}
 >
-  <div class="fiqh-compass" id="top">
+  <div class="fiqh-compass pj" id="top">
     <FiqhCompassNav current="overview" />
-    <header class="hc-project-hero" aria-labelledby="compass-title">
-      <div class="hc-container hc-project-hero__inner">
-        <div class="hc-project-hero__main">
-          <p class="hc-project-hero__kicker">Fiqh Compass · HadithCritic research project</p>
-          <h1 class="hc-project-hero__title" id="compass-title">How do you approach Islamic law?</h1>
-          <p class="hc-project-hero__lead">
-            Explore how you approach sources, reasoning, authority, and uncertainty in Islamic law. The compass describes answers to a small set of draft questions; it does not identify your religious affiliation, decide which view is correct, or issue a fatwa.
-          </p>
-          <div class="hc-project-hero__actions">
-            <a class="hc-btn" href="/projects/fiqh-compass/quiz/">Begin the quiz <span aria-hidden="true">→</span></a>
-            <a class="hc-btn hc-btn--ghost" href="#methodology">How it works</a>
-          </div>
+    <header class="pj-hero" aria-labelledby="compass-title">
+      <div class="pj-shell pj-hero__inner">
+        <p class="pj-hero__eyebrow">Fiqh Compass · HadithCritic research project</p>
+        <h1 class="pj-hero__title fc-title" id="compass-title">How do you approach Islamic law?</h1>
+        <p class="pj-hero__lede">Explore how you approach sources, reasoning, authority, and uncertainty in Islamic law.</p>
+        <p class="pj-hero__notice">The compass describes your answers to {questions.length} draft statements; it does not identify your religious affiliation, decide which view is correct, or issue a fatwa.</p>
+        <div class="pj-hero__actions">
+          <a class="hc-btn fc-cta" href="/projects/fiqh-compass/quiz/">Begin the quiz <span aria-hidden="true">→</span></a>
         </div>
-        <aside class="fc-sample" aria-label="Illustration of the quiz result layout, not a real result">
-          <div class="fc-sample__topline"><span>Illustrative result view</span><span>12 dimensions</span></div>
-          <h2>Your method profile</h2>
-          <p class="fc-sample__caption">A response map with its coverage shown.</p>
-          <div class="fc-sample__axes" aria-hidden="true">
-            <div><span>Sources of law</span><i><b style="--marker: 62%"></b></i><small>Restricted <span>Accepted</span></small></div>
-            <div><span>Analogy</span><i><b style="--marker: 36%"></b></i><small>Limited <span>Qualified</span></small></div>
-            <div><span>Context</span><i><b style="--marker: 71%"></b></i><small>Continuity <span>Variation</span></small></div>
-          </div>
-          <div class="fc-sample__foot"><span>Illustration only</span><span>Coverage accompanies every axis</span></div>
-        </aside>
+        <ul class="pj-hero__facts" aria-label="Prototype contents">
+          <li>{questions.length} draft statements</li>
+          <li>{axes.length} dimensions</li>
+          <li>About 15–20 min</li>
+          <li>Saved on this device</li>
+        </ul>
       </div>
     </header>
 
-    <section class="fc-introduction hc-container" id="introduction" aria-labelledby="intro-title">
-      <header class="fc-section-heading fc-intro-heading">
-        <div>
-          <p class="fc-kicker">More than one dimension</p>
-          <h2 id="intro-title">A fuller portrait of your legal reasoning.</h2>
-        </div>
-        <p>Explore principles that are often bundled together. The prototype keeps their questions and results distinct.</p>
-      </header>
-      <ul class="fc-features">
-        <li><span>01</span><div><h3>Sources</h3><p>Which sources can establish binding religious requirements?</p></div></li>
-        <li><span>02</span><div><h3>Transmission</h3><p>What evidentiary weight can reports and inherited practice carry?</p></div></li>
-        <li><span>03</span><div><h3>Reasoning</h3><p>How might analogy, reason, welfare, and custom inform a judgment?</p></div></li>
-        <li><span>04</span><div><h3>Context</h3><p>When can a change in circumstances affect an application?</p></div></li>
-        <li><span>05</span><div><h3>Authority</h3><p>How do you approach schools, qualified authorities, and disagreement?</p></div></li>
-        <li><span>06</span><div><h3>Uncertainty</h3><p>How should unresolved evidence and possible abrogation be handled?</p></div></li>
-      </ul>
-      <dl class="fc-protocol" aria-label="Prototype contents">
-        <div><dt>Questions</dt><dd>{questions.length} draft statements</dd></div>
-        <div><dt>Dimensions</dt><dd>12 axes</dd></div>
-        <div><dt>Time</dt><dd>About 15–20 min</dd></div>
-        <div><dt>Privacy</dt><dd>Saved on this device</dd></div>
-      </dl>
-      <div class="fc-result-layers" aria-label="Planned result layers and current availability">
-        <article><span>AVAILABLE IN THIS PROTOTYPE</span><h3>Legal method</h3><p>A provisional map of your answers across twelve draft dimensions.</p></article>
-        <article><span>RESEARCH IN PROGRESS</span><h3>Practical positions</h3><p>Precisely defined cases will be compared only after issue evidence is reviewed.</p></article>
-        <article><span>AVAILABLE IN THIS PROTOTYPE</span><h3>Historical figures</h3><p>The closest of {figureData.figures.length} figures on the dimensions you share, each placement shown with the passage it rests on. The readings are unreviewed.</p></article>
-      </div>
-    </section>
-
-    <section class="fc-methodology" id="methodology" aria-labelledby="method-title">
-      <div class="hc-container">
-        <header class="fc-section-heading">
-          <div>
-            <p class="fc-kicker">A guided process</p>
-            <h2 id="method-title">How the Fiqh Compass works</h2>
-          </div>
-          <p>Move from your answers to a transparent, limited summary.</p>
+    <div class="pj-shell fc-body">
+      <section class="pj-section" id="examples" aria-labelledby="examples-title">
+        <header class="pj-head">
+          <h2 id="examples-title" class="pj-head__title">What the quiz asks, and what it returns</h2>
+          <span class="pj-head__rule" aria-hidden="true"></span>
         </header>
-        <ol class="fc-steps">
-          <li><span>01</span><h3>Answer the questions</h3><p>Respond to 24 short statements. Skip any item that does not fit your view.</p></li>
-          <li><span>02</span><h3>Review twelve dimensions</h3><p>See where your answers fall, with the number of scored items shown beside each axis.</p></li>
-          <li><span>03</span><h3>Read the limits</h3><p>Interpret a provisional method profile, not a school label, ruling, or historical match.</p></li>
-        </ol>
-      </div>
-    </section>
+        <div class="fc-preview">
+          <div>
+            <p class="fc-preview__cap">Example statements, quoted from the question bank. Answers here are not recorded.</p>
+            <ol class="fc-examples">
+              {examples.map(({ question, axis }) => (
+                <li class="pj-card fc-example">
+                  <p class="fc-example__axis"><span>{axis.id}</span> {axis.title}</p>
+                  <p class="fc-example__prompt">{question.prompt}</p>
+                  <ol class="fc-scale" aria-label="Response scale">
+                    {answerOptions.map((option) => <li>{option.label}</li>)}
+                  </ol>
+                </li>
+              ))}
+            </ol>
+            <a class="fc-more" href="/projects/fiqh-compass/quiz/">Answer all {questions.length} in the quiz <span aria-hidden="true">→</span></a>
+          </div>
 
-    <section class="fc-axis-index hc-container" id="axis-index" aria-labelledby="axis-index-title">
-      <header class="fc-section-heading">
-        <div>
-          <p class="fc-kicker">Question map</p>
-          <h2 id="axis-index-title">Twelve dimensions under study</h2>
-        </div>
-        <span>Two draft items each</span>
-      </header>
-      <ol class="fc-axis-list">
-        {axes.map((axis) => (
-          <li id={`axis-${axis.id}`}>
-            <span class="fc-axis-list__id">{axis.id}</span>
-            <div class="fc-axis-list__body">
-              <h3>{axis.title}</h3>
-              <p>{axis.note}</p>
-              <div class="fc-axis-list__range"><span>{axis.low}</span><span aria-hidden="true">→</span><span>{axis.high}</span></div>
+          <aside class="fc-sample pj-card" aria-label="Illustration of the quiz result layout, not a real result">
+            <div class="fc-sample__topline"><span>Illustrative result view</span><span>{axes.length} dimensions</span></div>
+            <h3>Your method profile</h3>
+            <p class="fc-sample__caption">A response map with its coverage shown.</p>
+            <div class="fc-sample__axes">
+              {sampleAxes.map(({ axis, marker, scored }) => (
+                <div>
+                  <p class="fc-sample__name"><span>{axis.id}</span> {axis.title}</p>
+                  <i aria-hidden="true"><b style={`--marker: ${marker}%`}></b></i>
+                  <p class="fc-sample__poles"><span>{axis.low}</span><span>{axis.high}</span></p>
+                  <p class="fc-sample__coverage">{scored} of {itemsPerAxis} items scored</p>
+                </div>
+              ))}
             </div>
-          </li>
-        ))}
-      </ol>
-    </section>
-
-    <section class="fc-catalog hc-container" aria-labelledby="catalog-title">
-      <header class="fc-section-heading">
-        <div><p class="fc-kicker">Explore the research</p><h2 id="catalog-title">Browse questions and profile coverage.</h2></div>
-        <p>These indexes show the planned research surface. Candidate prompts and names are not scored findings.</p>
-      </header>
-      <div class="fc-catalog__grid">
-        <a class="fc-catalog-card" href="/projects/fiqh-compass/issues/">
-          <span class="fc-catalog-card__eyebrow">20 proposed prompts</span>
-          <h3>Issue register</h3>
-          <p>Browse the bounded legal questions selected for investigation, grouped by their primary dimensions.</p>
-          <span class="fc-catalog-card__link">Browse proposed questions <span aria-hidden="true">→</span></span>
-        </a>
-        <a class="fc-catalog-card" href="/projects/fiqh-compass/profiles/">
-          <span class="fc-catalog-card__eyebrow">3 roadmap starting points</span>
-          <h3>Candidate profiles</h3>
-          <p>See which author profiles the roadmap suggests starting with and what source review remains.</p>
-          <span class="fc-catalog-card__link">View profile coverage <span aria-hidden="true">→</span></span>
-        </a>
-      </div>
-      <p class="fc-catalog__note">There is no left–right replacement spectrum here. Legal traditions and authors are not single, uniform ideologies; results stay on separate axes and show how many draft items support each point.</p>
-    </section>
-
-    <section class="fc-boundaries hc-container" aria-labelledby="boundaries-title">
-      <header class="fc-section-heading">
-        <div>
-          <p class="fc-kicker">What a compass can’t decide</p>
-          <h2 id="boundaries-title">Your answers are not a verdict.</h2>
+            <div class="fc-sample__foot"><span>Illustration only</span><span>Coverage accompanies every axis</span></div>
+          </aside>
         </div>
-        <p>Different questions need different evidence. This prototype keeps its claims narrow.</p>
-      </header>
-      <div class="fc-boundary-grid">
-        <article><span>01</span><h3>No school label</h3><p>People’s views may cross conventional school boundaries.</p></article>
-        <article><span>02</span><h3>No right or wrong score</h3><p>A coordinate describes your responses, not correctness or certainty.</p></article>
-        <article><span>03</span><h3>No fatwa</h3><p>General method questions cannot decide what you should do in a case.</p></article>
-        <article><span>04</span><h3>No historical match yet</h3><p>Jurist comparisons wait for source-backed profiles and review.</p></article>
-      </div>
-    </section>
+      </section>
 
-    <section class="fc-faq hc-container" aria-labelledby="faq-title">
-      <header class="fc-section-heading">
-        <div><p class="fc-kicker">Before you begin</p><h2 id="faq-title">Frequently asked questions</h2></div>
-        <p>What this first research prototype can and cannot tell you.</p>
-      </header>
-      <div class="fc-faq__list">
-        <details><summary>What does the quiz measure?</summary><p>It asks about general approaches to legal sources, reasoning, authority, context, and uncertainty. It does not ask you to choose a school or resolve a practical case.</p></details>
-        <details><summary>Is the questionnaire validated?</summary><p>No. This is an early prototype with two draft items per dimension. The wording and the axes still need source review and comprehension research.</p></details>
-        <details><summary>Will it tell me which school I belong to?</summary><p>No. The result summarizes your answers to these questions. It does not assign a religious identity or claim that one school is internally uniform.</p></details>
-        <details><summary>Are my answers sent to HadithCritic?</summary><p>No. Progress is saved in this browser’s local storage. The quiz does not send answers to a server.</p></details>
-        <details><summary>Why aren’t historical jurists matched yet?</summary><p>The research project first needs traceable passages, careful attribution, and review for each profile. A school name or a later summary is not enough to create a responsible match.</p></details>
-      </div>
-    </section>
+      <section class="pj-section" id="methodology" aria-labelledby="method-title">
+        <p class="fc-kicker">A guided process</p>
+        <header class="pj-head">
+          <h2 id="method-title" class="pj-head__title">How the Fiqh Compass works</h2>
+          <span class="pj-head__rule" aria-hidden="true"></span>
+        </header>
+        <p class="pj-lede">Move from your answers to a transparent, limited summary.</p>
+        <ol class="fc-steps">
+          <li><span>01</span><h3>Answer the questions</h3><p>Respond to {questions.length} short statements. Skip any item that does not fit your view.</p></li>
+          <li><span>02</span><h3>Review twelve dimensions</h3><p>See where your answers fall, with the number of scored items shown beside each axis.</p></li>
+          <li><span>03</span><h3>Read the limits</h3><p>Interpret a provisional method profile and the closest historical figures, each with the passages behind it. Neither is a school label or a ruling.</p></li>
+        </ol>
+      </section>
 
-    <section class="fc-depth" aria-labelledby="depth-title">
-      <div class="hc-container fc-depth__inner">
-        <div><p class="fc-kicker">Start with the prototype</p><h2 id="depth-title">Twenty-four draft questions. Twelve dimensions.</h2><p>Try the research prototype and see how your answers map onto its provisional dimensions.</p></div>
-        <a class="hc-btn" href="/projects/fiqh-compass/quiz/">Begin the quiz <span aria-hidden="true">→</span></a>
-      </div>
-    </section>
+      <section class="fc-limits" aria-labelledby="boundaries-title">
+        <h2 id="boundaries-title" class="fc-limits__title">What a compass can’t decide</h2>
+        <p class="fc-limits__line"><b>Your answers are not a verdict.</b> Different questions need different evidence. This prototype keeps its claims narrow.</p>
+        <ul class="fc-limits__chips">
+          <li><details class="fc-limit"><summary class="pj-chip">No school label</summary><p>People’s views may cross conventional school boundaries.</p></details></li>
+          <li><details class="fc-limit"><summary class="pj-chip">No right or wrong score</summary><p>A coordinate describes your responses, not correctness or certainty.</p></details></li>
+          <li><details class="fc-limit"><summary class="pj-chip">No fatwa</summary><p>General method questions cannot decide what you should do in a case.</p></details></li>
+          <li><details class="fc-limit"><summary class="pj-chip">No reviewed historical match</summary><p>Figures are placed only where a cited passage states a view. The readings are machine-assisted and not yet reviewed by a specialist.</p></details></li>
+        </ul>
+      </section>
 
-    <section class="fc-feedback hc-container" aria-labelledby="feedback-title">
-      <div>
-        <p class="fc-kicker">Research status</p>
-        <h2 id="feedback-title">The question set is provisional.</h2>
-        <p>The axes and first-pass items follow the project roadmap. Source dossiers, expert review, and comprehension testing remain ahead. Draft questions may change as that work proceeds.</p>
-      </div>
-      <a class="hc-btn hc-btn--ghost" href="/projects/fiqh-compass/corrections/">Send a correction or note <span aria-hidden="true">→</span></a>
-    </section>
+      <section class="pj-section" id="more" aria-labelledby="more-title">
+        <header class="pj-head">
+          <h2 id="more-title" class="pj-head__title">More about the compass</h2>
+          <span class="pj-head__rule" aria-hidden="true"></span>
+        </header>
+        <div class="fc-discs">
+          <details class="pj-disc pj-disc--card" id="introduction">
+            <summary><span class="pj-disc__title">A fuller portrait of your legal reasoning.</span><span class="pj-disc__meta">More than one dimension</span></summary>
+            <div class="pj-disc__body">
+              <p class="pj-lede">Explore principles that are often bundled together. The prototype keeps their questions and results distinct.</p>
+              <ul class="fc-features">
+                <li><span>01</span><div><h3>Sources</h3><p>Which sources can establish binding religious requirements?</p></div></li>
+                <li><span>02</span><div><h3>Transmission</h3><p>What evidentiary weight can reports and inherited practice carry?</p></div></li>
+                <li><span>03</span><div><h3>Reasoning</h3><p>How might analogy, reason, welfare, and custom inform a judgment?</p></div></li>
+                <li><span>04</span><div><h3>Context</h3><p>When can a change in circumstances affect an application?</p></div></li>
+                <li><span>05</span><div><h3>Authority</h3><p>How do you approach schools, qualified authorities, and disagreement?</p></div></li>
+                <li><span>06</span><div><h3>Uncertainty</h3><p>How should unresolved evidence and possible abrogation be handled?</p></div></li>
+              </ul>
+              <div class="fc-result-layers" aria-label="Planned result layers and current availability">
+                <article><span>AVAILABLE IN THIS PROTOTYPE</span><h3>Legal method</h3><p>A provisional map of your answers across twelve draft dimensions.</p></article>
+                <article><span>RESEARCH IN PROGRESS</span><h3>Practical positions</h3><p>Precisely defined cases will be compared only after issue evidence is reviewed.</p></article>
+                <article><span>AVAILABLE IN THIS PROTOTYPE</span><h3>Historical figures</h3><p>The closest of {figureData.figures.length} figures on the dimensions you share, each placement shown with the passage it rests on. The readings are unreviewed.</p></article>
+              </div>
+            </div>
+          </details>
+
+          <details class="pj-disc pj-disc--card" id="axis-index">
+            <summary><span class="pj-disc__title">Twelve dimensions under study</span><span class="pj-disc__meta">Question map · {capital(inWords(itemsPerAxis))} draft items each</span></summary>
+            <div class="pj-disc__body">
+              <ol class="fc-axis-list">
+                {axes.map((axis) => (
+                  <li id={`axis-${axis.id}`}>
+                    <span class="fc-axis-list__id">{axis.id}</span>
+                    <div class="fc-axis-list__body">
+                      <h3>{axis.title}</h3>
+                      <p class="fc-axis-list__range"><span>{axis.low}</span><span aria-hidden="true">→</span><span>{axis.high}</span></p>
+                      <p class="fc-axis-list__note">{axis.note}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </details>
+
+          <details class="pj-disc pj-disc--card fc-faq" id="faq">
+            <summary><span class="pj-disc__title">Frequently asked questions</span><span class="pj-disc__meta">Before you begin</span></summary>
+            <div class="pj-disc__body">
+              <p class="pj-lede">What this first research prototype can and cannot tell you.</p>
+              <div class="fc-faq__list">
+                <details class="pj-disc pj-disc--row"><summary>What does the quiz measure?</summary><p>It asks about general approaches to legal sources, reasoning, authority, context, and uncertainty. It does not ask you to choose a school or resolve a practical case.</p></details>
+                <details class="pj-disc pj-disc--row"><summary>Is the questionnaire validated?</summary><p>No. This is an early prototype with {inWords(itemsPerAxis)} draft items per dimension. The wording and the axes still need source review and comprehension research.</p></details>
+                <details class="pj-disc pj-disc--row"><summary>Will it tell me which school I belong to?</summary><p>No. The result summarizes your answers to these questions. It does not assign a religious identity or claim that one school is internally uniform.</p></details>
+                <details class="pj-disc pj-disc--row"><summary>Are my answers sent to HadithCritic?</summary><p>No. Progress is saved in this browser’s local storage. The quiz does not send answers to a server.</p></details>
+                <details class="pj-disc pj-disc--row"><summary>How are historical figures compared?</summary><p>The result compares your coordinates with {figureCount} historical figures on the dimensions you share, and needs at least two in common. A figure is placed on a dimension only where a cited passage, from the figure’s own work, a named reporter, or an editor’s introduction, states a view, and each placement shows that passage. A school name or a later summary is not enough to place a figure. The readings were made with machine assistance and have not been reviewed by a specialist.</p></details>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="pj-section" aria-labelledby="catalog-title">
+        <p class="fc-kicker">Explore the research</p>
+        <header class="pj-head">
+          <h2 id="catalog-title" class="pj-head__title">Browse questions and profile coverage.</h2>
+          <span class="pj-head__rule" aria-hidden="true"></span>
+        </header>
+        <p class="pj-lede">These indexes show the research behind the quiz. Proposed prompts and candidate authors are not scored findings, and the figure placements are not yet reviewed by a specialist.</p>
+        <ul class="fc-catalog">
+          <li>
+            <a class="fc-catalog__link" href="/projects/fiqh-compass/issues/">
+              <span class="fc-catalog__name">Issue register <span class="fc-catalog__count">{issueCount} proposed prompts</span></span>
+              <span class="fc-catalog__desc">Browse the bounded legal questions selected for investigation, grouped by their primary dimensions.</span>
+              <span class="fc-catalog__go">Browse proposed questions <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+          <li>
+            <a class="fc-catalog__link" href="/projects/fiqh-compass/profiles/">
+              <span class="fc-catalog__name">Historical figures and profiles <span class="fc-catalog__count">{figureCount} figures · {candidateCount} candidate authors</span></span>
+              <span class="fc-catalog__desc">The historical figures the quiz compares you with, each placement shown with the Arabic passage it rests on, and the candidate profiles still being researched.</span>
+              <span class="fc-catalog__go">View figures and profiles <span aria-hidden="true">→</span></span>
+            </a>
+          </li>
+        </ul>
+        <p class="fc-catalog__note">There is no left–right replacement spectrum here. Legal traditions and authors are not single, uniform ideologies; results stay on separate axes and show how many draft items support each point.</p>
+      </section>
+
+      <section class="fc-close" aria-labelledby="depth-title">
+        <div>
+          <p class="fc-kicker">Start with the prototype</p>
+          <h2 id="depth-title">{questions.length} draft statements. {capital(inWords(axes.length))} dimensions.</h2>
+          <p>Try the research prototype and see how your answers map onto its provisional dimensions.</p>
+        </div>
+        <a class="hc-btn fc-cta" href="/projects/fiqh-compass/quiz/">Begin the quiz <span aria-hidden="true">→</span></a>
+      </section>
+
+      <footer class="fc-status" aria-labelledby="feedback-title">
+        <p><span class="fc-status__k">Research status</span> <b id="feedback-title">The question set is provisional.</b> The axes and first-pass items follow the project roadmap. Source dossiers, expert review, and comprehension testing remain ahead. Draft questions may change as that work proceeds.</p>
+        <a href="/projects/fiqh-compass/corrections/">Send a correction or note <span aria-hidden="true">→</span></a>
+      </footer>
+    </div>
   </div>
 </BaseLayout>
+
+<script>
+  /* Links to #axis-index, #faq or an axis open the disclosure that holds them. */
+  const openTarget = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = id ? document.getElementById(id) : null;
+    const box = target?.closest("details") ?? (target instanceof HTMLDetailsElement ? target : null);
+    if (box) { box.open = true; target!.scrollIntoView(); }
+  };
+  openTarget();
+  window.addEventListener("hashchange", openTarget);
+</script>
 
 <style>
   .fiqh-compass {
@@ -191,183 +250,123 @@ const crumbs = [
     --fc-text: var(--hc-text-secondary);
     --fc-muted: var(--hc-text-tertiary);
     --fc-line: var(--hc-rule-soft);
-    --fc-paper: var(--hc-surface-2);
-    --fc-green: var(--hc-gold);
-    --fc-green-soft: var(--hc-gold-bright);
+    --fc-paper: var(--hc-surface-1);
     --fc-accent: var(--hc-gold);
     min-height: 100vh;
-    padding-bottom: clamp(4rem, 8vw, 7rem);
     color: var(--fc-ink);
     background: var(--fc-bg);
   }
-  .fiqh-compass .hc-project-hero { overflow: hidden; background: linear-gradient(90deg, rgba(15, 15, 16, 0.98) 0%, rgba(15, 15, 16, 0.9) 43%, rgba(15, 15, 16, 0.28) 100%), url('/images/hadith-corpus-art.webp') center 57% / cover, var(--hc-fixed-black); border-color: var(--hc-rule); color: var(--hc-fixed-parchment); }
-  .fiqh-compass .hc-project-hero::before { background: var(--hc-gold); opacity: 0.72; }
-  .fiqh-compass .hc-project-hero__inner { grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.8fr); gap: clamp(2rem, 7vw, 6rem); padding-block: clamp(4rem, 8vw, 7rem) clamp(3rem, 6vw, 5rem); }
-  .fiqh-compass .hc-project-hero__kicker, .fc-kicker { color: var(--hc-gold); }
-  .fiqh-compass .hc-project-hero__kicker { color: var(--hc-fixed-parchment-deep); }
-  .fiqh-compass .hc-project-hero__title { max-width: 12ch; color: var(--hc-fixed-parchment); font: 600 clamp(3.1rem, 7.2vw, 6rem)/1.02 var(--font-editorial); letter-spacing: -0.01em; }
-  .fiqh-compass .hc-project-hero__lead { max-width: 55ch; color: var(--hc-fixed-muted); font-size: clamp(1.02rem, 1.5vw, 1.14rem); }
-  .fiqh-compass .hc-project-hero__actions { border-color: var(--fc-line); }
-  .fiqh-compass .hc-btn { min-height: 44px; border-color: var(--hc-gold); background: var(--hc-gold); color: var(--hc-text-inverse); }
-  .fiqh-compass .hc-btn:hover { border-color: var(--hc-gold-bright); background: var(--hc-gold-bright); color: var(--hc-text-inverse); }
-  .fiqh-compass .hc-project-hero .hc-btn:not(.hc-btn--ghost) { border-color: var(--hc-fixed-parchment-deep); background: var(--hc-fixed-parchment-deep); color: var(--hc-fixed-parchment-ink); }
-  .fiqh-compass .hc-project-hero .hc-btn:not(.hc-btn--ghost):hover { border-color: var(--hc-fixed-parchment); background: var(--hc-fixed-parchment); color: var(--hc-fixed-parchment-ink); }
-  .fiqh-compass .hc-project-hero .hc-btn--ghost { border-color: rgba(216, 177, 102, 0.62); background: rgba(15, 15, 16, 0.38); color: var(--hc-fixed-parchment); }
-  .fiqh-compass .hc-project-hero .hc-btn--ghost:hover { border-color: var(--hc-gold-bright); background: rgba(15, 15, 16, 0.7); color: var(--hc-fixed-parchment); }
-  .fc-sample { --fc-ink: var(--hc-fixed-parchment-ink); --fc-text: #4e463b; --fc-muted: #63594b; --fc-line: rgba(92, 66, 34, 0.24); --fc-paper: var(--hc-fixed-parchment); align-self: center; padding: clamp(1.2rem, 2.5vw, 1.8rem); border: 1px solid var(--hc-gold); border-radius: var(--radius-xs); background: var(--hc-fixed-parchment); box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.34); }
-  .fc-sample__topline, .fc-sample__foot { display: flex; justify-content: space-between; gap: 1rem; color: var(--fc-muted); font: 600 0.75rem/1.45 var(--font-ui); }
-  .fc-sample__topline { padding-bottom: 0.85rem; border-bottom: 1px solid var(--fc-line); text-transform: uppercase; letter-spacing: 0.06em; }
-  .fc-sample h2 { margin: 1rem 0 0.25rem; color: var(--fc-ink); font: 600 clamp(1.3rem, 2vw, 1.7rem)/1.25 var(--font-critical); }
-  .fc-sample__caption { margin: 0 0 1.1rem; color: var(--fc-text); font-size: 0.92rem; }
-  .fc-sample__axes { display: grid; gap: 0.85rem; }
-  .fc-sample__axes > div { display: grid; gap: 0.35rem; color: var(--fc-ink); font-size: 0.88rem; }
-  .fc-sample__axes i { position: relative; height: 5px; background: var(--fc-line); }
-  .fc-sample__axes i::before { position: absolute; inset: 0 auto 0 0; width: var(--marker); background: #8c682e; content: ""; }
-  .fc-sample__axes b { position: absolute; z-index: 1; top: 50%; left: var(--marker); width: 12px; height: 12px; border: 2px solid var(--fc-paper); border-radius: 50%; background: #8c682e; box-shadow: 0 0 0 1px #8c682e; transform: translate(-50%, -50%); }
-  .fc-sample__axes small { display: flex; justify-content: space-between; color: var(--fc-muted); font-size: 0.75rem; }
-  .fc-sample__foot { margin-top: 1.1rem; padding-top: 0.8rem; border-top: 1px solid var(--fc-line); text-transform: none; letter-spacing: 0; }
-  .fc-introduction, .fc-axis-index, .fc-catalog, .fc-boundaries, .fc-faq { padding-block: clamp(4rem, 8vw, 7rem); scroll-margin-top: 6rem; }
-  .fc-introduction, .fc-axis-index, .fc-catalog, .fc-faq { border-top: 1px solid var(--fc-line); }
-  .fc-kicker { margin: 0 0 0.55rem; font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.13em; text-transform: uppercase; }
-  .fc-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin-bottom: 1.8rem; }
-  .fc-section-heading h2, .fc-results h2, .fc-feedback h2 { max-width: 22ch; margin: 0; color: var(--fc-ink); font: 600 clamp(1.9rem, 3.6vw, 3rem)/1.08 var(--font-editorial); letter-spacing: -0.01em; text-wrap: balance; }
-  .fc-section-heading > p { max-width: 38ch; margin: 0; color: var(--fc-text); line-height: 1.65; }
-  .fc-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--fc-line); }
-  .fc-features li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; min-height: 7.4rem; padding: 1.1rem 1rem 1.1rem 0; border-bottom: 1px solid var(--fc-line); }
-  .fc-features li > span, .fc-steps li > span, .fc-boundary-grid article > span { color: var(--fc-accent); font: 600 0.75rem/1.5 var(--font-ui); letter-spacing: 0.08em; }
-  .fc-features h3, .fc-steps h3, .fc-boundary-grid h3 { margin: 0; color: var(--fc-ink); font: 600 1rem/1.4 var(--font-critical); }
-  .fc-features p, .fc-steps p, .fc-boundary-grid p { margin: 0.25rem 0 0; color: var(--fc-text); font-size: 0.9rem; line-height: 1.55; }
-  .fc-result-layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 2rem; }
-  .fc-result-layers article { padding: 1.05rem 1.15rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); }
-  .fc-result-layers article > span, .fc-catalog-card__eyebrow { color: var(--fc-accent); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
-  .fc-result-layers h3 { margin: 0.65rem 0 0; color: var(--fc-ink); font: 600 1.05rem/1.35 var(--font-display); }
-  .fc-result-layers p { margin: 0.3rem 0 0; color: var(--fc-text); font-size: 0.87rem; line-height: 1.55; }
-  .fc-protocol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 2.2rem 0 0; border-top: 1px solid var(--fc-line); }
-  .fc-protocol div { padding: 0.9rem 1rem 0.9rem 0; border-bottom: 1px solid var(--fc-line); }
-  .fc-protocol dt { color: var(--fc-muted); font: 600 0.75rem/1.3 var(--font-ui); letter-spacing: 0.09em; text-transform: uppercase; }
-  .fc-protocol dd { margin: 0.25rem 0 0; color: var(--fc-ink); font-size: 0.95rem; }
-  .fc-methodology { padding-block: clamp(4rem, 8vw, 7rem); border-block: 1px solid var(--fc-line); background: var(--hc-surface-1); color: var(--fc-ink); }
-  .fc-methodology .fc-kicker { color: var(--hc-gold); }
-  .fc-methodology .fc-section-heading h2 { color: var(--fc-ink); }
-  .fc-methodology .fc-section-heading > p { color: var(--fc-text); }
-  .fc-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--fc-line); }
-  .fc-steps li { min-height: 11rem; padding: 1.25rem 1.5rem 0 0; }
-  .fc-steps li + li { padding-left: 1.5rem; border-left: 1px solid var(--fc-line); }
-  .fc-steps li > span { color: var(--hc-gold); }
-  .fc-methodology .fc-steps h3 { margin-top: 1rem; color: var(--fc-ink); font-size: 1.15rem; }
-  .fc-methodology .fc-steps p { max-width: 33ch; margin-top: 0.45rem; color: var(--fc-text); line-height: 1.65; }
-  .fc-axis-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8rem; margin: 0; padding: 0; list-style: none; }
-  .fc-axis-list li { min-width: 0; padding: 1.05rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); }
-  .fc-axis-list__id { color: var(--fc-accent); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.07em; }
-  .fc-axis-list__body h3 { margin: 0.45rem 0 0; color: var(--fc-ink); font: 600 1rem/1.4 var(--font-display); }
-  .fc-axis-list__body p { min-height: 4.5rem; margin: 0.35rem 0 0.8rem; color: var(--fc-text); font-size: 0.85rem; line-height: 1.55; }
-  .fc-axis-list__range { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.35rem; align-items: start; padding-top: 0.7rem; border-top: 1px solid var(--fc-line); color: var(--fc-muted); font: 500 0.75rem/1.45 var(--font-ui); }
-  .fc-axis-list__range span:last-child { text-align: right; }
+  .fc-body { padding-bottom: clamp(4rem, 8vw, 6rem); }
+  .fc-title { max-width: 18ch; }
+  .fiqh-compass .fc-cta { min-height: 44px; border-color: var(--hc-gold); background: var(--hc-gold); color: var(--hc-text-inverse); }
+  .fiqh-compass .fc-cta:hover { border-color: var(--hc-gold-bright); background: var(--hc-gold-bright); color: var(--hc-text-inverse); }
+  .fc-kicker { margin: 0 0 0.45rem; color: var(--hc-gold); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* Example statements beside the example result. */
+  .fc-preview { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 0.85fr); gap: clamp(1rem, 3vw, 2rem); align-items: start; }
+  .fc-preview__cap { margin: 0 0 0.75rem; color: var(--fc-muted); font: 500 0.88rem/1.5 var(--font-ui); }
+  .fc-examples { display: grid; gap: var(--pj-gap); margin: 0; padding: 0; list-style: none; }
+  .fc-example__axis { margin: 0 0 0.45rem; color: var(--fc-text); font: 500 0.85rem/1.4 var(--font-ui); }
+  .fc-example__axis span { margin-inline-end: 0.35rem; color: var(--fc-accent); font-weight: 600; letter-spacing: 0.06em; }
+  .fc-example__prompt { max-width: var(--pj-measure); margin: 0 0 0.85rem; color: var(--fc-ink); font: 500 1.08rem/1.55 var(--font-display); }
+  .fc-scale { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .fc-scale li { display: flex; align-items: center; justify-content: center; min-height: 2.6rem; padding: 0.3rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); color: var(--fc-text); font: 500 0.78rem/1.25 var(--font-ui); text-align: center; }
+  .fc-scale li:nth-child(n + 6) { border-style: dashed; }
+  .fc-more { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; margin-top: 0.4rem; color: var(--hc-gold); font: 500 0.92rem/1.4 var(--font-ui); text-decoration: none; }
+  .fc-more:hover { color: var(--hc-gold-bright); }
+
+  /* The example result: a dark card with real dimensions as its axes, labelled as an illustration. */
+  .fc-sample { position: sticky; top: calc(var(--pj-top) + 1rem); padding: 1.15rem 1.25rem; }
+  .fc-sample__topline, .fc-sample__foot { display: flex; justify-content: space-between; gap: 1rem; color: var(--fc-muted); font: 600 0.78rem/1.45 var(--font-ui); }
+  .fc-sample__topline { padding-bottom: 0.75rem; border-bottom: 1px solid var(--fc-line); letter-spacing: 0.06em; text-transform: uppercase; }
+  .fc-sample h3 { margin: 0.9rem 0 0.2rem; color: var(--fc-ink); font: 600 1.35rem/1.25 var(--font-display); }
+  .fc-sample__caption { margin: 0 0 1rem; color: var(--fc-text); font-size: 0.92rem; }
+  .fc-sample__axes { display: grid; gap: 1.05rem; }
+  .fc-sample__name { margin: 0 0 0.45rem; color: var(--fc-ink); font: 600 0.9rem/1.35 var(--font-ui); }
+  .fc-sample__name span { margin-inline-end: 0.3rem; color: var(--fc-accent); }
+  .fc-sample__axes i { position: relative; display: block; height: 3px; background: var(--hc-rule); }
+  .fc-sample__axes b { position: absolute; top: 50%; left: var(--marker); width: 13px; height: 13px; border: 2px solid var(--hc-surface-1); border-radius: 50%; background: var(--hc-gold); box-shadow: 0 0 0 1px var(--hc-gold); transform: translate(-50%, -50%); }
+  .fc-sample__poles { display: flex; justify-content: space-between; gap: 1rem; margin: 0.45rem 0 0; color: var(--fc-text); font: 400 0.8rem/1.4 var(--font-ui); }
+  .fc-sample__poles span:last-child { text-align: right; }
+  .fc-sample__coverage { margin: 0.25rem 0 0; color: var(--fc-muted); font: 500 0.8rem/1.4 var(--font-ui); }
+  .fc-sample__foot { margin-top: 1.1rem; padding-top: 0.75rem; border-top: 1px solid var(--fc-line); }
+
+  .fc-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; border-block: 1px solid var(--fc-line); }
+  .fc-steps li { padding: 1rem 1.25rem 1.1rem 0; }
+  .fc-steps li + li { padding-left: 1.25rem; border-left: 1px solid var(--fc-line); }
+  .fc-steps span, .fc-features span { color: var(--fc-accent); font: 600 0.78rem/1.5 var(--font-ui); letter-spacing: 0.08em; }
+  .fc-steps h3, .fc-features h3 { margin: 0.35rem 0 0; color: var(--fc-ink); font: 600 1.05rem/1.4 var(--font-display); }
+  .fc-steps p, .fc-features p { max-width: 36ch; margin: 0.3rem 0 0; color: var(--fc-text); font-size: 0.93rem; line-height: 1.6; }
+
+  /* Limits: one slim line of four chips, each opening its own sentence. */
+  .fc-limits { display: grid; gap: 0.5rem; margin-top: clamp(2rem, 4vw, 3rem); padding-block: 1rem; border-block: 1px solid var(--fc-line); }
+  .fc-limits__title { margin: 0; color: var(--fc-muted); font: 600 0.78rem/1.3 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .fc-limits__line { margin: 0; color: var(--fc-text); font-size: 0.98rem; line-height: 1.6; }
+  .fc-limits__line b { color: var(--fc-ink); font-weight: 600; }
+  .fc-limits__chips { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+  .fc-limit > summary { list-style: none; color: var(--fc-ink); }
+  .fc-limit > summary::-webkit-details-marker { display: none; }
+  .fc-limit > summary::after { content: ""; width: 0.4rem; height: 0.4rem; border-right: 1.5px solid var(--hc-gold); border-bottom: 1.5px solid var(--hc-gold); transform: translateY(-20%) rotate(45deg); }
+  .fc-limit[open] > summary { border-color: var(--hc-gold); }
+  .fc-limit[open] > summary::after { transform: translateY(15%) rotate(-135deg); }
+  .fc-limit p { max-width: 30ch; margin: 0.4rem 0 0.2rem; color: var(--fc-text); font-size: 0.9rem; line-height: 1.55; }
+
+  .fc-discs { display: grid; gap: var(--pj-gap); }
+  .fc-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 1.5rem; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--fc-line); }
+  .fc-features li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.5rem; padding: 0.9rem 0; border-bottom: 1px solid var(--fc-line); }
+  .fc-features h3 { margin-top: 0; }
+  .fc-result-layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--pj-gap); margin-top: 1.25rem; }
+  .fc-result-layers article { padding: 0.9rem 1rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--hc-surface-0); }
+  .fc-result-layers span { color: var(--fc-accent); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.08em; }
+  .fc-result-layers h3 { margin: 0.5rem 0 0; color: var(--fc-ink); font: 600 1.02rem/1.35 var(--font-display); }
+  .fc-result-layers p { margin: 0.3rem 0 0; color: var(--fc-text); font-size: 0.9rem; line-height: 1.55; }
+
+  .fc-axis-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2rem; margin: 0; padding: 0; list-style: none; }
+  .fc-axis-list li { display: grid; grid-template-columns: 2.6rem minmax(0, 1fr); gap: 0.5rem; padding: 0.85rem 0; border-bottom: 1px solid var(--fc-line); scroll-margin-top: calc(var(--pj-top) + 1rem); }
+  .fc-axis-list__id { color: var(--fc-accent); font: 600 0.82rem/1.6 var(--font-ui); letter-spacing: 0.06em; }
+  .fc-axis-list h3 { margin: 0; color: var(--fc-ink); font: 600 1rem/1.4 var(--font-display); }
+  .fc-axis-list__range { display: flex; flex-wrap: wrap; gap: 0.15rem 0.45rem; margin: 0.25rem 0 0; color: var(--fc-text); font: 500 0.85rem/1.45 var(--font-ui); }
   .fc-axis-list__range span:nth-child(2) { color: var(--fc-accent); }
-  .fc-catalog { border-top: 1px solid var(--fc-line); }
-  .fc-catalog__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; }
-  .fc-catalog-card { display: flex; flex-direction: column; min-height: 14rem; padding: clamp(1.2rem, 2vw, 1.7rem); border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); color: var(--fc-ink); text-decoration: none; transition: border-color 150ms ease, transform 150ms ease; }
-  .fc-catalog-card:hover { transform: translateY(-2px); border-color: var(--fc-accent); }
-  .fc-catalog-card h3 { margin: 0.7rem 0 0; font: 600 1.35rem/1.3 var(--font-display); }
-  .fc-catalog-card p { max-width: 52ch; margin: 0.45rem 0 1.2rem; color: var(--fc-text); line-height: 1.6; }
-  .fc-catalog-card__link { display: flex; justify-content: space-between; gap: 1rem; margin-top: auto; padding-top: 0.8rem; border-top: 1px solid var(--fc-line); color: var(--fc-ink); font: 600 0.83rem/1.5 var(--font-ui); }
-  .fc-catalog__note { max-width: 78ch; margin: 1.4rem 0 0; color: var(--fc-muted); font-size: 0.86rem; line-height: 1.65; }
-  .fc-boundaries { border-top: 1px solid var(--fc-line); }
-  .fc-boundary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
-  .fc-boundary-grid article { min-height: 10rem; padding: 1.1rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: color-mix(in srgb, var(--fc-accent) 8%, var(--fc-paper)); }
-  .fc-boundary-grid h3 { margin-top: 1.2rem; }
+  .fc-axis-list__note { margin: 0.3rem 0 0; color: var(--fc-muted); font-size: 0.88rem; line-height: 1.55; }
+
   .fc-faq__list { border-top: 1px solid var(--fc-line); }
-  .fc-faq details { border-bottom: 1px solid var(--fc-line); }
-  .fc-faq summary { display: flex; justify-content: space-between; gap: 1rem; min-height: 3.5rem; align-items: center; color: var(--fc-ink); font: 600 0.95rem/1.45 var(--font-display); cursor: pointer; list-style: none; }
-  .fc-faq summary::-webkit-details-marker { display: none; }
-  .fc-faq summary::after { content: "+"; color: var(--fc-accent); font: 500 1.2rem/1 var(--font-display); }
-  .fc-faq details[open] summary::after { content: "−"; }
-  .fc-faq details p { max-width: 75ch; margin: 0 0 1.2rem; color: var(--fc-text); font-size: 0.92rem; line-height: 1.65; }
-  .fc-depth { padding-block: clamp(3.5rem, 7vw, 5.5rem); border-block: 1px solid var(--fc-line); background: var(--hc-surface-1); color: var(--fc-ink); }
-  .fc-depth__inner { display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
-  .fc-depth .fc-kicker { color: var(--hc-gold); }
-  .fc-depth h2 { max-width: 20ch; margin: 0; color: var(--fc-ink); font: 600 clamp(1.9rem, 3.7vw, 3rem)/1.08 var(--font-editorial); letter-spacing: -0.01em; }
-  .fc-depth p:not(.fc-kicker) { max-width: 58ch; margin-bottom: 0; color: var(--fc-text); line-height: 1.6; }
-  .fiqh-compass .fc-depth .hc-btn { flex: none; border-color: var(--hc-gold); background: var(--hc-gold); color: var(--hc-text-inverse); }
-  .fc-quiz__note { margin: 0; color: var(--fc-text); font-size: 0.92rem; }
-  .fc-noscript { padding: 1rem; border: 1px solid var(--fc-line); color: var(--fc-text); line-height: 1.6; }
-  .fc-form { overflow: hidden; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); }
-  .fc-progress { height: 4px; background: var(--fc-line); }
-  .fc-progress__fill { display: block; height: 100%; background: var(--fc-green); transition: width 220ms var(--ease-standard); }
-  .fc-form__meta { display: flex; justify-content: space-between; gap: 1rem; padding: 0.8rem clamp(1rem, 3vw, 2rem); border-bottom: 1px solid var(--fc-line); color: var(--fc-muted); font: 600 0.75rem/1.4 var(--font-ui); letter-spacing: 0.06em; text-transform: uppercase; }
-  .fc-question { min-width: 0; margin: 0; padding: clamp(1.4rem, 4vw, 3rem); border: 0; }
-  .fc-question legend { display: grid; gap: 0.8rem; width: 100%; padding: 0 0 1.4rem; }
-  .fc-question__axis { color: var(--fc-accent); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
-  .fc-question__prompt { max-width: 60ch; color: var(--fc-ink); font: 500 clamp(1.3rem, 2.7vw, 1.9rem)/1.38 var(--font-display); }
-  .fc-options { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; }
-  .fc-option { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 0.9rem; min-height: 6.3rem; padding: 0.75rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-bg); color: var(--fc-text); font: 500 0.8rem/1.45 var(--font-ui); cursor: pointer; transition: border-color 150ms ease, color 150ms ease, background 150ms ease; }
-  .fc-option:hover { border-color: var(--fc-green); color: var(--fc-ink); }
-  .fc-option:has(input:checked) { border-color: var(--fc-green); background: color-mix(in srgb, var(--fc-green) 9%, var(--fc-bg)); color: var(--fc-ink); }
-  .fc-option input { width: 1.05rem; height: 1.05rem; margin: 0; accent-color: var(--fc-green); }
-  .fc-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; padding: 1rem clamp(1rem, 3vw, 2rem); border-top: 1px solid var(--fc-line); }
-  .fc-controls button[hidden] { display: none; }
-  .fc-status { margin: 0; padding-inline: clamp(1rem, 3vw, 2rem); color: var(--fc-text); font-size: 0.86rem; }
-  .fc-results[hidden], .fc-quiz[hidden], .fc-introduction[hidden] { display: none; }
-  .fc-results__header { display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
-  .fc-results__header [data-result-count] { margin: 0.45rem 0 0; color: var(--fc-text); }
-  .fc-results__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-  .fc-results__caveat { max-width: 82ch; margin: 1.4rem 0 2rem; padding-block: 0.9rem; border-block: 1px solid var(--fc-line); color: var(--fc-text); font-size: 0.92rem; line-height: 1.65; }
-  .fc-result-list { border-top: 1px solid var(--fc-line); }
-  .fc-result-row { display: grid; grid-template-columns: minmax(12rem, 0.7fr) minmax(0, 1.3fr); gap: 0.35rem 2rem; padding: 1.15rem 0; border-bottom: 1px solid var(--fc-line); }
-  .fc-result-row h3 { margin: 0; color: var(--fc-ink); font: 600 1.1rem/1.4 var(--font-display); }
-  .fc-result-meta { grid-column: 1; margin: 0; color: var(--fc-muted); font: 400 0.8rem/1.5 var(--font-ui); }
-  .fc-meter { grid-column: 2; grid-row: 1 / span 2; display: grid; grid-template-columns: minmax(0, 1fr) 8rem minmax(0, 1fr); gap: 0.8rem; align-items: center; }
-  .fc-meter__label { color: var(--fc-text); font-size: 0.78rem; line-height: 1.4; }
-  .fc-meter__label--high { text-align: right; }
-  .fc-meter__track { position: relative; height: 3px; background: var(--fc-line); }
-  .fc-meter__track::before { position: absolute; inset: 50% auto auto 50%; width: 7px; height: 7px; border: 1px solid var(--fc-muted); border-radius: 50%; background: var(--fc-bg); content: ""; transform: translate(-50%, -50%); }
-  .fc-meter__marker { position: absolute; top: 50%; width: 13px; height: 13px; border: 2px solid var(--fc-bg); border-radius: 50%; background: var(--fc-green); box-shadow: 0 0 0 1px var(--fc-green); transform: translate(-50%, -50%); }
-  .fc-result-note { grid-column: 1 / -1; margin: 0.35rem 0 0; color: var(--fc-text); font-size: 0.88rem; line-height: 1.6; }
-  .fc-results__privacy { margin-top: 1.2rem; color: var(--fc-muted); font: 400 0.82rem/1.55 var(--font-ui); }
-  .fc-feedback { display: flex; align-items: center; justify-content: space-between; gap: 2rem; padding-block: clamp(3rem, 6vw, 4.5rem); border-top: 1px solid var(--fc-line); }
-  .fc-feedback > div { max-width: 65ch; }
-  .fc-feedback h2 { font-size: clamp(1.45rem, 2.5vw, 1.95rem); }
-  .fc-feedback p:not(.fc-kicker) { margin-bottom: 0; color: var(--fc-text); line-height: 1.65; }
-  @media (max-width: 1100px) {
-    .fc-axis-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .fc-boundary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .fc-options { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fc-faq__list summary { font: 600 0.98rem/1.45 var(--font-display); }
+  .fc-faq__list p { max-width: var(--pj-measure); margin: 0 0 1rem; color: var(--fc-text); font-size: 0.95rem; line-height: 1.65; }
+
+  .fc-catalog { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--pj-gap); margin: 0; padding: 0; list-style: none; }
+  .fc-catalog__link { display: grid; gap: 0.35rem; height: 100%; padding: 1rem 1.1rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); color: var(--fc-ink); text-decoration: none; transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease; }
+  .fc-catalog__link:hover { border-color: var(--fc-accent); background: color-mix(in srgb, var(--hc-gold) 6%, var(--fc-paper)); }
+  .fc-catalog__name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.75rem; font: 600 1.15rem/1.3 var(--font-display); }
+  .fc-catalog__count { color: var(--fc-accent); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; }
+  .fc-catalog__desc { color: var(--fc-text); font-size: 0.95rem; line-height: 1.6; }
+  .fc-catalog__go { margin-top: 0.25rem; color: var(--hc-gold); font: 500 0.88rem/1.5 var(--font-ui); }
+  .fc-catalog__note { max-width: var(--pj-measure); margin: 1rem 0 0; color: var(--fc-muted); font-size: 0.9rem; line-height: 1.65; }
+
+  .fc-close { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem 2rem; margin-top: clamp(2.5rem, 5vw, 3.5rem); padding: 1.25rem 1.4rem; border: 1px solid var(--fc-line); border-radius: var(--radius-xs); background: var(--fc-paper); }
+  .fc-close h2 { margin: 0; color: var(--fc-ink); font: 600 clamp(1.4rem, 2.6vw, 1.9rem)/1.2 var(--font-editorial); }
+  .fc-close p:not(.fc-kicker) { max-width: var(--pj-measure); margin: 0.4rem 0 0; color: var(--fc-text); line-height: 1.6; }
+
+  .fc-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 2rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--fc-line); }
+  .fc-status p { max-width: 70ch; margin: 0; color: var(--fc-muted); font-size: 0.9rem; line-height: 1.6; }
+  .fc-status b { color: var(--fc-text); font-weight: 600; }
+  .fc-status__k { margin-inline-end: 0.35rem; color: var(--hc-gold); font: 600 0.78rem/1.4 var(--font-ui); letter-spacing: 0.1em; text-transform: uppercase; }
+  .fc-status a { display: inline-flex; align-items: center; gap: 0.4rem; min-height: 44px; color: var(--hc-gold); font: 500 0.9rem/1.4 var(--font-ui); text-decoration: none; }
+  .fc-status a:hover { color: var(--hc-gold-bright); }
+
+  @media (max-width: 1000px) {
+    .fc-preview { grid-template-columns: minmax(0, 1fr); }
+    .fc-sample { position: static; }
   }
   @media (max-width: 800px) {
-    .fiqh-compass .hc-project-hero__inner { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
-    .fc-sample { max-width: 36rem; }
-    .fc-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .fc-result-layers { grid-template-columns: minmax(0, 1fr); }
-    .fc-catalog__grid { grid-template-columns: minmax(0, 1fr); }
-    .fc-steps { grid-template-columns: minmax(0, 1fr); }
-    .fc-steps li, .fc-steps li + li { min-height: 0; padding: 1rem 0; border-left: 0; }
-    .fc-steps li + li { border-top: 1px solid rgba(245, 242, 233, 0.18); }
-    .fc-steps h3 { margin-top: 0.4rem !important; }
+    .fc-steps, .fc-features, .fc-result-layers, .fc-axis-list, .fc-catalog { grid-template-columns: minmax(0, 1fr); }
+    .fc-steps li, .fc-steps li + li { padding: 0.9rem 0; border-left: 0; }
+    .fc-steps li + li { border-top: 1px solid var(--fc-line); }
+    .fc-scale { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
-  @media (max-width: 650px) {
-    .fc-section-heading, .fc-results__header, .fc-feedback { align-items: flex-start; flex-direction: column; gap: 0.9rem; }
-    .fc-axis-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
-    .fc-axis-list li { padding: 0.8rem; }
-    .fc-axis-list__body p { min-height: 0; }
-    .fc-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .fc-option { min-height: 4.5rem; }
-    .fc-protocol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .fc-boundary-grid { grid-template-columns: minmax(0, 1fr); }
-    .fc-boundary-grid article { min-height: 0; }
-    .fc-depth__inner { align-items: flex-start; flex-direction: column; }
-    .fc-result-row { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
-    .fc-meter { grid-column: 1; grid-row: auto; }
-    .fc-meter__label { font-size: 0.75rem; }
-    .fc-results__actions { width: 100%; }
-    .fc-results__actions button { flex: 1 1 auto; }
-    .fc-sample__foot { flex-direction: column; gap: 0.25rem; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .fc-progress__fill, .fc-option { transition: none; }
+  @media (max-width: 480px) {
+    .fc-scale { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media print {
-    .fc-results__actions, .hc-project-hero__actions, .fc-depth, .fc-feedback, .site-header, .site-footer { display: none !important; }
-    .fiqh-compass { --fc-bg: #f5f2e9; --fc-ink: #1a1715; --fc-text: #4e4942; --fc-muted: #514b44; --fc-green: #10392e; color: var(--fc-ink); background: var(--fc-bg); }
-    .fc-result-row, .fc-results__caveat { break-inside: avoid; }
+    .fc-close, .fc-status, .site-header, .site-footer { display: none !important; }
   }
 </style>

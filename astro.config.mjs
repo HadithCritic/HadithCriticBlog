@@ -57,6 +57,9 @@ export default defineConfig({
     })
   },
   vite: {
+    // Large research JSON needs only default imports. This pair also enables
+    // Vite's SSR JSON fast path, avoiding a JavaScript AST for every data field.
+    json: { stringify: true, namedExports: false },
     // The 1.6 GB static corpus is not in public/, because publicDir is copied
     // wholesale into dist/ on every build. It happened once, by way of a
     // `--target public` publish that no longer exists, and produced a 1.7 GB

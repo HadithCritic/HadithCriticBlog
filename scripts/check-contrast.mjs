@@ -30,6 +30,7 @@
  *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-empty # all items skipped
  *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-unknown # all responses unsure
  *   node scripts/check-contrast.mjs --json          # composited bg and DOM path
+ *   node scripts/check-contrast.mjs --open-details  # open every <details> first, so collapsed text is measured
  *
  * Exit code is 1 when anything fails, so it can gate a build later. It is not
  * in `npm run validate` yet because the article bodies carry a known backlog:
@@ -46,6 +47,9 @@ const themeArg = args.includes('--theme') ? args[args.indexOf('--theme') + 1] : 
 const THEMES = themeArg ? [themeArg] : ['dark', 'light'];
 const ALL_ARTICLES = args.includes('--all-articles');
 const JSON_OUT = args.includes('--json');
+/* Most of the project pages hold their notes, sources and commentaries in closed
+   disclosures. Closed text is not painted, so without this it is never measured. */
+const OPEN_DETAILS = args.includes('--open-details');
 const ONLY = args.includes('--route') ? args[args.indexOf('--route') + 1] : null;
 const QUIZ_RESULTS = args.includes('--quiz-results');
 const QUIZ_RESULTS_EMPTY = args.includes('--quiz-results-empty');
@@ -83,6 +87,8 @@ const ROUTES = [
   '/projects',
   '/projects/tafsir',
   '/projects/tafsir/sura/1',
+  '/projects/quran/sura/1',
+  '/projects/quran/readers/nafi',
   '/projects/fiqh-compass',
   '/youtube',
   '/brand',
@@ -410,6 +416,10 @@ for (const theme of THEMES) {
     if (applied !== theme) {
       process.stdout.write(`  warn: ${route} rendered as ${applied}, expected ${theme}
 `);
+    }
+    if (OPEN_DETAILS) {
+      await page.evaluate(() => document.querySelectorAll('details').forEach((element) => { element.open = true; }));
+      await settle(page);
     }
     const { bad, indeterminate } = await page.evaluate(PROBE);
     if (bad.length) {
