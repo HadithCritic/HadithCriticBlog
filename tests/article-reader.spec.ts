@@ -20,8 +20,11 @@ test('the old reader chrome stays gone', async ({ page }) => {
   for (const gone of ['[data-reading-progress]', '#readingOptionsToggle', '.desk-toolbar', '.desk-left-rail', '.back-to-top']) {
     await expect(page.locator(gone)).toHaveCount(0);
   }
-  await expect(page.locator('h1')).toHaveCount(1);
-  await expect(page.locator('.hc-source--quran').first()).toBeVisible();
+  await expect(page.locator('main h1')).toHaveCount(1);
+  const verse = page.locator('.hc-verse').first();
+  await expect(verse).toBeVisible();
+  await expect(verse.locator('[lang="ar"]').first()).not.toBeEmpty();
+  await expect(verse.locator('[data-source-quoted]').first()).not.toBeEmpty();
 });
 
 test('a footnote reference opens its note as a preview', async ({ page }) => {
@@ -34,7 +37,7 @@ test('a footnote reference opens its note as a preview', async ({ page }) => {
 
 test('report headings passed as title are rendered', async ({ page }) => {
   await page.goto('/blogs/theology-epistemology/14-the-salafi-paradox/');
-  await expect(page.locator('.hc-source__title', { hasText: 'Ibn Baz on asking the Prophet for intercession after death' })).toBeVisible();
+  await expect(page.locator('.hc-report__label', { hasText: 'Ibn Baz on asking the Prophet for intercession after death' })).toBeVisible();
 });
 
 test.describe('without JavaScript', () => {

@@ -4,13 +4,13 @@
  * figures a media card prints. Pure functions, used at build time.
  */
 
-const TAG = /<[^>]*>/g;
-const ENTITY = /&(?:#\d+|#x[\da-f]+|[a-z]+);/gi;
+import { htmlText } from './html-text.mjs';
+
 const SPACE = /\s+/g;
 
 /** Visible characters in a run of HTML, with whitespace collapsed. */
 export function plainLength(html: string): number {
-  return html.replace(TAG, ' ').replace(ENTITY, '_').replace(SPACE, ' ').trim().length;
+  return htmlText(html, ' ').replace(SPACE, ' ').trim().length;
 }
 
 /** 1812 as "30:12", 3725 as "1:02:05". */

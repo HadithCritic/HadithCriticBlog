@@ -5,6 +5,29 @@ const graph = JSON.parse(readFileSync(new URL('../src/data/research-graph.json',
 const busy = graph.works.find((work: { id: string }) => work.id === 'schacht-1950-origins-muhammadan-jurisprudence');
 const incoming = graph.edges.filter((edge: { type: string; to: string }) => edge.type === 'cites' && edge.to === busy.id);
 
+test('atlas titles and link labels render as literal text, never as HTML', async ({ page }) => {
+  const payload = '<img src=x onerror="window.atlasInjected=true">';
+  await page.route('**/projects/islamic-studies-atlas/**', async route => {
+    if (route.request().resourceType() !== 'document') return route.continue();
+    const response = await route.fetch();
+    const original = await response.text();
+    const body = original.replace(/(<script\b[^>]*\bid="atlas-data"[^>]*>)([\s\S]*?)(<\/script>)/, (_, opening, json, closing) => {
+      const entries = JSON.parse(json);
+      entries[busy.id].t = payload;
+      entries[busy.id].a = payload;
+      entries[busy.id].s = [{ href: '/blogs/', label: payload }];
+      return opening + JSON.stringify(entries).replaceAll('<', '\\u003c') + closing;
+    });
+    expect(body).not.toBe(original);
+    await route.fulfill({ response, body });
+  });
+  await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
+  await expect(page.locator('.focus__title')).toHaveText(payload);
+  await expect(page.locator('.focus__site-list a')).toHaveText(payload);
+  await expect(page.locator('[data-explorer] img')).toHaveCount(0);
+  expect(await page.evaluate(() => Object.hasOwn(window, 'atlasInjected'))).toBe(false);
+});
+
 test('citation directions, expansion and connection search match the source graph', async ({ page }) => {
   await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
   await expect(page.locator('.focus__title')).toHaveText(busy.title);

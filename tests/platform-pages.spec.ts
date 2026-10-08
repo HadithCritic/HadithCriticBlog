@@ -6,10 +6,19 @@ test('Homepage archive leads with one study and links every research branch',asy
  await expect(feature).toHaveCount(1);
  const href=await feature.locator('.home-feature__link').getAttribute('href');
  expect(href).toMatch(/^\/blogs\/.+\/$/);
- const branches=page.locator('.home-branch');
+ const branches=page.locator('.home-filter-tab[data-category]');
  expect(await branches.count()).toBeGreaterThanOrEqual(4);
- for(const link of await page.locator('.home-branch__name').all()) {
-  expect(await link.getAttribute('href')).toMatch(/^\/blogs\/category\/[a-z-]+\/$/);
+ for(const branch of await branches.all()) {
+  const destination=await branch.getAttribute('data-href');
+  expect(destination).toMatch(/^\/blogs\/category\/[a-z-]+\/$/);
+  await branch.click();
+  await expect(branch).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('#home-ledger-cta')).toHaveAttribute('href',destination!);
+  const visible=page.locator('.home-ledger-row:not([hidden])');
+  expect(await visible.count()).toBeGreaterThan(0);
+  for(const row of await visible.all()) {
+   await expect(row).toHaveAttribute('data-category',(await branch.getAttribute('data-home-filter'))!);
+  }
  }
  await expect(page.locator('.home-project')).toHaveCount(6);
 });
@@ -65,14 +74,25 @@ test('Homepage video activation preserves the privacy-enhanced embed',async({pag
  await expect(video.locator('iframe')).toHaveAttribute('src',`https://www.youtube-nocookie.com/embed/${id}?autoplay=1`);
 });
 
-test('Homepage categories keep distinct colors, a compact feature, and a modest footer gap', async ({page}) => {
+test('Homepage categories keep distinct colors, readable feature contents, and a modest footer gap', async ({page}) => {
  await page.setViewportSize({width:1672,height:1100});
  await page.goto('/');
  await page.evaluate(()=>document.fonts.ready);
- const branches=page.locator('.home-branch');
- const colors=await branches.evaluateAll(items=>items.map(item=>getComputedStyle(item,'::before').backgroundColor));
+ const branches=page.locator('.home-filter-tab[data-category]');
+ expect(await branches.count()).toBeGreaterThanOrEqual(4);
+ const colors=await branches.evaluateAll(items=>items.map(item=>getComputedStyle(item,'::before').borderColor));
  expect(new Set(colors).size).toBe(await branches.count());
- expect((await page.locator('.home-feature').boundingBox())!.height).toBeLessThan(340);
+ const feature=(await page.locator('.home-feature').boundingBox())!;
+ const copy=(await page.locator('.home-feature__copy').boundingBox())!;
+ expect(copy.width).toBeLessThan(feature.width*0.7);
+ const contents=page.locator('.home-feature__contents a');
+ expect(await contents.count()).toBeGreaterThan(0);
+ for(const link of await contents.all()) {
+  expect(await link.getAttribute('href')).toMatch(/^\/blogs\/.+\/#.+/);
+  const bounds=(await link.boundingBox())!;
+  expect(bounds.y).toBeGreaterThanOrEqual(feature.y);
+  expect(bounds.y+bounds.height).toBeLessThanOrEqual(feature.y+feature.height);
+ }
  await page.locator('.closing-banner').scrollIntoViewIfNeeded();
  const measureGap=()=>page.evaluate(()=>document.querySelector('#site-footer')!.getBoundingClientRect().top-document.querySelector('.closing-banner')!.getBoundingClientRect().bottom);
  const gap=await measureGap();

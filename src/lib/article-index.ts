@@ -1,5 +1,6 @@
 import type { CollectionEntry } from 'astro:content';
 import { blogArtwork, type BlogArtwork } from '../data/blog-artwork';
+import { htmlText } from './html-text.mjs';
 
 /**
  * Listing helpers shared by the homepage, the blog archive and the branch
@@ -28,7 +29,7 @@ export const formatDate = (date: Date): string =>
 export const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 
 export const readingMinutes = (post: Article): number => {
-  const words = (post.body || '').replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
+  const words = htmlText(post.body || '').trim().split(/\s+/).filter(Boolean).length;
   return Math.max(1, Math.round(words / 200));
 };
 

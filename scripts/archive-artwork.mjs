@@ -1,10 +1,11 @@
 import fs from 'node:fs';import path from 'node:path';import crypto from 'node:crypto';import sharp from 'sharp';
+import { removeStyleBlocks } from '../src/lib/html-text.mjs';
 const planPath='docs/archive-artwork-plan.json';const manifestPath='src/data/blog-artwork.ts';
 const plan=JSON.parse(fs.readFileSync(planPath,'utf8'));const digest=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 const raw=fs.readFileSync(manifestPath,'utf8');const manifest=JSON.parse('{'+raw.split('= {')[1].replace(/;\s*$/,''));
 const command=process.argv[2];
 if(command==='read') {
- for(const number of process.argv.slice(3).map(Number)) {const a=plan.articles.find(a=>a.number===number);console.log(fs.readFileSync(a.path,'utf8').replace(/<style[\s\S]*?<\/style>/g,'').replace(/^import .*$/gm,''));}
+ for(const number of process.argv.slice(3).map(Number)) {const a=plan.articles.find(a=>a.number===number);console.log(removeStyleBlocks(fs.readFileSync(a.path,'utf8')).replace(/^import .*$/gm,''));}
 } else if(command==='complete') {
  for(const number of process.argv.slice(3).map(Number)) {
   const a=plan.articles.find(a=>a.number===number);if(!a?.readComplete||!a.generatedPath||plan.approvedIds.includes(a.id))throw new Error('Article is not eligible: '+number);
