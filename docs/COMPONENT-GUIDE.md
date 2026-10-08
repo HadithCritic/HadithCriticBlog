@@ -9,11 +9,11 @@ these are imported directly inside `.mdx` articles from
 
 | Content pattern | Component (import path under `components/article/`) | Notes |
 |---|---|---|
-| Quranic citation, one or more verses | `<QuranVerse verse="2:255, 24:13" />` (`sources/QuranVerse.astro`) | Comma-separated refs or `a:b-c` ranges. Text comes from `src/data/quran-verses.json`; `label` overrides the citation line. |
-| Hadith report with Arabic + translation | `<HadithBlock label="…" source="…" arabic={`…`} translation={`…`} />` (`sources/HadithBlock.astro`) | `title` is accepted as a synonym for `label`. Arabic and translation may instead go inside the tag as `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`. |
+| Quranic citation, one or more verses | `<QuranVerse verse="2:255, 24:13" />` (`sources/QuranVerse.astro`) | Comma-separated refs or `a:b-c` ranges. Text comes from `src/data/quran-verses.json`; `label` overrides the citation line. One card, a row per verse. |
+| Hadith report with Arabic + translation | `<HadithBlock label="…" source="…" arabic={`…`} translation={`…`} />` (`sources/HadithBlock.astro`) | `title` is accepted as a synonym for `label`. Arabic and translation may instead go inside the tag as `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`. `isnad` sets the chain in italic above the English; `url` links the source. |
 | Biblical citation | `<BibleVerse reference="Exodus 24:12">…</BibleVerse>` (`sources/BibleVerse.astro`) | |
-| Thesis the article argues | `<ClaimBox title="…">` (`text/ClaimBox.astro`) | One per article, near the top. |
-| Conclusion it reaches | `<VerdictBox title="…" status="…">` (`text/VerdictBox.astro`) | Keep it for the actual conclusion. |
+| Thesis the article argues | `<ClaimBox title="…" facts={[{ value, label }]}>` (`text/ClaimBox.astro`) | One per article, near the top. `facts` is optional: short statements of fact, never a grade. |
+| Conclusion it reaches | `<VerdictBox title="…" status="…" facts={[{ value, label }]}>` (`text/VerdictBox.astro`) | Keep it for the actual conclusion. No grade, score or rating, ever. |
 | Background the argument leans on | `<ContextNote title="…" collapsible>` (`text/ContextNote.astro`) | `collapsible` starts it closed. |
 | General quotation (non-scripture) | `<QuoteBlock author="…" source="…" sourceUrl="…">` (`text/QuoteBlock.astro`) | A plain Markdown `>` is fine for a short unattributed passage. |
 | Inline Arabic in a Latin sentence | `<Arabic>عِكْرِمَة</Arabic>` (`text/Arabic.astro`) | Equivalent to `<span lang="ar" dir="rtl">`. |
@@ -21,11 +21,11 @@ these are imported directly inside `.mdx` articles from
 | Source-comparison table | `<SourceComparisonTable caption="…" stickyFirstCol>` (`sources/SourceComparisonTable.astro`) | Named `header` slot for `<th>`, default slot for `<tr>` rows. Markdown pipe tables get the identical setting. |
 | Bibliography / reference list | `<Bibliography entries={[{ author, title, details, year }]} />` (`sources/Bibliography.astro`) | Or a Markdown list under `## Bibliography`, which is set the same way. |
 | Video | `<YouTubeEmbed url="…" title="…" channel="…" />` (`media/YouTubeEmbed.astro`) | |
-| QuranTalk essay | `<QuranTalk url="…" title="…" date="…" />` (`media/QuranTalk.astro`) | Formerly `QuranTalkEmbed_v2`. |
-| Post on X | `<XEmbed url="…" author="…" text="…" />` (`media/XEmbed.astro`) | Static; no third-party script. |
+| QuranTalk essay | `<QuranTalk url="…" title="…" date="…" description="…" verse="…" verseRef="21:48" />` (`media/QuranTalk.astro`) | Drawn in QuranTalk's own register. `description` and the verse are optional. |
+| Post on X | `<XEmbed url="…" author="…" text="…" />` (`media/XEmbed.astro`) | Static; no third-party script. The date is read from the status id; `avatar` overrides the image. |
 | Isnād chain diagram | `<IsnadDiagram nodes={…} edges={…} tiers={…} />` (`figures/IsnadDiagram.astro`) | Types are exported from that file. |
-| One bottleneck fanning into matn variants | `<VariantTree title="…" root="…" bottleneck="…" branches={[…]} />` (`figures/VariantTree.astro`) | |
-| Logical dilemma diagram | `<IsnadDilemmaVisual>` (`figures/IsnadDilemmaVisual.astro`) | Rare, bespoke. |
+| One bottleneck fanning into matn variants | `<VariantTree title="…" root="…" bottleneck="…" branches={[{ name, from, sources, arabic, quote, marks }]} />` (`figures/VariantTree.astro`) | The wordings stand one above another, each version the full width. `marks` lists the exact words that differ; each is highlighted in place. |
+| Claimed witnesses against recoverable sources | `<IsnadDilemmaVisual />` (`figures/IsnadDilemmaVisual.astro`) | Fixed content (1 Corinthians 15:6): 500 claimed, 1 recoverable witness. Used once, in study 63. |
 
 The page chrome (header, contents, end matter, footnote previews) lives in
 `shell/` and is wired up by `src/pages/blogs/[...id].astro`; articles never
@@ -53,9 +53,11 @@ same rules so the reader meets one system.
 ```
 
 Layouts: `hc-fig--cols` (as many cells across as fit), `--c2`/`--c3`/`--c4`
-(a fixed count, stacked on phones), `--flow` (a sequence with joins), `--rows`
-(label against value), `--lead` (an opening summary), `--extract` (a quoted
-passage built by hand).
+(a fixed count, stacked on phones), `--flow` (a sequence with joins; add
+`hc-fig--steps` to number the cards), `--chain` (terms joined by arrows),
+`--rows` (label against value), `--lead` (an opening summary), `--extract` (a
+quoted passage built by hand). A `<details>` placed straight in a `.hc-fig` is
+a boxed row; `<span class="hc-fig__badge">` in its summary adds a short label.
 
 ## Footnote rules
 

@@ -2,9 +2,18 @@
 /**
  * A Qur'anic passage, looked up by reference: <QuranVerse verse="6:74-76" />.
  * Accepts a single verse, a range, or a comma list ("2:255, 24:13").
+ *
+ * Set as a verse card (src/styles/article-plates.css, "Qur'an"): every verse
+ * is a row with its reference, the English first in the DOM, then the Arabic
+ * in Amiri Quran one word at a time, reading right to left. Each reference is
+ * a link to that verse on WikiSubmission and takes its colour from there. The
+ * footer names the sūra (linked to the chapter) and carries the citation and
+ * the Share control.
  */
-import Source from './Source.astro';
+import SourceShare from './SourceShare.astro';
 import verses from '../../../data/quran-verses.json';
+import suraNames from '../../../data/quran-sura-names.json';
+import { quranWords } from '../../../lib/article-text';
 
 export interface Props {
   verse: string;
@@ -12,7 +21,13 @@ export interface Props {
   label?: string;
 }
 
+interface SuraName {
+  n: number;
+  latin: string;
+}
+
 const data = verses as Record<string, { ar: string; en: string }>;
+const names = new Map((suraNames as SuraName[]).map((s) => [s.n, s.latin]));
 const { verse, label } = Astro.props;
 
 function expand(ref: string): string[] {
@@ -28,40 +43,47 @@ function expand(ref: string): string[] {
   return out;
 }
 
-const found = expand(verse).map((ref) => ({ ref, num: ref.split(':')[1] ?? '', ...(data[ref] ?? {}) }));
+const found = expand(verse).map((ref) => ({ ref, ...(data[ref] ?? { ar: '', en: '' }) }));
 const missing = found.filter((f) => !f.ar && !f.en).map((f) => f.ref);
 if (missing.length) console.warn(`[QuranVerse] No data for: ${missing.join(', ')} (verse="${verse}")`);
 
-/* The āyah-end marker is drawn as a small numbered badge in Arabic-Indic
-   digits: most faces render U+06DD as an oversized, misaligned circle. */
-const INDIC = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-const indic = (n: string) => n.replace(/\d/g, (d) => INDIC[Number(d)]);
-
-const arabic = found.filter((f) => f.ar);
-const english = found.filter((f) => f.en);
+const shown = found.filter((f) => f.ar || f.en);
 const reference = label || `Quran ${verse}`;
+
+/** WikiSubmission serves a verse at /quran/<sura>:<verse> and a sūra at /quran/<sura>. */
+const WIKISUBMISSION = 'https://wikisubmission.org/quran/';
+
+const suras = [...new Set(shown.map((f) => Number(f.ref.split(':')[0])))];
+const suraLine = suras.length === 1
+  ? `Sūra ${suras[0]}${names.get(suras[0]) ? ` · ${names.get(suras[0])}` : ''}`
+  : `Sūras ${suras.join(', ')}`;
 ---
 
-{arabic.length || english.length ? (
-  <Source kind="quran" reference={reference} shareTitle="Quran citation">
-    {arabic.length > 0 && (
-      <Fragment slot="arabic">
-        {arabic.map((a) => (
-          <span class="qv-ayah">{a.ar}{a.num && <span class="qv-ayah-end" aria-hidden="true">{indic(a.num)}</span>}</span>
-        ))}
-      </Fragment>
-    )}
-    {english.length > 0 && (
-      <p>
-        {english.map((e, i) => (
-          <>
-            <span class="qv-verse">{e.en}</span>
-            {i < english.length - 1 && <span class="qv-verse-num" aria-label={`Verse ${e.num}`}>{e.num}</span>}{' '}
-          </>
-        ))}
-      </p>
-    )}
-  </Source>
+{shown.length ? (
+  <figure class="hc-verse" data-source data-share-title="Quran citation">
+    {shown.map((v) => (
+      <div class="hc-verse__row">
+        <a class="hc-verse__badge" href={`${WIKISUBMISSION}${v.ref}`} target="_blank" rel="noopener noreferrer" aria-label={`Quran ${v.ref} on WikiSubmission`}>{v.ref}</a>
+        {v.en && <p class="hc-verse__en" data-source-quoted>{v.en}</p>}
+        {v.ar && (
+          <p class="hc-verse__ar" lang="ar" dir="rtl" data-source-primary>
+            {quranWords(v.ar).map((word) => <><span class="hc-verse__word">{word}</span>{' '}</>)}
+          </p>
+        )}
+      </div>
+    ))}
+    <figcaption class="hc-verse__foot">
+      {suras.length === 1
+        ? <a class="hc-verse__sura" href={`${WIKISUBMISSION}${suras[0]}`} target="_blank" rel="noopener noreferrer">{suraLine}</a>
+        : <span class="hc-verse__sura">{suraLine}</span>}
+      <span class="hc-verse__cite">
+        <cite data-source-ref>{reference}</cite>
+        <button type="button" class="hc-source__share" data-source-share hidden><span>Share</span></button>
+      </span>
+    </figcaption>
+  </figure>
 ) : (
   <p class="hc-source-missing">Verse data unavailable for {reference}.</p>
 )}
+
+<SourceShare />

@@ -1,15 +1,19 @@
 ---
 /**
- * A report: Arabic, translation and citation.
+ * A report, set as a parchment leaf (src/styles/article-plates.css, "Reports"):
  *
  *   <HadithBlock label="…" source="…" arabic={`…`} translation={`…`} />
  *
- * Arabic and translation may instead be written inside the tag as
- * `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`.
- * `title` and `label` are the same thing, a short heading; thirteen articles
- * pass `title`, which the previous version silently dropped.
+ * The label above, the Arabic, the lozenge rule, the English (with the chain
+ * in italic when `isnad` is given), the citation below. The English is first
+ * in the DOM and the Arabic leads by grid placement only. Arabic and
+ * translation may instead be written inside the tag as
+ * `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`;
+ * those keep the order the author wrote.
  */
-import Source from './Source.astro';
+import SourceShare from './SourceShare.astro';
+import { renderArabic } from '../../../lib/format-text';
+import { isArabicOnly } from '../../../lib/article-text';
 
 export interface Props {
   label?: string;
@@ -19,11 +23,46 @@ export interface Props {
   /** Older name for `translation`. */
   english?: string;
   source?: string;
+  /** Older name for `source`. */
+  reference?: string;
+  /** The chain in English, set in italic above the matn. */
+  isnad?: string;
+  /** A link to the source the report is quoted from. */
+  url?: string;
 }
 
-const { label, title, arabic, translation, english, source } = Astro.props;
+const { label, title, arabic, translation, english, source, reference, isnad, url } = Astro.props;
+
+const heading = title ?? label;
+const english_ = translation ?? english;
+const citation = source ?? reference;
+
+const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
+/* A slot holding bare Arabic (no wrapper) is set as Arabic, not as Latin prose. */
+const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[^>]*>/g, ''));
 ---
 
-<Source kind="hadith" title={title ?? label} arabic={arabic} translation={translation ?? english} reference={source} shareTitle="Report">
-  <slot />
-</Source>
+<figure class="hc-report hc-report--leaf" data-source data-share-title="Report">
+  {heading && <p class="hc-report__label">{heading}</p>}
+  <div class="hc-report__text">
+    {(isnad || english_) && (
+      <div class="hc-report__en">
+        {isnad && <p class="hc-report__chain">{isnad}</p>}
+        {english_ && <p class="hc-report__matn" data-source-quoted>{english_}</p>}
+      </div>
+    )}
+    {arabic && <p class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={renderArabic(arabic)} />}
+    {body && (bareArabic
+      ? <div class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={body} />
+      : <div class="hc-report__slot" set:html={body} />)}
+  </div>
+  {(citation || url) && (
+    <figcaption class="hc-report__foot">
+      {citation && <cite data-source-ref>{citation}</cite>}
+      {url && <a class="hc-report__link" href={url} target="_blank" rel="noopener noreferrer">Open the source</a>}
+      <button type="button" class="hc-source__share" data-source-share hidden><span>Share</span></button>
+    </figcaption>
+  )}
+</figure>
+
+<SourceShare />

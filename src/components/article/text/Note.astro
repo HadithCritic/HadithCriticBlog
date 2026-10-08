@@ -1,15 +1,25 @@
 ---
 /**
  * The argument's own apparatus: a thesis, a conclusion, or a context note.
- * One primitive, three registers, each set by typography and rules rather
- * than a box (see src/styles/article.css, "Notes"):
+ * One primitive, three registers (src/styles/article-plates.css, "Notes"):
  *
- *   claim    the statement the article argues, between two gold rules
- *   verdict  the conclusion it reaches, the one shaded field in the system
- *   context  background the argument leans on, an indented marginal note
+ *   claim    a parchment plate with a seal, the thesis set in Cormorant
+ *   verdict  the matching plate that closes the argument, its title large
+ *   context  a bronze card for background; collapsible, a quiet disclosure
+ *
+ * `facts` prints a row of short figures under a claim or verdict. They are
+ * the author's own statements of fact (a count, a route), never a grade:
+ * DESIGN.md forbids any authenticity score here or anywhere else.
  *
  * Authors use the named wrappers (ClaimBox, VerdictBox, ContextNote).
  */
+import { plainLength } from '../../../lib/article-text';
+
+export interface NoteFact {
+  value: string;
+  label: string;
+}
+
 export interface Props {
   kind: 'claim' | 'verdict' | 'context';
   title: string;
@@ -17,22 +27,46 @@ export interface Props {
   status?: string;
   /** Context notes only: start closed, as a native disclosure. */
   collapsible?: boolean;
+  facts?: NoteFact[];
 }
 
-const { kind, title, status, collapsible = false } = Astro.props;
+/** Past this many characters a claim is read, not displayed. */
+const LONG_CLAIM = 360;
+
+const { kind, title, status, collapsible = false, facts = [] } = Astro.props;
+const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
+const isLong = plainLength(body) > LONG_CLAIM;
+const plate = kind === 'claim' || kind === 'verdict';
 ---
 
 {collapsible ? (
-  <details class={`hc-note hc-note--${kind}`}>
+  <details class={`hc-note hc-note--${kind} hc-note--collapsible`}>
     <summary class="hc-note__label">{title}</summary>
-    <div class="hc-note__body"><slot /></div>
+    <div class="hc-note__body" set:html={body} />
   </details>
 ) : (
-  <div class={`hc-note hc-note--${kind}`} role="note" aria-label={title}>
-    <p class="hc-note__label">
-      <span>{title}</span>
-      {status && <span class="hc-note__status">{status}</span>}
-    </p>
-    <div class="hc-note__body"><slot /></div>
+  <div class:list={['hc-note', `hc-note--${kind}`, { 'hc-note--long': isLong }]} role="note" aria-label={title}>
+    <div class="hc-note__head">
+      <p class="hc-note__label">
+        {status && <span class="hc-note__status">{status}</span>}
+        <span class="hc-note__title">{title}</span>
+      </p>
+      {plate && (
+        <span class="hc-note__seal" aria-hidden="true">
+          {kind === 'claim' && <span lang="ar">ح</span>}
+        </span>
+      )}
+    </div>
+    <div class="hc-note__body" set:html={body} />
+    {plate && facts.length > 0 && (
+      <dl class="hc-note__facts">
+        {facts.map((fact) => (
+          <div>
+            <dt>{fact.label}</dt>
+            <dd>{fact.value}</dd>
+          </div>
+        ))}
+      </dl>
+    )}
   </div>
 )}

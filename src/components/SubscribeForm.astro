@@ -1,6 +1,6 @@
 ---
 interface Props {
-  variant: "article" | "footer";
+  variant: "article" | "footer" | "home";
 }
 
 const { variant } = Astro.props;
@@ -12,21 +12,27 @@ const { variant } = Astro.props;
   aria-labelledby={`subscribe-title-${variant}`}
 >
   <div class="subscribe-form__inner">
-    <div class="subscribe-form__identity" aria-hidden="true">
+    {variant !== "home" && <div class="subscribe-form__identity" aria-hidden="true">
       <span class="subscribe-form__index">HadithCritic Dispatch</span>
       <span class="subscribe-form__rule"></span>
-    </div>
+    </div>}
 
     <div class="subscribe-form__content">
-      <div class="subscribe-form__eyebrow">Stay informed</div>
-      <h3 id={`subscribe-title-${variant}`}>Get new blog posts</h3>
+      {variant === "home" ? (
+        <h2 id={`subscribe-title-${variant}`} class="home-head__title">Get new blog <span>posts</span></h2>
+      ) : (
+        <>
+          <div class="subscribe-form__eyebrow">Stay informed</div>
+          <h3 id={`subscribe-title-${variant}`}>Get new blog posts</h3>
+        </>
+      )}
       <p>
         Get one email when a new blog post is published, with a direct link to read it.
       </p>
     </div>
 
-    <form class="subscribe-form__form" data-subscribe-form-el>
-      <label for={`subscribe-email-${variant}`} class="sr-only"
+    <form class="subscribe-form__form" data-subscribe-form-el hidden>
+      <label for={`subscribe-email-${variant}`} class:list={[variant === "home" ? "subscribe-form__label" : "sr-only"]}
         >Email address</label
       >
       <div class="subscribe-form__field">
@@ -50,6 +56,9 @@ const { variant } = Astro.props;
         Blog updates only. Unsubscribe anytime.
       </p>
     </form>
+    <noscript>
+      <p class="subscribe-form__fallback">Enable JavaScript to subscribe by email, or <a href="/rss.xml">follow by RSS</a>.</p>
+    </noscript>
   </div>
 
   <p
@@ -66,6 +75,7 @@ const { variant } = Astro.props;
     const form = container.querySelector("[data-subscribe-form-el]");
     const status = container.querySelector("[data-subscribe-form-status]");
     if (!(form instanceof HTMLFormElement) || !status) return;
+    form.hidden = false;
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -353,6 +363,110 @@ const { variant } = Astro.props;
     opacity: 0.78;
   }
 
+  .subscribe-form--home {
+    margin-top: 0;
+    overflow: visible;
+    border: 0;
+    border-top: 1px solid var(--hc-rule);
+    background: transparent;
+  }
+
+  .subscribe-form--home::before,
+  .subscribe-form--home::after {
+    display: none;
+  }
+
+  .subscribe-form--home .subscribe-form__inner {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    padding: clamp(2rem, 4vw, 3.25rem) 0;
+  }
+
+  .subscribe-form--home .subscribe-form__content p {
+    max-width: 44ch;
+    margin-top: 0.75rem;
+    font-size: 1.04rem;
+  }
+
+  .subscribe-form__label {
+    display: block;
+    margin-bottom: 0.65rem;
+    color: var(--hc-text-secondary);
+    font: 500 0.78rem/1.4 var(--font-ui);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .subscribe-form--home .subscribe-form__field {
+    gap: 0;
+    border-bottom: 1px solid var(--hc-text-tertiary);
+    transition: border-color var(--motion-fast) ease;
+  }
+
+  .subscribe-form--home .subscribe-form__field:focus-within {
+    border-color: var(--hc-gold);
+  }
+
+  .subscribe-form--home .subscribe-form__form input {
+    min-height: 3.25rem;
+    height: auto;
+    padding: 0.75rem 0.75rem 0.75rem 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 1.04rem;
+  }
+
+  .subscribe-form--home .subscribe-form__form button {
+    min-height: 3.25rem;
+    height: auto;
+    padding: 0.75rem 0 0.75rem 1rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-gold);
+    font-size: 0.94rem;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    transform: none;
+  }
+
+  .subscribe-form--home .subscribe-form__form button:hover {
+    color: var(--hc-gold-bright);
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
+  }
+
+  .subscribe-form--home .subscribe-form__note {
+    margin-top: 0.75rem;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+  }
+
+  .subscribe-form--home .subscribe-form__status {
+    padding: 0 0 1.25rem;
+    font-family: var(--font-body);
+    font-size: 1rem;
+  }
+
+  .subscribe-form--home .subscribe-form__status:empty {
+    display: none;
+  }
+
+  .subscribe-form--home.is-error .subscribe-form__status {
+    color: var(--hc-danger);
+  }
+
+  .subscribe-form__fallback {
+    color: var(--hc-text-secondary);
+    font: 400 1rem/1.6 var(--font-body);
+  }
+
+  .subscribe-form__fallback a {
+    color: var(--hc-gold);
+  }
+
   .sr-only {
     position: absolute;
     width: 1px;
@@ -400,6 +514,28 @@ const { variant } = Astro.props;
 
     .subscribe-form__status {
       padding-inline: 1.5rem;
+    }
+
+    .subscribe-form--home .subscribe-form__inner {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1.75rem;
+      padding-block: 2rem;
+    }
+
+    .subscribe-form--home .subscribe-form__field {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .subscribe-form--home .subscribe-form__form {
+      grid-column: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .subscribe-form--home .subscribe-form__field,
+    .subscribe-form--home .subscribe-form__form input,
+    .subscribe-form--home .subscribe-form__form button {
+      transition: none;
     }
   }
 </style>

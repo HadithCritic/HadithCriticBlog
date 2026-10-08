@@ -1,18 +1,19 @@
 ---
 /**
- * A quoted source text: a Qur'anic passage, a report, a Biblical passage.
- * One structure for all three, so the publication quotes its sources one
- * way; the kind only changes the setting (src/styles/article.css, "Sources"):
+ * A quoted source text set as a plate (src/styles/article-plates.css,
+ * "Sources"). BibleVerse is the one author-facing wrapper left on it: the
+ * Qur'an and reports have their own cards (QuranVerse, HadithBlock).
  *
- *   quran   a warm parchment-toned field, Arabic centred above the English
- *   hadith  indented under a hairline rule, title above, citation below
- *   bible   the same setting as a report, without Arabic
+ *   bible   parchment under the engraved harbour, the passage centred in
+ *           Cormorant italic; a long passage is set left and smaller
  *
- * Arabic and the translation arrive as props or as slots; articles often
- * pass hand-written `hadith-block__arabic` / `__translation` markup into the
- * default slot, which is styled here too. The Share control is revealed by
- * script, so it never exists for a reader without one.
+ * Arabic and the translation arrive as props or as slots. The Share control
+ * is revealed by script (SourceShare), so it never exists for a reader
+ * without one.
  */
+import SourceShare from './SourceShare.astro';
+import { plainLength } from '../../../lib/article-text';
+
 export interface Props {
   kind: 'quran' | 'hadith' | 'bible';
   /** A short heading for the passage. */
@@ -25,13 +26,17 @@ export interface Props {
   shareTitle?: string;
 }
 
+/** Past this many characters a passage is read, not displayed. */
+const LONG_PASSAGE = 420;
+
 const { kind, title, arabic, translation, reference, shareTitle = 'Citation' } = Astro.props;
 const hasArabicSlot = Astro.slots.has('arabic');
 /* Rendered first so a wrapper that forwards an empty slot emits nothing. */
 const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
+const isLong = plainLength(`${translation ?? ''}${body}`) > LONG_PASSAGE;
 ---
 
-<figure class={`hc-source hc-source--${kind}`} data-source data-share-title={shareTitle}>
+<figure class:list={['hc-source', `hc-source--${kind}`, { 'hc-source--long': isLong }]} data-source data-share-title={shareTitle}>
   {title && <p class="hc-source__title">{title}</p>}
 
   {arabic && <p class="hc-source__arabic" lang="ar" dir="rtl" data-source-primary>{arabic}</p>}
@@ -48,33 +53,4 @@ const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).
   )}
 </figure>
 
-<script>
-  import { shareText, flashCopied, buildCitation } from '../../../lib/clipboard';
-
-  /* One listener for every source on the page. Arabic is read from the
-     primary field or from hand-written report markup inside the slot. */
-  function initSourceShare() {
-    for (const figure of document.querySelectorAll<HTMLElement>('[data-source]')) {
-      const button = figure.querySelector<HTMLButtonElement>('[data-source-share]');
-      if (!button || button.dataset.ready) continue;
-      button.dataset.ready = '1';
-      button.hidden = false;
-      button.addEventListener('click', async () => {
-        const primary = figure.querySelector('[data-source-primary]') ?? figure.querySelector('.hadith-block__arabic');
-        const quoted = figure.querySelector('.hadith-block__translation') ?? figure.querySelector('[data-source-quoted]');
-        const citation = buildCitation({
-          primary: primary?.textContent?.trim(),
-          quoted: quoted?.textContent?.trim(),
-          reference: figure.querySelector('[data-source-ref]')?.textContent?.trim()
-        });
-        if (!citation) return;
-        if (!(await shareText(citation, figure.dataset.shareTitle ?? 'Citation'))) return;
-        flashCopied(button, { labelSelector: 'span', copiedLabel: 'Shared', idleLabel: 'Share', className: 'is-shared' });
-      });
-    }
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSourceShare);
-  else initSourceShare();
-  document.addEventListener('astro:page-load', initSourceShare);
-</script>
+<SourceShare />

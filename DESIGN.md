@@ -375,10 +375,11 @@ tracking is now −0.005em to −0.015em.
 ### Article reader
 
 Redesigned again 2026-10-06, as a whole system rather than per article. An
-article is set like a journal: one reading column, a title page, and four
-settings that cover every kind of content. `src/styles/article.css` carries the
-whole language; components emit plain class names and carry no styles of their
-own (except the isnad figures, which draw SVG).
+article is set like a journal: one reading column, a title page, prose as
+ruled text and every component as a plate. `src/styles/article.css` carries the
+page and the prose, `src/styles/article-plates.css` the components; components
+emit plain class names and carry no styles of their own (except the isnad
+figures, which draw SVG).
 
 **Palette.** The reader defines its own ramp on `.hc-article` (`--r-ink`,
 `--r-ink-2`, `--r-ink-3`, `--r-accent`, `--r-rule`, `--r-rule-strong`,
@@ -418,23 +419,38 @@ small-caps`; the self-hosted face carries `smcp` and `c2sc`). IBM Plex Sans is
 used only for interface apparatus: the byline line, dates, footnote numerals,
 the Share control.
 
-**Four settings, no filled boxes:**
+**Prose and plates (redesigned 2026-10-07).** Prose stays ruled text: `hr` is
+the brand lozenge alone, centred; list bullets take the accent. Every component
+that quotes, argues or cites is a plate, built in `src/styles/article-plates.css`
+from the component showcase the owner reworked. Plates come in fixed grounds
+that keep their inks in both themes, as the Hadith Corpus edition plates do,
+plus reader surfaces that follow the theme:
 
-| Setting | Covers | How it is drawn |
+| Ground | Components | How it is drawn |
 |---|---|---|
-| Prose | paragraphs, `h2` to `h4`, lists, links, `hr` | `hr` is the brand lozenge alone, centred |
-| Extract | `QuranVerse`, `HadithBlock`, `BibleVerse`, `QuoteBlock`, Markdown `>`, `.hc-fig--extract` | indented under one accent hairline, 0.96em, Arabic first, citation last in small caps; the Qur'an keeps Amiri Quran and numbered āyah marks |
-| Note | `ClaimBox`, `VerdictBox`, `ContextNote` | thesis and verdict open under a hairline with an accent small caps label; context is indented, smaller and in ink-2 |
-| Figure | tables, `.hc-fig`, embeds, isnad diagrams | booktabs rules for tables; figures as cells under hairlines |
+| Parchment (`--pl-paper`) | `ClaimBox`, `VerdictBox`, `HadithBlock` leaf, `BibleVerse`, `.hc-fig` cells, `.hc-fig--extract`, `VariantTree` versions | paper texture, corner ornaments on the display plates; the claim has a dashed inner frame and a seal; labels in tracked Plex capitals |
+| Night (`--pl-night`) | `QuoteBlock` | the quill engraving to the right, a hanging mark, the author in gold |
+| Bronze | `ContextNote` | a warm card with an "i" mark; collapsible context is a quiet ruled disclosure instead |
+| Surface (`--r-surface`) | `QuranVerse`, tables, flows, rows, chains, disclosures, the video card, footnotes | a boxed panel in the theme's own surface |
+| Publisher | `QuranTalk` (white), `XEmbed` (black) | each drawn in its own register |
+
+Display plates switch to a reading setting past a length (claims and quotes at
+360 characters, Bible passages at 420), so a long passage is never set as a
+display. Wide components (tables, `VariantTree`, `QuoteBlock`,
+column and flow figures, framed images) step past the measure where the page
+has room: up to 6rem a side between 760px and 1199px, 2rem from 1200px, none
+on phones. No plate carries a grade, a score or an evaluative colour; `facts`
+on a claim or verdict are the author's statements of fact.
 
 **Figures: the shared vocabulary.** Articles that need structure beyond prose
 build it from `.hc-fig` and its parts, never from their own CSS:
 
 | Class | Meaning |
 |---|---|
-| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow`, `--rows`, `--lead`, `--extract`) |
-| `.hc-fig__item` | a cell, ruled above |
-| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; the arrow turns down when stacked |
+| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow` (`--steps` numbers it), `--chain`, `--rows`, `--lead`, `--extract`) |
+| `.hc-fig__item` | a cell: a parchment card in a column grid, a step card in a flow, a row in a ledger |
+| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; an arrow is drawn, whatever arrow was typed, and turns down when stacked |
+| `.hc-fig__badge` | a short label in a disclosure's summary |
 | `.hc-fig__label`, `__kicker`, `__title` | figure label, cell label (small caps), cell heading (`h3`/`h4` take it too) |
 | `.hc-fig__ar`, `__quote`, `__note`, `__tags` | Arabic, a quoted line, secondary text, a run of short terms |
 | `.hc-fig__caption`, `__ornament` | caption below; an ornament, never shown |
@@ -447,9 +463,10 @@ of every article is identical to the previous commit (checked by comparing the
 tag-stripped text of each file). A per-article `<style>` block is no longer
 allowed in an article.
 
-**End matter, in order.** Notes (smaller, ink-2, a "Notes" head only when the
-article has none of its own; end-matter headings are set smaller and ruled),
-bibliography with hanging indents, topics as plain text, three more studies
+**End matter, in order.** Notes (a boxed panel with parchment numerals, a
+"Notes" label only when the article has no heading of its own; end-matter
+headings are set smaller and ruled), bibliography as ruled rows with hanging
+indents, topics as plain text, three more studies
 from the same branch with dates, then the earlier and later study.
 
 **Kept.** Footnote previews and the per-source Share control, which is created
@@ -459,8 +476,8 @@ by script and shown on hover or focus (always on touch screens).
 
 - `shell/`: `ArticleHeader`, `ArticleContents`, `ArticleEnd`, `FootnoteSheet`
 - `text/`: `Note` (and `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
-- `sources/`: `Source` (and `QuranVerse`, `HadithBlock`, `BibleVerse`), `SourceComparisonTable`, `Bibliography`
-- `media/`: `ExternalSource` (and `QuranTalk`, `XEmbed`), `YouTubeEmbed`
+- `sources/`: `QuranVerse`, `HadithBlock`, `Source` (and `BibleVerse`), `SourceShare` (the Share script), `SourceComparisonTable`, `Bibliography`
+- `media/`: `QuranTalk`, `XEmbed`, `YouTubeEmbed`
 - `figures/`: `IsnadDiagram`, `IsnadDilemmaVisual`, `VariantTree`
 
 ### The button exception

@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { getCollection } from "astro:content";
+import { getCollection, render } from "astro:content";
 import { isNewPost } from "../lib/new-badge";
 import { categoryByName, categorySlug } from "../lib/categories";
 import { CORPUS_META } from "../lib/corpus-config";
@@ -9,6 +9,7 @@ import { academicStudies } from "../data/academic-studies";
 import qiraatIndex from "../data/qiraat/index.json";
 import researchGraph from "../data/research-graph.json";
 import { totalEntries } from "../lib/tafsir";
+import SubscribeForm from "../components/SubscribeForm.astro";
 import "../styles/home.css";
 
 const GENERIC_THUMB = "/images/blog_thumbnails/tn.generic.webp";
@@ -34,18 +35,17 @@ const categories = [...categoryCounts.entries()]
     name,
     count,
     href: categoryByName(name) ? `/blogs/category/${categorySlug(name)}/` : "/blogs/",
-    /* One line per branch; the hubs carry the long blurbs. */
-    description: categoryByName(name)?.summary ?? "",
-    /* The featured study already leads the section, so each branch previews
-       its most recent other study. */
-    latest: posts.find((post) => post !== posts[0] && post.data.category === name) ?? null,
   }));
 
-/* The featured study leads the archive, so the contents list starts after it. */
-const ledgerPosts = posts.slice(1);
+/* The latest study appears in both the archive feature and the contents list. */
+const ledgerPosts = posts;
 const ledgerCount = (name: string) => ledgerPosts.filter((post) => post.data.category === name).length;
 
 const featured = posts[0];
+const { headings: featuredHeadings } = await render(featured);
+const featuredContents = featuredHeadings
+  .filter((heading) => heading.depth === 2 && !/^(foot ?notes|notes|references|bibliography|sources)$/i.test(heading.text.trim()))
+  .slice(0, 3);
 const featuredArt = blogArtwork[featured.id];
 const featuredSrc = featuredArt?.src ?? featured.data.thumbnail ?? GENERIC_THUMB;
 
@@ -184,125 +184,127 @@ const research = [
           </a>
         </header>
 
-        <article class="home-feature hc-parchment" data-category={featured.data.category}>
-          <div class="home-feature__copy">
-            <p class="home-feature__meta">
-              <span class="home-feature__label">Latest investigation</span>
-              <span class="home-cat" data-category={featured.data.category}>{featured.data.category}</span>
-              <time datetime={isoDate(featured.data.date)}>{formatDate(featured.data.date)}</time>
-              <span>{readingMinutes(featured)} min read</span>
-              {isNewPost(featured.data.date) && <span class="home-new">New</span>}
-            </p>
-            <h3 class="home-feature__title">
-              <a href={`/blogs/${featured.id}/`} class="home-feature__link">{featured.data.title}</a>
-            </h3>
-            {featured.data.description && <p class="home-feature__desc">{featured.data.description}</p>}
-            <p class="home-feature__foot">
-              <span class="home-feature__folio">Folio {folioOf(featured)}</span>
-              <span class="home-feature__cta" aria-hidden="true">Read the investigation <span>→</span></span>
-            </p>
-          </div>
+        <article class="home-feature" data-category={featured.data.category}>
           <figure class="home-feature__plate">
             <img
               src={featuredSrc}
               srcset={featuredArt?.srcset}
-              sizes="(max-width: 800px) 100vw, 40vw"
+              sizes="(max-width: 640px) 100vw, 85vw"
               width={featuredArt?.width ?? 1536}
               height={featuredArt?.height ?? 1024}
               alt={featuredArt?.alt ?? ""}
-              loading="eager"
+              loading="lazy"
               decoding="async"
             />
           </figure>
+          <div class="home-feature__copy hc-parchment">
+            <div class="home-feature__opening">
+              <p class="home-feature__meta">
+                <span class="home-feature__label">Latest investigation</span>
+                <span class="home-cat" data-category={featured.data.category}>{featured.data.category}</span>
+                <time datetime={isoDate(featured.data.date)}>{formatDate(featured.data.date)}</time>
+                <span>{readingMinutes(featured)} min read</span>
+                {isNewPost(featured.data.date) && <span class="home-new">New</span>}
+              </p>
+              <p class="home-feature__folio"><span>Folio</span><strong>{folioOf(featured)}</strong></p>
+            </div>
+            <h3 class="home-feature__title">
+              <a href={`/blogs/${featured.id}/`} class="home-feature__link">{featured.data.title}</a>
+            </h3>
+            {featured.data.description && <p class="home-feature__desc">{featured.data.description}</p>}
+            {featuredContents.length > 0 && (
+              <nav class="home-feature__contents" aria-label="Inside this study">
+                <p class="home-feature__contents-label">Inside this study</p>
+                <ul>
+                  {featuredContents.map((heading) => (
+                    <li>
+                      <a href={`/blogs/${featured.id}/#${heading.slug}`}>
+                        <span>{heading.text}</span><span aria-hidden="true">→</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+            <p class="home-feature__foot">
+              <a href={`/blogs/${featured.id}/`} class="home-feature__cta">Read the investigation <span aria-hidden="true">→</span></a>
+            </p>
+          </div>
         </article>
-
-        <nav class="home-branches" aria-label="Research branches">
-          <ul>
-            {categories.map((category) => (
-              <li class="home-branch" data-category={category.name}>
-                <p class="home-branch__head">
-                  <a href={category.href} class="home-branch__name">{category.name}</a>
-                  <span class="home-branch__count">{category.count} {category.count === 1 ? "study" : "studies"}</span>
-                </p>
-                <p class="home-branch__desc">{category.description}</p>
-                {category.latest && (
-                  <p class="home-branch__latest">
-                    <span class="home-branch__latest-label">Recent</span>{" "}
-                    <a href={`/blogs/${category.latest.id}/`}>{category.latest.data.title}</a>
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
       </div>
     </section>
 
     <section class="home-contents" aria-labelledby="contents-title">
-      <div class="hc-container home-contents__grid">
-        <header class="home-contents__head">
-          <h2 id="contents-title" class="home-head__title">Latest studies <span>&amp;</span> analysis</h2>
-          <p class="home-head__note">Recent critical investigations into transmission chains and early texts.</p>
-
-          <!-- Filtering is a script enhancement; without it the branch links above
-               lead to each category's full index. -->
-          <div class="home-ledger-filters" role="group" aria-label="Filter latest studies by category" hidden>
-            <button type="button" class="home-filter-tab is-active" data-home-filter="all" aria-pressed="true">
-              <span class="home-filter-tab__name">All branches</span>
-              <span class="home-filter-tab__n">{ledgerPosts.length}</span>
-            </button>
-            {categories.map((category) => (
-              <button
-                type="button"
-                class="home-filter-tab"
-                data-home-filter={category.name}
-                data-category={category.name}
-                data-href={category.href}
-                aria-pressed="false"
-              >
-                <span class="home-filter-tab__name">{category.name}</span>
-                <span class="home-filter-tab__n">{ledgerCount(category.name)}</span>
-              </button>
-            ))}
+      <div class="hc-container">
+        <header class="home-head">
+          <div class="home-head__main">
+            <h2 id="contents-title" class="home-head__title">Latest studies <span>&amp;</span> analysis</h2>
+            <p class="home-head__note">Recent critical investigations into transmission chains and early texts.</p>
           </div>
-
-          <p class="home-contents__status">
-            <span id="home-ledger-count-label">Showing {Math.min(LEDGER_SIZE, ledgerPosts.length)} of {ledgerPosts.length} earlier studies</span>
-            <a href="/blogs/" id="home-ledger-cta" class="home-head__link">Open the full archive <span aria-hidden="true">→</span></a>
-          </p>
+          <a href="/blogs/" class="home-head__link">Browse all {posts.length} entries <span aria-hidden="true">→</span></a>
         </header>
 
-        <ol class="home-ledger" id="home-ledger">
-          {ledgerPosts.map((post, index) => (
-            <li class="home-ledger-row" data-category={post.data.category} hidden={index >= LEDGER_SIZE}>
-              <article class="home-entry">
-                <p class="home-entry__folio" aria-hidden="true">
-                  <span>No.</span>
-                  <span class="home-entry__num">{folioOf(post)}</span>
-                </p>
-                <div class="home-entry__body">
-                  <p class="home-entry__cat">
-                    <span class="home-cat" data-category={post.data.category}>{post.data.category}</span>
-                    {isNewPost(post.data.date) && <span class="home-new">New</span>}
+        <div class="home-contents__grid">
+          <div class="home-contents__head">
+            <!-- Filtering is a script enhancement; the full archive remains a real link. -->
+            <div class="home-ledger-filters" role="group" aria-label="Filter latest studies by category" hidden>
+              <button type="button" class="home-filter-tab is-active" data-home-filter="all" aria-pressed="true">
+                <span class="home-filter-tab__name">All branches</span>
+                <span class="home-filter-tab__n">{ledgerPosts.length}</span>
+              </button>
+              {categories.map((category) => (
+                <button
+                  type="button"
+                  class="home-filter-tab"
+                  data-home-filter={category.name}
+                  data-category={category.name}
+                  data-href={category.href}
+                  aria-pressed="false"
+                >
+                  <span class="home-filter-tab__name">{category.name}</span>
+                  <span class="home-filter-tab__n">{ledgerCount(category.name)}</span>
+                </button>
+              ))}
+            </div>
+
+            <p class="home-contents__status">
+              <span id="home-ledger-count-label">Showing {Math.min(LEDGER_SIZE, ledgerPosts.length)} of {ledgerPosts.length} studies</span>
+              <a href="/blogs/" id="home-ledger-cta" class="home-head__link">Open the full archive <span aria-hidden="true">→</span></a>
+            </p>
+          </div>
+
+          <ol class="home-ledger" id="home-ledger">
+            {ledgerPosts.map((post, index) => (
+              <li class="home-ledger-row" data-category={post.data.category} hidden={index >= LEDGER_SIZE}>
+                <article class="home-entry">
+                  <p class="home-entry__folio" aria-hidden="true">
+                    <span>No.</span>
+                    <span class="home-entry__num">{folioOf(post)}</span>
                   </p>
-                  <h3 class="home-entry__title">
-                    <a href={`/blogs/${post.id}/`} class="home-entry__link">{post.data.title}</a>
-                  </h3>
-                  {post.data.description && <p class="home-entry__desc">{post.data.description}</p>}
-                  <p class="home-entry__meta">
-                    <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
-                    <span>{readingMinutes(post)} min read</span>
-                    <span class="sr-only">Folio {folioOf(post)}</span>
-                  </p>
-                </div>
-                <div class="home-entry__aside">
-                  <img src={thumbOf(post)} alt="" width="160" height="160" loading="lazy" decoding="async" />
-                  <span class="home-entry__go" aria-hidden="true">Read <span>→</span></span>
-                </div>
-              </article>
-            </li>
-          ))}
-        </ol>
+                  <div class="home-entry__body">
+                    <p class="home-entry__cat">
+                      <span class="home-cat" data-category={post.data.category}>{post.data.category}</span>
+                      {isNewPost(post.data.date) && <span class="home-new">New</span>}
+                    </p>
+                    <h3 class="home-entry__title">
+                      <a href={`/blogs/${post.id}/`} class="home-entry__link">{post.data.title}</a>
+                    </h3>
+                    {post.data.description && <p class="home-entry__desc">{post.data.description}</p>}
+                    <p class="home-entry__meta">
+                      <time datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
+                      <span>{readingMinutes(post)} min read</span>
+                      <span class="sr-only">Folio {folioOf(post)}</span>
+                    </p>
+                  </div>
+                  <div class="home-entry__aside">
+                    <img src={thumbOf(post)} alt="" width="160" height="160" loading="lazy" decoding="async" />
+                    <span class="home-entry__go" aria-hidden="true">Read <span>→</span></span>
+                  </div>
+                </article>
+              </li>
+            ))}
+          </ol>
+        </div>
       </div>
     </section>
 
@@ -392,6 +394,12 @@ const research = [
       </div>
     </section>
 
+    <section class="home-dispatch" aria-label="Blog email updates">
+      <div class="hc-container">
+        <SubscribeForm variant="home" />
+      </div>
+    </section>
+
     <section class="home-closing" aria-labelledby="closing-title">
       <div class="hc-container">
         <div class="closing-banner hc-parchment">
@@ -469,7 +477,7 @@ const research = [
       }
       if (label) {
         label.textContent = filter === "all"
-          ? `Showing ${shown} of ${total} earlier studies`
+          ? `Showing ${shown} of ${total} studies`
           : `Showing ${shown} of ${total} in ${filter}`;
       }
       if (cta) {

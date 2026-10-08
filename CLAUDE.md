@@ -304,7 +304,8 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/styles/global.css` | Tokens, both themes, and the shared component layer. |
 | `src/styles/house.css`, `src/components/PageHero.astro` | The shared layer of the front-of-house pages (blog, academia, projects, YouTube, contact, brand). They stay dark in both themes; see DESIGN.md "Front-of-house pages". |
 | `src/components/ArchiveEntry.astro`, `src/lib/article-index.ts` | One archive row, and the folio, date and reading-time helpers every article listing shares. |
-| `src/styles/article.css` | The whole article reader: page, header, body, every content component. Read DESIGN.md "Article reader" first. |
+| `src/styles/article.css` | The article reader's page, header, prose and the base parts of the figure vocabulary. Read DESIGN.md "Article reader" first. |
+| `src/styles/article-plates.css` | Every article component that draws its own ground: notes, sources, quotes, tables, figure layouts, media, footnotes. |
 | `src/components/article/` | Article components in `shell/`, `text/`, `sources/`, `media/`, `figures/`. Author guide: `docs/COMPONENT-GUIDE.md`. |
 | `src/styles/motion.css` | A stub kept only for its reduced-motion block. |
 | `src/pages/hadith/**` | Corpus catalogue, collection edition, hadith record. |

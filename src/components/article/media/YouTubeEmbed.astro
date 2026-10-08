@@ -1,14 +1,30 @@
 ---
 /**
- * A cited video. The still is a real link to YouTube; with script it is
- * swapped in place for the privacy-enhanced player, so nothing loads from
- * YouTube until the reader asks.
+ * A cited video, set as a card: the still on the left with its running time,
+ * the title and channel on the right; stacked on phones. The still is a real
+ * link to YouTube; with script, playing it opens the privacy-enhanced player
+ * across the whole card, so nothing loads from YouTube until the reader asks.
+ *
+ * Running time, views and date come from src/data/youtube-meta.json when the
+ * video is one of the channel's own (refreshed by `npm run sync:youtube`);
+ * the card prints only what it knows.
  */
+import youtubeMeta from '../../../data/youtube-meta.json';
+import { formatDuration, formatViews } from '../../../lib/article-text';
+
 export interface Props {
   url: string;
   title?: string;
   channel?: string;
   date?: string;
+}
+
+interface VideoMeta {
+  id: string;
+  title: string;
+  publishedAt?: string;
+  durationSeconds?: number;
+  views?: number;
 }
 
 const { url, title, channel = 'YouTube', date } = Astro.props;
@@ -30,19 +46,25 @@ function parseYouTube(raw: string) {
 
 const { id, start } = parseYouTube(url);
 const watchUrl = `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` : ''}`;
+const meta = (youtubeMeta.videos as VideoMeta[]).find((v) => v.id === id);
+const shownTitle = title ?? meta?.title;
+const duration = formatDuration(meta?.durationSeconds);
+const published = date ?? (meta?.publishedAt
+  ? new Date(meta.publishedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  : '');
+const details = [channel, formatViews(meta?.views), published].filter(Boolean);
 ---
 
-<figure class="hc-media">
-  <a class="hc-media__frame" href={watchUrl} data-yt-id={id} data-yt-start={start} aria-label={`Play video${title ? `: ${title}` : ''}`}>
+<figure class="hc-media hc-video">
+  <a class="hc-media__frame hc-video__still" href={watchUrl} data-yt-id={id} data-yt-start={start} aria-label={`Play video${shownTitle ? `: ${shownTitle}` : ''}`}>
     <img src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`} alt="" width="480" height="360" loading="lazy" decoding="async" />
     <span class="hc-media__play" aria-hidden="true"></span>
+    {duration && <span class="hc-video__time">{duration}</span>}
   </a>
-  <figcaption class="hc-media__caption">
-    <span class="hc-media__kind">Video</span>
-    {title && <span class="hc-media__title">{title}</span>}
-    <span class="hc-media__meta">
-      {channel}{date && <>, {date}</>}
-    </span>
+  <figcaption class="hc-video__body">
+    <span class="hc-video__kind">Video · YouTube</span>
+    {shownTitle && <a class="hc-video__title" href={watchUrl}>{shownTitle}</a>}
+    <span class="hc-video__meta">{details.join(' · ')}</span>
   </figcaption>
 </figure>
 
@@ -55,7 +77,7 @@ const watchUrl = `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` 
         if (event.metaKey || event.ctrlKey || event.shiftKey) return;
         event.preventDefault();
         const frame = document.createElement('div');
-        frame.className = 'hc-media__frame';
+        frame.className = 'hc-media__frame hc-video__player';
         const iframe = document.createElement('iframe');
         const startAt = link.dataset.ytStart;
         iframe.src = `https://www.youtube-nocookie.com/embed/${link.dataset.ytId}?autoplay=1&rel=0${startAt ? `&start=${startAt}` : ''}`;
@@ -63,6 +85,7 @@ const watchUrl = `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` 
         iframe.allow = 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share';
         iframe.allowFullscreen = true;
         frame.appendChild(iframe);
+        link.closest('.hc-video')?.classList.add('is-playing');
         link.replaceWith(frame);
         iframe.focus();
       });

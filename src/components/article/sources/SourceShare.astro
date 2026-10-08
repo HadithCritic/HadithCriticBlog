@@ -1,0 +1,48 @@
+---
+/**
+ * The Share control shared by every quoted source (Qur'an, report, Bible).
+ * Each source renders a hidden `[data-source-share]` button; this script
+ * reveals it, so a reader without script never sees a control that does
+ * nothing. Astro includes the script once however many sources a page has.
+ *
+ * A passage of several verses has several primary and quoted fields, so the
+ * citation is built from all of them in order, not just the first.
+ */
+---
+
+<script>
+  import { shareText, flashCopied, buildCitation } from '../../../lib/clipboard';
+
+  const joined = (nodes: Iterable<Element>): string | undefined => {
+    const text = [...nodes]
+      .map((node) => node.textContent?.replace(/\s+/g, ' ').trim() ?? '')
+      .filter(Boolean)
+      .join('\n');
+    return text || undefined;
+  };
+
+  function initSourceShare() {
+    for (const figure of document.querySelectorAll<HTMLElement>('[data-source]')) {
+      const button = figure.querySelector<HTMLButtonElement>('[data-source-share]');
+      if (!button || button.dataset.ready) continue;
+      button.dataset.ready = '1';
+      button.hidden = false;
+      button.addEventListener('click', async () => {
+        const primary = figure.querySelectorAll('[data-source-primary], .hadith-block__arabic');
+        const quoted = figure.querySelectorAll('[data-source-quoted], .hadith-block__translation');
+        const citation = buildCitation({
+          primary: joined(primary),
+          quoted: joined(quoted),
+          reference: figure.querySelector('[data-source-ref]')?.textContent?.trim()
+        });
+        if (!citation) return;
+        if (!(await shareText(citation, figure.dataset.shareTitle ?? 'Citation'))) return;
+        flashCopied(button, { labelSelector: 'span', copiedLabel: 'Shared', idleLabel: 'Share', className: 'is-shared' });
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSourceShare);
+  else initSourceShare();
+  document.addEventListener('astro:page-load', initSourceShare);
+</script>
