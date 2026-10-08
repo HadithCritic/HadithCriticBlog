@@ -1,8 +1,9 @@
 # Local cache policy patch
 
 This is the BSD-2-Clause source of `http-cache-semantics` 4.3.0, published
-from upstream commit `b1d4bd682fbab0252985de45219f4e7497c0067c`, with one local
-guard in `evaluateRequest`. The original license and author are preserved.
+from upstream commit `b1d4bd682fbab0252985de45219f4e7497c0067c`, with a local
+guard in `evaluateRequest` and linear comma splitting for Connection/Vary
+headers. The original license and author are preserved.
 The local version is `4.3.0-hc.1`; npm resolves Astro's dependency here through
 the root override, including on a clean Linux `npm ci`.
 

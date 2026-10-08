@@ -15,7 +15,12 @@ test('atlas titles and link labels render as literal text, never as HTML', async
       const entries = JSON.parse(json);
       entries[busy.id].t = payload;
       entries[busy.id].a = payload;
-      entries[busy.id].s = [{ href: '/blogs/', label: payload }];
+      entries[busy.id].s = [
+        { href: '/blogs/', label: payload },
+        { href: 'javascript:window.atlasInjected=true', label: 'Unsafe script' },
+        { href: 'data:text/html,<script>alert(1)</script>', label: 'Unsafe document' },
+        { href: '//example.test/', label: 'External destination' }
+      ];
       return opening + JSON.stringify(entries).replaceAll('<', '\\u003c') + closing;
     });
     expect(body).not.toBe(original);
@@ -24,6 +29,8 @@ test('atlas titles and link labels render as literal text, never as HTML', async
   await page.goto(`/projects/islamic-studies-atlas/?work=${busy.id}#map`);
   await expect(page.locator('.focus__title')).toHaveText(payload);
   await expect(page.locator('.focus__site-list a')).toHaveText(payload);
+  await expect(page.locator('.focus__site-list a')).toHaveAttribute('href', new URL('/blogs/', page.url()).href);
+  await expect(page.locator('.focus__site-list span')).toHaveText(['Unsafe script', 'Unsafe document', 'External destination']);
   await expect(page.locator('[data-explorer] img')).toHaveCount(0);
   expect(await page.evaluate(() => Object.hasOwn(window, 'atlasInjected'))).toBe(false);
 });

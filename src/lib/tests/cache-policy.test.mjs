@@ -47,3 +47,17 @@ test('private caches and explicitly public cookie responses remain usable', () =
   assert.equal(personal.satisfiesWithoutRevalidation(request), true);
   assert.equal(publicPolicy.satisfiesWithoutRevalidation(request), true);
 });
+
+test('Connection and Vary tokens retain trimming without backtracking over whitespace', () => {
+  const padding = ' '.repeat(100_000);
+  const headers = {
+    'cache-control': 'public, max-age=3600',
+    connection: ` x-hop ${padding}x, x-other `,
+    'x-other': 'remove',
+    vary: ` x-selected ${padding}x, x-other `
+  };
+  const policy = new CachePolicy(request, { status: 200, headers });
+  assert.equal(policy.responseHeaders()['x-other'], undefined);
+  assert.equal(policy.satisfiesWithoutRevalidation(request), true);
+  assert.equal(policy.satisfiesWithoutRevalidation({ ...request, headers: { 'x-other': 'different' } }), false);
+});
