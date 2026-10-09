@@ -433,7 +433,7 @@ plus reader surfaces that follow the theme:
 | Night (`--pl-night`) | `QuoteBlock` | the quill engraving to the right, a hanging mark, the author in gold |
 | Bronze | `ContextNote` | a warm card with an "i" mark; collapsible context is a quiet ruled disclosure instead |
 | Surface (`--r-surface`) | `QuranVerse`, tables, flows, rows, chains, disclosures, the video card, footnotes | a boxed panel in the theme's own surface |
-| Publisher | `QuranTalk` (white), `XEmbed` (black) | each drawn in its own register |
+| Publisher | `QuranTalk` (white), `XEmbed` (black), `HadithCriticBlog` (reader palette) | each drawn in its own register |
 
 Display plates switch to a reading setting past a length (claims and quotes at
 360 characters, Bible passages at 420), so a long passage is never set as a
@@ -477,9 +477,19 @@ by script and shown on hover or focus (always on touch screens).
 
 - `shell/`: `ArticleHeader`, `ArticleContents`, `ArticleEnd`, `FootnoteSheet`
 - `text/`: `Note` (and `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
-- `sources/`: `QuranVerse`, `HadithBlock`, `Source` (and `BibleVerse`), `SourceShare` (the Share script), `SourceComparisonTable`, `Bibliography`
+- `sources/`: `QuranVerse`, `HadithBlock`, `Source` (and `BibleVerse`), `SourceShare` (the Share script), `SourceComparisonTable`, `Bibliography`, `ArticleLink`, `HadithCriticBlog`
 - `media/`: `QuranTalk`, `XEmbed`, `YouTubeEmbed`
 - `figures/`: `IsnadDiagram`, `IsnadDilemmaVisual`, `VariantTree`
+
+For a displayed reference to another HadithCritic study, use
+`<HadithCriticBlog id="category-directory/article-slug" />`. It resolves the
+title, date, description and available artwork from the article collection;
+`description` can explain the connection. Use `ArticleLink` with the same `id`
+for inline references and footnotes. Both link to the internal article route.
+The displayed reference is an inset, hairline-framed editorial link in reader
+colors: a quiet publisher line, artwork beside an ink-colored title, then date
+and reading action below one rule. On phones the artwork precedes the copy;
+without artwork the copy fills the measure. Keep the whole reference one anchor.
 
 ### The button exception
 

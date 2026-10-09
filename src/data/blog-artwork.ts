@@ -1,6 +1,22 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
 export const blogArtwork: Record<string, BlogArtwork> = {
+  "prophecies-eschatology/85-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive": {
+    "src": "/images/blog-editorial/85-reconciliation.webp",
+    "srcset": "/images/blog-editorial/85-reconciliation-720.webp 720w, /images/blog-editorial/85-reconciliation.webp 1536w",
+    "thumbnail": "/images/blog-editorial/85-reconciliation-160.webp",
+    "alt": "An editorial engraving of al-Ḥasan reconciling two large factions before encampments and a river city, while a scribe records the event.",
+    "width": 1536,
+    "height": 1024
+  },
+  "transmission-narrators/84-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel": {
+    "src": "/images/blog-editorial/84-woman-ruler.webp",
+    "srcset": "/images/blog-editorial/84-woman-ruler-720.webp 720w, /images/blog-editorial/84-woman-ruler.webp 1536w",
+    "thumbnail": "/images/blog-editorial/84-woman-ruler-160.webp",
+    "alt": "An editorial engraving of a woman in an enclosed camel litter leading an army toward a walled city, while Abū Bakra watches from a rocky overlook.",
+    "width": 1536,
+    "height": 1024
+  },
   "transmission-narrators/82-the-bottleneck-fussilat-misses": {
     "src": "/images/blog-editorial/82-quraysh.webp",
     "srcset": "/images/blog-editorial/82-quraysh-720.webp 720w, /images/blog-editorial/82-quraysh.webp 1536w",

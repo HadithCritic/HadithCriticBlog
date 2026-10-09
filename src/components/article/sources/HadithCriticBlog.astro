@@ -1,0 +1,39 @@
+---
+import { getEntry } from 'astro:content';
+import BrandMark from '../../BrandMark.astro';
+import { blogArtwork } from '../../../data/blog-artwork';
+import { formatDate } from '../../../lib/article-index';
+
+export interface Props {
+  /** Article collection id, including its category directory. */
+  id: string;
+  /** Optional explanation of why this study is being cited. */
+  description?: string;
+}
+
+const { id, description } = Astro.props;
+const article = await getEntry('articles', id);
+if (!article) throw new Error(`HadithCriticBlog: unknown article ${id}`);
+const artwork = blogArtwork[id];
+const image = artwork?.src ?? article.data.thumbnail;
+---
+
+<a class="hc-blog-ref" href={`/blogs/${article.id}/`}>
+  <span class="hc-blog-ref__head">
+    <BrandMark size="24px" />
+    <span class="hc-blog-ref__brand">HadithCritic</span>
+    <span class="hc-blog-ref__label">Related study</span>
+  </span>
+  <span class:list={['hc-blog-ref__body', { 'hc-blog-ref__body--illustrated': image }]}>
+    {image && <img class="hc-blog-ref__image" src={image} srcset={artwork?.srcset} sizes="(max-width: 640px) 100vw, 176px" alt="" width={artwork?.width ?? 160} height={artwork?.height ?? 107} loading="lazy" decoding="async" />}
+    <span class="hc-blog-ref__copy">
+      <span class="hc-blog-ref__meta">{article.data.category}</span>
+      <span class="hc-blog-ref__title">{article.data.title}</span>
+      <span class="hc-blog-ref__description">{description ?? article.data.description}</span>
+    </span>
+  </span>
+  <span class="hc-blog-ref__foot">
+    <time datetime={article.data.date.toISOString()}>{formatDate(article.data.date)}</time>
+    <span class="hc-blog-ref__action">Read the study<span class="hc-blog-ref__arrow" aria-hidden="true"></span></span>
+  </span>
+</a>
