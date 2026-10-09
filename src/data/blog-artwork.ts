@@ -544,5 +544,141 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "alt": "An editorial engraving illustrating the historical setting of “The Satanic Verses Incident.”",
     "width": 1536,
     "height": 1024
+  },
+  "origins-early-history/32-fabricated-hadith-prophecy-hold-on-to-these-6-things-that-will-occur-in-the-future": {
+    "src": "/images/blog-editorial/32-six-signs.webp",
+    "srcset": "/images/blog-editorial/32-six-signs-720.webp 720w, /images/blog-editorial/32-six-signs.webp 1536w",
+    "thumbnail": "/images/blog-editorial/32-six-signs-160.webp",
+    "alt": "A lone visitor approaches a leather campaign tent at Tabūk, with six stones along the path and a frontier encampment beyond.",
+    "width": 1536,
+    "height": 1024
+  },
+  "prophecies-eschatology/33-fabricated-hadith-prophecy-the-thirty-year-reign": {
+    "src": "/images/blog-editorial/33-caliphate-kingship.webp",
+    "srcset": "/images/blog-editorial/33-caliphate-kingship-720.webp 720w, /images/blog-editorial/33-caliphate-kingship.webp 1536w",
+    "thumbnail": "/images/blog-editorial/33-caliphate-kingship-160.webp",
+    "alt": "Four plain empty seats lead toward a raised ornate throne, with counting pebbles marking the transition from caliphate to kingship.",
+    "width": 1536,
+    "height": 1024
+  },
+  "theology-epistemology/34-the-prophet-did-not-know-the-future": {
+    "src": "/images/blog-editorial/34-unseen-horizon.webp",
+    "srcset": "/images/blog-editorial/34-unseen-horizon-720.webp 720w, /images/blog-editorial/34-unseen-horizon.webp 1536w",
+    "thumbnail": "/images/blog-editorial/34-unseen-horizon-160.webp",
+    "alt": "A winding Arabian mountain path disappears into cloud beyond a clear foreground, illustrating the limits of knowledge of the unseen.",
+    "width": 1536,
+    "height": 1024
+  },
+  "prophecies-eschatology/35-fabricated-hadith-prophecy-the-conquest-of-constantinople": {
+    "src": "/images/blog-editorial/35-constantinople-siege.webp",
+    "srcset": "/images/blog-editorial/35-constantinople-siege-720.webp 720w, /images/blog-editorial/35-constantinople-siege.webp 1536w",
+    "thumbnail": "/images/blog-editorial/35-constantinople-siege-160.webp",
+    "alt": "Early medieval siege tents and a commander overlook Constantinople’s land walls and Byzantine skyline.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/36-points-refutations-against-beware-of-this-islamic-creator": {
+    "src": "/images/blog-editorial/36-apologetics-examined.webp",
+    "srcset": "/images/blog-editorial/36-apologetics-examined-720.webp 720w, /images/blog-editorial/36-apologetics-examined.webp 1536w",
+    "thumbnail": "/images/blog-editorial/36-apologetics-examined-160.webp",
+    "alt": "Two scholars compare contrasting manuscript leaves while ordinary worshippers pray in a courtyard beyond.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/37-fallible-transmitters-transmitting-infallible-text-the-quran": {
+    "src": "/images/blog-editorial/37-seven-readers.webp",
+    "srcset": "/images/blog-editorial/37-seven-readers-720.webp 720w, /images/blog-editorial/37-seven-readers.webp 1536w",
+    "thumbnail": "/images/blog-editorial/37-seven-readers-160.webp",
+    "alt": "An elderly recitation teacher listens to pupils beside seven manuscript bundles, illustrating the human transmission of canonical readings.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/38-ṣaḥiḥ-al-yahud-the-parable-of-the-believer-the-citron": {
+    "src": "/images/blog-editorial/38-citron-parable.webp",
+    "srcset": "/images/blog-editorial/38-citron-parable-720.webp 720w, /images/blog-editorial/38-citron-parable.webp 1536w",
+    "thumbnail": "/images/blog-editorial/38-citron-parable-160.webp",
+    "alt": "A citron, dates, aromatic branches and a bitter colocynth lie between two manuscript traditions, illustrating the shared fruit parable.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/39-hisham-ibn-urwa-the-man-who-stopped-menstruating-women-from-praying": {
+    "src": "/images/blog-editorial/39-prayer-threshold.webp",
+    "srcset": "/images/blog-editorial/39-prayer-threshold-720.webp 720w, /images/blog-editorial/39-prayer-threshold.webp 1536w",
+    "thumbnail": "/images/blog-editorial/39-prayer-threshold-160.webp",
+    "alt": "A woman pauses at the threshold of a prayer space, with an unused woven prayer mat inside.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/40-abu-hurairah-lost-the-zakat-to-a-jinn": {
+    "src": "/images/blog-editorial/40-zakat-thief.webp",
+    "srcset": "/images/blog-editorial/40-zakat-thief-720.webp 720w, /images/blog-editorial/40-zakat-thief.webp 1536w",
+    "thumbnail": "/images/blog-editorial/40-zakat-thief-160.webp",
+    "alt": "A night watchman catches a cloaked thief taking grain from Ramadan zakāt sacks in a lamplit storeroom.",
+    "width": 1536,
+    "height": 1024
+  },
+  "transmission-narrators/41-isnad-politics-the-case-of-al-amash-and-hisham": {
+    "src": "/images/blog-editorial/41-bewitchment-well.webp",
+    "srcset": "/images/blog-editorial/41-bewitchment-well-720.webp 720w, /images/blog-editorial/41-bewitchment-well.webp 1536w",
+    "thumbnail": "/images/blog-editorial/41-bewitchment-well-160.webp",
+    "alt": "A comb, date-palm spathe and knotted cord rest beside a stone well, recalling the bewitchment report’s competing recensions.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/42-ṣaḥiḥ-al-yahud-being-merciful-to-inhabitants-of-earth": {
+    "src": "/images/blog-editorial/42-mercy-creatures.webp",
+    "srcset": "/images/blog-editorial/42-mercy-creatures-720.webp 720w, /images/blog-editorial/42-mercy-creatures.webp 1536w",
+    "thumbnail": "/images/blog-editorial/42-mercy-creatures-160.webp",
+    "alt": "A robed person offers water to a thirsty animal beside a birdbath, evoking the shared teaching of mercy toward God’s creatures.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/43-hudhayfah-ibn-al-yaman-the-false-story-of-the-keeper-of-secrets": {
+    "src": "/images/blog-editorial/43-keeper-secrets.webp",
+    "srcset": "/images/blog-editorial/43-keeper-secrets-720.webp 720w, /images/blog-editorial/43-keeper-secrets.webp 1536w",
+    "thumbnail": "/images/blog-editorial/43-keeper-secrets-160.webp",
+    "alt": "A traveller retrieves a wandering camel by its trailing reins near a Tabūk encampment, with a distant funeral gathering suggesting the keeper-of-secrets narrative.",
+    "width": 1536,
+    "height": 1024
+  },
+  "transmission-narrators/44-flogging-torture-and-transmission-of-hadith": {
+    "src": "/images/blog-editorial/44-coerced-transmission.webp",
+    "srcset": "/images/blog-editorial/44-coerced-transmission-720.webp 720w, /images/blog-editorial/44-coerced-transmission.webp 1536w",
+    "thumbnail": "/images/blog-editorial/44-coerced-transmission-160.webp",
+    "alt": "A chained scholar faces a court scribe and an official demanding a written recantation, with a whip laid on the table.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/45-the-origin-of-islamic-apostasy-the-slave-of-ibn-abbas": {
+    "src": "/images/blog-editorial/45-apostasy-guardrails.webp",
+    "srcset": "/images/blog-editorial/45-apostasy-guardrails-720.webp 720w, /images/blog-editorial/45-apostasy-guardrails.webp 1536w",
+    "thumbnail": "/images/blog-editorial/45-apostasy-guardrails-160.webp",
+    "alt": "A traveller leaves through a city gate while a jurist examines an apostasy ruling beside a sheathed sword and prison doorway.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/46-a-case-study-of-ibn-abbas-ikrima-in-the-muwatta": {
+    "src": "/images/blog-editorial/46-muwatta-routes.webp",
+    "srcset": "/images/blog-editorial/46-muwatta-routes-720.webp 720w, /images/blog-editorial/46-muwatta-routes.webp 1536w",
+    "thumbnail": "/images/blog-editorial/46-muwatta-routes-160.webp",
+    "alt": "A compiler compares several cord-linked manuscript bundles, with one excluded bundle set apart, illustrating selective Ibn ʿAbbās transmission in the Muwaṭṭaʾ.",
+    "width": 1536,
+    "height": 1024
+  },
+  "transmission-narrators/47-hadith-logically-can-not-be-considered-wahi": {
+    "src": "/images/blog-editorial/47-report-revelation.webp",
+    "srcset": "/images/blog-editorial/47-report-revelation-720.webp 720w, /images/blog-editorial/47-report-revelation.webp 1536w",
+    "thumbnail": "/images/blog-editorial/47-report-revelation-160.webp",
+    "alt": "An intact recitation codex stands apart from divergent loose report leaves passed between scribes, illustrating the distinction between scripture and later narration.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/48-false-verses-added-into-the-mushaf-an-umayyad-expose": {
+    "src": "/images/blog-editorial/48-mushaf-testimony.webp",
+    "srcset": "/images/blog-editorial/48-mushaf-testimony-720.webp 720w, /images/blog-editorial/48-mushaf-testimony.webp 1536w",
+    "thumbnail": "/images/blog-editorial/48-mushaf-testimony-160.webp",
+    "alt": "A compiler examines a single witness’s separate parchment fragments while officials burn earlier manuscript leaves in a courtyard brazier.",
+    "width": 1536,
+    "height": 1024
   }
 };

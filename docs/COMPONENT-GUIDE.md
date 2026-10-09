@@ -22,6 +22,7 @@ these are imported directly inside `.mdx` articles from
 | Bibliography / reference list | `<Bibliography entries={[{ author, title, details, year }]} />` (`sources/Bibliography.astro`) | Or a Markdown list under `## Bibliography`, which is set the same way. |
 | Video | `<YouTubeEmbed url="…" title="…" channel="…" />` (`media/YouTubeEmbed.astro`) | |
 | QuranTalk essay | `<QuranTalk url="…" title="…" date="…" description="…" verse="…" verseRef="21:48" />` (`media/QuranTalk.astro`) | Drawn in QuranTalk's own register. `description` and the verse are optional. |
+| Fussilat essay | `<FussilatBlog url="…" title="…" author="…" date="…" description="…" />` (`media/FussilatBlog.astro`) | One linked publisher reference in the reader palette. Author, date and description are optional. |
 | Post on X | `<XEmbed url="…" author="…" text="…" />` (`media/XEmbed.astro`) | Static; no third-party script. The date is read from the status id; `avatar` overrides the image. |
 | Isnād chain diagram | `<IsnadDiagram nodes={…} edges={…} tiers={…} />` (`figures/IsnadDiagram.astro`) | Types are exported from that file. |
 | One bottleneck fanning into matn variants | `<VariantTree title="…" root="…" bottleneck="…" branches={[{ name, from, sources, arabic, quote, marks }]} />` (`figures/VariantTree.astro`) | The wordings stand one above another, each version the full width. `marks` lists the exact words that differ; each is highlighted in place. |
