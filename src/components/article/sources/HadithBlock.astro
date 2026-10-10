@@ -11,7 +11,6 @@
  * `<div class="hadith-block__arabic">` / `<div class="hadith-block__translation">`;
  * those keep the order the author wrote.
  */
-import SourceShare from './SourceShare.astro';
 import { renderArabic } from '../../../lib/format-text';
 import { isArabicOnly } from '../../../lib/article-text';
 
@@ -42,7 +41,7 @@ const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).
 const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[^>]*>/g, ''));
 ---
 
-<figure class="hc-report hc-report--leaf" data-source data-share-title="Report">
+<figure class="hc-report hc-report--leaf" data-source>
   {heading && <p class="hc-report__label">{heading}</p>}
   <div class="hc-report__text">
     {(isnad || english_) && (
@@ -58,11 +57,11 @@ const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[
   </div>
   {(citation || url) && (
     <figcaption class="hc-report__foot">
-      {citation && <cite data-source-ref>{citation}</cite>}
-      {url && <a class="hc-report__link" href={url} target="_blank" rel="noopener noreferrer">Open the source</a>}
-      <button type="button" class="hc-source__share" data-source-share hidden><span>Share</span></button>
+      <cite data-source-ref>
+        {url
+          ? <a class="hc-report__link" href={url} target="_blank" rel="noopener noreferrer">{citation ?? url}</a>
+          : citation}
+      </cite>
     </figcaption>
   )}
 </figure>
-
-<SourceShare />

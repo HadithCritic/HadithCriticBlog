@@ -7,11 +7,8 @@
  *   bible   parchment under the engraved harbour, the passage centred in
  *           Cormorant italic; a long passage is set left and smaller
  *
- * Arabic and the translation arrive as props or as slots. The Share control
- * is revealed by script (SourceShare), so it never exists for a reader
- * without one.
+ * Arabic and the translation arrive as props or as slots.
  */
-import SourceShare from './SourceShare.astro';
 import { plainLength } from '../../../lib/article-text';
 
 export interface Props {
@@ -23,20 +20,19 @@ export interface Props {
   /** The citation: "Quran 49:6", "Ṣaḥīḥ al-Bukhārī 5763", "Exodus 24:12". */
   reference?: string;
   /** Word used for the share sheet title. */
-  shareTitle?: string;
 }
 
 /** Past this many characters a passage is read, not displayed. */
 const LONG_PASSAGE = 420;
 
-const { kind, title, arabic, translation, reference, shareTitle = 'Citation' } = Astro.props;
+const { kind, title, arabic, translation, reference } = Astro.props;
 const hasArabicSlot = Astro.slots.has('arabic');
 /* Rendered first so a wrapper that forwards an empty slot emits nothing. */
 const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
 const isLong = plainLength(`${translation ?? ''}${body}`) > LONG_PASSAGE;
 ---
 
-<figure class:list={['hc-source', `hc-source--${kind}`, { 'hc-source--long': isLong }]} data-source data-share-title={shareTitle}>
+<figure class:list={['hc-source', `hc-source--${kind}`, { 'hc-source--long': isLong }]} data-source>
   {title && <p class="hc-source__title">{title}</p>}
 
   {arabic && <p class="hc-source__arabic" lang="ar" dir="rtl" data-source-primary>{arabic}</p>}
@@ -48,9 +44,6 @@ const isLong = plainLength(`${translation ?? ''}${body}`) > LONG_PASSAGE;
   {reference && (
     <figcaption class="hc-source__ref">
       <cite data-source-ref>{reference}</cite>
-      <button type="button" class="hc-source__share" data-source-share hidden><span>Share</span></button>
     </figcaption>
   )}
 </figure>
-
-<SourceShare />

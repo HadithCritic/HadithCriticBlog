@@ -1,6 +1,23 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
 export const blogArtwork: Record<string, BlogArtwork> = {
+  "prophecies-eschatology/87-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
+    "src": "/images/blog-editorial/87-kufa-empty-faith.webp",
+    "srcset": "/images/blog-editorial/87-kufa-empty-faith-720.webp 720w, /images/blog-editorial/87-kufa-empty-faith.webp 1536w",
+    "thumbnail": "/images/blog-editorial/87-kufa-empty-faith-160.webp",
+    "alt": "An editorial engraving of Kūfans confined in an early Islamic mosque courtyard, with guards at the entrance.",
+    "width": 1536,
+    "height": 1024
+},
+  "transmission-narrators/86-aisha-and-the-quran-as-criterion": {
+    "src": "/images/blog-editorial/86-aisha-quran-criterion.webp",
+    "srcset": "/images/blog-editorial/86-aisha-quran-criterion-720.webp 720w, /images/blog-editorial/86-aisha-quran-criterion.webp 1536w",
+    "thumbnail": "/images/blog-editorial/86-aisha-quran-criterion-160.webp",
+    "alt": "An editorial engraving of a woman in a courtyard holding an open Qur’an before several seated men, while a scribe records the exchange.",
+    "width": 1536,
+    "height": 1024
+},
+
   "prophecies-eschatology/85-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive": {
     "src": "/images/blog-editorial/85-reconciliation.webp",
     "srcset": "/images/blog-editorial/85-reconciliation-720.webp 720w, /images/blog-editorial/85-reconciliation.webp 1536w",
