@@ -6,7 +6,7 @@
 
 **Deliberate break, recorded:** like the homepage, these pages are plates (`.hc-plate` on the page root) and stay dark in both themes. Every token inside resolves to the dark palette, so contrast is measured once. The databases and the article reader keep the light theme, because a reader may sit in them for an hour.
 
-- **Blog.** The latest study as a parchment leaf with its own contents list (its `##` headings), the three before it, then the whole archive grouped by year beside a sticky column of full-text search, branch filters and order (`src/lib/blog-index.ts`). Every row is `ArchiveEntry.astro`, which the branch hubs and the brand page reuse. Bespoke engravings come from `src/data/blog-artwork.ts`.
+- **Blog.** The latest study is introduced by “Latest Published Blog:” and shown as a parchment leaf with its own contents list (its `##` headings), followed by the whole archive grouped by year beside a sticky column of full-text search, branch filters and order (`src/lib/blog-index.ts`). Every row is `ArchiveEntry.astro`, which the branch hubs and the brand page reuse. Bespoke engravings come from `src/data/blog-artwork.ts`.
 - **Academia.** The treatise as an object beside its record, the citation card (all three formats print without script), and the ICMA studies as a monograph series by research family.
 - **Projects.** The corpus as a lead instrument, panels that name the places inside each project, the prototype set apart, and an at-a-glance status table. Panels reuse each project's own masthead engraving.
 - **YouTube.** The channel masthead, one player beside the record of the video in it, and the catalogue by subject. Tiles are real links to YouTube; script loads them into the player.
