@@ -1,6 +1,22 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
 export const blogArtwork: Record<string, BlogArtwork> = {
+  "transmission-narrators/89-abu-hurayrah-on-trial-the-criticism-the-hadith-books-preserved": {
+    "src": "/images/blog-editorial/89-abu-hurayrah-trial.webp",
+    "srcset": "/images/blog-editorial/89-abu-hurayrah-trial-720.webp 720w, /images/blog-editorial/89-abu-hurayrah-trial.webp 1536w",
+    "thumbnail": "/images/blog-editorial/89-abu-hurayrah-trial-160.webp",
+    "alt": "An editorial engraving of scholars comparing manuscript leaves in an early mosque courtyard, illustrating records of criticism around Abū Hurayrah.",
+    "width": 1536,
+    "height": 1024
+  },
+  "origins-early-history/90-abu-hanifa-the-heretic-who-became-an-imam": {
+    "src": "/images/blog-editorial/90-abu-hanifa-canon.webp",
+    "srcset": "/images/blog-editorial/90-abu-hanifa-canon-720.webp 720w, /images/blog-editorial/90-abu-hanifa-canon.webp 1536w",
+    "thumbnail": "/images/blog-editorial/90-abu-hanifa-canon-160.webp",
+    "alt": "An editorial engraving of a jurist comparing manuscript accounts in an Abbasid-era book room.",
+    "width": 1536,
+    "height": 1024
+  },
   "origins-early-history/88-the-written-evidence-for-uthmans-quran": {
     "src": "/images/blog-editorial/88-uthmanic-written-evidence.webp",
     "srcset": "/images/blog-editorial/88-uthmanic-written-evidence-720.webp 720w, /images/blog-editorial/88-uthmanic-written-evidence.webp 1536w",

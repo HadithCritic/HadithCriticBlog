@@ -29,9 +29,8 @@ const { slug } = Astro.params;
 const { book } = Astro.props;
 const hasKitabArtwork = slug === 'muwatta-malik';
 
-const SIZE = 25;
 const total = book.hadith_count;
-const pages = Math.max(1, Math.ceil(total / SIZE));
+const pages = Math.max(1, Math.ceil(total / 25));
 const muwattaKitabArt = [
   'times-of-prayer', 'prayer', 'two-festivals', 'prayer-of-fear', 'eclipse-prayer', 'praying-for-rain', 'qibla', 'quran', 'funerals', 'zakat', 'fasting',
   'retreat-in-the-mosque', 'night-of-decree', 'pilgrimage', 'jihad', 'vows-and-oaths', 'sacrifices', 'slaughter', 'hunting', 'birth-sacrifice',
@@ -71,9 +70,9 @@ const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapte
           <p class="edition-head__description">
             A bilingual source edition of {total.toLocaleString()} narrations
             {structure && structure.shape !== 'flat' && <>{' '}across {structure.kitabs.length.toLocaleString()} {noun?.many.toLowerCase()}</>}.
-            {' '}Browse the printed sequence, explore its chapters, and follow each report to its transmission and source notes.
+            {' '}Browse its books and chapters, then open a report to follow its transmission and source notes.
           </p>
-          <a class="edition-head__browse" href={structure ? '#edition-books-title' : '#edition-narrations-title'}>Explore this collection <span aria-hidden="true">↓</span></a>
+          <a class="edition-head__browse" href="#edition-books-title">Explore this collection <span aria-hidden="true">↓</span></a>
         </div>
       </div>
     </header>
@@ -141,28 +140,19 @@ const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapte
                 ))}
               </ol>
               <p class="edition-books__empty" data-book-empty hidden>No {noun.many.toLowerCase()} match these filters. Try another title or reset the filters.</p>
-              <div class="edition-books__bottom"><p data-book-status role="status" aria-live="polite" data-book-controls hidden></p><button type="button" class="edition-books__more" data-book-more aria-controls="edition-book-list" aria-expanded="false" hidden>View all books →</button><a href="#edition-narrations-title">Read the narration sequence <span aria-hidden="true">↓</span></a></div>
+              <div class="edition-books__bottom"><p data-book-status role="status" aria-live="polite" data-book-controls hidden></p><button type="button" class="edition-books__more" data-book-more aria-controls="edition-book-list" aria-expanded="false" hidden>View all books →</button></div>
             </>
           )}
         </section>
       )}
 
-      <section class="edition-body" aria-labelledby="edition-narrations-title">
-        <div class="edition-sequence-head"><div><p class="edition-kicker">The source edition</p><h2 id="edition-narrations-title">Narration sequence</h2></div><p>Arabic and English, with links to each report’s full apparatus.</p></div>
-        <div id="coll-client-container" data-book-id={book.id} data-slug={slug} data-book-title={book.title_en} data-size={SIZE} data-total={total}>
-          <div class="coll-loading"><span class="coll-spinner" aria-hidden="true"></span><p>Reading {book.title_en} from the static corpus…</p></div>
-          <noscript><p class="coll-error">This edition is read from a static SQLite corpus in your browser, so it needs JavaScript. The {pages.toLocaleString()} pages of {book.title_en} are otherwise unavailable here; the written research on this site does not require it.</p></noscript>
-        </div>
-      </section>
     </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { initCollectionEdition } from '../../../lib/collection-edition';
   import { initCollectionBrowser } from '../../../lib/collection-browser';
   initCollectionBrowser();
-  initCollectionEdition();
 </script>
 
 <!-- Global styles for client worker and dynamic chapters injection -->
