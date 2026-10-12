@@ -1,6 +1,14 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
 export const blogArtwork: Record<string, BlogArtwork> = {
+  "origins-early-history/88-the-written-evidence-for-uthmans-quran": {
+    "src": "/images/blog-editorial/88-uthmanic-written-evidence.webp",
+    "srcset": "/images/blog-editorial/88-uthmanic-written-evidence-720.webp 720w, /images/blog-editorial/88-uthmanic-written-evidence.webp 1536w",
+    "thumbnail": "/images/blog-editorial/88-uthmanic-written-evidence-160.webp",
+    "alt": "An editorial engraving of blank parchment folios arranged for comparison beside a brass divider.",
+    "width": 1536,
+    "height": 1024
+  },
   "prophecies-eschatology/87-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
     "src": "/images/blog-editorial/87-kufa-empty-faith.webp",
     "srcset": "/images/blog-editorial/87-kufa-empty-faith-720.webp 720w, /images/blog-editorial/87-kufa-empty-faith.webp 1536w",

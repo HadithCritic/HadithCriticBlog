@@ -1089,6 +1089,22 @@ responsive derivatives. These are conceptual illustrations, not reproductions of
 historical artifacts or evidence for research claims. Prompts and subjects are
 recorded in `docs/platform-artwork-prompts.json` and `docs/platform-redesign.md`.
 
+## Compilation landing pages (2026-10-11)
+
+`/hadith/collection/:slug` uses `collection-page.css`: an engraved manuscript
+library hero with stacked English and Arabic titles, a parchment register of
+the collection's actual narration, division and chapter counts, a scoped search
+form, and illustrated links into its books or sections. The page root is a
+fixed-dark plate; parchment statistics keep their own paper inks. Illustrations
+are conceptual decoration, documented in `docs/compilation-artwork-prompts.json`.
+Titles and counts come unchanged from corpus metadata and collection structure.
+
+The enhanced catalogue starts with nine entries, offers title and length
+filters, ordering, grid/list views and a view-all control. Without JavaScript,
+every book link and the real collection search form remain available. The
+narration sequence and its browser-side static corpus queries retain their
+existing behavior.
+
 ## Project pages (2026-10-08)
 
 The Qur'an sura pages (`SuraQiraat.astro`), the tafsir sura pages
@@ -1119,3 +1135,20 @@ the legend), and keeps the reader colors from `qiraat.css` unchanged.
 
 `scripts/check-contrast.mjs --open-details` opens every disclosure before
 measuring, because closed text is never painted and so never measured.
+
+## Corpus discovery and shared footer (2026-10-11)
+
+`/hadith/` uses `corpus-catalogue.css`: an engraved library masthead, parchment
+search desk, actual corpus totals, six illustrated collection links, and a
+compact chronological catalogue. Default ordering is by compiler death year,
+earliest first, with works by the same compiler together. Display metadata and
+its sources are documented in `docs/corpus-catalogue.md`; corpus titles and
+counts remain unchanged. Local filters and grid/list views enhance the static
+catalogue without making corpus queries. The search and reading surfaces keep
+their light theme; illustrations remain dark plates.
+
+`SiteFooter.astro` uses `site-footer.css` across the site. Its directory, signup
+and social channels sit above a shallow panorama. Research principles retain
+their wording inside a native disclosure. Directory groups are native
+disclosures, open on desktop and closed initially on phones with JavaScript.
+Without JavaScript all directory links remain visible.

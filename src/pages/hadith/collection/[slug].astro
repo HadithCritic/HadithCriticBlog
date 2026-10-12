@@ -1,4 +1,7 @@
 ---
+import EditionIcon from "../../../components/EditionIcon.astro";
+import { collectionArtwork } from "../../../lib/collection-presentation";
+import "../../../styles/collection-page.css";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { CORPUS_META } from "../../../lib/corpus-config";
@@ -31,451 +34,128 @@ const pages = Math.max(1, Math.ceil(total / SIZE));
 // Its books, from the Ifta' Sunnah table of contents, where the collection has them.
 const structure = structureFor(slug);
 const noun = structure ? divisionNoun(structure.shape) : null;
+const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0) ?? 0;
 ---
 
 <BaseLayout
-  title={`${book.title_en} · Source Edition | HadithCritic`}
-  description={`Explore all ${book.hadith_count.toLocaleString()} narrations of ${book.title_en} in bilingual facing critical format with complete transmission apparatus.`}
+  title={book.title_en + ' · Source Edition | HadithCritic'}
+  description={'Explore all ' + total.toLocaleString() + ' narrations of ' + book.title_en + ' in bilingual facing critical format with complete transmission apparatus.'}
   image={OG.collection(slug)}
-  imageAlt={`${book.title_en} | HadithCritic`}
+  imageAlt={book.title_en + ' | HadithCritic'}
   crumbs={[
-    { name: "Home", url: "/" },
-    { name: "Corpus", url: "/hadith/" },
-    { name: book.title_en, url: `/hadith/collection/${slug}/` },
+    { name: 'Home', url: '/' },
+    { name: 'Corpus', url: '/hadith/' },
+    { name: book.title_en, url: '/hadith/collection/' + slug + '/' },
   ]}
 >
-  <div class="edition-view">
-    <!-- Academic Source Masthead -->
+  <div class="edition-view hc-plate">
     <header class="edition-head">
-      <div class="wrap">
-        <div class="edition-head__nav">
-          <a class="hc-back-link" href="/hadith/">
-            <span>←</span>
-            <span>Return to Full Corpus</span>
-          </a>
-          <span class="edition-badge">Archival Volume Edition</span>
-        </div>
-
-        <div class="edition-head__mast">
-          <div class="edition-head__titles">
-            <h1 class="edition-title">{book.title_en}</h1>
-            {
-              book.title_ar && (
-                <p class="edition-title-ar" lang="ar" dir="rtl">
-                  {book.title_ar}
-                </p>
-              )
-            }
-          </div>
-
-          <div class="edition-stats-ledger">
-            <div class="edition-stat-entry">
-              <span class="edition-stat-entry__label">Volume Extent</span>
-              <strong class="edition-stat-entry__val"
-                >{book.hadith_count.toLocaleString()} Narrations</strong
-              >
-            </div>
-            <div class="edition-stat-entry">
-              <span class="edition-stat-entry__label">Sequence Mode</span>
-              <span class="edition-stat-entry__val"
-                >Printed Canonical Order</span
-              >
-            </div>
-            <div class="edition-stat-entry">
-              <span class="edition-stat-entry__label">Critical Text</span>
-              <span class="edition-stat-entry__val"
-                >Bilingual Facing Edition</span
-              >
-            </div>
-          </div>
-        </div>
-
-        <!-- Scoped In-Collection Search Console -->
-        <div class="edition-search-plate">
-          <form class="edition-search-form" method="get" action="/hadith/">
-            <input type="hidden" name="book" value={book.id} />
-            <label class="sr-only" for="edition-q"
-              >Search within {book.title_en}</label
-            >
-            <div class="edition-search-bar">
-              <span class="edition-search-icon" aria-hidden="true">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </span>
-              <input
-                id="edition-q"
-                class="edition-search-input"
-                type="search"
-                name="q"
-                placeholder={`Search phrases or transmitters within ${book.title_en}…`}
-                autocomplete="off"
-              />
-              <button type="submit" class="edition-search-btn"
-                >Search Source</button
-              >
-            </div>
-            <div class="edition-search-context">
-              <span class="edition-search-dot" aria-hidden="true"></span>
-              <span
-                >Query scope restricted to <strong>{book.title_en}</strong
-                >.</span
-              >
-              <a class="edition-search-reset" href="/hadith/"
-                >Search full corpus instead</a
-              >
-            </div>
-          </form>
+      <picture class="edition-head__art" aria-hidden="true">
+        <source srcset="/images/hadith/compilation-library-1086.webp 1086w, /images/hadith/compilation-library.webp 2172w" sizes="100vw" />
+        <img src="/images/hadith/compilation-library.webp" alt="" width="2172" height="724" fetchpriority="high" />
+      </picture>
+      <div class="wrap edition-head__inner">
+        <a class="hc-back-link" href="/hadith/"><span aria-hidden="true">←</span> Hadith Corpus</a>
+        <div class="edition-head__titles">
+          <p class="edition-kicker">Hadith compilation</p>
+          <h1 class="edition-title">{book.title_en}</h1>
+          {book.title_ar && <p class="edition-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>}
+          <p class="edition-head__description">
+            A bilingual source edition of {total.toLocaleString()} narrations
+            {structure && structure.shape !== 'flat' && <>{' '}across {structure.kitabs.length.toLocaleString()} {noun?.many.toLowerCase()}</>}.
+            {' '}Browse the printed sequence, explore its chapters, and follow each report to its transmission and source notes.
+          </p>
+          <a class="edition-head__browse" href={structure ? '#edition-books-title' : '#edition-narrations-title'}>Explore this collection <span aria-hidden="true">↓</span></a>
         </div>
       </div>
     </header>
 
-    {structure && noun && (
-      <section class="wrap edition-books" aria-labelledby="edition-books-title">
-        {structure.shape === "flat" ? (
-          <p class="edition-books__flat">
-            <a href={`/hadith/collection/${slug}/kitab/1/`}>
-              Browse its {structure.kitabs[0].chapters.length.toLocaleString()} chapters
-            </a>{" "}
-            in the order of the printed edition.
-          </p>
-        ) : (
-          <details class="edition-books__fold" open={structure.kitabs.length <= 100}>
-            <summary>
-              <h2 class="edition-books__title" id="edition-books-title">{noun.many} in this collection</h2>
-              <span class="edition-books__count">{structure.kitabs.length.toLocaleString()}</span>
-            </summary>
-            <ol class="edition-books__list">
-              {structure.kitabs.map((kitab) => (
-                <li>
-                  <a href={`/hadith/collection/${slug}/kitab/${kitab.n}/`}>
-                    <span class="edition-books__n">{kitab.n}</span>
-                    <span class="edition-books__names">
-                      <span class="edition-books__en" set:html={renderRich(kitabTitle(structure, kitab))} />
-                      <span class="edition-books__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} />
-                    </span>
-                    <span class="edition-books__extent">{kitab.count.toLocaleString()}</span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </details>
-        )}
-      </section>
-    )}
-
-    <!-- Source Body / Narrations Sequence -->
-    <div class="wrap edition-body">
-      <div
-        id="coll-client-container"
-        data-book-id={book.id}
-        data-slug={slug}
-        data-book-title={book.title_en}
-        data-size={SIZE}
-        data-total={total}
-      >
-        <div class="coll-loading">
-          <span class="coll-spinner" aria-hidden="true"></span>
-          <p>Reading {book.title_en} from the static corpus…</p>
+    <div class="wrap">
+      <dl class="edition-stats-ledger hc-parchment" aria-label="Collection at a glance">
+        <div class="edition-stat-entry">
+          <EditionIcon name="book" />
+          <div><dt>Total hadith</dt><dd>{total.toLocaleString()}<span>narrations</span></dd></div>
         </div>
-        <noscript>
-          <p class="coll-error">
-            This edition is read from a static SQLite corpus in your browser, so
-            it needs JavaScript. The {pages.toLocaleString()} pages of {book.title_en}
-            are otherwise unavailable here; the written research on this site does
-            not require it.
-          </p>
-        </noscript>
-      </div>
+        <div class="edition-stat-entry">
+          <EditionIcon name="books" />
+          <div><dt>{structure?.shape === 'flat' ? 'Reading sequence' : noun?.many || 'Reading sequence'}</dt><dd>{structure && structure.shape !== 'flat' ? structure.kitabs.length.toLocaleString() : pages.toLocaleString()}<span>{structure && structure.shape !== 'flat' ? noun?.many.toLowerCase() : 'pages'}</span></dd></div>
+        </div>
+        <div class="edition-stat-entry">
+          <EditionIcon name="pages" />
+          <div><dt>{structure ? 'Chapters' : 'Edition'}</dt><dd>{structure ? chapterCount.toLocaleString() : 'Bilingual'}<span>{structure ? 'source headings' : 'Arabic & English'}</span></dd></div>
+        </div>
+        <div class="edition-stat-entry">
+          <EditionIcon name="record" />
+          <div><dt>Collection ID</dt><dd>{book.id}<span>HadithCritic corpus</span></dd></div>
+        </div>
+      </dl>
+
+      <section class="edition-search-plate" aria-label="Search this collection">
+        <form class="edition-search-form" method="get" action="/hadith/">
+          <input type="hidden" name="book" value={book.id} />
+          <label class="sr-only" for="edition-q">Search within {book.title_en}</label>
+          <div class="edition-search-row">
+            <div class="edition-search-bar"><EditionIcon name="search" /><input id="edition-q" class="edition-search-input" type="search" name="q" placeholder={'Search within ' + book.title_en + '…'} autocomplete="off" /></div>
+            <button type="submit" class="edition-search-btn">Search collection <span aria-hidden="true">→</span></button>
+          </div>
+        </form>
+        {structure && structure.shape !== 'flat' ? (
+          <div class="edition-book-controls" data-book-controls hidden>
+            <label>Sort by<select data-book-sort><option value="order">{noun?.one} order</option><option value="title">Title A–Z</option><option value="extent">Most narrations</option></select></label>
+            <label>{noun?.one} title<input type="search" data-book-query placeholder="Find a title…" /></label>
+            <label>{noun?.one} length<select data-book-length><option value="all">All lengths</option><option value="short">Under 100 narrations</option><option value="medium">100–499 narrations</option><option value="long">500+ narrations</option></select></label>
+            <button type="button" class="edition-reset" data-book-reset><span aria-hidden="true">↻</span> Reset filters</button>
+          </div>
+        ) : <p class="edition-search-context">Search is limited to this collection. <a href="/hadith/">Search the full corpus</a></p>}
+      </section>
+
+      {structure && noun && (
+        <section class="edition-books" data-collection-browser data-divisions={noun.many.toLowerCase()} data-view="grid" aria-labelledby="edition-books-title">
+          <div class="edition-books__heading">
+            <div><p class="edition-kicker">The {noun.many.toLowerCase()}</p><h2 class="edition-books__title" id="edition-books-title">{structure.shape === 'flat' ? 'Explore the chapters' : 'Browse the ' + structure.kitabs.length.toLocaleString() + ' ' + noun.many}</h2></div>
+            <p class="edition-books__intro">{structure.shape === 'flat' ? 'Read the chapters in the order of the printed edition.' : 'Open a ' + noun.one.toLowerCase() + ' to explore its chapters and narrations in the order of the printed edition.'}</p>
+            {structure.shape !== 'flat' && <div class="edition-books__views" data-book-controls hidden aria-label="Book catalogue view"><button type="button" data-book-view="grid" aria-pressed="true"><EditionIcon name="grid" />Grid</button><button type="button" data-book-view="list" aria-pressed="false"><EditionIcon name="list" />List</button></div>}
+          </div>
+          <div class="edition-books__rule" aria-hidden="true"><span>◇</span></div>
+          {structure.shape === 'flat' ? (
+            <a class="edition-books__flat" href={'/hadith/collection/' + slug + '/kitab/1/'}>Browse all {structure.kitabs[0].chapters.length.toLocaleString()} chapters <span aria-hidden="true">→</span></a>
+          ) : (
+            <>
+              <ol class="edition-books__list" id="edition-book-list">
+                {structure.kitabs.map((kitab) => (
+                  <li data-book-card data-number={kitab.n} data-count={kitab.count} data-title={kitabTitle(structure, kitab) + ' ' + kitab.title_ar}>
+                    <a class="edition-book" href={'/hadith/collection/' + slug + '/kitab/' + kitab.n + '/'}>
+                      <img class="edition-book__art" src={'/images/hadith/books/' + collectionArtwork(kitabTitle(structure, kitab)) + '.webp'} alt="" loading="lazy" width="512" height="512" />
+                      <div class="edition-book__head"><span class="edition-books__n">{String(kitab.n).padStart(2, '0')}</span><div class="edition-books__names"><span class="edition-books__en" set:html={renderRich(kitabTitle(structure, kitab))} /><span class="edition-books__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} /></div></div>
+                      <div class="edition-book__foot"><span><EditionIcon name="pages" />{kitab.chapters.length.toLocaleString()} {kitab.chapters.length === 1 ? 'chapter' : 'chapters'}</span><span class="edition-books__extent"><EditionIcon name="book" />{kitab.count.toLocaleString()} {kitab.count === 1 ? 'narration' : 'narrations'}</span><span class="edition-book__arrow" aria-hidden="true">→</span></div>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+              <p class="edition-books__empty" data-book-empty hidden>No {noun.many.toLowerCase()} match these filters. Try another title or reset the filters.</p>
+              <div class="edition-books__bottom"><p data-book-status role="status" aria-live="polite" data-book-controls hidden></p><button type="button" class="edition-books__more" data-book-more aria-controls="edition-book-list" aria-expanded="false" hidden>View all books →</button><a href="#edition-narrations-title">Read the narration sequence <span aria-hidden="true">↓</span></a></div>
+            </>
+          )}
+        </section>
+      )}
+
+      <section class="edition-body" aria-labelledby="edition-narrations-title">
+        <div class="edition-sequence-head"><div><p class="edition-kicker">The source edition</p><h2 id="edition-narrations-title">Narration sequence</h2></div><p>Arabic and English, with links to each report’s full apparatus.</p></div>
+        <div id="coll-client-container" data-book-id={book.id} data-slug={slug} data-book-title={book.title_en} data-size={SIZE} data-total={total}>
+          <div class="coll-loading"><span class="coll-spinner" aria-hidden="true"></span><p>Reading {book.title_en} from the static corpus…</p></div>
+          <noscript><p class="coll-error">This edition is read from a static SQLite corpus in your browser, so it needs JavaScript. The {pages.toLocaleString()} pages of {book.title_en} are otherwise unavailable here; the written research on this site does not require it.</p></noscript>
+        </div>
+      </section>
     </div>
   </div>
 </BaseLayout>
 
 <script>
-  import { initCollectionEdition } from "../../../lib/collection-edition";
+  import { initCollectionEdition } from '../../../lib/collection-edition';
+  import { initCollectionBrowser } from '../../../lib/collection-browser';
+  initCollectionBrowser();
   initCollectionEdition();
 </script>
-
-<style>
-  .edition-view {
-    background: var(--hc-surface-0);
-    min-height: 100vh;
-    padding-bottom: clamp(4rem, 8vw, 7rem);
-  }
-
-  /* ── Collection Masthead ───────────────────────────────────── */
-  .edition-head {
-    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(1.75rem, 3vw, 2.5rem);
-    border-bottom: 1px solid var(--hc-rule);
-    background: radial-gradient(
-      circle at 90% 10%,
-      color-mix(in srgb, var(--hc-gold) 5%, transparent) 0%,
-      transparent 65%
-    );
-  }
-
-  .edition-head__nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .edition-badge {
-    padding: 0.22rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .edition-head__mast {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .edition-head__titles {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem 2rem;
-  }
-
-  .edition-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
-    font-weight: 500;
-    line-height: 1.15;
-    letter-spacing: -0.025em;
-    color: var(--hc-text-primary);
-  }
-
-  .edition-title-ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: clamp(1.6rem, 3.2vw, 2.3rem);
-    line-height: 1.6;
-    color: var(--hc-gold);
-    direction: rtl;
-  }
-
-  .edition-stats-ledger {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 1.25rem 2.5rem;
-    padding: 0.95rem 1.25rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-  }
-
-  .edition-stat-entry {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-  }
-
-  .edition-stat-entry__label {
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .edition-stat-entry__val {
-    color: var(--hc-text-secondary);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ── Scoped Search ─────────────────────────────────────────── */
-  .edition-search-plate {
-    max-width: 46rem;
-    margin-top: 1.85rem;
-  }
-
-  .edition-search-bar {
-    display: flex;
-    align-items: center;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-    transition: border-color var(--motion-fast) ease;
-  }
-
-  .edition-search-bar:focus-within {
-    border-color: var(--hc-gold);
-  }
-
-  .edition-search-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-left: 1rem;
-    color: var(--hc-gold);
-  }
-
-  .edition-search-input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: none;
-    background: transparent;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    color: var(--hc-text-primary);
-  }
-
-  .edition-search-btn {
-    padding: 0 1.25rem;
-    height: 100%;
-    align-self: stretch;
-    border: none;
-    border-left: 1px solid var(--hc-rule-soft);
-    background: var(--hc-surface-2);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition:
-      background var(--motion-fast) ease,
-      color var(--motion-fast) ease;
-  }
-
-  .edition-search-btn:hover {
-    background: var(--hc-gold);
-    color: var(--hc-surface-0);
-  }
-
-  .edition-search-context {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.65rem;
-    font-family: var(--font-ui);
-    font-size: 0.76rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .edition-search-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--hc-gold);
-  }
-
-  .edition-search-reset {
-    color: var(--hc-gold);
-    text-decoration: none;
-    margin-left: 0.35rem;
-  }
-
-  .edition-search-reset:hover {
-    text-decoration: underline;
-  }
-
-  .edition-body {
-    padding-top: clamp(1.75rem, 3vw, 2.5rem);
-  }
-
-  @media (max-width: 700px) {
-    .edition-head__titles {
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-  }
-</style>
-
-<style>
-  /* The collection's books, above the sequential edition. */
-  .edition-books { margin-top: clamp(1.5rem, 3vw, 2.25rem); }
-  .edition-books__flat { margin: 0; font: 400 1.05rem/1.6 var(--font-body); color: var(--hc-text-secondary); }
-  .edition-books__flat a { color: var(--hc-gold); }
-  .edition-books__fold > summary {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--hc-rule);
-    cursor: pointer;
-  }
-  .edition-books__title { margin: 0; font: 600 clamp(1.35rem, 2.4vw, 1.7rem)/1.15 var(--font-editorial); }
-  .edition-books__count { color: var(--hc-text-tertiary); font: 500 0.85rem/1 var(--font-ui); font-variant-numeric: tabular-nums; }
-  .edition-books__list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
-    gap: 0 1.5rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .edition-books__list a {
-    display: grid;
-    grid-template-columns: 2rem minmax(0, 1fr) auto;
-    gap: 0.6rem;
-    align-items: baseline;
-    padding: 0.6rem 0.25rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-primary);
-    text-decoration: none;
-  }
-  .edition-books__list a:hover { background: var(--hc-surface-1); }
-  .edition-books__n, .edition-books__extent {
-    color: var(--hc-text-tertiary);
-    font: 500 0.8rem/1.5 var(--font-ui);
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-  .edition-books__names { display: grid; gap: 0.1rem; min-width: 0; }
-  .edition-books__en { font: 400 0.98rem/1.35 var(--font-body); }
-  .edition-books__ar { color: var(--hc-text-secondary); font: 400 1rem/1.6 var(--font-arabic); text-align: right; }
-</style>
-
-<style is:global>
-  /* Hallmark · genre: editorial · macrostructure: sequential edition · design-system: DESIGN.md · designed-as-app */
-  .edition-view .edition-head { background: transparent; box-shadow: none; }
-  .edition-view .edition-head__mast { align-items: end; }
-  .edition-view .edition-title { max-width: 22ch; }
-  .edition-view .edition-stats-ledger { border-block: 1px solid var(--hc-rule); background: transparent; }
-  .edition-view .edition-stat-entry { border-color: var(--hc-rule-soft); }
-  .edition-view .edition-search-plate { background: transparent; box-shadow: none; }
-  .edition-view .narration-record {
-    position: relative; margin: 0; padding: clamp(1.4rem, 3vw, 2.25rem) 0;
-    border: 0; border-bottom: 1px solid var(--hc-rule-soft); border-radius: 0;
-    background: transparent; box-shadow: none; transition: background-color var(--motion-fast) var(--ease-standard);
-  }
-  .edition-view .narration-record:hover { transform: none; background: color-mix(in srgb, var(--hc-surface-1) 42%, transparent); }
-  .edition-view .narration-record__meta-header { margin-bottom: 1.1rem; }
-  .edition-view .narration-record__spread { gap: clamp(1.5rem, 4vw, 3.5rem); }
-  .edition-view .narration-record__prose-en { max-width: 62ch; }
-  .edition-view .narration-record__apparatus-strip { margin-top: 1.25rem; border-top-color: var(--hc-rule-soft); }
-  .edition-view .narration-record__tags > * { border-radius: var(--radius-xs); }
-  @media (max-width: 780px) {
-    .edition-view .edition-head__mast { align-items: start; }
-    .edition-view .narration-record { padding-block: 1.35rem; }
-  }
-</style>
 
 <!-- Global styles for client worker and dynamic chapters injection -->
 <style is:global>
