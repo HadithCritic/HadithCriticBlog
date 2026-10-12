@@ -27,10 +27,18 @@ export function getStaticPaths() {
 
 const { slug } = Astro.params;
 const { book } = Astro.props;
+const hasKitabArtwork = slug === 'muwatta-malik';
 
 const SIZE = 25;
 const total = book.hadith_count;
 const pages = Math.max(1, Math.ceil(total / SIZE));
+const muwattaKitabArt = [
+  'times-of-prayer', 'prayer', 'two-festivals', 'prayer-of-fear', 'eclipse-prayer', 'praying-for-rain', 'qibla', 'quran', 'funerals', 'zakat', 'fasting',
+  'retreat-in-the-mosque', 'night-of-decree', 'pilgrimage', 'jihad', 'vows-and-oaths', 'sacrifices', 'slaughter', 'hunting', 'birth-sacrifice',
+  'inheritance-shares', 'marriage', 'divorce', 'suckling', 'sales', 'silent-partnership', 'irrigation-contracts', 'renting-land', 'pre-emption', 'judicial-decisions',
+  'wills', 'manumission-and-clientage', 'contracted-slave', 'freeing-slave-at-owners-death', 'stoning-and-prescribed-punishments', 'theft', 'drinks', 'blood-money', 'collective-oaths', 'comprehensive-book',
+  'divine-decree', 'good-character', 'description-of-the-prophet', 'evil-eye', 'hair', 'asking-permission', 'pledge-of-allegiance', 'speech', 'hell', 'charity', 'knowledge', 'prayer-of-the-wronged', 'names-of-the-prophet',
+] as const;
 // Its books, from the Ifta' Sunnah table of contents, where the collection has them.
 const structure = structureFor(slug);
 const noun = structure ? divisionNoun(structure.shape) : null;
@@ -110,7 +118,7 @@ const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapte
       </section>
 
       {structure && noun && (
-        <section class="edition-books" data-collection-browser data-divisions={noun.many.toLowerCase()} data-view="grid" aria-labelledby="edition-books-title">
+        <section class="edition-books" data-collection={slug} data-collection-browser data-divisions={noun.many.toLowerCase()} data-view="grid" aria-labelledby="edition-books-title">
           <div class="edition-books__heading">
             <div><p class="edition-kicker">The {noun.many.toLowerCase()}</p><h2 class="edition-books__title" id="edition-books-title">{structure.shape === 'flat' ? 'Explore the chapters' : 'Browse the ' + structure.kitabs.length.toLocaleString() + ' ' + noun.many}</h2></div>
             <p class="edition-books__intro">{structure.shape === 'flat' ? 'Read the chapters in the order of the printed edition.' : 'Open a ' + noun.one.toLowerCase() + ' to explore its chapters and narrations in the order of the printed edition.'}</p>
@@ -125,7 +133,7 @@ const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapte
                 {structure.kitabs.map((kitab) => (
                   <li data-book-card data-number={kitab.n} data-count={kitab.count} data-title={kitabTitle(structure, kitab) + ' ' + kitab.title_ar}>
                     <a class="edition-book" href={'/hadith/collection/' + slug + '/kitab/' + kitab.n + '/'}>
-                      <img class="edition-book__art" src={'/images/hadith/books/' + collectionArtwork(kitabTitle(structure, kitab)) + '.webp'} alt="" loading="lazy" width="512" height="512" />
+                      <img class="edition-book__art" src={hasKitabArtwork ? `/images/mm/${String(kitab.n).padStart(2, '0')}-${muwattaKitabArt[kitab.n - 1]}.png` : '/images/hadith/books/' + collectionArtwork(kitabTitle(structure, kitab)) + '.webp'} alt="" loading="lazy" width={hasKitabArtwork ? 1774 : 512} height={hasKitabArtwork ? 887 : 512} />
                       <div class="edition-book__head"><span class="edition-books__n">{String(kitab.n).padStart(2, '0')}</span><div class="edition-books__names"><span class="edition-books__en" set:html={renderRich(kitabTitle(structure, kitab))} /><span class="edition-books__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} /></div></div>
                       <div class="edition-book__foot"><span><EditionIcon name="pages" />{kitab.chapters.length.toLocaleString()} {kitab.chapters.length === 1 ? 'chapter' : 'chapters'}</span><span class="edition-books__extent"><EditionIcon name="book" />{kitab.count.toLocaleString()} {kitab.count === 1 ? 'narration' : 'narrations'}</span><span class="edition-book__arrow" aria-hidden="true">→</span></div>
                     </a>
