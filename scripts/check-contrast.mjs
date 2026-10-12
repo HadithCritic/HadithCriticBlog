@@ -306,7 +306,6 @@ const CORPUS_CONTENT = [
   [/^\/hadith\/\d+/, '.edition-hero, .hadith-degraded'],
   // A book page renders its narrations only when a chapter is opened; see awaitCorpus.
   [/^\/hadith\/collection\/[^/]+\/kitab\//, '.kb-card-record, .kb-status--error'],
-  [/^\/hadith\/collection\//, '.narration-record, .coll-error, .coll-empty'],
   [/^\/hadith(\?|$)/, '.catalog-row, .corpus-record-card'],
   [/^\/narrators\/compare/, '.compare-table, .compare-empty'],
   [/^\/narrators\/\d+/, '.rijal-hero, .rijal-degraded'],

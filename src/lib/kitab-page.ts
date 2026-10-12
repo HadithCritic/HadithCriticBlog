@@ -1,8 +1,8 @@
 /**
  * A book page's chapters, filled from the static corpus when opened.
  *
- * Each chapter is a native <details> holding a link into the collection's
- * sequential edition, so it works with JavaScript off. With it on, opening a
+ * Each chapter is a native <details> holding a link to its first record, so it
+ * works with JavaScript off. With it on, opening a
  * chapter reads its narrations by id range, 25 at a time, and sets each one
  * as a parchment card: English on the left and first in the DOM, the Arabic
  * beside it, and a link to the full record. The cards are built here, so

@@ -221,7 +221,7 @@ stored is never recounted.
 | `src/lib/corpus-count.ts` | The bounded-count and CTE-ranking query shapes. |
 | `src/lib/hadith-search.ts` | `/hadith` search and results. |
 | `src/lib/hadith-record.ts` | `/hadith/[id]` record. |
-| `src/lib/collection-edition.ts` | `/hadith/collection/[slug]` narration stream. |
+| `src/lib/kitab-page.ts` | `/hadith/collection/[slug]/kitab/[n]` chapters, read when opened. |
 | `src/lib/narrator-register.ts` | `/narrators` register. |
 | `src/lib/narrator-dossier.ts` | `/narrators/[id]` dossier. |
 | `src/lib/narrator-compare.ts` | `/narrators/compare` table. |
@@ -340,11 +340,6 @@ effect.
 until the corpus answers. `scripts/check-contrast.mjs` waits for real content
 per route and fails the route if it never arrives, because a contrast check run
 against a loading state reports two colours and passes.
-
-**The shell is one document for every page of a collection.** `?page=2` must be
-read from the URL, not from a data attribute baked into the prerendered HTML.
-This shipped wrong once: the right records with the pager insisting it was page
-one.
 
 ## Consequences
 

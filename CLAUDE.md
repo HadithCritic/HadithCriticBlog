@@ -167,10 +167,6 @@ No database server is in the request path for any public page.
   for `load` is measuring a spinner. `scripts/check-contrast.mjs` waits for real
   content per route and fails the route if it never arrives; anything new that
   inspects these pages has to do the same, or it passes by not running.
-- **The collection shell is one document for every page of a collection.**
-  `?page=2` must be read from the URL, never from a data attribute baked into
-  the prerendered HTML. This shipped wrong once: the right twenty-five records,
-  with the pager insisting it was page one.
 - **Playwright adopts whatever answers on 4321, including `npm run dev`.**
   `reuseExistingServer` is on so a developer's preview is not restarted under
   them, but a dev server serves `src/`, not the build, so
@@ -319,7 +315,7 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/lib/corpus-config.ts` | Which corpus version, served from where. |
 | `src/lib/corpus-client.ts` | Every corpus query, and the worker's lifecycle. |
 | `src/lib/narrator-register.ts` | The register's client module. |
-| `src/lib/hadith-search.ts`, `hadith-record.ts`, `collection-edition.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
+| `src/lib/hadith-search.ts`, `hadith-record.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
 | `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
 | `scripts/fetch-ifta-toc.mjs`, `scripts/parse-ifta-toc.mjs`, `data/ifta-toc/` | The Ifta' Sunnah table of contents: fetched politely into the ignored `raw/`, recorded in `manifest.json`, parsed offline. |
 | `scripts/build-collection-structure.py`, `src/data/collection-structure/`, `src/lib/collection-structure.ts` | Each collection's books and chapters, its shape (kitab, companion, flat), and the English titles (`data/kitab-titles-en.json`). |

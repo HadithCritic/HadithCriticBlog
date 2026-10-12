@@ -56,7 +56,7 @@ setting everywhere:
 | Page type | Variance | Motion | Density | Reads like |
 |---|---|---|---|---|
 | Corpus catalogue `/hadith` | 6 | 3 | 6 | A reference catalogue. Ledger-dense, scannable. |
-| Collection edition `/hadith/collection/:slug` | 5 | 3 | 4 | A sequential reader. Slow, generous, one report at a time. |
+| Collection edition `/hadith/collection/:slug` | 5 | 3 | 4 | A table of contents. Its books, each opening on its chapters. |
 | Hadith record `/hadith/:id` | 5 | 2 | 5 | A critical edition. Facing columns and apparatus. |
 | Rijāl register `/narrators` | 5 | 3 | 6 | A faceted index. |
 | Rijāl dossier `/narrators/:id` | 4 | 2 | 5 | An encyclopedia entry. Sectioned, citable, evidence-forward. |
