@@ -315,7 +315,7 @@ test.describe('Quran sura page: qirāʾāt display (al-Fātiḥa, the five-book 
     expect(hrefs.length).toBeGreaterThan(0);
     for (const href of hrefs) await expect(page.locator(href as string)).toHaveCount(1);
 
-    for (const card of await page.locator('.card').all()) await expect(card.locator('.card__who')).not.toBeEmpty();
+    for (const card of await page.locator('.rdg').all()) await expect(card.locator('.rdg__who')).not.toBeEmpty();
   });
 
   test('the collation shows every transmitter at every position with a name for each tile', async ({ page }) => {
@@ -342,7 +342,7 @@ test.describe('Quran sura page: qirāʾāt display (al-Fātiḥa, the five-book 
     await page.goto('/projects/quran/sura/1/');
 
     const visibleCards = async () => {
-      const cards = page.locator('.card');
+      const cards = page.locator('.rdg');
       let count = 0;
       for (let index = 0; index < (await cards.count()); index += 1) if (await cards.nth(index).isVisible()) count += 1;
       return count;
@@ -353,7 +353,7 @@ test.describe('Quran sura page: qirāʾāt display (al-Fātiḥa, the five-book 
     const focused = await visibleCards();
     expect(focused).toBeGreaterThan(0);
     expect(focused).toBeLessThan(all);
-    expect(await page.locator('.card').evaluateAll((cards) =>
+    expect(await page.locator('.rdg').evaluateAll((cards) =>
       cards.filter((card) => getComputedStyle(card).display !== 'none' && !(card.getAttribute('data-qaris') ?? '').split(' ').includes('yaqub')).length
     )).toBe(0);
 
@@ -424,7 +424,7 @@ test.describe('Quran hub and long suras', () => {
         expect(seen.has(id)).toBe(false);
         seen.add(id);
       }
-      const first = await page.locator('.pos .disc--lg').first().textContent();
+      const first = await page.locator('.pos__no .disc').first().textContent();
       expect(Number(first)).toBe(span.start + 1);
       const refs = await page.locator('.pos__no').allTextContents();
       const verses = refs.map((ref) => Number(/2:(\d+)/.exec(ref)![1]));
@@ -445,7 +445,7 @@ test.describe('Quran hub and long suras', () => {
       for (const url of urls) {
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         count += await page.locator('.pos').count();
-        for (const card of await page.locator('.card').all()) await expect(card.locator('.card__who')).not.toBeEmpty();
+        for (const card of await page.locator('.rdg').all()) await expect(card.locator('.rdg__who')).not.toBeEmpty();
       }
       expect(count).toBe(entry.positions);
     }
