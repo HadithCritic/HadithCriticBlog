@@ -68,7 +68,6 @@ ALL_NAMES = sorted(
 )
 OUTSIDE_TRANSMITTERS = re.compile(
     r"(البرجمي|الاعشي|نصير|قتيبه|زيد|حماد|يحيي|ابن فليح|القواس|شبل|اسماعيل|ابن سعدان|الحلواني|هبيره|عبد الحميد|اسيد|خارجه|القطعي|رجاء|العجلي|ابان)")
-CONNECT = re.compile(r"^(?:و|،|\s|في رواية|برواية|من طريق|في|رواية)+$")
 
 
 def resolve_name(text: str) -> tuple[str, str] | None:
