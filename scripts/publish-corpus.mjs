@@ -137,9 +137,8 @@ function pruneOtherVersions(root, keep) {
 async function publishToR2(build, args) {
   const { S3Client, PutObjectCommand, PutBucketCorsCommand, HeadObjectCommand } = await import('@aws-sdk/client-s3');
 
-  // The R2_* names are the current token. The CLOUDFLARE_* names are an older
-  // one still present in .dev.vars, which this file reads first, so they are
-  // only a fallback: preferring them signed every upload with a revoked key.
+  // R2_* in .env are the credentials in use. The CLOUDFLARE_* names are older
+  // spellings, kept only as a fallback for an environment that still sets them.
   const endpoint = readEnvFile('R2_ENDPOINT') || readEnvFile('CLOUDFLARE_S3_API_ENDPOINT');
   const accessKeyId = readEnvFile('R2_ACCESS_KEY_ID') || readEnvFile('CLOUDFLARE_ACCESS_KEY_ID');
   const secretAccessKey =
