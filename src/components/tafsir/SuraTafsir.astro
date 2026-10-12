@@ -44,6 +44,10 @@ const range = (entry: Entry) =>
 const cite = (entry: { citation: { volume: string | null; page: string }; page_end?: string | null }) =>
   `${entry.citation.volume ? `vol. ${entry.citation.volume}, ` : ""}p. ${entry.citation.page}${entry.page_end ? ` to ${entry.page_end}` : ""}`;
 
+/* A long discussion (al-Ṭabarī can run for pages on one verse) starts folded, so a verse stays scannable. */
+const FOLD_AT = 2400;
+const lengthOf = (entries: Entry[]) => entries.reduce((sum, entry) => sum + (entry.text_ar ?? entry.text).length, 0);
+
 /* The source marks Qurʾānic wording with braces. The braces are kept; the span only sets them apart. */
 const quranSpans = (text: string) => text.split(/(\{[^{}]*\})/u);
 
@@ -209,7 +213,7 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
                 {verse.byWork.map(({ work, entries, carried }) => (
                   <div class={`tf-work era-${eraIdOf(work)}`} data-work={work.id}>
                     {entries.length > 0 ? (
-                      <details class="pj-disc pj-disc--card tf-work__box">
+                      <details class="pj-disc pj-disc--card tf-work__box" open={lengthOf(entries) <= FOLD_AT}>
                         <summary class="tf-work__summary">
                           <i class="e-sq" aria-hidden="true"></i>
                           <span class="tf-work__name">{shortName(work)}</span>
@@ -233,20 +237,17 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
                                 <span>{cite(entry)}</span>
                                 {entry.printed_label && <span>Printed no. <span lang="ar" dir="rtl">{entry.printed_label.replace(/\s*-\s*$/, "")}</span></span>}
                                 {range(entry) && <span>Covers {range(entry)}</span>}
+                                <span>Placement proposed: {placementBasis(entry.locator_status)}</span>
                               </p>
-                              <div class="tf-pass__more">
-                                <details class="pj-disc pj-disc--quiet">
-                                  <summary>Placement</summary>
-                                  <p class="tf-pass__note">Placement proposed: {placementBasis(entry.locator_status)}</p>
-                                </details>
-                                {(entry.foot_note_ar || entry.foot_note_en) && (
+                              {(entry.foot_note_ar || entry.foot_note_en) && (
+                                <div class="tf-pass__more">
                                   <details class="pj-disc pj-disc--quiet tf-pass__notes">
                                     <summary>Editor's notes</summary>
                                     {entry.foot_note_en && <p lang="en">{entry.foot_note_en}</p>}
                                     {entry.foot_note_ar && <p lang="ar" dir="rtl">{entry.foot_note_ar}</p>}
                                   </details>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </article>
                           ))}
                         </div>
@@ -416,7 +417,7 @@ const workCountHere = (id: string) => verses.filter((verse) => verse.byWork.some
   .tf-pass__more { display: flex; flex-wrap: wrap; align-items: start; gap: 0 1.5rem; }
   .tf-pass__more > details { min-width: min(100%, 14rem); }
   .tf-pass__more > details[open] { flex-basis: 100%; }
-  .tf-pass__note, .tf-pass__notes p { max-width: var(--pj-measure); margin: 0.2rem 0 0.5rem; color: var(--hc-text-secondary); font: 400 0.92rem/1.6 var(--font-body); }
+  .tf-pass__notes p { max-width: var(--pj-measure); margin: 0.2rem 0 0.5rem; color: var(--hc-text-secondary); font: 400 0.92rem/1.6 var(--font-body); }
   .tf-pass__notes p[lang="ar"] { max-width: none; font: 400 1.05rem/1.8 var(--font-arabic); white-space: pre-line; }
 
   .tf-surah-pointer { margin-top: 2rem; }
