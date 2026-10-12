@@ -281,35 +281,20 @@ test.describe('narration record', () => {
 });
 
 test.describe('collection edition', () => {
-  test('lists narrations in manuscript order with a working pager', async ({ page }) => {
+  test('reaches its narrations through its books', async ({ page }) => {
     const urls = watchRequests(page);
-    const m = await corpusMeta(page);
-    const book = largestCollection(m);
 
-    await page.goto(`/hadith/collection/${book.slug}`);
-    await expect(page.locator('.narration-record').first()).toBeVisible({
-      timeout: CORPUS_TIMEOUT
-    });
+    // The collection page no longer pages through the whole edition; a reader
+    // gets to the narrations by opening a book, and the book page reads them.
+    await page.goto('/hadith/collection/musannaf-ibn-abi-shaybah/');
+    await page.locator('.edition-books__list a').first().click();
+    await expect(page).toHaveURL(/\/hadith\/collection\/musannaf-ibn-abi-shaybah\/kitab\/1\/$/);
 
-    const pages = Math.max(1, Math.ceil(book.hadith_count / 25));
-    await expect(page.locator('.edition-pager__counter')).toContainText(
-      `Page 1 of ${pages.toLocaleString()}`
-    );
-
-    if (pages > 1) {
-      const next = page.locator('a.edition-pager__link', { hasText: 'Next' });
-      // Seek paging: the link carries the last id rather than an OFFSET.
-      await expect(next).toHaveAttribute('href', /after=\d+/);
-      const firstBefore = await page.locator('.narration-record__num').first().innerText();
-      await next.click();
-
-      // The shell is one prerendered document served for every page of the
-      // collection, so the position has to come from the URL. It did not, once.
-      await expect(page.locator('.edition-pager__counter')).toContainText('Page 2', {
-        timeout: CORPUS_TIMEOUT
-      });
-      await expect(page.locator('.narration-record__num').first()).not.toHaveText(firstBefore);
-    }
+    const chapter = page.locator('details.kb-chapter').first();
+    await chapter.locator('summary').click();
+    await expect(
+      chapter.locator('.kb-card-record', { has: page.locator('a[href="/hadith/237072/"]') })
+    ).toBeVisible({ timeout: CORPUS_TIMEOUT });
     noDatabaseTraffic(urls);
   });
 
@@ -325,7 +310,7 @@ test.describe('collection edition', () => {
     await noScript.goto(`/hadith/collection/${book.slug}`);
 
     await expect(noScript.locator('h1.edition-title')).toHaveText(book.title_en);
-    await expect(noScript.locator('.edition-stat-entry__val').first()).toContainText(
+    await expect(noScript.locator('.edition-stat-entry dd').first()).toContainText(
       book.hadith_count.toLocaleString()
     );
     await context.close();
@@ -355,14 +340,15 @@ test.describe('book page', () => {
     await expect(card.locator('.kb-card-record__meta')).toHaveText('Hadith 1');
   });
 
-  test('works without script: chapters, books and the edition links are real markup', async ({ browser }) => {
+  test('works without script: chapters, books and the record links are real markup', async ({ browser }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
     const page = await context.newPage();
     await page.goto(URL);
     await expect(page.locator('details.kb-chapter')).not.toHaveCount(0);
+    // Without script a chapter cannot read its narrations, so it links to its first record.
     await expect(page.locator('details.kb-chapter').first().locator('.kb-chapter__fallback a')).toHaveAttribute(
       'href',
-      '/hadith/collection/musannaf-ibn-abi-shaybah/?page=1'
+      '/hadith/237072/'
     );
     await expect(page.locator('.kb-pager a[rel="next"]')).toHaveAttribute(
       'href',
