@@ -260,9 +260,11 @@ These are product commitments, not preferences. `DESIGN.md` carries the detail.
 ## Commands
 
 ```bash
-npm run build:corpus     # build + chunk + verify a corpus release (needs the master db)
+npm run build:corpus     # build + chunk + verify a corpus release (needs the master db); reuses an unchanged build
+npm run prune:corpus     # list old dist-db/builds to remove; --delete removes them
 npm run publish:corpus   # upload a release to R2, where production reads it
 npm run verify:corpus    # row counts, chunk reassembly, query parity vs the master
+npm run dedupe:quran     # hard-link identical assets shared by public/data/quran/releases
 
 npm run build:corpus:fixture  # recut the committed CI fixture from the real corpus
 npm run build:e2e        # build with the corpus on its own origin, then test:e2e

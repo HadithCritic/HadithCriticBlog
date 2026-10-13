@@ -188,7 +188,9 @@ To exercise a **built** site against the real corpus, use `npm run build:e2e`. S
 | `npm run test:e2e:corpus`                                 | Both corpus suites, including the assertions about what the real corpus contains                         |
 | `npm run build:e2e`                                       | Build with the corpus on its own byte-serving origin, which the end-to-end run needs                     |
 | `npm run build:e2e:fixture`                               | The same, against the committed miniature corpus                                                         |
-| `npm run build:corpus`                                    | Build, chunk, verify and stage a corpus release from the master database (local only)                    |
+| `npm run build:corpus`                                    | Build, chunk, verify and stage a corpus release from the master database (local only). Reuses the last verified build when the master, options and pipeline are unchanged; `--force` rebuilds |
+| `npm run prune:corpus`                                    | List old builds in `dist-db/builds` that can go, keeping the live version, the newest other build and named pilots; `-- --delete` removes them |
+| `npm run dedupe:quran`                                    | Hard-link byte-identical assets across `public/data/quran/releases` so old releases cost no extra disk     |
 | `npm run build:corpus:fixture`                            | Cut the committed miniature corpus out of the real one                                                   |
 | `npm run corpus:meta`                                     | Regenerate`src/data/corpus-meta.json` and the narrator sitemap ids                                     |
 | `npm run verify:corpus`                                   | Row counts, chunk integrity and query parity between the distribution and the master                     |

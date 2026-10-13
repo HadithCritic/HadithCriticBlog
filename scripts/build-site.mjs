@@ -17,6 +17,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { referencedReleases } from './lib/quran-releases.mjs';
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicRoot = path.join(repoRoot, 'public');
 const buildArgs = process.argv.slice(2);
@@ -125,12 +127,23 @@ function releaseAssetSet(releaseDirectory, releaseId) {
 }
 
 function verifyQuranReleases() {
-  if (!existsSync(releasesRoot)) return { releases: [], excludedFiles: [] };
+  if (!existsSync(releasesRoot)) return { releases: [], excludedFiles: [], unshippedReleases: [] };
+  // Older releases stay on disk for provenance, but only the ones the site can
+  // reach are verified and deployed.
+  const shipped = referencedReleases({
+    releasesRoot,
+    roots: [path.join(repoRoot, 'src'), publicRoot]
+  });
   const excludedFiles = [];
   const releases = [];
+  const unshippedReleases = [];
   for (const entry of readdirSync(releasesRoot, { withFileTypes: true })) {
     if (!entry.isDirectory()) throw new Error(`Unexpected entry in Quran releases: ${entry.name}`);
     const releaseId = entry.name;
+    if (!shipped.has(releaseId)) {
+      unshippedReleases.push(releaseId);
+      continue;
+    }
     const sourceDirectory = path.join(releasesRoot, releaseId);
     const { allowed, manifest } = releaseAssetSet(sourceDirectory, releaseId);
     const actual = walkFiles(sourceDirectory);
@@ -143,7 +156,7 @@ function verifyQuranReleases() {
     }
     releases.push({ releaseId, sourceDirectory, allowed, manifest });
   }
-  return { releases, excludedFiles };
+  return { releases, excludedFiles, unshippedReleases };
 }
 
 function linkQuranReleasesIntoDist(releases) {
@@ -181,8 +194,11 @@ function run(command, args, options = {}) {
 
 try {
   stageOrdinaryPublicFiles();
-  const { releases, excludedFiles } = verifyQuranReleases();
-  console.log(`Verified ${releases.length} Quran releases from immutable asset manifests.`);
+  const { releases, excludedFiles, unshippedReleases } = verifyQuranReleases();
+  console.log(`Verified ${releases.length} referenced Quran releases from immutable asset manifests.`);
+  if (unshippedReleases.length) {
+    console.log(`Left ${unshippedReleases.length} unreferenced Quran releases out of the production build.`);
+  }
   if (excludedFiles.length) {
     console.log(`Excluded ${excludedFiles.length} unmanifested Quran release files from the production build.`);
   }

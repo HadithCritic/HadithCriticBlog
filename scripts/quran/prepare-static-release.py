@@ -6,10 +6,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import shutil
 import sys
 import subprocess
 from pathlib import Path
+
+from release_store import ReleaseStore
 
 ASSETS = ("variants.json", "manuscripts.json", "reader-record-counts.json")
 COMMIT = "57cb2b7be321ecfba100cb5f7988974f47864a14"
@@ -79,6 +80,7 @@ def main() -> int:
         parser.error("release id must be a versioned directory name beginning with v")
     target = args.data_dir / "releases" / args.release_id
     target.mkdir(parents=True, exist_ok=True)
+    store = ReleaseStore(args.data_dir / "releases")
     repo_root = Path(__file__).resolve().parents[2]
     previous_release = None
     pointer_path = args.data_dir / "manifest.json"
@@ -131,7 +133,7 @@ def main() -> int:
             if sha256(versioned) != digest:
                 raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
         elif source != versioned:
-            shutil.copyfile(source, versioned)
+            store.place(source, versioned)
             if sha256(versioned) != digest:
                 raise IOError(f"Copied asset checksum mismatch: {name}")
         sources[name] = {
@@ -173,7 +175,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source_path, versioned)
+                store.place(source_path, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied manuscript asset checksum mismatch: {name}")
             asset = {"path": f"/data/quran/releases/{args.release_id}/{name}",
@@ -243,7 +245,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source, versioned)
+                store.place(source, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied asset checksum mismatch: {name}")
             asset = {
@@ -310,7 +312,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source_path, versioned)
+                store.place(source_path, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied research graph asset checksum mismatch: {name}")
             asset = {
@@ -359,7 +361,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source_path, versioned)
+                store.place(source_path, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied commentary asset checksum mismatch: {name}")
             asset = {
@@ -407,7 +409,7 @@ def main() -> int:
             if sha256(versioned) != digest:
                 raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
         else:
-            shutil.copyfile(args.intertext_index, versioned)
+            store.place(args.intertext_index, versioned)
             if sha256(versioned) != digest:
                 raise IOError("Copied intertext catalogue checksum mismatch")
         if name in sources:
@@ -442,7 +444,7 @@ def main() -> int:
             if sha256(versioned) != digest:
                 raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
         else:
-            shutil.copyfile(args.intertext_taxonomy, versioned)
+            store.place(args.intertext_taxonomy, versioned)
             if sha256(versioned) != digest:
                 raise IOError("Copied intertext taxonomy checksum mismatch")
         if name in sources:
@@ -488,7 +490,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source, versioned)
+                store.place(source, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied concordance asset checksum mismatch: {name}")
             info = {"path": f"/data/quran/releases/{args.release_id}/{name}",
@@ -535,7 +537,7 @@ def main() -> int:
                 if sha256(versioned) != digest:
                     raise ValueError(f"Immutable release file already exists with different bytes: {versioned}")
             else:
-                shutil.copyfile(source, versioned)
+                store.place(source, versioned)
                 if sha256(versioned) != digest:
                     raise IOError(f"Copied Cairo text asset checksum mismatch: {name}")
             info = {"path": f"/data/quran/releases/{args.release_id}/{name}",

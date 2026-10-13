@@ -12,10 +12,11 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from release_store import ReleaseStore
 
 
 def sha256(path: Path) -> str:
@@ -121,6 +122,7 @@ def main() -> int:
         raise ValueError("analysis input database hash does not match the supplied SQLite release")
 
     staging.mkdir(parents=True)
+    store = ReleaseStore(data_dir / "releases")
     try:
         new_assets = {}
         expected_source_files = {"release.json", "release-notes.md", *assets.keys()}
@@ -134,9 +136,9 @@ def main() -> int:
                 raise ValueError(f"active asset fails its manifest: {name}")
             target = staging / name
             if name == "reader-record-counts.json":
-                shutil.copyfile(args.analysis, target)
+                store.place(args.analysis, target)
             else:
-                shutil.copyfile(source, target)
+                store.place(source, target)
             copied_hash = sha256(target)
             if target.stat().st_size == 0:
                 raise ValueError(f"empty release asset: {name}")

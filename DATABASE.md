@@ -6,7 +6,7 @@ The public hadith and narrator data is not served from a SQL database. It is a v
 
 The deployed version is selected by `src/data/corpus-meta.json`. Publishing a new corpus and deploying the blog are separate operations:
 
-1. Build and verify a version from the master SQLite database with `npm run build:corpus`.
+1. Build and verify a version from the master SQLite database with `npm run build:corpus`. Each verified build records a fingerprint of the master database, build options and pipeline scripts in `fingerprint.json`; a later run with the same fingerprint reuses that build instead of writing another 3.4 GB copy. `--force` rebuilds. `npm run prune:corpus` lists builds that are neither live, the newest previous one, nor hand-named, and removes them with `-- --delete`.
 2. Publish that version with `npm run publish:corpus`.
 3. Commit the updated corpus metadata when the site should use that release. A push to `main` deploys the site against the committed version.
 
