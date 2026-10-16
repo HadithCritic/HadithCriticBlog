@@ -1,19 +1,9 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import HistorySourceCard from '../../components/history/HistorySourceCard.astro';
-import { chronologySpan, deathDate, historySources } from '../../data/history';
+import { deathDate, historySources } from '../../data/history';
 import '../../styles/house.css';
 import '../../styles/history.css';
-
-// The chronology is a grid whose column widths are the gaps between death
-// dates, so every label gets exactly the room up to the next one and the
-// markers sit at their true positions without absolute layout.
-const span = chronologySpan.to - chronologySpan.from;
-const at = (ah: number) => (ah - chronologySpan.from) / span;
-const stops = historySources.map(source => at(source.died.ah));
-const chronologyColumns = [stops[0], ...stops.slice(1).map((stop, i) => stop - stops[i]), 1 - stops[stops.length - 1]]
-  .map(fraction => `${fraction.toFixed(4)}fr`)
-  .join(' ');
 
 const tools = [
   {
@@ -61,20 +51,16 @@ const tools = [
         <div class="history-chronology__head">
           <div>
             <p class="history-section-label">Chronology</p>
-            <h2 id="chronology-title">Three historians, <span>one century</span></h2>
+            <h2 id="chronology-title">A century of <span>historical writing</span></h2>
           </div>
           <ul class="hc-figures history-chronology__figures" aria-label="Project scope and availability">
-            <li>{historySources.length} initial sources</li>
+            <li>{historySources.length} works in the archive</li>
+            <li>207–310 AH</li>
             <li>Arabic &amp; English</li>
             <li>Full-text reader in preparation</li>
           </ul>
         </div>
-        <div class="history-timeline" style={`--timeline-columns: ${chronologyColumns}`}>
-          <div class="history-timeline__axis" aria-hidden="true">
-            {chronologySpan.ticks.map(tick => (
-              <span style={`--at: ${at(tick).toFixed(4)}`}>{tick} AH</span>
-            ))}
-          </div>
+        <div class="history-timeline">
           <ol class="history-timeline__events" aria-label="The sources by their authors' death dates">
             {historySources.map(source => (
               <li>
@@ -103,7 +89,7 @@ const tools = [
         <ol class="history-shelf" aria-label="Historical works">
           {historySources.map((source, index) => <li><HistorySourceCard source={source} index={index} /></li>)}
         </ol>
-        <p class="history-art-note">Interpretive illustrations evoke each work’s subject and setting. They do not document particular events; al-Ṭabarī’s city scene represents one part of a much wider historical narrative.</p>
+        <p class="history-art-note">Interpretive illustrations evoke each work’s subjects and settings; they are not evidence for the historical claims in the texts.</p>
       </div>
     </section>
 

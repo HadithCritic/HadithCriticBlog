@@ -1,11 +1,11 @@
 # Studio article inventory
 
-Generated 2026-10-14T22:33:34.649Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
+Generated 2026-10-16T16:50:32.231Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
 
-- Articles: 86
+- Articles: 85
 - Visual-safe candidate: 0
 - Partial visual candidate: 0
-- Source-only: 86
+- Source-only: 85
 
 All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm run studio:inventory after any intentional article edit.
 
@@ -62,7 +62,6 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `prophecies-eschatology/4-dajjal-christian-antichrist-hadith` | source-only | imports, rawHtml, jsxExpressions, customComponents, tables | `2724fd2c90f95494efe0d98ebb890fbc30fb4065e73e1c87441902aaecdb0622` |
 | `prophecies-eschatology/77-faces-like-hammered-shields-the-turks-hadith-clusters` | source-only | imports, jsxExpressions, footnotes, customComponents, tables | `970b1fb2eb4afa6ebd06d75bc89f08ef04471b6e6df532fb7181c7536b0703e6` |
 | `prophecies-eschatology/84-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive` | source-only | imports, rawHtml, jsxExpressions, footnotes, customComponents | `340c110fb4a703566d07b74e6598924fe9c5d3a2ca1a6d2b139583020641648c` |
-| `prophecies-eschatology/86-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `aa376bb49227197f8f77b1916666ce1b4d0e4d13873f7bbc9fb5927450aaf548` |
 | `prophecies-eschatology/9-the-satanic-verses-incident` | source-only | imports, customComponents | `c919b26aa123cbdc4235ed748170706d8803e3f0f00a3c8ffe6bacd47c6d1d26` |
 | `theology-epistemology/1-apostasy-hadith-ikrimah-analysis` | source-only | imports, rawHtml, jsxExpressions, customComponents | `0d11398b73474375c844980511ef4b7baa5018a5e0f1b2df20d3d3e9444f1af3` |
 | `theology-epistemology/14-the-salafi-paradox` | source-only | imports, namedSlots, rawHtml, footnotes, customComponents | `793effcc91721cb143d17cbed28f9bba2052018577710320e4d23e345b76ad3c` |
@@ -96,4 +95,4 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `transmission-narrators/80-the-kharijite-and-the-beast` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `247fd75308587c7edbec7d095f1e46d4dd25a013e7d5fba50afbd6e08f078bbe` |
 | `transmission-narrators/82-the-bottleneck-fussilat-misses` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `9e511534c46a4602e3ca29c4ab454f7563a220e2d247fd45800269b915447a38` |
 | `transmission-narrators/83-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel` | source-only | imports, rawHtml, jsxExpressions, footnotes, customComponents | `698519093d085b38734714d40655533510c962780a57ec4a9450cdcc3bd41a8b` |
-| `transmission-narrators/85-aisha-and-the-quran-as-criterion` | source-only | imports, rawHtml, footnotes, customComponents | `473f7a02992e619b71274f1ac275ae93f4adf006362292063451e81fa898a6e6` |
+| `transmission-narrators/85-aisha-and-the-quran-as-criterion` | source-only | imports, rawHtml, footnotes, customComponents | `4ecf1418078a5e077feb6a286af2d7f5d5a9c3b58e40c28896e64d89e8f7f3ee` |

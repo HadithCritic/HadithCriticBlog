@@ -1,7 +1,9 @@
 # History source inventory
 
-Checked 2026-10-14. This is an inventory of evidence found, not a claim that any
-translation is complete, reviewed, or ready to publish.
+The earlier source scan was checked 2026-10-14. The additional English-edition
+drafts in `C:/Users/Jonathan/Desktop/t/tariikh/` were checked 2026-10-16. This
+is an inventory of evidence found, not a claim that any translation is complete,
+reviewed, or ready to publish.
 
 ## Earlier translation project
 
@@ -18,6 +20,28 @@ Khalīfa text pages. The completed local machine draft, 96 recorded corrections
 and seven unapplied review proposals are documented in
 `docs/khalifa-complete-translation.md`. It is not human-reviewed or published;
 the missing older database has not been recovered by this work.
+
+## Additional English-edition drafts
+
+The supplied `tariikh/` folder contains eight work folders. Their `English.md`
+title pages identify the titles and authors below; each folder also contains an
+English-edition PDF. Build metadata marks the seven machine-prepared editions
+with a `human_scholarly_review` value of `false`. These drafts are not published
+as site readers.
+
+| Work | Author | Contents represented in the edition |
+|---|---|---|
+| *Tārīkh Khalīfa ibn Khayyāṭ* | Khalīfa ibn Khayyāṭ (d. 240 AH / 854 CE) | Annalistic reports on early Islamic history, people and campaigns. |
+| *The Conquests of the Lands* (*Futūḥ al-buldān*), Part 1 | Al-Balādhurī (d. c. 279 AH / 892 CE) | Conquests, settlements, agreements and local traditions across the early caliphate. |
+| *Genealogies of Quraysh* (*al-Munammaq fī akhbār Quraysh*) | Muḥammad ibn Ḥabīb al-Baghdādī (d. 245 AH / 860 CE) | Quraysh lineages, alliances and remembered Meccan events. |
+| *The Well-Informed* (*al-Muḥabbar*) | Muḥammad ibn Ḥabīb al-Baghdādī (d. 245 AH / 860 CE) | Arab and Quraysh social memory, leaders, lineages, expeditions and customs. |
+| *Conquests of Egypt and the Maghrib* (*Futūḥ Miṣr wa-l-Maghrib*) | ʿAbd al-Raḥmān ibn ʿAbd Allāh ibn ʿAbd al-Ḥakam (d. 257 AH / 871 CE) | Egyptian history, its conquest, and accounts extending into the Maghrib. |
+| *The Book of Apostasy* (*Kitāb al-Ridda*) | Muḥammad ibn ʿUmar al-Wāqidī (d. 207 AH / 823 CE) | The Saqīfa, the apostasy movements and the Ridda campaigns. |
+| *The Book of Knowledge* (*al-Maʿārif*) | ʿAbd Allāh ibn Muslim ibn Qutayba al-Dīnawarī (d. 276 AH / 889 CE) | Genealogies, prophets, rulers and notable people. |
+| *Knowledge and History* (*al-Maʿrifa wa-l-tārīkh*) | Yaʿqūb ibn Sufyān al-Fasawī (d. 277 AH / 890 CE) | Historical reports and transmitter biographies shaped by the author’s travels. |
+
+Content summaries above follow the English-edition headings. They describe the
+drafts’ scope and do not establish translation quality or completeness.
 
 A surviving catalog claims 290 fully translated books: 186 sīrah and 104 tārīkh.
 Those are the catalog's historical figures, not independently verified current
