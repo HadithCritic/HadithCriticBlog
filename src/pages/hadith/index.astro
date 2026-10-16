@@ -2,7 +2,6 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
 import EditionIcon from '../../components/EditionIcon.astro';
-import CompilationCover from '../../components/CompilationCover.astro';
 import { CORPUS_META } from '../../lib/corpus-config';
 import { chronologicalCollections, COMPILER_DATES, collectionType } from '../../lib/collection-catalogue';
 import '../../styles/corpus-catalogue.css';
@@ -26,6 +25,16 @@ import '../../styles/corpus-catalogue.css';
 const books = chronologicalCollections(CORPUS_META.collections);
 const coreSlugs = ['sahih-al-bukhari', 'sahih-muslim', 'sunan-ibn-majah', 'sunan-abi-dawud', 'jami-al-tirmidhi', 'sunan-al-nasa-i'];
 const coreBooks = books.filter(book => coreSlugs.includes(book.slug));
+const featuredBook = coreBooks[0];
+const remainingCoreBooks = coreBooks.slice(1);
+const coreArtworkDimensions: Record<string, { width: number; height: number }> = {
+  'sahih-al-bukhari': { width: 1536, height: 1024 },
+  'sahih-muslim': { width: 1600, height: 671 },
+  'sunan-ibn-majah': { width: 1600, height: 603 },
+  'sunan-abi-dawud': { width: 1600, height: 600 },
+  'jami-al-tirmidhi': { width: 1600, height: 600 },
+  'sunan-al-nasa-i': { width: 1600, height: 667 },
+};
 const stats = {
   narrations: CORPUS_META.counts.hadith,
   collections: CORPUS_META.counts.collections,
@@ -141,19 +150,30 @@ const stats = {
           <div><p class="hc-eyebrow">Core collections</p><h2 id="core-heading">Six Foundational Hadith Collections</h2></div>
           <a href="#collections-heading">View all {stats.collections} compilations →</a>
         </div>
-        <ol class="corpus-core__list">
-          {coreBooks.map((book, i) => <li>
-            <a class="corpus-core__book hc-plate" href={`/hadith/collection/${book.slug}/`}>
-              <CompilationCover slug={book.slug} title={book.title_ar} />
-              <span class="corpus-core__number">{String(i + 1).padStart(2, '0')}</span>
-              <h3>{book.title_en}</h3>
-              <p class="corpus-core__arabic" lang="ar" dir="rtl">{book.title_ar}</p>
-              <p class="corpus-core__extent">{book.hadith_count.toLocaleString()} <span>narrations</span></p>
-              <p class="corpus-core__date">Compiler d. {COMPILER_DATES[book.slug]} AH</p>
-              <span class="corpus-core__open">Explore collection →</span>
-            </a>
-          </li>)}
-        </ol>
+        <div class="corpus-core__composition">
+          {featuredBook && <a class="corpus-core__feature" href={`/hadith/collection/${featuredBook.slug}/`}>
+            <img class="corpus-core__feature-art" src={`/images/hadith/collections/${featuredBook.slug}-800.webp`} srcset={`/images/hadith/collections/${featuredBook.slug}-800.webp 800w, /images/hadith/collections/${featuredBook.slug}.webp ${coreArtworkDimensions[featuredBook.slug].width}w`} sizes="(max-width: 780px) 100vw, 42vw" width={coreArtworkDimensions[featuredBook.slug].width} height={coreArtworkDimensions[featuredBook.slug].height} alt="" loading="lazy" decoding="async" />
+            <span class="corpus-core__feature-wash" aria-hidden="true"></span>
+            <span class="corpus-core__feature-copy">
+              <span class="corpus-core__feature-kicker"><span>01</span> Foundational collection</span>
+              <span class="corpus-core__feature-title">{featuredBook.title_en}</span>
+              <span class="corpus-core__feature-arabic" lang="ar" dir="rtl">{featuredBook.title_ar}</span>
+              <span class="corpus-core__feature-facts"><span><small>Narrations</small>{featuredBook.hadith_count.toLocaleString()}</span></span>
+              <span class="corpus-core__feature-link">Explore collection <span aria-hidden="true">→</span></span>
+            </span>
+          </a>}
+          <ol class="corpus-core__secondary">
+            {remainingCoreBooks.map((book, i) => <li class:list={[`corpus-core__item`, `corpus-core__item--${book.slug}`, i < 3 && 'corpus-core__item--wide']}>
+              <a href={`/hadith/collection/${book.slug}/`}>
+                <img src={`/images/hadith/collections/${book.slug}-800.webp`} srcset={`/images/hadith/collections/${book.slug}-800.webp 800w, /images/hadith/collections/${book.slug}.webp ${coreArtworkDimensions[book.slug].width}w`} sizes="(max-width: 780px) 100vw, (max-width: 1200px) 65vw, 46vw" width={coreArtworkDimensions[book.slug].width} height={coreArtworkDimensions[book.slug].height} alt="" loading="lazy" decoding="async" />
+                <span class="corpus-core__item-wash" aria-hidden="true"></span>
+                <span class="corpus-core__item-number">{String(i + 2).padStart(2, '0')}</span>
+                <span class="corpus-core__item-copy"><span class="corpus-core__item-title">{book.title_en}</span><span class="corpus-core__item-arabic" lang="ar" dir="rtl">{book.title_ar}</span><span class="corpus-core__item-facts"><span>Compiler d. {COMPILER_DATES[book.slug]} AH</span><span>{book.hadith_count.toLocaleString()} narrations</span></span></span>
+                <span class="corpus-core__item-arrow" aria-hidden="true">→</span>
+              </a>
+            </li>)}
+          </ol>
+        </div>
       </section>
 
       <section class="corpus-index" aria-labelledby="collections-heading" data-corpus-catalogue data-view="grid">

@@ -1,31 +1,7 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
 export const blogArtwork: Record<string, BlogArtwork> = {
-  "transmission-narrators/89-abu-hurayrah-on-trial-the-criticism-the-hadith-books-preserved": {
-    "src": "/images/blog-editorial/89-abu-hurayrah-trial.webp",
-    "srcset": "/images/blog-editorial/89-abu-hurayrah-trial-720.webp 720w, /images/blog-editorial/89-abu-hurayrah-trial.webp 1536w",
-    "thumbnail": "/images/blog-editorial/89-abu-hurayrah-trial-160.webp",
-    "alt": "An editorial engraving of scholars comparing manuscript leaves in an early mosque courtyard, illustrating records of criticism around Abū Hurayrah.",
-    "width": 1536,
-    "height": 1024
-  },
-  "origins-early-history/90-abu-hanifa-the-heretic-who-became-an-imam": {
-    "src": "/images/blog-editorial/90-abu-hanifa-canon.webp",
-    "srcset": "/images/blog-editorial/90-abu-hanifa-canon-720.webp 720w, /images/blog-editorial/90-abu-hanifa-canon.webp 1536w",
-    "thumbnail": "/images/blog-editorial/90-abu-hanifa-canon-160.webp",
-    "alt": "An editorial engraving of a jurist comparing manuscript accounts in an Abbasid-era book room.",
-    "width": 1536,
-    "height": 1024
-  },
-  "origins-early-history/88-the-written-evidence-for-uthmans-quran": {
-    "src": "/images/blog-editorial/88-uthmanic-written-evidence.webp",
-    "srcset": "/images/blog-editorial/88-uthmanic-written-evidence-720.webp 720w, /images/blog-editorial/88-uthmanic-written-evidence.webp 1536w",
-    "thumbnail": "/images/blog-editorial/88-uthmanic-written-evidence-160.webp",
-    "alt": "An editorial engraving of blank parchment folios arranged for comparison beside a brass divider.",
-    "width": 1536,
-    "height": 1024
-  },
-  "prophecies-eschatology/87-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
+  "prophecies-eschatology/86-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
     "src": "/images/blog-editorial/87-kufa-empty-faith.webp",
     "srcset": "/images/blog-editorial/87-kufa-empty-faith-720.webp 720w, /images/blog-editorial/87-kufa-empty-faith.webp 1536w",
     "thumbnail": "/images/blog-editorial/87-kufa-empty-faith-160.webp",
@@ -33,7 +9,7 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "width": 1536,
     "height": 1024
 },
-  "transmission-narrators/86-aisha-and-the-quran-as-criterion": {
+  "transmission-narrators/85-aisha-and-the-quran-as-criterion": {
     "src": "/images/blog-editorial/86-aisha-quran-criterion.webp",
     "srcset": "/images/blog-editorial/86-aisha-quran-criterion-720.webp 720w, /images/blog-editorial/86-aisha-quran-criterion.webp 1536w",
     "thumbnail": "/images/blog-editorial/86-aisha-quran-criterion-160.webp",
@@ -42,7 +18,7 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "height": 1024
 },
 
-  "prophecies-eschatology/85-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive": {
+  "prophecies-eschatology/84-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive": {
     "src": "/images/blog-editorial/85-reconciliation.webp",
     "srcset": "/images/blog-editorial/85-reconciliation-720.webp 720w, /images/blog-editorial/85-reconciliation.webp 1536w",
     "thumbnail": "/images/blog-editorial/85-reconciliation-160.webp",
@@ -50,7 +26,7 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "width": 1536,
     "height": 1024
   },
-  "transmission-narrators/84-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel": {
+  "transmission-narrators/83-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel": {
     "src": "/images/blog-editorial/84-woman-ruler.webp",
     "srcset": "/images/blog-editorial/84-woman-ruler-720.webp 720w, /images/blog-editorial/84-woman-ruler.webp 1536w",
     "thumbnail": "/images/blog-editorial/84-woman-ruler-160.webp",
@@ -63,14 +39,6 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "srcset": "/images/blog-editorial/82-quraysh-720.webp 720w, /images/blog-editorial/82-quraysh.webp 1536w",
     "thumbnail": "/images/blog-editorial/82-quraysh-160.webp",
     "alt": "An editorial engraving of travelers approaching a walled Arabian city through a rocky pass, with an assembly beside the gate.",
-    "width": 1536,
-    "height": 1024
-  },
-  "theology-epistemology/83-the-corruption-of-the-sacred-months-and-their-restoration": {
-    "src": "/images/blog-editorial/83-sacred-months.webp",
-    "srcset": "/images/blog-editorial/83-sacred-months-720.webp 720w, /images/blog-editorial/83-sacred-months.webp 1536w",
-    "thumbnail": "/images/blog-editorial/83-sacred-months-160.webp",
-    "alt": "An editorial engraving of pilgrims overlooking the Kaʿba in a mountainous Meccan landscape beneath a sequence of lunar phases.",
     "width": 1536,
     "height": 1024
   },

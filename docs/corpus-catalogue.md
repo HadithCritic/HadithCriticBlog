@@ -27,8 +27,13 @@ compiler chronology. The six featured works follow chronological order too.
 
 The existing library illustration from `docs/compilation-artwork-prompts.json`
 is reused in the masthead. It is a decorative scene, not manuscript evidence.
-No invented per-collection chain-link counts or decorative scholarly quotation
-from the concept is added.
+Six original copperplate-style scenes in `public/images/hadith/collections/`
+give each foundational collection its own illustration. The Bukhari scene is
+the parchment feature plate; the remaining five scenes appear on dark cards.
+Each master WebP has an 800px derivative for responsive loading. The scenes are
+conceptual architecture, not depictions of specific historical sites or
+manuscript evidence. No invented per-collection chain-link counts or decorative
+scholarly quotation from the concept is added.
 
 The shared `SiteFooter.astro` consumes `site-footer.css`. Smaller type, tighter
 spacing, and a shallow panorama replace the former oversized footer. All directory
@@ -37,15 +42,12 @@ principles move into a native disclosure with their exact wording. Directory
 groups become native disclosures and close by default on phones with JavaScript;
 without JavaScript all groups remain open and usable.
 
-## Foundational compilation bindings
+## Foundational collection illustrations
 
-The six foundational collection cards use hand-drawn SVG ornament in
-`src/components/CompilationCover.astro`. These are decorative, personalized
-bindings inspired by the supplied printed covers, not reproductions of an
-edition or evidence of a historical manuscript. Palmettes, lobes, almond
-medallions, geometric tooling, rosettes and arches distinguish the works.
-Fixed site palette tokens supply the foil, inlay and dark grounds in both
-themes. Titles and narration counts remain unchanged; the text field stays
-clear of the patterned inlay. No generated raster images are used for these
-six bindings.
+The asymmetric feature presents Sahih al-Bukhari as a parchment plate beside a
+chronological rail; the other five featured collections sit in dark illustrated
+cards. Artwork contains no text, so titles, Arabic names, dates, narration
+counts and links remain live data from the page. The visual scenes are
+decorative interpretations, not reproductions of historical sites, editions or
+manuscripts, and make no claims about the collections' contents or authority.
 

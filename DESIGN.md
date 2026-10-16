@@ -1066,7 +1066,20 @@ Rules that hold it together:
 
 ## Research projects
 
-`ResearchHero.astro` is one shell with six faces. Shared: the engraved ground,
+`/projects/history/` is a fixed-dark editorial archive introduction, with its own
+river-panorama hero, factual scope register and substantial horizontal source
+jackets. `HistorySourceCard.astro` keeps the illustration, source identity and
+availability together; native edition disclosures expand below the jacket.
+`history.css` uses the locked house palette and typography. Planned capabilities
+and a provenance closing lead directly into the unchanged shared footer. Full
+texts, maps and timelines are explicitly in preparation. A future long-form
+reader may follow the reader theme; this introduction remains a plate in both
+themes, like the Projects index. Artwork is original and interpretive, not
+documentation of particular events. Evidence, provenance and the requirement
+audit live in `docs/history-source-inventory.md`, `docs/history-artwork.md` and
+`docs/history-redesign-checklist.md`.
+
+`ResearchHero.astro` is one shell with six active faces. Shared: the engraved ground,
 the Cormorant title with the discipline's Arabic name beneath it, the ornament
 rule, the register bar of figures. Not shared: the `signature` slot, where each
 project sets one instrument drawn from its own data.

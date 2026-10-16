@@ -33,12 +33,16 @@ export const readingMinutes = (post: Article): number => {
   return Math.max(1, Math.round(words / 200));
 };
 
+/** A stable order for articles published at the same instant. */
+const comparePosts = (a: Article, b: Article): number =>
+  a.data.date.valueOf() - b.data.date.valueOf() || a.id.localeCompare(b.id, 'en', { numeric: true });
+
 /** Newest first. `all` fixes the folio numbering when `posts` is a subset. */
 export function toEntries(posts: Article[], all: Article[] = posts): ArticleEntry[] {
-  const chronological = [...all].sort((a, b) => a.data.date.valueOf() - b.data.date.valueOf());
+  const chronological = [...all].sort(comparePosts);
   const position = new Map(chronological.map((post, index) => [post.id, index + 1]));
   return [...posts]
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+    .sort((a, b) => comparePosts(b, a))
     .map((post) => {
       const artwork = blogArtwork[post.id];
       return {

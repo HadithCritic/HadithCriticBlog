@@ -19,4 +19,4 @@ for(const path of ['studio/index.html','studio.js','editor.js','article-manifest
 for(const path of ['search-index.json','rss.xml','index.html']){
   const source=await readFile(`dist/client/${path}`,'utf8');assert.ok(!source.includes('Synthetic Studio rendering fixture'),`Fixture leaked into ${path}`);
 }
-console.log('Preserved articles 82/86/89: source hashes, heading IDs, links, footnotes and diagrams. Studio assets and synthetic drafts are absent from public output.');
+console.log('Preserved article fixtures: source hashes, heading IDs, links, footnotes and diagrams. Studio assets and synthetic drafts are absent from public output.');

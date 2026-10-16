@@ -3,8 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 
 const examples = [
   { id: 'transmission-narrators/82-the-bottleneck-fussilat-misses', role: 'named slots and embedded tables' },
-  { id: 'transmission-narrators/86-aisha-and-the-quran-as-criterion', role: 'nested HTML and GFM footnotes' },
-  { id: 'transmission-narrators/89-abu-hurayrah-on-trial-the-criticism-the-hadith-books-preserved', role: 'diagram-heavy article' }
+  { id: 'transmission-narrators/85-aisha-and-the-quran-as-criterion', role: 'nested HTML and GFM footnotes' }
 ];
 const inventory = JSON.parse(await readFile('studio/public/article-manifest.json', 'utf8'));
 const byId = new Map(inventory.articles.map((article) => [article.id, article]));

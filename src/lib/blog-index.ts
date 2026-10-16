@@ -200,7 +200,10 @@ function initArchive(): void {
         const list = year.querySelector('.bi-ledger');
         if (list) {
           [...list.querySelectorAll<HTMLLIElement>('.bi-row')]
-            .sort((a, b) => (Number(a.dataset.timestamp) - Number(b.dataset.timestamp)) * direction)
+            .sort((a, b) =>
+              (Number(a.dataset.timestamp) - Number(b.dataset.timestamp)) * direction ||
+              (Number(a.dataset.folio) - Number(b.dataset.folio)) * direction
+            )
             .forEach((row) => list.appendChild(row));
         }
         ledger.appendChild(year);
