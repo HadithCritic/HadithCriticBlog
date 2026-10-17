@@ -255,7 +255,7 @@ def main() -> int:
 
     data = {
         "schemaVersion": "qiraat-transmission-display/0.1.0",
-        "source": {"book_id": "22642", "title": "an-Nashr fi l-qiraat al-ashr", "author": "Ibn al-Jazari"},
+        "source": {"book_id": "22642", "title": "an-Nashr fī l-qirāʾāt al-ʿashr", "author": "Ibn al-Jazarī"},
         "width": round(width), "height": round(bottom), "node": {"w": NODE_W, "h": NODE_H}, "columns": last + 1,
         "col_x": [round(PAD_X + k * COL_W, 1) for k in range(last + 1)],
         "counts": {"persons": len(out_persons), "links": len(out_edges), "firm": sum(1 for e in out_edges if e["firm"])},

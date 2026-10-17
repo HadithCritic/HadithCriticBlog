@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { readFileSync } from 'node:fs';
-
-/* The number of articles with bespoke art is whatever the registry holds. */
-const ARTWORK_COUNT = (readFileSync(new URL('../src/data/blog-artwork.ts', import.meta.url), 'utf8').match(/"src":/g) ?? []).length;
+import { blogArtwork } from '../src/data/blog-artwork';
 
 test('the existing site search shortcut keeps its dialog and focus', async ({ page }) => {
   await page.goto('/blogs/');
@@ -13,15 +10,18 @@ test('the existing site search shortcut keeps its dialog and focus', async ({ pa
   await expect(page.locator('#site-search-dialog')).toBeHidden();
 });
 
-test('the newest article leads and every registered article receives its bespoke art', async ({ page }) => {
+test('the newest article leads and every published registered article receives its bespoke art', async ({ page, request }) => {
+  const catalog = await (await request.get('/article-catalog.json')).json();
+  const published = new Set(catalog.map((article: { url: string }) => article.url));
+  const artworkCount = Object.keys(blogArtwork).filter(id => published.has(`/blogs/${id}/`)).length;
   await page.goto('/blogs/');
   await expect(page.locator('.bi-lead')).toHaveCount(1);
   const dates = await page.locator('.bi-row').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.timestamp)));
   const leadDate = await page.locator('.bi-lead').getAttribute('data-timestamp');
   expect(Number(leadDate)).toBe(Math.max(...dates));
-  await expect(page.locator('.bi-row--illustrated')).toHaveCount(ARTWORK_COUNT);
+  await expect(page.locator('.bi-row--illustrated')).toHaveCount(artworkCount);
   const art = await page.locator('.bi-row--illustrated img').evaluateAll(images => images.map(img => img.getAttribute('src')));
-  expect(new Set(art).size).toBe(ARTWORK_COUNT);
+  expect(new Set(art).size).toBe(artworkCount);
 });
 
 test('the complete archive is listed by year, newest first', async ({ page }) => {

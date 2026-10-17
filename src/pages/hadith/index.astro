@@ -1,8 +1,10 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
-import ResearchHero from "../../components/ResearchHero.astro";
+import EditionIcon from '../../components/EditionIcon.astro';
 import { CORPUS_META } from '../../lib/corpus-config';
+import { chronologicalCollections, COMPILER_DATES, collectionType } from '../../lib/collection-catalogue';
+import '../../styles/corpus-catalogue.css';
 
 /**
  * Hadith corpus discovery and search console.
@@ -20,9 +22,19 @@ import { CORPUS_META } from '../../lib/corpus-config';
  * refresh and through back and forward.
  */
 
-const books = CORPUS_META.collections;
-/* The largest collection sets the scale of every bar in the catalogue. */
-const largest = Math.max(...books.map((b) => b.hadith_count));
+const books = chronologicalCollections(CORPUS_META.collections);
+const coreSlugs = ['sahih-al-bukhari', 'sahih-muslim', 'sunan-ibn-majah', 'sunan-abi-dawud', 'jami-al-tirmidhi', 'sunan-al-nasa-i'];
+const coreBooks = books.filter(book => coreSlugs.includes(book.slug));
+const featuredBook = coreBooks[0];
+const remainingCoreBooks = coreBooks.slice(1);
+const coreArtworkDimensions: Record<string, { width: number; height: number }> = {
+  'sahih-al-bukhari': { width: 1536, height: 1024 },
+  'sahih-muslim': { width: 1600, height: 671 },
+  'sunan-ibn-majah': { width: 1600, height: 603 },
+  'sunan-abi-dawud': { width: 1600, height: 600 },
+  'jami-al-tirmidhi': { width: 1600, height: 600 },
+  'sunan-al-nasa-i': { width: 1600, height: 667 },
+};
 const stats = {
   narrations: CORPUS_META.counts.hadith,
   collections: CORPUS_META.counts.collections,
@@ -36,26 +48,25 @@ const stats = {
   description={`Search ${stats.narrations.toLocaleString()} textual records across ${stats.collections} compilations in facing Arabic and English. Transmitters linked to biographical registers with descriptive apparatus.`}
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith Corpus', url: '/hadith/' }]}
 >
-  <div class="corpus-page rp-page rp-corpus">
-    <ResearchHero artwork="corpus" variant="corpus" title="The Hadith Research Corpus" titleId="corpus-title" kicker="Corpus Attestation Archive" arabic="الحديث">
-      <p>A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.</p>
-      <div slot="actions">
+  <div class="corpus-page">
+    <header class="corpus-masthead hc-plate" aria-labelledby="corpus-title">
+      <div class="corpus-masthead__art" aria-hidden="true"><img src="/images/hadith/compilation-library-1086.webp" srcset="/images/hadith/compilation-library-1086.webp 1086w, /images/hadith/compilation-library.webp 2172w" sizes="100vw" width="2172" height="724" alt="" fetchpriority="high" /></div>
+      <div class="corpus-masthead__inner">
+        <p class="hc-eyebrow">Corpus Attestation Archive</p>
+        <h1 id="corpus-title">The Hadith<br />Research Corpus</h1>
+        <p class="corpus-masthead__arabic" lang="ar" dir="rtl">الحديث</p>
+        <p class="corpus-masthead__lead">A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.</p>
+      <div class="corpus-masthead__actions">
         <a class="hc-btn" href="#corpus-q">Search the archive</a>
         <a class="hc-btn hc-btn--ghost" href="#collections-heading">Browse the collections</a>
       </div>
-      <dl slot="signature" class="rp-card hc-parchment" aria-label="Corpus catalogue card">
-        <div class="rp-card__head"><dt>Catalogue card</dt><dd>Build {CORPUS_META.corpusVersion}</dd></div>
-        <div class="rp-card__lead"><dt>Narrations</dt><dd class="hc-project-hero__figure">{stats.narrations.toLocaleString()}</dd></div>
-        <div><dt>Compilations</dt><dd>{stats.collections}</dd></div>
-        <div><dt>Named transmitters</dt><dd>{stats.transmitters.toLocaleString()}</dd></div>
-        <div><dt>Chain links</dt><dd>{CORPUS_META.counts.chainLinks.toLocaleString()}</dd></div>
-      </dl>
-    </ResearchHero>
+      </div>
+    </header>
 
     <div class="wrap corpus-body">
       <section class="corpus-console" aria-label="Textual Search Console">
         <form class="corpus-controls" method="get" action="/hadith/">
-          <div class="console-box">
+          <div class="console-box hc-parchment">
             <div class="console-box__input-row">
               <div class="console-box__search-icon" aria-hidden="true">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -127,32 +138,88 @@ const stats = {
       <!-- Results mount. Empty until the reader asks for something. -->
       <div class="corpus-results-wrap"></div>
 
-      <section class="corpus-index" aria-labelledby="collections-heading">
+      <dl class="corpus-totals" aria-label="Corpus totals">
+        <div><EditionIcon name="book" /><dt>Narrations</dt><dd class="hc-project-hero__figure">{stats.narrations.toLocaleString()}</dd></div>
+        <div><EditionIcon name="books" /><dt>Compilations</dt><dd>{stats.collections}</dd></div>
+        <div><EditionIcon name="record" /><dt>Named transmitters</dt><dd>{stats.transmitters.toLocaleString()}</dd></div>
+        <div><EditionIcon name="pages" /><dt>Chain links</dt><dd>{CORPUS_META.counts.chainLinks.toLocaleString()}</dd></div>
+      </dl>
+
+      <section class="corpus-core" aria-labelledby="core-heading">
+        <div class="corpus-section-head">
+          <div><p class="hc-eyebrow">Core collections</p><h2 id="core-heading">Six Foundational Hadith Collections</h2></div>
+          <a href="#collections-heading">View all {stats.collections} compilations →</a>
+        </div>
+        <div class="corpus-core__composition">
+          {featuredBook && <a class="corpus-core__feature" href={`/hadith/collection/${featuredBook.slug}/`}>
+            <img class="corpus-core__feature-art" src={`/images/hadith/collections/${featuredBook.slug}-800.webp`} srcset={`/images/hadith/collections/${featuredBook.slug}-800.webp 800w, /images/hadith/collections/${featuredBook.slug}.webp ${coreArtworkDimensions[featuredBook.slug].width}w`} sizes="(max-width: 780px) 100vw, 42vw" width={coreArtworkDimensions[featuredBook.slug].width} height={coreArtworkDimensions[featuredBook.slug].height} alt="" loading="lazy" decoding="async" />
+            <span class="corpus-core__feature-wash" aria-hidden="true"></span>
+            <span class="corpus-core__feature-copy">
+              <span class="corpus-core__feature-kicker"><span>01</span> Foundational collection</span>
+              <span class="corpus-core__feature-title">{featuredBook.title_en}</span>
+              <span class="corpus-core__feature-arabic" lang="ar" dir="rtl">{featuredBook.title_ar}</span>
+              <span class="corpus-core__feature-facts"><span><small>Narrations</small>{featuredBook.hadith_count.toLocaleString()}</span></span>
+              <span class="corpus-core__feature-link">Explore collection <span aria-hidden="true">→</span></span>
+            </span>
+          </a>}
+          <ol class="corpus-core__secondary">
+            {remainingCoreBooks.map((book, i) => <li class:list={[`corpus-core__item`, `corpus-core__item--${book.slug}`, i < 3 && 'corpus-core__item--wide']}>
+              <a href={`/hadith/collection/${book.slug}/`}>
+                <img src={`/images/hadith/collections/${book.slug}-800.webp`} srcset={`/images/hadith/collections/${book.slug}-800.webp 800w, /images/hadith/collections/${book.slug}.webp ${coreArtworkDimensions[book.slug].width}w`} sizes="(max-width: 780px) 100vw, (max-width: 1200px) 65vw, 46vw" width={coreArtworkDimensions[book.slug].width} height={coreArtworkDimensions[book.slug].height} alt="" loading="lazy" decoding="async" />
+                <span class="corpus-core__item-wash" aria-hidden="true"></span>
+                <span class="corpus-core__item-number">{String(i + 2).padStart(2, '0')}</span>
+                <span class="corpus-core__item-copy"><span class="corpus-core__item-title">{book.title_en}</span><span class="corpus-core__item-arabic" lang="ar" dir="rtl">{book.title_ar}</span><span class="corpus-core__item-facts"><span>Compiler d. {COMPILER_DATES[book.slug]} AH</span><span>{book.hadith_count.toLocaleString()} narrations</span></span></span>
+                <span class="corpus-core__item-arrow" aria-hidden="true">→</span>
+              </a>
+            </li>)}
+          </ol>
+        </div>
+      </section>
+
+      <section class="corpus-index" aria-labelledby="collections-heading" data-corpus-catalogue data-view="grid">
         <div class="corpus-index__header">
           <div>
-            <span class="hc-eyebrow">Archival Catalog</span>
-            <h2 class="corpus-index__heading" id="collections-heading">Primary Hadith Collections</h2>
+            <span class="hc-eyebrow">The complete archive</span>
+            <h2 class="corpus-index__heading" id="collections-heading">All {stats.collections} Hadith Compilations</h2>
           </div>
           <p class="corpus-index__note">
-            Organized by extant record volume. Every compilation is presented in full chronological sequence with facing critical apparatus.
+            Earliest to latest by compiler’s death year (AH), with works by the same compiler grouped together. These dates indicate compiler chronology, not exact dates of composition.
           </p>
         </div>
-
+        <div class="corpus-catalogue__views" data-catalogue-controls hidden>
+          <span data-catalogue-status aria-live="polite">{stats.collections} compilations</span>
+          <button type="button" data-catalogue-view="grid" aria-pressed="true"><EditionIcon name="grid" />Grid view</button>
+          <button type="button" data-catalogue-view="list" aria-pressed="false"><EditionIcon name="list" />List view</button>
+        </div>
+        <div class="corpus-catalogue__layout">
+          <aside class="corpus-catalogue__filters hc-parchment" aria-label="Filter compilations" data-catalogue-controls hidden>
+            <h3>Filter collections</h3>
+            <label for="catalogue-query">Find a collection<input id="catalogue-query" type="search" data-catalogue-query placeholder="English or Arabic title" /></label>
+            <label for="catalogue-period">Compiler period<select id="catalogue-period" data-catalogue-period><option value="">All periods</option><option value="early">Before 300 AH</option><option value="middle">300–499 AH</option><option value="later">500 AH onward</option></select></label>
+            <label for="catalogue-type">Collection type<select id="catalogue-type" data-catalogue-type><option value="">All types</option>{['Sahih', 'Sunan', 'Musnad', 'Musannaf', 'Muʿjam', 'Other'].map(type => <option value={type}>{type}</option>)}</select></label>
+            <label for="catalogue-sort">Sort by<select id="catalogue-sort" data-catalogue-sort><option value="earliest">Earliest first (default)</option><option value="latest">Latest first</option><option value="size">Most narrations</option><option value="title">Title A–Z</option></select></label>
+            <button type="button" data-catalogue-reset>Reset filters</button>
+          </aside>
+          <div class="corpus-catalogue__results">
         <ol class="catalog-ledger">
           {books.map((b, i) => (
-            <li class="catalog-row" style={`--share:${(b.hadith_count / largest).toFixed(4)}`}>
+            <li class="catalog-row" data-year={COMPILER_DATES[b.slug]} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar}`} data-count={b.hadith_count} data-order={i}>
               <a class="catalog-row__link" href={`/hadith/collection/${b.slug}/`}>
                 <span class="catalog-row__no">{String(i + 1).padStart(2, '0')}</span>
                 <span class="catalog-row__titles">
                   <span class="catalog-row__en">{b.title_en}</span>
                   {b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}
+                  <span class="catalog-row__date">Compiler d. {COMPILER_DATES[b.slug]} AH</span>
                 </span>
                 <span class="catalog-row__count">{b.hadith_count.toLocaleString()} <span>narrations</span></span>
-                <span class="catalog-row__bar" aria-hidden="true"><span></span></span>
+                <span class="catalog-row__arrow" aria-hidden="true">›</span>
               </a>
             </li>
           ))}
         </ol>
+          <p class="corpus-catalogue__empty" data-catalogue-empty hidden>No compilations match these filters. Try another title or reset the filters.</p>
+          </div>
+        </div>
       </section>
 
       <!--
@@ -182,231 +249,13 @@ const stats = {
 
   <script>
     import { initHadithSearch } from '../../lib/hadith-search';
+    import { initCorpusCatalogue } from '../../lib/corpus-catalogue';
+    initCorpusCatalogue();
     initHadithSearch();
   </script>
 </BaseLayout>
 
-<style>
-  .corpus-page {
-    background: var(--hc-surface-0);
-    min-height: 100vh;
-    padding-bottom: clamp(4rem, 8vw, 7rem);
-  }
 
-  /* ── Search Console ────────────────────────────────────────── */
-  .corpus-body {
-    padding-top: clamp(2rem, 4vw, 3rem);
-  }
-
-  .corpus-console {
-    max-width: 72rem;
-    margin: 0 auto 2.5rem;
-  }
-
-  .console-box {
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    transition: border-color var(--motion-fast) ease;
-  }
-
-  .console-box:focus-within {
-    border-color: var(--hc-gold);
-  }
-
-  .console-box__input-row {
-    display: flex;
-    align-items: center;
-    border-bottom: 1px solid var(--hc-rule-soft);
-    background: var(--hc-surface-1);
-  }
-
-  .console-box__search-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-left: 1.25rem;
-    color: var(--hc-gold);
-  }
-
-  .console-box__input {
-    flex: 1;
-    min-width: 0;
-    padding: 1.1rem 1.25rem;
-    border: none;
-    background: transparent;
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    color: var(--hc-text-primary);
-  }
-
-  .console-box__submit {
-    padding: 0 1.75rem;
-    height: 100%;
-    align-self: stretch;
-    border: none;
-    border-left: 1px solid var(--hc-rule-soft);
-    background: color-mix(in srgb, var(--hc-gold) 12%, var(--hc-surface-2));
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
-  }
-
-  .console-box__submit:hover {
-    background: var(--hc-gold);
-    color: var(--hc-surface-0);
-  }
-
-  .console-box__options {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem 1.5rem;
-    padding: 0.85rem 1.25rem;
-    background: var(--hc-surface-2);
-  }
-
-  .console-param-group {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem 1.5rem;
-  }
-
-  .console-param {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.6rem;
-  }
-
-  .console-param__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .console-select {
-    padding: 0.35rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    color: var(--hc-text-primary);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-
-  .console-select:focus {
-    border-color: var(--hc-gold);
-  }
-
-  .console-checkbox {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-secondary);
-    cursor: pointer;
-  }
-
-  /* Provenance line under the catalogue. Apparatus ink, never editorial. */
-  .corpus-provenance {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem 0.75rem;
-    max-width: 72rem;
-    margin: 2.5rem auto 0;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--hc-rule-soft);
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-provenance__label {
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .corpus-provenance__version {
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-provenance__figures {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ── Index Mode: Compilations ──────────────────────────────── */
-  .corpus-index {
-    max-width: 72rem;
-    margin: 0 auto;
-  }
-
-  .corpus-index__header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem 2rem;
-    margin-bottom: 2rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid var(--hc-rule);
-  }
-
-  .corpus-index__heading {
-    margin: 0.3rem 0 0;
-    font-family: var(--font-display);
-    font-size: 1.85rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-index__note {
-    max-width: 52ch;
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.65;
-    color: var(--hc-text-secondary);
-  }
-
-  @media (max-width: 780px) {
-    .console-box__options {
-      flex-direction: column;
-      align-items: stretch;
-    }
-    .console-param {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.35rem;
-    }
-    .console-select {
-      width: 100%;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .console-box__submit {
-      transition: none;
-      transform: none;
-    }
-  }
-</style>
 
 <!-- Global styles for client-side search hydration -->
 <style is:global>
@@ -495,7 +344,7 @@ const stats = {
   }
 
   .corpus-notice--warn {
-    border-left: 3px solid var(--hc-gold);
+    border: 1px solid var(--hc-rule-strong);
     background: var(--hc-surface-1);
     color: var(--hc-text-secondary);
   }

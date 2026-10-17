@@ -30,7 +30,7 @@ export const GET: APIRoute = async () => {
         description: post.data.description,
         category: post.data.category,
         tags: post.data.tags,
-        date: post.data.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        date: post.data.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }),
         sections: extractSections(body, slugs),
         fullText: cleanMarkdown(body)
       };

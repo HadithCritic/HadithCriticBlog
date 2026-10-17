@@ -21,7 +21,8 @@ No database server is in the request path for any public page.
   `/narrators`.
 - **No UI framework anywhere.** No React, Preact, Svelte or Vue, and no islands.
   Interactivity is server-rendered HTML plus a small vanilla module
-  (`src/lib/narrator-register.ts`). `gsap` is the only client-side dependency.
+  (`src/lib/narrator-register.ts`). Motion uses CSS; the unused GSAP runtime
+  was removed during the production-readiness audit.
   Do not add a framework to solve a styling or animation problem.
 - **The corpus is on disk** at `dist-db/builds/<version>/hadith.db` (1.62 GB),
   built from `dist-db/silsilah.db` by `npm run build:corpus`. Read it directly
@@ -32,6 +33,11 @@ No database server is in the request path for any public page.
   first compile. If a page appears to hang for minutes after an edit, it is
   usually dev-server recompilation backlog, not your code: re-request before
   investigating.
+- **Dev has a 4 GiB heap budget.** `scripts/dev-site.mjs` sets it through
+  `NODE_OPTIONS` so Astro's background process inherits it, and preserves an
+  existing explicit heap limit. Vite loads research JSON through `JSON.parse`
+  with named exports disabled to avoid building large data-module ASTs. Keep
+  JSON imports as default imports.
 - Markdown/MDX GFM is declared once on `markdown.processor` in
   `astro.config.mjs`. Do not also pass `remarkPlugins` to the `mdx()`
   integration; that arrangement is deprecated and was already removed.
@@ -143,6 +149,11 @@ No database server is in the request path for any public page.
   it has no terminal) and `server.host`. Alternating foreground, daemon and
   `npm run build` therefore clears the content store and re-optimizes once;
   the next start in the same mode is warm. It is not a regression.
+- **Dev and build must have separate Vite caches.** The config integration
+  uses `node_modules/.vite-hc-dev` for dev and `.vite-hc-build` for builds and
+  type checks. Sharing optimized Astro runtime modules while both run caused
+  the dev renderer to fall back to its production environment and fail to
+  resolve `ProjectNavigation.astro?astro&type=script`. Keep the caches separate.
 - **Dev reads its own corpus, whatever `.env` says.** `.env` carries the
   production `PUBLIC_CORPUS_BASE_URL` for the build and publish scripts, and
   Vite loads `.env` in dev too. Dev used to inherit it and ask R2 for the
@@ -162,10 +173,6 @@ No database server is in the request path for any public page.
   for `load` is measuring a spinner. `scripts/check-contrast.mjs` waits for real
   content per route and fails the route if it never arrives; anything new that
   inspects these pages has to do the same, or it passes by not running.
-- **The collection shell is one document for every page of a collection.**
-  `?page=2` must be read from the URL, never from a data attribute baked into
-  the prerendered HTML. This shipped wrong once: the right twenty-five records,
-  with the pager insisting it was page one.
 - **Playwright adopts whatever answers on 4321, including `npm run dev`.**
   `reuseExistingServer` is on so a developer's preview is not restarted under
   them, but a dev server serves `src/`, not the build, so
@@ -259,9 +266,11 @@ These are product commitments, not preferences. `DESIGN.md` carries the detail.
 ## Commands
 
 ```bash
-npm run build:corpus     # build + chunk + verify a corpus release (needs the master db)
+npm run build:corpus     # build + chunk + verify a corpus release (needs the master db); reuses an unchanged build
+npm run prune:corpus     # list old dist-db/builds to remove; --delete removes them
 npm run publish:corpus   # upload a release to R2, where production reads it
 npm run verify:corpus    # row counts, chunk reassembly, query parity vs the master
+npm run dedupe:quran     # hard-link identical assets shared by public/data/quran/releases
 
 npm run build:corpus:fixture  # recut the committed CI fixture from the real corpus
 npm run build:e2e        # build with the corpus on its own origin, then test:e2e
@@ -290,6 +299,11 @@ node scripts/check-contrast.mjs --json         # composited bg and DOM path
 corpus routes fail as "never rendered". It is
 not in `validate` only because it needs a live server rather than a build.
 
+`build:e2e` also includes draft article routes with `noindex` so the reader
+suite covers articles awaiting publication. It does not change their source
+metadata. Use a normal `build` for production. Studio rendered fixtures for
+draft articles must be refreshed and checked against this end-to-end build.
+
 Run `check`, `test:design` and `build` before finishing any UI change.
 
 ## Where things live
@@ -304,16 +318,16 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/styles/global.css` | Tokens, both themes, and the shared component layer. |
 | `src/styles/house.css`, `src/components/PageHero.astro` | The shared layer of the front-of-house pages (blog, academia, projects, YouTube, contact, brand). They stay dark in both themes; see DESIGN.md "Front-of-house pages". |
 | `src/components/ArchiveEntry.astro`, `src/lib/article-index.ts` | One archive row, and the folio, date and reading-time helpers every article listing shares. |
-| `src/styles/article.css` | The whole article reader: page, header, body, every content component. Read DESIGN.md "Article reader" first. |
+| `src/styles/article.css` | The article reader's page, header, prose and the base parts of the figure vocabulary. Read DESIGN.md "Article reader" first. |
+| `src/styles/article-plates.css` | Every article component that draws its own ground: notes, sources, quotes, tables, figure layouts, media, footnotes. |
 | `src/components/article/` | Article components in `shell/`, `text/`, `sources/`, `media/`, `figures/`. Author guide: `docs/COMPONENT-GUIDE.md`. |
-| `src/styles/motion.css` | A stub kept only for its reduced-motion block. |
 | `src/pages/hadith/**` | Corpus catalogue, collection edition, hadith record. |
 | `src/pages/narrators/**` | Rijāl register, dossier, comparison. |
 | `docs/static-corpus.md` | The static corpus: build, publish, measure, traps. |
 | `src/lib/corpus-config.ts` | Which corpus version, served from where. |
 | `src/lib/corpus-client.ts` | Every corpus query, and the worker's lifecycle. |
 | `src/lib/narrator-register.ts` | The register's client module. |
-| `src/lib/hadith-search.ts`, `hadith-record.ts`, `collection-edition.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
+| `src/lib/hadith-search.ts`, `hadith-record.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
 | `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
 | `scripts/fetch-ifta-toc.mjs`, `scripts/parse-ifta-toc.mjs`, `data/ifta-toc/` | The Ifta' Sunnah table of contents: fetched politely into the ignored `raw/`, recorded in `manifest.json`, parsed offline. |
 | `scripts/build-collection-structure.py`, `src/data/collection-structure/`, `src/lib/collection-structure.ts` | Each collection's books and chapters, its shape (kitab, companion, flat), and the English titles (`data/kitab-titles-en.json`). |

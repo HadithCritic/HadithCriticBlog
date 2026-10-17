@@ -26,7 +26,7 @@ test('Academia prints every citation format without JavaScript',async({browser})
 test('Projects preserves every project destination and index anchor',async({page})=>{
  await page.goto('/projects/');
  const destinations=await page.locator('.pj-lead, .pj-panel, .pj-proto').evaluateAll(items=>items.map(item=>({id:item.id,href:item.querySelector('h3 a')?.getAttribute('href')})));
- expect(destinations).toHaveLength(7);
+ expect(destinations).toHaveLength(8);
  for(const project of destinations) {
   expect(project.href).toMatch(/^\//);
   await expect(page.locator(`.pj-table__jump[href="#${project.id}"]`)).toHaveCount(1);

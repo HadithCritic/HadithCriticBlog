@@ -59,7 +59,7 @@ test.beforeEach(async ({ page }) => {
 
 test('the corpus reports the totals the release was cut with', async ({ page }) => {
   await page.goto('/hadith');
-  await expect(page.locator('.rp-card__lead dd')).toHaveText(
+  await expect(page.locator('.corpus-totals dd').first()).toHaveText(
     EXPECTED.hadith.toLocaleString()
   );
   await expect(page.locator('.catalog-row')).toHaveCount(EXPECTED.collections);

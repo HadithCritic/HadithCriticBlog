@@ -20,8 +20,11 @@ test('the old reader chrome stays gone', async ({ page }) => {
   for (const gone of ['[data-reading-progress]', '#readingOptionsToggle', '.desk-toolbar', '.desk-left-rail', '.back-to-top']) {
     await expect(page.locator(gone)).toHaveCount(0);
   }
-  await expect(page.locator('h1')).toHaveCount(1);
-  await expect(page.locator('.hc-source--quran').first()).toBeVisible();
+  await expect(page.locator('main h1')).toHaveCount(1);
+  const verse = page.locator('.hc-verse').first();
+  await expect(verse).toBeVisible();
+  await expect(verse.locator('[lang="ar"]').first()).not.toBeEmpty();
+  await expect(verse.locator('[data-source-quoted]').first()).not.toBeEmpty();
 });
 
 test('a footnote reference opens its note as a preview', async ({ page }) => {
@@ -34,7 +37,15 @@ test('a footnote reference opens its note as a preview', async ({ page }) => {
 
 test('report headings passed as title are rendered', async ({ page }) => {
   await page.goto('/blogs/theology-epistemology/14-the-salafi-paradox/');
-  await expect(page.locator('.hc-source__title', { hasText: 'Ibn Baz on asking the Prophet for intercession after death' })).toBeVisible();
+  await expect(page.locator('.hc-report__label', { hasText: 'Ibn Baz on asking the Prophet for intercession after death' })).toBeVisible();
+});
+
+test('article publication dates use the same UTC day as the archive and catalog', async ({ page, request }) => {
+  const id = 'origins-early-history/13-imam-ahmad-supplicates-through-dead-people';
+  await page.goto(`/blogs/${id}/`);
+  await expect(page.locator('.hc-head__meta time').first()).toHaveText('31 December 2024');
+  const catalog = await (await request.get('/article-catalog.json')).json();
+  expect(catalog.find((article: { url: string }) => article.url === `/blogs/${id}/`).date).toBe('31 Dec 2024');
 });
 
 test.describe('without JavaScript', () => {

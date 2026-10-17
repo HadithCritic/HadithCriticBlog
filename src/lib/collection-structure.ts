@@ -64,19 +64,3 @@ export function kitabTitle(structure: CollectionStructure, kitab: StructureKitab
   if (structure.shape === 'flat') return 'All chapters';
   return kitab.title_en || kitab.title_ar;
 }
-
-/**
- * The collection's sequential edition lists narrations by id, 25 a page. A
- * chapter's first narration is at a known position in that order, because
- * every narration is placed, so its page can be linked directly.
- */
-export function editionPage(structure: CollectionStructure, first: number, size = 25): number {
-  let before = 0;
-  for (const kitab of structure.kitabs) {
-    for (const chapter of kitab.chapters) {
-      if (chapter.first >= first) return Math.floor(before / size) + 1;
-      before += chapter.count;
-    }
-  }
-  return Math.floor(before / size) + 1;
-}

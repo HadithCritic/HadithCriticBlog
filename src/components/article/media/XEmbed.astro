@@ -1,9 +1,11 @@
 ---
 /**
- * A post on X, quoted statically: no third-party widget, so it renders the
- * same for every reader whether or not x.com is reachable.
+ * A post on X, drawn statically the way X draws it: black ground, the avatar,
+ * name, handle and date, the post text, then a link to the post. No
+ * third-party widget, so it renders the same for every reader whether or
+ * not x.com is reachable. The date is read from the status id when not given.
  */
-import ExternalSource from './ExternalSource.astro';
+import { postDateFromUrl } from '../../../lib/article-text';
 
 export interface Props {
   url: string;
@@ -11,7 +13,14 @@ export interface Props {
   handle?: string;
   date?: string;
   text?: string;
+  /** An avatar image; HadithCritic's own posts use the site mark. */
+  avatar?: string;
 }
+
+/** Avatars the site already holds, by lower-case handle. */
+const KNOWN_AVATARS: Record<string, string> = {
+  hadithcritic: '/images/resources/logos/hadithcritic.webp'
+};
 
 const { url, author = 'X', date, text } = Astro.props;
 const handle = Astro.props.handle ?? (() => {
@@ -21,7 +30,24 @@ const handle = Astro.props.handle ?? (() => {
     return '';
   }
 })();
-const publisher = handle ? `${author} (@${handle}) on X` : `${author} on X`;
+const avatar = Astro.props.avatar ?? KNOWN_AVATARS[handle.toLowerCase()];
+const posted = date ?? postDateFromUrl(url);
+const initial = author.trim().charAt(0).toUpperCase();
 ---
 
-<ExternalSource url={url} publisher={publisher} title={text} quoted={Boolean(text)} date={date} kind="Cited post" linkLabel="View the post" />
+<article class="hc-x" aria-label={`Post by ${author} on X`}>
+  <header class="hc-x__head">
+    {avatar
+      ? <img class="hc-x__avatar" src={avatar} alt="" width="44" height="44" loading="lazy" decoding="async" />
+      : <span class="hc-x__avatar hc-x__avatar--initial" aria-hidden="true">{initial}</span>}
+    <span class="hc-x__who">
+      <span class="hc-x__name">{author}</span>
+      <span class="hc-x__handle">{handle && `@${handle}`}{handle && posted && ' · '}{posted}</span>
+    </span>
+    <svg class="hc-x__logo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M18.2 2.3h3.3l-7.2 8.3 8.5 11.2h-6.7l-5.2-6.8-6 6.8H1.6l7.7-8.8L1.2 2.3H8l4.7 6.2zm-1.2 17.5h1.8L7.1 4.1H5.1z" />
+    </svg>
+  </header>
+  {text && <p class="hc-x__text">{text}</p>}
+  <a class="hc-x__link" href={url} target="_blank" rel="noopener noreferrer">View the post on X</a>
+</article>

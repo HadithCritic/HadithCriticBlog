@@ -6,7 +6,7 @@
 
 **Deliberate break, recorded:** like the homepage, these pages are plates (`.hc-plate` on the page root) and stay dark in both themes. Every token inside resolves to the dark palette, so contrast is measured once. The databases and the article reader keep the light theme, because a reader may sit in them for an hour.
 
-- **Blog.** The latest study as a parchment leaf with its own contents list (its `##` headings), the three before it, then the whole archive grouped by year beside a sticky column of full-text search, branch filters and order (`src/lib/blog-index.ts`). Every row is `ArchiveEntry.astro`, which the branch hubs and the brand page reuse. Bespoke engravings come from `src/data/blog-artwork.ts`.
+- **Blog.** The latest study is introduced by “Latest Published Blog:” and shown as a parchment leaf with its own contents list (its `##` headings), followed by the whole archive grouped by year beside a sticky column of full-text search, branch filters and order (`src/lib/blog-index.ts`). Every row is `ArchiveEntry.astro`, which the branch hubs and the brand page reuse. Bespoke engravings come from `src/data/blog-artwork.ts`.
 - **Academia.** The treatise as an object beside its record, the citation card (all three formats print without script), and the ICMA studies as a monograph series by research family.
 - **Projects.** The corpus as a lead instrument, panels that name the places inside each project, the prototype set apart, and an at-a-glance status table. Panels reuse each project's own masthead engraving.
 - **YouTube.** The channel masthead, one player beside the record of the video in it, and the catalogue by subject. Tiles are real links to YouTube; script loads them into the player.
@@ -56,7 +56,7 @@ setting everywhere:
 | Page type | Variance | Motion | Density | Reads like |
 |---|---|---|---|---|
 | Corpus catalogue `/hadith` | 6 | 3 | 6 | A reference catalogue. Ledger-dense, scannable. |
-| Collection edition `/hadith/collection/:slug` | 5 | 3 | 4 | A sequential reader. Slow, generous, one report at a time. |
+| Collection edition `/hadith/collection/:slug` | 5 | 3 | 4 | A table of contents. Its books, each opening on its chapters. |
 | Hadith record `/hadith/:id` | 5 | 2 | 5 | A critical edition. Facing columns and apparatus. |
 | Rijāl register `/narrators` | 5 | 3 | 6 | A faceted index. |
 | Rijāl dossier `/narrators/:id` | 4 | 2 | 5 | An encyclopedia entry. Sectioned, citable, evidence-forward. |
@@ -101,8 +101,9 @@ Four levels, warm-tinted in both themes. Never pure black, never pure white.
 | `--hc-surface-2` | `#1e1d1b` | `#e8e2d5` | Elevated blocks |
 | `--hc-surface-3` | `#26231f` | `#dfd8cb` | Cards, input wells, borders |
 
-`body` is not a flat fill: two low-opacity radial blooms (gold at 75% 10%, umber
-at 10% 20%) over a 135° `surface-0 → surface-2 → surface-0` gradient.
+`body` is a flat `--hc-surface-0`. Until 2026-10-08 it carried two radial
+blooms over a 135° gradient and a grain layer; both were removed so every page,
+project pages included, sits on one flat ground.
 
 ### Text
 
@@ -145,7 +146,7 @@ Used by `/projects/quran/` and `/projects/quran/transmission/`. **One hue per re
 
 ### Tafsir palette: `tafsir.css`
 
-Used by `/projects/tafsir/` and its sura pages. **One hue per era, not per book.** The library runs to a hundred or more commentaries across fourteen centuries, which hue cannot tell apart, so a book is told apart by its name and death date and its color says only when its author died. Five eras take the site’s own tones: `era-e1` gold (101 to 300 AH), `era-e2` copper (301 to 600), `era-e3` oxblood (601 to 900), `era-e4` sage (901 to 1300), `era-e5` slate (1301 to the present). `--e-bg`/`--e-ink` set a tag (`.e-tag`, AA at 5.4 to 8.3); `--e-line` is the mid-tone for borders and swatches (`.e-sq`) and holds 3:1 or better on both themes. A comment row carries its era as a 5px inline-start border over a 7% tint. Color is chronological and never evaluative; the name is always printed beside it. `tests/tafsir.test.mjs` fails a century that is in no era.
+Used by `/projects/tafsir/` and its sura pages. **One hue per era, not per book.** The library runs to a hundred or more commentaries across fourteen centuries, which hue cannot tell apart, so a book is told apart by its name and death date and its color says only when its author died. Five eras take the site’s own tones: `era-e1` gold (101 to 300 AH), `era-e2` copper (301 to 600), `era-e3` oxblood (601 to 900), `era-e4` sage (901 to 1300), `era-e5` slate (1301 to the present). `--e-bg`/`--e-ink` set a tag (`.e-tag`, AA at 5.4 to 8.3); `--e-line` is the mid-tone for borders and swatches (`.e-sq`) and holds 3:1 or better on both themes. A commentary row carries its era as a round `.e-sq` dot beside the work's name, never as an edge border. Color is chronological and never evaluative; the name is always printed beside it. `tests/tafsir.test.mjs` fails a century that is in no era.
 
 ### Categories
 
@@ -375,10 +376,11 @@ tracking is now −0.005em to −0.015em.
 ### Article reader
 
 Redesigned again 2026-10-06, as a whole system rather than per article. An
-article is set like a journal: one reading column, a title page, and four
-settings that cover every kind of content. `src/styles/article.css` carries the
-whole language; components emit plain class names and carry no styles of their
-own (except the isnad figures, which draw SVG).
+article is set like a journal: one reading column, a title page, prose as
+ruled text and every component as a plate. `src/styles/article.css` carries the
+page and the prose, `src/styles/article-plates.css` the components; components
+emit plain class names and carry no styles of their own (except the isnad
+figures, which draw SVG).
 
 **Palette.** The reader defines its own ramp on `.hc-article` (`--r-ink`,
 `--r-ink-2`, `--r-ink-3`, `--r-accent`, `--r-rule`, `--r-rule-strong`,
@@ -418,23 +420,38 @@ small-caps`; the self-hosted face carries `smcp` and `c2sc`). IBM Plex Sans is
 used only for interface apparatus: the byline line, dates, footnote numerals,
 the Share control.
 
-**Four settings, no filled boxes:**
+**Prose and plates (redesigned 2026-10-07).** Prose stays ruled text: `hr` is
+the brand lozenge alone, centred; list bullets take the accent. Every component
+that quotes, argues or cites is a plate, built in `src/styles/article-plates.css`
+from the component showcase the owner reworked. Plates come in fixed grounds
+that keep their inks in both themes, as the Hadith Corpus edition plates do,
+plus reader surfaces that follow the theme:
 
-| Setting | Covers | How it is drawn |
+| Ground | Components | How it is drawn |
 |---|---|---|
-| Prose | paragraphs, `h2` to `h4`, lists, links, `hr` | `hr` is the brand lozenge alone, centred |
-| Extract | `QuranVerse`, `HadithBlock`, `BibleVerse`, `QuoteBlock`, Markdown `>`, `.hc-fig--extract` | indented under one accent hairline, 0.96em, Arabic first, citation last in small caps; the Qur'an keeps Amiri Quran and numbered āyah marks |
-| Note | `ClaimBox`, `VerdictBox`, `ContextNote` | thesis and verdict open under a hairline with an accent small caps label; context is indented, smaller and in ink-2 |
-| Figure | tables, `.hc-fig`, embeds, isnad diagrams | booktabs rules for tables; figures as cells under hairlines |
+| Parchment (`--pl-paper`) | `ClaimBox`, `VerdictBox`, `HadithBlock` leaf, `BibleVerse`, `.hc-fig` cells, `.hc-fig--extract`, `VariantTree` versions | paper texture, corner ornaments on the display plates; the claim has a dashed inner frame and a seal; labels in tracked Plex capitals |
+| Night (`--pl-night`) | `QuoteBlock` | the quill engraving to the right, a hanging mark, the author in gold |
+| Bronze | `ContextNote` | a warm card with an "i" mark; collapsible context is a quiet ruled disclosure instead |
+| Surface (`--r-surface`) | `QuranVerse`, tables, flows, rows, chains, disclosures, the video card, footnotes | a boxed panel in the theme's own surface |
+| Publisher | `QuranTalk` (white), `XEmbed` (black), `HadithCriticBlog` (reader palette) | each drawn in its own register |
+
+Display plates switch to a reading setting past a length (claims and quotes at
+360 characters, Bible passages at 420), so a long passage is never set as a
+display. Wide components (tables, `VariantTree`, `QuoteBlock`,
+column and flow figures, framed images) step past the measure where the page
+has room: up to 6rem a side between 760px and 1199px, 2rem from 1200px, none
+on phones. No plate carries a grade, a score or an evaluative colour; `facts`
+on a claim or verdict are the author's statements of fact.
 
 **Figures: the shared vocabulary.** Articles that need structure beyond prose
 build it from `.hc-fig` and its parts, never from their own CSS:
 
 | Class | Meaning |
 |---|---|
-| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow`, `--rows`, `--lead`, `--extract`) |
-| `.hc-fig__item` | a cell, ruled above |
-| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; the arrow turns down when stacked |
+| `.hc-fig` | a figure block (`--cols`, `--c2`/`--c3`/`--c4`, `--flow` (`--steps` numbers it), `--chain`, `--rows`, `--lead`, `--extract`) |
+| `.hc-fig__item` | a cell: a parchment card in a column grid, a step card in a flow, a row in a ledger |
+| `.hc-fig__join` (`--arrow`) | text or an arrow between cells of a flow; an arrow is drawn, whatever arrow was typed, and turns down when stacked |
+| `.hc-fig__badge` | a short label in a disclosure's summary |
 | `.hc-fig__label`, `__kicker`, `__title` | figure label, cell label (small caps), cell heading (`h3`/`h4` take it too) |
 | `.hc-fig__ar`, `__quote`, `__note`, `__tags` | Arabic, a quoted line, secondary text, a run of short terms |
 | `.hc-fig__caption`, `__ornament` | caption below; an ornament, never shown |
@@ -447,9 +464,10 @@ of every article is identical to the previous commit (checked by comparing the
 tag-stripped text of each file). A per-article `<style>` block is no longer
 allowed in an article.
 
-**End matter, in order.** Notes (smaller, ink-2, a "Notes" head only when the
-article has none of its own; end-matter headings are set smaller and ruled),
-bibliography with hanging indents, topics as plain text, three more studies
+**End matter, in order.** Notes (a boxed panel with parchment numerals, a
+"Notes" label only when the article has no heading of its own; end-matter
+headings are set smaller and ruled), bibliography as ruled rows with hanging
+indents, topics as plain text, three more studies
 from the same branch with dates, then the earlier and later study.
 
 **Kept.** Footnote previews and the per-source Share control, which is created
@@ -459,9 +477,19 @@ by script and shown on hover or focus (always on touch screens).
 
 - `shell/`: `ArticleHeader`, `ArticleContents`, `ArticleEnd`, `FootnoteSheet`
 - `text/`: `Note` (and `ClaimBox`, `VerdictBox`, `ContextNote`), `QuoteBlock`, `Arabic`, `SectionDivider`
-- `sources/`: `Source` (and `QuranVerse`, `HadithBlock`, `BibleVerse`), `SourceComparisonTable`, `Bibliography`
-- `media/`: `ExternalSource` (and `QuranTalk`, `XEmbed`), `YouTubeEmbed`
+- `sources/`: `QuranVerse`, `HadithBlock`, `Source` (and `BibleVerse`), `SourceShare` (the Share script), `SourceComparisonTable`, `Bibliography`, `ArticleLink`, `HadithCriticBlog`
+- `media/`: `QuranTalk`, `XEmbed`, `YouTubeEmbed`
 - `figures/`: `IsnadDiagram`, `IsnadDilemmaVisual`, `VariantTree`
+
+For a displayed reference to another HadithCritic study, use
+`<HadithCriticBlog id="category-directory/article-slug" />`. It resolves the
+title, date, description and available artwork from the article collection;
+`description` can explain the connection. Use `ArticleLink` with the same `id`
+for inline references and footnotes. Both link to the internal article route.
+The displayed reference is an inset, hairline-framed editorial link in reader
+colors: a quiet publisher line, artwork beside an ink-colored title, then date
+and reading action below one rule. On phones the artwork precedes the copy;
+without artwork the copy fills the measure. Keep the whole reference one anchor.
 
 ### The button exception
 
@@ -554,7 +582,7 @@ not by shadow.
 
 | Level | Treatment | Use |
 |---|---|---|
-| 0 | `--hc-surface-0` + body gradient | Page ground |
+| 0 | `--hc-surface-0`, flat | Page ground |
 | 1 | `--hc-surface-1`, `1px --hc-rule` | Panels, sticky header, nav |
 | 2 | `--hc-surface-2` | Elevated blocks, details bodies |
 | 3 | `--hc-surface-3` gradient + `--hc-rule`, plus `.hc-card::before` inset hairline at 10px | Cards |
@@ -566,12 +594,18 @@ non-overlay element.
 **No shadow-glow on dark.** A coloured halo around a card on the dark ground is
 a named AI tell and is banned. Depth comes from the inset hairline.
 
-### Paper grain
+### No grain, no edge strips
 
-`body::before` is a fixed, `pointer-events: none`, `mix-blend-mode: soft-light`
-layer of two radial dot fields (180px and 260px tiles) at `opacity .08`
-(light: `.04`), tinted by `--hc-noise` / `--hc-noise-dim`. It is meant to be
-felt, not seen. Do not raise the opacity; do not add a second grain layer.
+The `body::before` grain layer was removed on 2026-10-08. Do not add one back.
+`--hc-noise` and `--hc-noise-dim` remain defined but nothing reads them.
+
+**No edge strips.** A 2 to 6px colored bar on one side of a card, box, row or
+callout (`border-inline-start`, `border-top`, an inset `box-shadow`, or a
+`::before` strip) is not part of this system. Use a full 1px border, a faint
+tint, a dot or chip beside the name, or typography. Where a strip used to carry
+information (a reader's color, a "reported" state), the replacement must carry
+it too: a dot for a person or era, a word plus a dashed or dotted full border
+for a state.
 
 ### Decorative imagery
 
@@ -683,9 +717,11 @@ properties inherited from a `[data-category]` ancestor.
 
 ### `.hc-masthead` / `.hc-instrument`
 
-The split page hero, taken from `/resources`. `.hc-masthead__inner` is a
-1.08fr / 0.92fr grid, `align-items: end`, that stacks below 1000px; title and
-lede sit left, an **instrument** sits right. Padding is bottom-heavy.
+The split page hero. `.hc-masthead__inner` is a 1.08fr / 0.92fr grid,
+`align-items: end`, that stacks below 1000px; title and lede sit left, an
+**instrument** sits right. Flat `--hc-surface-0` and compact, bottom-heavy
+padding since 2026-10-08 (it used to lay two radial glows under up to 9.5rem of
+padding). No page uses it at present; the project pages moved to `.pj-hero`.
 
 The instrument is a tray (`.hc-instrument`, surface-2), a well
 (`.hc-instrument__well`, surface-1) and a fixed-parchment plate
@@ -759,9 +795,10 @@ There is no full-network drawing: density grows in the lists rather than in cros
 ### Row hover
 
 `.book-row__link`, `.corpus-result__link`, `.edition-report__link`,
-`.contents-row`, `.dossier-entry` share one hover: an `inset 2px 0 0
---hc-gold-dim` box-shadow plus a short gold wash and a small inline padding
-shift. **State is carried by shape, not colour alone** (WCAG 1.4.1-adjacent).
+`.contents-row`, `.dossier-entry` share one hover: a flat 7% gold tint. The
+inset 2px gold bar it used to add down the leading edge was retired with the
+other edge strips. Hover is an affordance, not information; each row keeps its
+own arrow or underline as the shape cue.
 
 ### `.hc-skip-link`
 
@@ -822,8 +859,9 @@ change to the palette or type.
 `--ease-standard cubic-bezier(.22,1,.36,1)` ·
 `--ease-emphasis cubic-bezier(.16,1,.3,1)` · `--ease` (legacy alias of emphasis).
 
-All live in `global.css :root`. `motion.css` retains only the global
-`prefers-reduced-motion` block; its token block was dead code and was removed.
+All live in `global.css :root`. The global `prefers-reduced-motion` block
+also lives there. The duplicate motion stylesheet and unused GSAP runtime
+were removed during the production-readiness audit.
 
 ### Allowed
 
@@ -990,8 +1028,6 @@ Native overview disclosures hold longer indexes and statistics below the banner.
   1240px, `.hadith` 68rem, `.rijal-page` ~955px. Not yet reconciled.
 - **Input state coverage is partial.** Selects and number inputs generally have
   default + hover + focus but no `:active` or `:disabled` styling.
-- **`motion.css` is a stub** kept only for its reduced-motion block; it can be
-  deleted once no entry point imports both it and `global.css`.
 - **The catalogue's `--display` stat cell states "Not stored / Authenticity
   gradings"**: a deliberate anti-claim, not a metric. Keep it worded, never
   numeric.
@@ -1029,7 +1065,20 @@ Rules that hold it together:
 
 ## Research projects
 
-`ResearchHero.astro` is one shell with six faces. Shared: the engraved ground,
+`/projects/history/` is a fixed-dark editorial archive introduction, with its own
+river-panorama hero, factual scope register and substantial horizontal source
+jackets. `HistorySourceCard.astro` keeps the illustration, source identity and
+availability together; native edition disclosures expand below the jacket.
+`history.css` uses the locked house palette and typography. Planned capabilities
+and a provenance closing lead directly into the unchanged shared footer. Full
+texts, maps and timelines are explicitly in preparation. A future long-form
+reader may follow the reader theme; this introduction remains a plate in both
+themes, like the Projects index. Artwork is original and interpretive, not
+documentation of particular events. Evidence, provenance and the requirement
+audit live in `docs/history-source-inventory.md`, `docs/history-artwork.md` and
+`docs/history-redesign-checklist.md`.
+
+`ResearchHero.astro` is one shell with six active faces. Shared: the engraved ground,
 the Cormorant title with the discipline's Arabic name beneath it, the ornament
 rule, the register bar of figures. Not shared: the `signature` slot, where each
 project sets one instrument drawn from its own data.
@@ -1051,3 +1100,67 @@ The seven `public/images/platform/` engravings have 2172px originals and 1086px
 responsive derivatives. These are conceptual illustrations, not reproductions of
 historical artifacts or evidence for research claims. Prompts and subjects are
 recorded in `docs/platform-artwork-prompts.json` and `docs/platform-redesign.md`.
+
+## Compilation landing pages (2026-10-11)
+
+`/hadith/collection/:slug` uses `collection-page.css`: an engraved manuscript
+library hero with stacked English and Arabic titles, a parchment register of
+the collection's actual narration, division and chapter counts, a scoped search
+form, and illustrated links into its books or sections. The page root is a
+fixed-dark plate; parchment statistics keep their own paper inks. Illustrations
+are conceptual decoration, documented in `docs/compilation-artwork-prompts.json`.
+Titles and counts come unchanged from corpus metadata and collection structure.
+
+The enhanced catalogue starts with nine entries, offers title and length
+filters, ordering, grid/list views and a view-all control. Without JavaScript,
+every book link and the real collection search form remain available. The
+narration sequence and its browser-side static corpus queries retain their
+existing behavior.
+
+## Project pages (2026-10-08)
+
+The Qur'an sura pages (`SuraQiraat.astro`), the tafsir sura pages
+(`SuraTafsir.astro`), the reader pages (`/projects/quran/readers/[id]`) and the
+Fiqh Compass overview share one layer, `src/styles/project-pages.css`, built
+after `/resources`. Everything in it reads the theme tokens, so these pages keep
+the light theme.
+
+| Part | Class | Rule |
+|---|---|---|
+| Hero | `.pj-hero` | Eyebrow (with prev and next where there are neighbours), title with its Arabic name, one line of context, at most two chips or one button. Flat ground, one hairline below. No side panel. |
+| How to read | `.pj-about` | Closed native disclosures directly under the hero for anything that used to sit in a hero panel. |
+| Disclosure | `.pj-disc`, `--row`, `--card`, `--quiet` | One accordion: a `<details>` with a drawn chevron. Works with scripting off. |
+| Section head | `.pj-head` | Title, a flat 1px rule, a plain count. |
+| Chip | `.pj-chip` | A link, a toggle (`.pj-chip__input` radio or checkbox) or a disclosure summary. Never inert. |
+| Dot | `.pj-dot` | A person's or an era's color beside a name. |
+| Card | `.pj-card` | Surface-1, full 1px border. |
+| Toolbar | `.pj-toolbar` | Filters left, Expand all and Collapse all right. The buttons ship `hidden` and the page's module reveals them. Sticky above 1000px. |
+| Legend | `.pj-legend` | One per page, in a `<details>` popover. |
+| Pager | `.pj-pager` | Previous, the index, next. |
+
+One width and one measure per page: `--pj-width` (1240px for the Qur'an and
+Fiqh pages, 1100px for tafsir, 960px for readers) and `--pj-measure` (42rem).
+Cream is not used as a panel ground on these pages; Arabic sits on the card
+surface. The collation grid states "reported" and "not stated" in words with a
+dashed or dotted full border (the dense overview uses `r` and `–`, explained in
+the legend), and keeps the reader colors from `qiraat.css` unchanged.
+
+`scripts/check-contrast.mjs --open-details` opens every disclosure before
+measuring, because closed text is never painted and so never measured.
+
+## Corpus discovery and shared footer (2026-10-11)
+
+`/hadith/` uses `corpus-catalogue.css`: an engraved library masthead, parchment
+search desk, actual corpus totals, six illustrated collection links, and a
+compact chronological catalogue. Default ordering is by compiler death year,
+earliest first, with works by the same compiler together. Display metadata and
+its sources are documented in `docs/corpus-catalogue.md`; corpus titles and
+counts remain unchanged. Local filters and grid/list views enhance the static
+catalogue without making corpus queries. The search and reading surfaces keep
+their light theme; illustrations remain dark plates.
+
+`SiteFooter.astro` uses `site-footer.css` across the site. Its directory, signup
+and social channels sit above a shallow panorama. Research principles retain
+their wording inside a native disclosure. Directory groups are native
+disclosures, open on desktop and closed initially on phones with JavaScript.
+Without JavaScript all directory links remain visible.

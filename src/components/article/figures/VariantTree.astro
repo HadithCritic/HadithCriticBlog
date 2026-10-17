@@ -1,10 +1,24 @@
 ---
-// A compact transmission map: shared report, common transmitter, then variants.
+/**
+ * One bottleneck fanning into several wordings of the matn. The head is the
+ * transmission: the root and the common transmitter as a short chain. Below
+ * it the wordings stand one above another on parchment, each version the
+ * full width: a version letter and its sources, the transmitter and route,
+ * the Arabic, the English.
+ *
+ * `marks` lists the exact words that differ, in either language; each is
+ * highlighted where it first occurs in that version's Arabic or English.
+ * Styled in src/styles/article-plates.css, "Variant tree".
+ */
 export interface VariantBranch {
   name: string;
   from?: string;
+  /** The wording in Arabic, set above the English. */
+  arabic?: string;
   quote: string;
   sources: string;
+  /** Exact substrings to highlight as the point of difference. */
+  marks?: string[];
 }
 
 export interface Props {
@@ -15,185 +29,67 @@ export interface Props {
   ariaLabel?: string;
 }
 
+interface Part {
+  text: string;
+  marked: boolean;
+}
+
+/** Splits a text at the first occurrence of each mark, in reading order. */
+function markText(text: string, marks: string[] = []): Part[] {
+  const hits = marks
+    .map((mark) => ({ mark, at: mark ? text.indexOf(mark) : -1 }))
+    .filter((hit) => hit.at >= 0)
+    .sort((a, b) => a.at - b.at);
+  const parts: Part[] = [];
+  let cursor = 0;
+  for (const { mark, at } of hits) {
+    if (at < cursor) continue;
+    if (at > cursor) parts.push({ text: text.slice(cursor, at), marked: false });
+    parts.push({ text: mark, marked: true });
+    cursor = at + mark.length;
+  }
+  if (cursor < text.length) parts.push({ text: text.slice(cursor), marked: false });
+  return parts;
+}
+
 const { title, root, bottleneck, branches, ariaLabel } = Astro.props;
+const letter = (index: number) => String.fromCharCode(65 + index);
 ---
 
 <figure class="variant-tree" aria-label={ariaLabel || title}>
-  <figcaption class="variant-tree__heading">
+  <figcaption class="variant-tree__head">
     <span class="variant-tree__eyebrow">Transmission variants</span>
     <span class="variant-tree__title">{title}</span>
   </figcaption>
 
-  <div class="variant-tree__trunk">
+  <p class="variant-tree__trunk">
     <span class="variant-tree__root">{root}</span>
-    <span class="variant-tree__connector" aria-hidden="true"></span>
+    <span class="variant-tree__arrow" aria-hidden="true"></span>
     <span class="variant-tree__bottleneck">
-      <span class="variant-tree__bottleneck-tag">Common transmitter</span>
+      <span class="variant-tree__tag">Common transmitter</span>
       <span class="variant-tree__bottleneck-name">{bottleneck}</span>
     </span>
-  </div>
+  </p>
 
-  <ol class="variant-tree__branches">
+  <ol class="variant-tree__versions">
     {branches.map((branch, index) => (
-      <li class="variant-tree__branch">
-        <div class="variant-tree__branch-heading">
-          <span class="variant-tree__branch-index">{String(index + 1).padStart(2, '0')}</span>
-          <span class="variant-tree__name">{branch.name}</span>
-          {branch.from && <span class="variant-tree__from">via {branch.from}</span>}
-        </div>
-        <blockquote class="variant-tree__quote">{branch.quote}</blockquote>
-        <p class="variant-tree__sources">{branch.sources}</p>
+      <li class="variant-tree__version">
+        <p class="variant-tree__version-head">
+          <span class="variant-tree__letter">Version {letter(index)}</span>
+          <span class="variant-tree__sources">{branch.sources}</span>
+        </p>
+        <p class="variant-tree__name">
+          {branch.name}{branch.from && <span class="variant-tree__from"> via {branch.from}</span>}
+        </p>
+        {branch.arabic && (
+          <p class="variant-tree__ar" lang="ar" dir="rtl">
+            {markText(branch.arabic, branch.marks).map((part) => (part.marked ? <mark>{part.text}</mark> : part.text))}
+          </p>
+        )}
+        <p class:list={['variant-tree__quote', { 'variant-tree__quote--alone': !branch.arabic }]}>
+          {markText(branch.quote, branch.marks).map((part) => (part.marked ? <mark>{part.text}</mark> : part.text))}
+        </p>
       </li>
     ))}
   </ol>
 </figure>
-
-<style>
-  .variant-tree {
-    margin: clamp(2rem, 4vw, 3rem) 0;
-    padding: 1rem 0 0;
-    border-top: 1px solid var(--hc-rule-soft);
-    color: var(--hc-text-primary);
-  }
-
-  .variant-tree__heading {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .variant-tree__eyebrow,
-  .variant-tree__bottleneck-tag {
-    color: var(--hc-text-tertiary);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    font-weight: 500;
-    font-variant-caps: small-caps;
-    letter-spacing: 0.05em;
-  }
-
-  .variant-tree__title {
-    color: var(--hc-text-secondary);
-    font-size: 0.9rem;
-  }
-
-  .variant-tree__trunk {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    min-height: 2.2rem;
-    padding: 0 0 0.75rem;
-  }
-
-  .variant-tree__root {
-    color: var(--hc-text-primary);
-    font-family: var(--font-display);
-    font-size: 1rem;
-    line-height: 1.3;
-  }
-
-  .variant-tree__connector {
-    flex: 0 1 3rem;
-    min-width: 1rem;
-    border-top: 1px solid var(--hc-rule-strong);
-  }
-
-  .variant-tree__bottleneck {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.2rem 0.6rem;
-    padding-inline-start: 0.75rem;
-    border-inline-start: 2px solid var(--hc-gold-dim);
-  }
-
-  .variant-tree__bottleneck-name {
-    color: var(--hc-gold-soft);
-    font-size: 0.94rem;
-    font-weight: 600;
-  }
-
-  .variant-tree__branches {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
-    column-gap: 2rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  /* Each branch carries its own top rule, so a branch that wraps onto a new
-     row lines up with the ones above it. */
-  .variant-tree__branch {
-    min-width: 0;
-    padding: 0.8rem 0 0.6rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .variant-tree__branch-heading {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0.2rem 0.55rem;
-    margin-bottom: 0.4rem;
-  }
-
-  .variant-tree__branch-index {
-    color: var(--hc-gold-dim);
-    font-size: 0.75rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .variant-tree__name {
-    color: var(--hc-text-primary);
-    font-size: 0.9rem;
-    font-weight: 600;
-  }
-
-  .variant-tree__from {
-    color: var(--hc-text-tertiary);
-    font-size: 0.8rem;
-  }
-
-  .variant-tree__quote {
-    margin: 0 0 0.45rem;
-    color: var(--hc-text-secondary);
-    font-size: 0.91rem;
-    line-height: 1.5;
-  }
-
-  .variant-tree__sources {
-    margin: 0;
-    color: var(--hc-text-tertiary);
-    font-size: 0.78rem;
-    line-height: 1.45;
-  }
-
-  @media (max-width: 640px) {
-    .variant-tree__trunk {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0.35rem;
-    }
-
-    .variant-tree__connector {
-      flex: 0 0 0.9rem;
-      min-width: 0;
-      margin-inline-start: 0.25rem;
-      border-top: 0;
-      border-inline-start: 1px solid var(--hc-rule-strong);
-    }
-
-    .variant-tree__branch,
-    .variant-tree__branch + .variant-tree__branch {
-      padding: 0.75rem 0 0.4rem;
-      border-inline-start: 0;
-    }
-
-    .variant-tree__branch + .variant-tree__branch {
-      border-top: 1px solid var(--hc-rule-soft);
-    }
-  }
-</style>

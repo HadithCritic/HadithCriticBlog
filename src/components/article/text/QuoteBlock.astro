@@ -1,20 +1,28 @@
 ---
 /**
  * A quotation from a modern or classical author that is not scripture or a
- * report. Purely typographic: an indented passage with a hanging mark and an
- * attribution line, no box.
+ * report: a dark plate under the quill engraving, the passage in Cormorant
+ * behind a hanging mark, the author in the accent and the source beneath.
+ * A long passage drops to a reading size so it is not set as a display.
  */
+import { plainLength } from '../../../lib/article-text';
+
 export interface Props {
   author?: string;
   source?: string;
   sourceUrl?: string;
 }
 
+/** Past this many characters a quotation is read, not displayed. */
+const LONG_QUOTE = 360;
+
 const { author, source, sourceUrl } = Astro.props;
+const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
+const isLong = plainLength(body) > LONG_QUOTE;
 ---
 
-<figure class="hc-quote">
-  <blockquote class="hc-quote__text"><slot /></blockquote>
+<figure class:list={['hc-quote', { 'hc-quote--long': isLong }]}>
+  <blockquote class="hc-quote__text" set:html={body} />
   {(author || source) && (
     <figcaption class="hc-quote__by">
       {author && <span class="hc-quote__author">{author}</span>}

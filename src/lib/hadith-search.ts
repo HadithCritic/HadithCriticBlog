@@ -272,6 +272,8 @@ export function initHadithSearch(): void {
 
   function showCatalogue(show: boolean) {
     if (catalogue) catalogue.hidden = !show;
+    const core = body?.querySelector<HTMLElement>('.corpus-core');
+    if (core) core.hidden = !show;
   }
 
   function setFilters(state: SearchState, narratorName: string | null) {

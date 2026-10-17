@@ -7,6 +7,7 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { htmlText } from '../../src/lib/html-text.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const TOC_DIR = path.join(ROOT, 'data', 'ifta-toc');
@@ -38,16 +39,7 @@ export function validSnapshot(html, bookId) {
   );
 }
 
-const decode = (text) =>
-  text
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
-    .replace(/\s+/g, ' ')
-    .trim();
+const decode = (text) => htmlText(text).replace(/\s+/g, ' ').trim();
 
 /** The children listed on a level page: its links that go one level down, in page order. */
 export function children(html, bookId, parentId) {

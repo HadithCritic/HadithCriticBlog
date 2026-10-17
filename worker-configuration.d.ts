@@ -5,11 +5,6 @@ interface __BaseEnv_Env {
 	RESEND_API_KEY: string;
 	RESEND_SEGMENT_ID: string;
 	ADMIN_NOTIFY_TOKEN: string;
-	CLOUDFLARE_API_TOKEN: string;
-	CLOUDFLARE_ACCOUNT_ID: string;
-	CLOUDFLARE_ACCESS_KEY_ID: string;
-	CLOURDLARE_SECRET_ACCESS_KEY: string;
-	CLOUDFLARE_S3_API_ENDPOINT: string;
 }
 declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}
@@ -19,7 +14,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "RESEND_API_KEY" | "RESEND_SEGMENT_ID" | "ADMIN_NOTIFY_TOKEN" | "CLOUDFLARE_API_TOKEN" | "CLOUDFLARE_ACCOUNT_ID" | "CLOUDFLARE_ACCESS_KEY_ID" | "CLOURDLARE_SECRET_ACCESS_KEY" | "CLOUDFLARE_S3_API_ENDPOINT">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "RESEND_API_KEY" | "RESEND_SEGMENT_ID" | "ADMIN_NOTIFY_TOKEN">> {}
 }
 
 // Begin runtime types

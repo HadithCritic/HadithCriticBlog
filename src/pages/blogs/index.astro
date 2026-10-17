@@ -13,8 +13,7 @@ const posts = await getCollection('articles', ({ data }) => (import.meta.env.DEV
 const entries = toEntries(posts);
 const years = byYear(entries);
 
-const [lead, ...rest] = entries;
-const recent = rest.slice(0, 3);
+const [lead] = entries;
 
 /* The lead study's own section headings, as a contents list. */
 const { headings } = await render(lead.post);
@@ -28,8 +27,6 @@ const branches = CATEGORIES.map((category) => ({
   count: entries.filter((entry) => entry.post.data.category === category.name).length
 })).filter((branch) => branch.count > 0).sort((a, b) => b.count - a.count);
 
-const firstYear = years[years.length - 1]?.year;
-const lastYear = years[0]?.year;
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 ---
 
@@ -40,13 +37,14 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
 >
   <div class="hc-page hc-plate bi-page">
     <PageHero
+      class="bi-hero"
       title="Research, analysis,"
       accent="and critical inquiry."
       titleId="bi-title"
       kicker="Blog"
       art="/images/blog-editorial/hero.webp"
       focus="78% center"
-      measure="14ch"
+      measure="22ch"
     >
       <p class="hc-hero__lede">
         Critical studies, transmission forensics, and historical analyses of prophetic reports
@@ -55,19 +53,14 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
       <Fragment slot="actions">
         <a href="#archive" class="hc-btn">Search the archive <span aria-hidden="true">↓</span></a>
         <a href={`/blogs/${lead.post.id}/`} class="hc-btn hc-btn--ghost">Read the latest study</a>
-      </Fragment>
-      <Fragment slot="register">
-        <span><strong>{entries.length}</strong> studies</span>
-        <span><strong>{branches.length}</strong> research branches</span>
-        <span>Published <strong>{firstYear}</strong> to <strong>{lastYear}</strong></span>
-        <a href="/rss.xml">Follow by RSS</a>
+        <a href="/rss.xml" class="hc-btn hc-btn--ghost">Follow by RSS <span aria-hidden="true">↗</span></a>
       </Fragment>
     </PageHero>
 
-    <!-- The latest study, set as a leaf with its own contents, and the three before it. -->
+    <!-- The latest study, set as a leaf with its own contents. -->
     <section class="hc-band hc-band--soft bi-lead-band" aria-labelledby="bi-lead-title">
       <div class="hc-container">
-        <h2 id="bi-lead-title" class="sr-only">Latest studies</h2>
+        <h2 id="bi-lead-title" class="bi-lead-heading">Latest Published Blog:</h2>
 
         <article class="bi-lead hc-parchment" data-category={lead.post.data.category} data-timestamp={lead.post.data.date.valueOf()}>
           <div class="bi-lead__copy">
@@ -112,29 +105,6 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
             </figure>
           )}
         </article>
-
-        <div class="bi-recent">
-          <p class="hc-rubric">Recently published <span>The three studies before it</span></p>
-          <ol class="bi-recent__list">
-            {recent.map((entry) => (
-              <li class="bi-recent__item" data-category={entry.post.data.category}>
-                {entry.artwork ? (
-                  <img src={entry.artwork.srcset.split(' ')[0]} alt="" width="720" height="480" loading="lazy" decoding="async" />
-                ) : entry.thumb && (
-                  <img src={entry.thumb} alt="" width="720" height="480" loading="lazy" decoding="async" />
-                )}
-                <div class="bi-recent__body">
-                  <p class="bi-recent__cat"><span class="hc-cat" data-category={entry.post.data.category}>{entry.post.data.category}</span></p>
-                  <h3 class="bi-recent__title"><a href={`/blogs/${entry.post.id}/`}>{entry.post.data.title}</a></h3>
-                  <p class="hc-meta">
-                    <time datetime={entry.dateISO}>{entry.dateLabel}</time>
-                    <span>{entry.minutes} min read</span>
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
       </div>
     </section>
 

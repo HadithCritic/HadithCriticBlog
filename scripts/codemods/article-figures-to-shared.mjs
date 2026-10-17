@@ -12,6 +12,7 @@
 // grid the deleted stylesheet gave it.
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { htmlText } from '../../src/lib/html-text.mjs';
 
 const args = process.argv.slice(2);
 const WRITE = args.includes('--write');
@@ -159,7 +160,7 @@ function convertFile(file) {
      part from structure instead: repeated unclassed blocks are cells, a run
      of bare spans is a tag list, a short leading span is a cell's label. */
   const BLOCK = /^(article|div|section|figure|aside|details|blockquote)$/;
-  const innerText = (node) => src.slice(node.tag.end, findClose(node)).replace(/<[^>]+>/g, '').trim();
+  const innerText = (node) => htmlText(src.slice(node.tag.end, findClose(node))).trim();
   const structuralRole = (node) => {
     const t = node.tag;
     if (!t || /^[A-Z]/.test(t.name) || t.classes.length || t.selfClosing) return null;
@@ -269,7 +270,7 @@ function convertFile(file) {
         switch (info.role) {
           case 'ornament': classes = ['hc-fig__ornament']; break;
           case 'join': {
-            const text = src.slice(child.tag.end, findClose(child)).replace(/<[^>]+>/g, '').trim();
+            const text = innerText(child);
             classes = ['hc-fig__join', ...(/^[→←↓↑⟶⟵⇒⇐➜➔>»→\s]+$/u.test(text) ? ['hc-fig__join--arrow'] : [])];
             break;
           }

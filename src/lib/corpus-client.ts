@@ -631,9 +631,8 @@ export interface HadithNeighbour {
 }
 
 /**
- * The narrations either side of one record in its collection, in the order the
- * collection edition lists them (by id within the book). Two seeks on the same
- * (book_id, id) path the edition pager already uses.
+ * The narrations either side of one record in its collection, in printed order
+ * (by id within the book). Two seeks on the (book_id, id) path.
  */
 export async function getHadithNeighbours(
   bookId: number,
@@ -678,47 +677,7 @@ export async function getRecordsInRange(params: {
 }
 
 /* -------------------------------------------------------------------------- */
-/* One collection                                                              */
-/* -------------------------------------------------------------------------- */
-
-export interface CollectionPageParams {
-  bookId: number;
-  size?: number;
-  page?: number;
-  /** Seek past this id, in place of an OFFSET the database has to walk. */
-  after?: number | null;
-  before?: number | null;
-}
-
-export async function getCollectionRows(params: CollectionPageParams): Promise<HadithRecord[]> {
-  const size = Math.min(100, Math.max(1, params.size || 25));
-  const columns = `h.id, h.hadith_num, h.chapter_en, h.chapter_ar, h.matn_en, h.text_en,
-                   h.matn_ar, h.text_ar, h.narrator_count, h.parallel_count`;
-
-  if (params.after) {
-    return query<HadithRecord>(
-      `SELECT ${columns} FROM hadith h WHERE h.book_id = ? AND h.id > ? ORDER BY h.id LIMIT ?`,
-      [params.bookId, params.after, size]
-    );
-  }
-
-  if (params.before) {
-    const rows = await query<HadithRecord>(
-      `SELECT ${columns} FROM hadith h WHERE h.book_id = ? AND h.id < ? ORDER BY h.id DESC LIMIT ?`,
-      [params.bookId, params.before, size]
-    );
-    return rows.reverse();
-  }
-
-  const offset = (Math.max(1, params.page || 1) - 1) * size;
-  return query<HadithRecord>(
-    `SELECT ${columns} FROM hadith h WHERE h.book_id = ? ORDER BY h.id LIMIT ? OFFSET ?`,
-    [params.bookId, size, offset]
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Narrator register                                                           */
+/* Narrator register                                                          */
 /* -------------------------------------------------------------------------- */
 
 export interface NarratorSearchParams {

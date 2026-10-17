@@ -51,6 +51,16 @@ export function initAtlasExplorer() {
   const searchText = (id: string) => searchIndex.get(id) ?? '';
   const newest = (a: string, b: string) => (atlas[b].y ?? -Infinity) - (atlas[a].y ?? -Infinity) || atlas[a].t.localeCompare(atlas[b].t);
 
+  function siteHref(href: string): string | null {
+    try {
+      const url = new URL(href, location.origin);
+      if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.origin !== location.origin) return null;
+      return url.href;
+    } catch {
+      return null;
+    }
+  }
+
   function save(push = false) {
     const url = new URL(location.href);
     for (const [key, value] of [['q', input.value.trim()], ['theme', topic.value], ['sort', sort.value === 'newest' ? '' : sort.value], ['work', selected]]) {
@@ -63,7 +73,7 @@ export function initAtlasExplorer() {
   function workLink(id: string, className: string) {
     const entry = atlas[id];
     const link = element('a', className);
-    link.href = `#${id}`;
+    link.href = `#${encodeURIComponent(id)}`;
     link.dataset.explore = id;
     link.appendChild(element('span', 'entry__title', entry.t));
     link.appendChild(element('span', 'entry__meta', metadata(entry)));
@@ -132,7 +142,7 @@ export function initAtlasExplorer() {
     header.appendChild(element('p', 'focus__topics', entry.themes.join(' · ')));
     const actions = element('div', 'focus__actions');
     const full = element('a', 'hc-back-link hc-back-link--ruled', 'Bibliography and source notes');
-    full.href = `#${id}`;
+    full.href = `#${encodeURIComponent(id)}`;
     actions.appendChild(full);
     if (entry.d) {
       const doi = element('a', 'hc-back-link hc-back-link--ruled', 'Open work (DOI)');
@@ -149,9 +159,14 @@ export function initAtlasExplorer() {
       const list = element('ul', 'focus__site-list');
       entry.s.forEach(link => {
         const li = element('li', '');
-        const a = element('a', 'hc-back-link', link.label);
-        a.href = link.slug ? `/blogs/${link.slug}/` : link.href;
-        li.appendChild(a);
+        const href = siteHref(link.slug ? `/blogs/${link.slug.split('/').map(encodeURIComponent).join('/')}/` : link.href);
+        if (href) {
+          const a = element('a', 'hc-back-link', link.label);
+          a.href = href;
+          li.appendChild(a);
+        } else {
+          li.appendChild(element('span', '', link.label));
+        }
         list.appendChild(li);
       });
       site.appendChild(list);

@@ -252,7 +252,9 @@ export function scholarlyArticle(opts: {
 
 /** Serialize a set of nodes as one connected graph document. */
 export function graph(nodes: Graph[]): string {
-  return JSON.stringify({ '@context': 'https://schema.org', '@graph': nodes });
+  // JSON is embedded in a script element: a title containing </script> must
+  // remain data rather than terminate the element in the HTML parser.
+  return JSON.stringify({ '@context': 'https://schema.org', '@graph': nodes }).replace(/</g, '\\u003c');
 }
 
 /**
