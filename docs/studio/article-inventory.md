@@ -1,6 +1,6 @@
 # Studio article inventory
 
-Generated 2026-10-17T02:58:45.186Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
+Generated 2026-10-17T04:11:16.217Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
 
 - Articles: 85
 - Visual-safe candidate: 0
@@ -61,7 +61,7 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `prophecies-eschatology/35-fabricated-hadith-prophecy-the-conquest-of-constantinople` | source-only | imports, rawHtml, jsxExpressions, footnotes, customComponents | `e62431421af30c50c5f400f60b129ea280eff95c876d42d98511a9cd4fc172df` |
 | `prophecies-eschatology/4-dajjal-christian-antichrist-hadith` | source-only | imports, rawHtml, jsxExpressions, customComponents, tables | `03b860351c118ad730d2700f57b4bdd764bbe30a157cd918fd226a50c7af50c1` |
 | `prophecies-eschatology/77-faces-like-hammered-shields-the-turks-hadith-clusters` | source-only | imports, jsxExpressions, footnotes, customComponents, tables | `9e0187fae5c9ca0106a90bae6f9d6fde6af766590c36bb8d383095fad4ae4af0` |
-| `prophecies-eschatology/84-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `ec5f597f02aa593df1e1b7b199d92aa7d3ab469b57d59530daffb116490af231` |
+| `prophecies-eschatology/84-al-hasans-reconciliation-prophecy-and-al-amashs-kufan-dive` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `edb2fcf87da6bca7a920e147d3d01d056b395b010d1597703288b3d8885c1eb7` |
 | `prophecies-eschatology/9-the-satanic-verses-incident` | source-only | imports, customComponents | `8a1198fccb565bb45b57f12b372d0881b321496e9d9a41728933bdd73c013bf8` |
 | `theology-epistemology/1-apostasy-hadith-ikrimah-analysis` | source-only | imports, rawHtml, jsxExpressions, customComponents | `7d47d84038785b743af8a1c44a5934f56e54a01c53aabbb6b6d97955e0421a31` |
 | `theology-epistemology/14-the-salafi-paradox` | source-only | imports, namedSlots, rawHtml, footnotes, customComponents | `b09551bc19a9dc8efa3f0c8f92873ffec6f9fdff6a7932ac96b47460fe3de234` |
@@ -93,6 +93,6 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `transmission-narrators/66-humes-problem-of-induction-vs-hadith` | source-only | imports, rawHtml, footnotes, customComponents | `068b6f7abe6822c0349be1b686653295de9efc14065ef65244c8cc77059248ee` |
 | `transmission-narrators/78-the-scroll-and-the-sword-the-polemical-use-of-alis-authority` | source-only | imports, jsxExpressions, footnotes, customComponents | `a1d6785505fb06b23e87f812ecb144af877c10bc255b040d2ee5e9fbd05ea22f` |
 | `transmission-narrators/80-the-kharijite-and-the-beast` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `39a5d48e7dfed0cc33238f45bfb6d7ea2f6c40dd8338102a804238cb851a65c9` |
-| `transmission-narrators/82-the-bottleneck-fussilat-misses` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `9b547db451a1e44679a80b265210defca955da8ec03bd74f37741eb4acfd2fb4` |
-| `transmission-narrators/83-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel` | source-only | imports, jsxExpressions, footnotes, customComponents | `66d0c7741bb2ff1fb780093072f896931a5c67f05a60993537727b3ceceea690` |
-| `transmission-narrators/85-aisha-and-the-quran-as-criterion` | source-only | imports, jsxExpressions, footnotes, customComponents | `e07147b3977982ca084b85b306e2f30f79d55f5b0622d01bb6a66781b0af488b` |
+| `transmission-narrators/82-the-bottleneck-fussilat-misses` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `692c7aa9ea6e3a737803c72e7af005a1341454bea33ff62a8f4f90e97ebb4f70` |
+| `transmission-narrators/83-the-woman-ruler-hadith-abu-bakra-and-the-battle-of-the-camel` | source-only | imports, jsxExpressions, footnotes, customComponents | `0decd1d870845280ddfad1451d4a4b96376605666dc5d01c3e54928a8f467274` |
+| `transmission-narrators/85-aisha-and-the-quran-as-criterion` | source-only | imports, jsxExpressions, footnotes, customComponents | `d0c8d695effb82ffe2271277c8dff5b7bc22cce3dc9ec07b3a440e7df1048082` |
