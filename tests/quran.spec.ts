@@ -170,6 +170,7 @@ test.describe('Quran project navigation', () => {
     expect(variantUrl.hash).toMatch(/^#variant_/);
 
     await page.goto(variantHref!);
+    await expect(page.locator('#qv-search-status')).toContainText('source records match');
     const linkedRecord = page.locator(variantUrl.hash);
     await expect(linkedRecord).toBeVisible();
     const linkedCandidates = linkedRecord.locator('.qv-record__alignments');

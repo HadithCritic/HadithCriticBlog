@@ -859,8 +859,9 @@ change to the palette or type.
 `--ease-standard cubic-bezier(.22,1,.36,1)` ·
 `--ease-emphasis cubic-bezier(.16,1,.3,1)` · `--ease` (legacy alias of emphasis).
 
-All live in `global.css :root`. `motion.css` retains only the global
-`prefers-reduced-motion` block; its token block was dead code and was removed.
+All live in `global.css :root`. The global `prefers-reduced-motion` block
+also lives there. The duplicate motion stylesheet and unused GSAP runtime
+were removed during the production-readiness audit.
 
 ### Allowed
 
@@ -1027,8 +1028,6 @@ Native overview disclosures hold longer indexes and statistics below the banner.
   1240px, `.hadith` 68rem, `.rijal-page` ~955px. Not yet reconciled.
 - **Input state coverage is partial.** Selects and number inputs generally have
   default + hover + focus but no `:active` or `:disabled` styling.
-- **`motion.css` is a stub** kept only for its reduced-motion block; it can be
-  deleted once no entry point imports both it and `global.css`.
 - **The catalogue's `--display` stat cell states "Not stored / Authenticity
   gradings"**: a deliberate anti-claim, not a metric. Keep it worded, never
   numeric.

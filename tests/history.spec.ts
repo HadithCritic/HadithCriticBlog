@@ -1,17 +1,17 @@
 import { expect, test } from '@playwright/test';
+import { deathDate, historySources } from '../src/data/history';
 
 const route = '/projects/history/';
-const titles = ['Tārīkh Khalīfa ibn Khayyāṭ', 'Futūḥ al-buldān', 'The History of al-Ṭabarī'];
+const titles = historySources.map(source => source.title);
 
-test('the archive identifies its three real sources and makes publication limits explicit', async ({ page, request }) => {
+test('the archive identifies its sources and makes publication limits explicit', async ({ page, request }) => {
   await page.goto(route);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('History (Tārīkh)');
-  await expect(page.locator('[data-history-source]')).toHaveCount(3);
+  await expect(page.locator('[data-history-source]')).toHaveCount(historySources.length);
   const paintings = new Set<string>();
   for (const title of titles) {
     const source = page.getByRole('article', { name: title, exact: true });
     await expect(source.getByRole('heading', { level: 3 })).toBeVisible();
-    await expect(source.getByText('Full text not yet published', { exact: true })).toBeVisible();
     await expect(source.locator('[lang="ar"][dir="rtl"]')).toBeVisible();
     const image = source.getByRole('img');
     await image.scrollIntoViewIfNeeded();
@@ -24,22 +24,22 @@ test('the archive identifies its three real sources and makes publication limits
     expect(response.status()).toBe(200);
     expect(response.headers()['content-type']).toContain('image/webp');
   }
-  expect(paintings.size).toBe(3);
-  await expect(page.getByText('These capabilities are in preparation.')).toBeVisible();
-  await expect(page.getByText(/They do not document particular events/)).toBeVisible();
+  expect(paintings.size).toBe(historySources.length);
+  await expect(page.locator('.history-library__head')).toContainText('Coming soon');
+  await expect(page.locator('.history-approach__status')).toHaveText('Coming soon');
+  await expect(page.locator('.history-art-note')).toContainText('they are not evidence for the historical claims');
   await expect(page.locator('a[href*="/projects/history/read"]')).toHaveCount(0);
 });
 
-test('each record states where its source stands, without JavaScript', async ({ browser }) => {
+test('each record retains its source identity and description without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
   await page.goto(route);
-  for (const title of titles) {
-    const source = page.getByRole('article', { name: title, exact: true });
-    const record = source.getByRole('region', { name: `Where ${title} stands` });
-    await expect(record).toBeVisible();
-    await expect(record.locator('.history-source__note')).not.toBeEmpty();
-    await expect(record.locator('.history-source__reference')).not.toBeEmpty();
+  for (const entry of historySources) {
+    const source = page.getByRole('article', { name: entry.title, exact: true });
+    await expect(source.locator('.history-source__author')).toContainText(entry.author);
+    await expect(source.locator('.history-source__description')).toHaveText(entry.description);
+    await expect(source.locator('[lang="ar"]')).toHaveText(entry.arabic);
   }
   const zoom = page.locator('[data-history-zoom]').first();
   await expect(zoom).toHaveAttribute('href', /\.webp$/);
@@ -52,17 +52,17 @@ test('each record states where its source stands, without JavaScript', async ({ 
 test('the chronology lists the authors in order and links to their works', async ({ page }) => {
   await page.goto(route);
   const events = page.locator('.history-timeline__events a');
-  await expect(events).toHaveCount(3);
+  await expect(events).toHaveCount(historySources.length);
   const dates = await events.locator('.history-timeline__date').allTextContents();
-  expect(dates).toEqual(['d. 240/854', 'd. c. 279/892', 'd. 310/923']);
-  await events.nth(2).click();
+  expect(dates).toEqual(historySources.map(deathDate));
+  await page.locator('.history-timeline__events a[href="#al-tabari"]').click();
   await expect(page).toHaveURL(/#al-tabari$/);
-  await expect(page.getByRole('heading', { level: 3, name: 'The History of al-Ṭabarī' })).toBeInViewport();
+  await expect(page.getByRole('heading', { level: 3, name: historySources.find(source => source.id === 'al-tabari')!.title, exact: true })).toBeInViewport();
 });
 
 test('a painting opens in the viewer and focus returns to it on close', async ({ page }) => {
   await page.goto(route);
-  const zoom = page.locator('[data-history-zoom]').nth(1);
+  const zoom = page.locator('#al-baladhuri [data-history-zoom]');
   await zoom.scrollIntoViewIfNeeded();
   await zoom.focus();
   await page.keyboard.press('Enter');

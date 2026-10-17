@@ -12,11 +12,16 @@
 import verses from '../../../data/quran-verses.json';
 import suraNames from '../../../data/quran-sura-names.json';
 import { quranWords } from '../../../lib/article-text';
+import { markedSourceParts as markedParts } from '../../../lib/source-highlight';
 
 export interface Props {
   verse: string;
   /** Overrides the citation line, which defaults to "Quran <refs>". */
   label?: string;
+  /** Exact English wording whose words should be highlighted in the complete verse. */
+  highlightEnglish?: string[];
+  /** Exact Arabic wording whose words should be highlighted in the complete verse. */
+  highlightArabic?: string[];
 }
 
 interface SuraName {
@@ -26,7 +31,7 @@ interface SuraName {
 
 const data = verses as Record<string, { ar: string; en: string }>;
 const names = new Map((suraNames as SuraName[]).map((s) => [s.n, s.latin]));
-const { verse, label } = Astro.props;
+const { verse, label, highlightEnglish = [], highlightArabic = [] } = Astro.props;
 
 function expand(ref: string): string[] {
   const out: string[] = [];
@@ -62,10 +67,18 @@ const suraLine = suras.length === 1
     {shown.map((v) => (
       <div class="hc-verse__row">
         <a class="hc-verse__badge" href={`${WIKISUBMISSION}${v.ref}`} target="_blank" rel="noopener noreferrer" aria-label={`Quran ${v.ref} on WikiSubmission`}>{v.ref}</a>
-        {v.en && <p class="hc-verse__en" data-source-quoted>{v.en}</p>}
+        {v.en && (() => {
+          const parts = v.en.split(/(\s+)/);
+          const marked = markedParts(parts, highlightEnglish, false);
+          return <p class="hc-verse__en" data-source-quoted>{parts.map((part, index) => marked.has(index) ? <mark class="hc-source-mark">{part}</mark> : part)}</p>;
+        })()}
         {v.ar && (
           <p class="hc-verse__ar" lang="ar" dir="rtl" data-source-primary>
-            {quranWords(v.ar).map((word) => <><span class="hc-verse__word">{word}</span>{' '}</>)}
+            {(() => {
+              const words = quranWords(v.ar);
+              const marked = markedParts(words, highlightArabic, true);
+              return words.map((word, index) => <><span class="hc-verse__word">{marked.has(index) ? <mark class="hc-source-mark">{word}</mark> : word}</span>{' '}</>);
+            })()}
           </p>
         )}
       </div>

@@ -21,7 +21,8 @@ No database server is in the request path for any public page.
   `/narrators`.
 - **No UI framework anywhere.** No React, Preact, Svelte or Vue, and no islands.
   Interactivity is server-rendered HTML plus a small vanilla module
-  (`src/lib/narrator-register.ts`). `gsap` is the only client-side dependency.
+  (`src/lib/narrator-register.ts`). Motion uses CSS; the unused GSAP runtime
+  was removed during the production-readiness audit.
   Do not add a framework to solve a styling or animation problem.
 - **The corpus is on disk** at `dist-db/builds/<version>/hadith.db` (1.62 GB),
   built from `dist-db/silsilah.db` by `npm run build:corpus`. Read it directly
@@ -148,6 +149,11 @@ No database server is in the request path for any public page.
   it has no terminal) and `server.host`. Alternating foreground, daemon and
   `npm run build` therefore clears the content store and re-optimizes once;
   the next start in the same mode is warm. It is not a regression.
+- **Dev and build must have separate Vite caches.** The config integration
+  uses `node_modules/.vite-hc-dev` for dev and `.vite-hc-build` for builds and
+  type checks. Sharing optimized Astro runtime modules while both run caused
+  the dev renderer to fall back to its production environment and fail to
+  resolve `ProjectNavigation.astro?astro&type=script`. Keep the caches separate.
 - **Dev reads its own corpus, whatever `.env` says.** `.env` carries the
   production `PUBLIC_CORPUS_BASE_URL` for the build and publish scripts, and
   Vite loads `.env` in dev too. Dev used to inherit it and ask R2 for the
@@ -293,6 +299,11 @@ node scripts/check-contrast.mjs --json         # composited bg and DOM path
 corpus routes fail as "never rendered". It is
 not in `validate` only because it needs a live server rather than a build.
 
+`build:e2e` also includes draft article routes with `noindex` so the reader
+suite covers articles awaiting publication. It does not change their source
+metadata. Use a normal `build` for production. Studio rendered fixtures for
+draft articles must be refreshed and checked against this end-to-end build.
+
 Run `check`, `test:design` and `build` before finishing any UI change.
 
 ## Where things live
@@ -310,7 +321,6 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/styles/article.css` | The article reader's page, header, prose and the base parts of the figure vocabulary. Read DESIGN.md "Article reader" first. |
 | `src/styles/article-plates.css` | Every article component that draws its own ground: notes, sources, quotes, tables, figure layouts, media, footnotes. |
 | `src/components/article/` | Article components in `shell/`, `text/`, `sources/`, `media/`, `figures/`. Author guide: `docs/COMPONENT-GUIDE.md`. |
-| `src/styles/motion.css` | A stub kept only for its reduced-motion block. |
 | `src/pages/hadith/**` | Corpus catalogue, collection edition, hadith record. |
 | `src/pages/narrators/**` | Rijāl register, dossier, comparison. |
 | `docs/static-corpus.md` | The static corpus: build, publish, measure, traps. |

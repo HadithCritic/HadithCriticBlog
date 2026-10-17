@@ -20,7 +20,7 @@ test('Homepage archive leads with one study and links every research branch',asy
    await expect(row).toHaveAttribute('data-category',(await branch.getAttribute('data-home-filter'))!);
   }
  }
- await expect(page.locator('.home-project')).toHaveCount(6);
+ await expect(page.locator('.home-project')).toHaveCount(8);
 });
 
 test('ICMA filters retain family counts, query state, and reset behavior',async({page})=>{

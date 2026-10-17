@@ -13,6 +13,7 @@
  */
 import { renderArabic } from '../../../lib/format-text';
 import { isArabicOnly } from '../../../lib/article-text';
+import { highlightSource as marked } from '../../../lib/source-highlight';
 
 export interface Props {
   label?: string;
@@ -28,9 +29,13 @@ export interface Props {
   isnad?: string;
   /** A link to the source the report is quoted from. */
   url?: string;
+  /** Exact phrases to emphasize in the English translation. */
+  highlightEnglish?: string[];
+  /** Exact phrases to emphasize in the Arabic source text. */
+  highlightArabic?: string[];
 }
 
-const { label, title, arabic, translation, english, source, reference, isnad, url } = Astro.props;
+const { label, title, arabic, translation, english, source, reference, isnad, url, highlightEnglish = [], highlightArabic = [] } = Astro.props;
 
 const heading = title ?? label;
 const english_ = translation ?? english;
@@ -39,6 +44,7 @@ const citation = source ?? reference;
 const body = Astro.slots.has('default') ? (await Astro.slots.render('default')).trim() : '';
 /* A slot holding bare Arabic (no wrapper) is set as Arabic, not as Latin prose. */
 const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[^>]*>/g, ''));
+
 ---
 
 <figure class="hc-report hc-report--leaf" data-source>
@@ -47,10 +53,10 @@ const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[
     {(isnad || english_) && (
       <div class="hc-report__en">
         {isnad && <p class="hc-report__chain">{isnad}</p>}
-        {english_ && <p class="hc-report__matn" data-source-quoted>{english_}</p>}
+        {english_ && <p class="hc-report__matn" data-source-quoted set:html={marked(english_, highlightEnglish, (value) => value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)))} />}
       </div>
     )}
-    {arabic && <p class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={renderArabic(arabic)} />}
+    {arabic && <p class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={marked(arabic, highlightArabic, renderArabic)} />}
     {body && (bareArabic
       ? <div class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={body} />
       : <div class="hc-report__slot" set:html={body} />)}

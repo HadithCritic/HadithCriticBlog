@@ -44,10 +44,10 @@ const getWithDeadline = async (ms) => {
   }
 };
 
-const responds = async () => {
+const responds = async (timeoutMs = 2_000) => {
   try {
     // A 404 still proves a server is listening, which is all we need.
-    await getWithDeadline(2_000);
+    await getWithDeadline(timeoutMs);
     return true;
   } catch {
     return false;
@@ -177,14 +177,20 @@ if (!bail) {
   // Keep the event loop actively alive and periodically verify server health.
   // This prevents Node.js 22+ exit code 13 ("Unfinished Top-Level Await") and
   // immediately reports if the server terminates during test execution.
+  let consecutiveFailures = 0;
   monitorInterval = setInterval(async () => {
     if (closing) return;
-    const alive = await responds();
-    if (!alive && !closing) {
-      console.error(`[preview] Server at ${URL_} stopped responding unexpectedly.`);
-      await shutdown('SERVER_DOWN');
+    const alive = await responds(5_000);
+    if (!alive) {
+      consecutiveFailures++;
+      if (consecutiveFailures >= 3 && !closing) {
+        console.error(`[preview] Server at ${URL_} stopped responding unexpectedly.`);
+        await shutdown('SERVER_DOWN');
+      }
+    } else {
+      consecutiveFailures = 0;
     }
-  }, 2_000);
+  }, 3_000);
 
   // Also handle stdin closure from parent runner (e.g. Playwright)
   if (process.stdin.isTTY === false) {

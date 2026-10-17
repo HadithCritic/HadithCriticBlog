@@ -17,7 +17,9 @@ function frontmatterValue(source, key) {
 }
 
 for (const path of paths.sort()) {
-  const source = await readFile(path, 'utf8');
+  // Git checks sources out as CRLF on Windows and LF on Linux. Inventory the
+  // canonical Git text, so a checkout alone cannot break preservation checks.
+  const source = (await readFile(path, 'utf8')).replaceAll('\r\n', '\n');
   const features = {
     imports: /^import\s/m.test(source),
     namedSlots: /<Fragment\s+slot=/.test(source),

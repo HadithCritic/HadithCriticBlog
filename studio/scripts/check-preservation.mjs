@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 const fixtures=JSON.parse(await readFile('docs/studio/rendered-fixtures.json','utf8'));
 for(const fixture of fixtures.fixtures){
-  const source=await readFile(`src/content/articles/${fixture.id}.mdx`);
+  const source=(await readFile(`src/content/articles/${fixture.id}.mdx`,'utf8')).replaceAll('\r\n','\n');
   assert.equal(createHash('sha256').update(source).digest('hex'),fixture.sourceSha256,fixture.id);
   const html=await readFile(`dist/client/blogs/${fixture.id}/index.html`,'utf8');
   const headings=[...html.matchAll(/<h([1-6])\b[^>]*\bid="([^"]+)"[^>]*>/g)].map(match=>({depth:Number(match[1]),id:match[2]}));

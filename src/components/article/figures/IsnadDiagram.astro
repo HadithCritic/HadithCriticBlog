@@ -256,7 +256,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 ---
 
 <figure class:list={['isnad-figure', className]} data-isnad>
-  <div class="isnad-toolbar">
+  <div class="isnad-toolbar" hidden>
     <span class="isnad-hint">Select a narrator to trace their strand</span>
     <div class="isnad-actions">
       <button
@@ -289,7 +289,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   </div>
 
   <div class="isnad-frame" data-isnad-stage>
-    <svg class="isnad-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={ariaLabel}>
+    <svg class="isnad-svg" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={ariaLabel}>
       {effectiveTiers.map((tier) => (
         <text class="tier" x="18" y={tier.y + 4} style={`--d:${tierDelay(tier)}ms`}>
           {tier.label}
@@ -333,8 +333,6 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
             data-node-kind={node.kind ?? 'normal'}
             data-label={node.label ?? ''}
             data-sublabel={node.sublabel ?? ''}
-            tabindex="0"
-            role="button"
             aria-label={`${node.label ?? node.id} (${node.kind ?? 'narrator'})`}
           >
             {node.kind === 'cl' && (
@@ -505,6 +503,10 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     margin-bottom: 0.35rem;
   }
 
+  .isnad-toolbar[hidden] {
+    display: none;
+  }
+
   .isnad-hint {
     color: var(--i-ink-3);
     font: 400 0.8rem/1.4 var(--font-ui);
@@ -560,7 +562,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     stroke: color-mix(in srgb, var(--i-accent) 55%, transparent);
     stroke-width: 1.3;
     stroke-dasharray: 1;
-    stroke-dashoffset: 1;
+    stroke-dashoffset: 0;
     transition: opacity 240ms ease, stroke 240ms ease, stroke-width 240ms ease;
   }
 
@@ -578,17 +580,17 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
   }
 
   .dive {
-    opacity: 0;
+    opacity: 1;
   }
 
   .node {
     fill: var(--i-bg);
     stroke: var(--i-accent);
     stroke-width: 1.4;
-    opacity: 0;
+    opacity: 1;
     transform-box: fill-box;
     transform-origin: center;
-    transform: scale(0.2);
+    transform: scale(1);
     transition: fill 200ms ease, stroke 200ms ease, transform 200ms ease;
   }
 
@@ -615,7 +617,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     fill: none;
     stroke: var(--i-accent);
     stroke-width: 0.8;
-    opacity: 0;
+    opacity: 0.55;
     transform-box: fill-box;
     transform-origin: center;
   }
@@ -629,7 +631,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
     fill: var(--i-ink);
     font-family: var(--font-ui);
     font-size: 12.5px;
-    opacity: 0;
+    opacity: 1;
     paint-order: stroke fill;
     stroke: var(--i-bg);
     stroke-width: 4px;
@@ -943,36 +945,40 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
   /* Drawing in */
   :global([data-isnad].play) .edge {
-    animation: drawEdge 0.8s var(--ease) var(--d, 0ms) forwards;
+    animation: drawEdge 0.8s var(--ease) var(--d, 0ms) both;
   }
 
   :global([data-isnad].play) .node {
-    animation: popNode 0.4s var(--ease) var(--d, 0ms) forwards;
+    animation: popNode 0.4s var(--ease) var(--d, 0ms) both;
   }
 
   :global([data-isnad].play) .cl-ring {
-    animation: ringPop 0.6s var(--ease) var(--d, 0ms) forwards;
+    animation: ringPop 0.6s var(--ease) var(--d, 0ms) both;
   }
 
   :global([data-isnad].play) .lbl,
   :global([data-isnad].play) .tier,
   :global([data-isnad].play) .dive {
-    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) forwards;
+    animation: fadeIn 0.5s var(--ease) var(--d, 0ms) both;
   }
 
   @keyframes drawEdge {
+    from { stroke-dashoffset: 1; }
     to { stroke-dashoffset: 0; }
   }
 
   @keyframes popNode {
+    from { opacity: 0; transform: scale(0.2); }
     to { opacity: 1; transform: scale(1); }
   }
 
   @keyframes ringPop {
+    from { opacity: 0; transform: scale(0.2); }
     to { opacity: 0.55; transform: scale(1); }
   }
 
   @keyframes fadeIn {
+    from { opacity: 0; }
     to { opacity: 1; }
   }
 
@@ -1015,6 +1021,8 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
       const modalStage = figure.querySelector('[data-modal-stage]');
       const modalViewport = figure.querySelector('[data-modal-viewport]');
       const zoomVal = figure.querySelector('[data-modal-zoom-val]');
+      const toolbar = figure.querySelector<HTMLElement>('.isnad-toolbar');
+      if (toolbar) toolbar.hidden = false;
 
       // 1. Build Adjacency Graph for Strand Tracing
       const nodeElements = Array.from(figure.querySelectorAll<HTMLElement>('[data-node]'));
@@ -1045,7 +1053,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
       function getConnectedStrand(startId: string) {
         const activeNodes = new Set<string>();
-        const activeEdges = new Set<Element>();
+        const activeEdges = new Set<string>();
 
         // Collect ancestors (upward)
         const queueUp = [startId];
@@ -1080,7 +1088,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
           const from = edgeEl.dataset.from;
           const to = edgeEl.dataset.to;
           if (from && to && activeNodes.has(from) && activeNodes.has(to)) {
-            activeEdges.add(edgeEl);
+            activeEdges.add(`${from}\0${to}`);
           }
         }
 
@@ -1094,8 +1102,9 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
         figure.classList.add('is-strand-active');
 
-        for (const el of nodeElements) {
+        for (const el of figure.querySelectorAll<SVGElement>('[data-node]')) {
           const id = el.dataset.nodeId;
+          el.setAttribute('aria-pressed', String(id === lockedNodeId));
           if (id && activeNodes.has(id)) {
             el.classList.add('is-active');
             el.classList.remove('is-dimmed');
@@ -1105,8 +1114,8 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
           }
         }
 
-        for (const el of edgeElements) {
-          if (activeEdges.has(el)) {
+        for (const el of figure.querySelectorAll<SVGElement>('[data-edge]')) {
+          if (activeEdges.has(`${el.dataset.from}\0${el.dataset.to}`)) {
             el.classList.add('is-active');
             el.classList.remove('is-dimmed');
           } else {
@@ -1162,10 +1171,11 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
       function clearStrand() {
         figure.classList.remove('is-strand-active');
-        for (const el of nodeElements) {
+        for (const el of figure.querySelectorAll<SVGElement>('[data-node]')) {
           el.classList.remove('is-active', 'is-dimmed');
+          el.setAttribute('aria-pressed', 'false');
         }
-        for (const el of edgeElements) {
+        for (const el of figure.querySelectorAll<SVGElement>('[data-edge]')) {
           el.classList.remove('is-active', 'is-dimmed');
         }
         if (tooltip) {
@@ -1173,9 +1183,12 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
         }
       }
 
-      for (const nodeEl of nodeElements) {
+      function bindNode(nodeEl: HTMLElement) {
         const id = nodeEl.dataset.nodeId;
-        if (!id) continue;
+        if (!id) return;
+        nodeEl.setAttribute('tabindex', '0');
+        nodeEl.setAttribute('role', 'button');
+        nodeEl.setAttribute('aria-pressed', 'false');
 
         nodeEl.addEventListener('pointerenter', () => {
           if (!lockedNodeId) highlightStrand(id, nodeEl);
@@ -1183,6 +1196,24 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
         nodeEl.addEventListener('pointerleave', () => {
           if (!lockedNodeId) clearStrand();
+        });
+
+        nodeEl.addEventListener('focus', () => {
+          if (!lockedNodeId) highlightStrand(id, nodeEl);
+        });
+        nodeEl.addEventListener('blur', () => {
+          if (!lockedNodeId) clearStrand();
+        });
+        nodeEl.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            nodeEl.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          } else if (event.key === 'Escape' && lockedNodeId) {
+            event.preventDefault();
+            event.stopPropagation();
+            lockedNodeId = null;
+            clearStrand();
+          }
         });
 
         nodeEl.addEventListener('click', (e: Event) => {
@@ -1196,6 +1227,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
           }
         });
       }
+      nodeElements.forEach(bindNode);
 
       document.addEventListener('click', (e: Event) => {
         if (!figure.contains(e.target as Node)) {
@@ -1243,7 +1275,7 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
 
         function updateModalTransform() {
           if (modalStage) {
-            (modalStage as HTMLElement).style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+            (modalStage as HTMLElement).style.transform = `translate(-50%, -50%) translate(${panX}px, ${panY}px) scale(${zoom})`;
           }
           if (zoomVal) {
             zoomVal.textContent = `${Math.round(zoom * 100)}%`;
@@ -1258,10 +1290,13 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
         }
 
         expandBtn.addEventListener('click', () => {
+          lockedNodeId = null;
+          clearStrand();
           modalStage.innerHTML = '';
           const clonedSvg = svg.cloneNode(true) as SVGSVGElement;
           clonedSvg.removeAttribute('style');
           modalStage.appendChild(clonedSvg);
+          clonedSvg.querySelectorAll<HTMLElement>('[data-node]').forEach(bindNode);
           resetZoom();
           modal.showModal();
         });
@@ -1343,6 +1378,10 @@ const hasPcl = effectiveNodes.some((node) => node.kind === 'pcl');
         }, { passive: true });
 
         modal.addEventListener('close', () => {
+          isDragging = false;
+          modalViewport.classList.remove('is-dragging');
+          lockedNodeId = null;
+          clearStrand();
           modalStage.innerHTML = '';
         });
       }

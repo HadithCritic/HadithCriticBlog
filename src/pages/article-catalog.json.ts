@@ -12,11 +12,11 @@ import { getCollection } from 'astro:content';
  * file it is fetched once and cached.
  */
 export const GET: APIRoute = async () => {
-  const articles = await getCollection('articles', ({ data }) => import.meta.env.DEV || !data.draft);
+  const articles = await getCollection('articles', ({ data }) => !data.preview && (import.meta.env.DEV || !data.draft));
   const catalog = articles.map((article) => {
     const d = article.data.date ? new Date(article.data.date) : null;
     const formattedDate = d && !isNaN(d.getTime())
-      ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' })
       : '';
 
     return {

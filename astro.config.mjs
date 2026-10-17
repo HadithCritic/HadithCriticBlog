@@ -8,6 +8,7 @@ import { unified } from '@astrojs/markdown-remark';
 import remarkGfm from 'remark-gfm';
 import { rehypeTableWrap } from './src/lib/rehype-table-wrap.mjs';
 import { corpusDevServer } from './scripts/lib/corpus-dev-server.mjs';
+import { devSitemapServer } from './scripts/lib/dev-sitemap-server.mjs';
 import { slashRedirects } from './scripts/lib/slash-redirects.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
@@ -17,7 +18,7 @@ const DEP_SCAN_ENTRIES = ['src/**/*.{astro,ts,tsx,js,mjs}'];
 
 // https://astro.build/config
 // Static by default (blog articles + Pagefind stay prerendered). Silsilah search/browse
-// routes opt into on-demand rendering with `export const prerender = false` and read D1.
+// record routes opt into on-demand rendering only to emit their client-filled shells.
 // GFM (tables, footnotes) is declared once, on `markdown.processor`. MDX inherits it
 // from there, which is what replaced the old arrangement of passing remarkPlugins to
 // both `mdx({...})` and `markdown`. `remarkPlugins` on the integration is deprecated
@@ -39,6 +40,18 @@ export default defineConfig({
   }),
   integrations: [
     mdx(),
+    {
+      name: 'hadithcritic:vite-cache-isolation',
+      hooks: {
+        'astro:config:setup': ({ command, updateConfig }) => {
+          // A running dev server must not reuse optimized Astro runtime modules
+          // rewritten by a production build or type check in another process.
+          updateConfig({ vite: { cacheDir: command === 'dev'
+            ? './node_modules/.vite-hc-dev'
+            : './node_modules/.vite-hc-build' } });
+        }
+      }
+    },
     // Only prerendered routes reach this sitemap. The on-demand rijal register
     // is published separately via /sitemap-narrators.xml, which both are
     // declared in robots.txt.
@@ -67,7 +80,7 @@ export default defineConfig({
     // served from dist-db/builds/ by this plugin, with the range support
     // sql.js-httpvfs requires; production reads it from R2. See
     // docs/static-corpus.md.
-    plugins: [corpusDevServer()],
+    plugins: [corpusDevServer(), devSitemapServer()],
     optimizeDeps: {
       entries: DEP_SCAN_ENTRIES,
       exclude: ['astro:content']

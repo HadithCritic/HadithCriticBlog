@@ -40,6 +40,14 @@ test('report headings passed as title are rendered', async ({ page }) => {
   await expect(page.locator('.hc-report__label', { hasText: 'Ibn Baz on asking the Prophet for intercession after death' })).toBeVisible();
 });
 
+test('article publication dates use the same UTC day as the archive and catalog', async ({ page, request }) => {
+  const id = 'origins-early-history/13-imam-ahmad-supplicates-through-dead-people';
+  await page.goto(`/blogs/${id}/`);
+  await expect(page.locator('.hc-head__meta time').first()).toHaveText('31 December 2024');
+  const catalog = await (await request.get('/article-catalog.json')).json();
+  expect(catalog.find((article: { url: string }) => article.url === `/blogs/${id}/`).date).toBe('31 Dec 2024');
+});
+
 test.describe('without JavaScript', () => {
   test.use({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
   test('contents open natively and Share controls do not exist', async ({ page }) => {

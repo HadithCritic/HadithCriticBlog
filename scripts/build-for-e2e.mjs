@@ -14,6 +14,8 @@
  *
  * `--fixture` first swaps in the committed miniature corpus, which is what CI
  * uses because the real one is 1.62 GB and not in git.
+ * Draft article routes are included with noindex for the reader tests. Their
+ * frontmatter and the production build's publication filter stay unchanged.
  *
  * Usage:
  *   node scripts/build-for-e2e.mjs [--fixture] [--port 4322]
@@ -56,7 +58,7 @@ try {
   }
 
   console.log(`\n  PUBLIC_CORPUS_BASE_URL=${base}`);
-  run('npm', ['run', 'build'], { PUBLIC_CORPUS_BASE_URL: base });
+  run('npm', ['run', 'build'], { PUBLIC_CORPUS_BASE_URL: base, E2E_DRAFT_ARTICLES: 'true' });
 
   console.log('\n  Built. `npm run test:e2e` will start the corpus file server itself.');
 } catch (error) {

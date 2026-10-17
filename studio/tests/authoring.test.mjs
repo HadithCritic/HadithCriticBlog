@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { glob, readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { compile } from '@mdx-js/mdx';
 import remarkGfm from 'remark-gfm';
@@ -53,11 +53,13 @@ test('formatting preserves leading/trailing spaces and responsive images stay pr
   const source=serializeDocument(doc,metadata,path);assert.match(source,/<em><strong> exact words <\/strong><\/em>/);assert.match(source,/srcset=/);assert.doesNotMatch(source,/private\/|r2\.dev/);
   await compile(source.replace(/^---\n[\s\S]*?\n---\n/,''),{remarkPlugins:[remarkGfm]});
 });
-test('all 90 legacy sources still match the original inventory checksums',async()=>{
+test('the inventory covers every article and preserves its source checksum',async()=>{
   const inventory=JSON.parse(await readFile(new URL('../public/article-manifest.json',import.meta.url),'utf8'));
-  assert.equal(inventory.articles.length,90);
+  const sources=await Array.fromAsync(glob('src/content/articles/**/*.{md,mdx}'));
+  assert.deepEqual(inventory.articles.map(article=>article.path).sort(),sources.map(path=>path.replaceAll('\\','/')).sort());
+  assert.equal(inventory.articleCount,inventory.articles.length);
   for(const article of inventory.articles){
-    const bytes=await readFile(new URL(`../../${article.path}`,import.meta.url));
-    assert.equal(createHash('sha256').update(bytes).digest('hex'),article.sha256,article.path);
+    const source=(await readFile(new URL(`../../${article.path}`,import.meta.url),'utf8')).replaceAll('\r\n','\n');
+    assert.equal(createHash('sha256').update(source).digest('hex'),article.sha256,article.path);
   }
 });
