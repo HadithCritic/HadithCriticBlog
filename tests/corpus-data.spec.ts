@@ -124,20 +124,26 @@ test('the sample dossier carries its criticism and network', async ({ page }) =>
   );
 });
 
-test('an id the corpus does not hold answers 404 and is kept out of the index', async ({ page }) => {
-  // Hadith ids are sparse: 1 to 3 do not exist, 4 does. Before the shells
-  // checked, every numeric id answered an indexable 200.
-  for (const [path, status] of [
-    ['/hadith/3/', 404],
-    ['/hadith/999999999/', 404],
-    [`/hadith/${EXPECTED.sampleHadith}/`, 200],
-    [`/narrators/${EXPECTED.malikId}/`, 200],
-    ['/narrators/999999/', 404]
+test('an id the corpus does not hold is kept out of the index', async ({ page }) => {
+  // Hadith ids are sparse: 1 to 3 do not exist, 4 does. Every record address
+  // is served from a static shell, which cannot answer 404 for an id it has
+  // never seen, so the verdict arrives with the corpus: a missing record turns
+  // noindex and drops its canonical, a real one gains a canonical to itself.
+  for (const [path, exists, settled] of [
+    ['/hadith/3/', false, '.hadith-degraded__title'],
+    ['/hadith/999999999/', false, '.hadith-degraded__title'],
+    [`/hadith/${EXPECTED.sampleHadith}/`, true, '.edition-hero'],
+    [`/narrators/${EXPECTED.malikId}/`, true, '.rijal-name-en'],
+    ['/narrators/999999/', false, '.rijal-degraded__title']
   ] as const) {
     const response = await page.goto(path);
-    expect(response?.status(), path).toBe(status);
-    const robots = await page.locator('meta[name="robots"]').getAttribute('content');
-    expect(robots, path).toMatch(status === 404 ? /^noindex/ : /^index/);
+    expect(response?.status(), path).toBe(200);
+    await expect(page.locator(settled).first(), path).toBeVisible({ timeout: CORPUS_TIMEOUT });
+    const robots = page.locator('meta[name="robots"]');
+    await expect(robots, path).toHaveAttribute('content', exists ? /^index/ : /^noindex/);
+    const canonical = page.locator('link[rel="canonical"]');
+    if (exists) await expect(canonical, path).toHaveAttribute('href', new RegExp(`${path}$`));
+    else await expect(canonical, path).toHaveCount(0);
   }
   // The 404 still renders the shell, so the reader gets the explanation
   // rather than a blank page.

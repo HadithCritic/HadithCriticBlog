@@ -1,70 +1,41 @@
 ---
-export const prerender = false;
-
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
-import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
-import { corpusHas } from '../../lib/corpus-ids';
 
 /**
  * Rijal dossier for one transmitter.
  *
  * A shell. There are 20,950 transmitters, past what Cloudflare will hold as
  * prerendered assets, and there is no database behind the site to ask at
- * request time, so the Worker renders the frame and src/lib/narrator-dossier.ts
- * fills it from the static corpus in the browser.
+ * request time. This one page is built once and served for every
+ * /narrators/<id>/ by a 200 rewrite in `_redirects`
+ * (scripts/lib/shell-rewrites.mjs), so a dossier costs a static asset request
+ * and no Worker invocation. src/lib/narrator-dossier.ts reads the id from the
+ * address and fills the page, its title and its canonical address from the
+ * static corpus in the browser.
  *
- * This route stays on-demand rather than prerendered only because the id is
- * unbounded. It performs no I/O of any kind, so it costs a Worker invocation
- * and nothing else.
- *
- * The consequence to be aware of: a crawler that does not run JavaScript sees
- * the shell rather than the dossier. That is the price of serving a 1.6 GB
- * corpus from static files, and it is paid knowingly.
+ * The consequences to be aware of: a crawler that does not run JavaScript sees
+ * the shell rather than the dossier, and an id the corpus does not hold
+ * answers 200 and turns noindex once the corpus has said so, because a static
+ * asset cannot answer 404 for an id it has never seen. That is the price of
+ * serving a 1.6 GB corpus from static files, and it is paid knowingly.
  */
-
-const raw = Astro.params.id ?? '';
-const id = Number(raw);
-const valid = /^\d+$/.test(raw) && Number.isFinite(id) && id >= 0;
-
-if (!valid) {
-  return Astro.redirect('/narrators', 302);
-}
-
-const pageTitle = `Transmitter #${id} | Rijal Dossier | HadithCritic`;
-
-// An id the corpus does not hold answers 404 and is kept out of the index.
-// The shell still renders, so the reader gets the same "no such record"
-// explanation the client module writes. `undefined` means the id list was
-// cut from another corpus version and cannot be trusted; see corpus-ids.ts.
-const missing = corpusHas('narrators', id) === false;
-if (missing) Astro.response.status = 404;
-
-// The shell depends on the id and the deployment, and on nothing that can
-// fail, so it is unconditionally storable at the edge.
-Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 ---
 
 <BaseLayout image={OG.narrator(null)}
-  title={pageTitle}
-  noindex={missing}
+  title="Rijal Dossier | HadithCritic"
+  shell
   description="A biographical entry in the HadithCritic rijal register: attributed classical verdicts, transmission network, and recorded narrations."
-  canonical={`/narrators/${id}/`}
-  crumbs={[
-    { name: 'Home', url: '/' },
-    { name: 'Rijal Register', url: '/narrators/' },
-    { name: `#${id}`, url: `/narrators/${id}/` }
-  ]}
 >
-  <article class="rijal-page" data-narrator-id={id}>
+  <article class="rijal-page">
     <div class="rijal-loading" data-dossier-loading>
       <span class="rijal-spinner" aria-hidden="true"></span>
-      <p>Reading transmitter #{id} from the corpus...</p>
+      <p>Reading this transmitter from the corpus...</p>
     </div>
     <noscript>
       <div class="rijal-degraded">
         <div class="rijal-degraded__badge">JavaScript required</div>
-        <h1 class="rijal-degraded__title">Transmitter #{id}</h1>
+        <h1 class="rijal-degraded__title">Transmitter</h1>
         <p class="rijal-degraded__text">
           Dossiers are read from a static SQLite corpus inside your browser,
           which needs JavaScript. The written research on this site does not.

@@ -28,6 +28,7 @@ import {
   type Verdict
 } from './corpus-client';
 import { escapeHtml } from './snippet';
+import { markNotIndexable, setShellIdentity, shellId } from './corpus-shell';
 import { toPlainText } from './format-text';
 
 const VERDICT_LABELS: Record<Verdict, string> = {
@@ -587,16 +588,14 @@ export async function initNarratorDossier(): Promise<void> {
   const page = document.querySelector('.rijal-page') as HTMLElement | null;
   if (!page) return;
 
-  const id = Number(page.dataset.narratorId);
-  if (!Number.isFinite(id) || id < 0) {
-    page.innerHTML = degraded(
-      'Not a reference',
-      id,
-      'Not a transmitter reference',
-      'That address does not name an entry in the register.'
-    );
+  const id = shellId('narrators');
+  if (id === null) {
+    // What the on-demand route did for an address that names no transmitter.
+    location.replace('/narrators/');
     return;
   }
+
+  setShellIdentity(`Transmitter #${id} | Rijal Dossier | HadithCritic`, `/narrators/${id}/`);
 
   try {
     const dossier = await getNarratorDossier(id);
@@ -609,6 +608,7 @@ export async function initNarratorDossier(): Promise<void> {
         'No entry carries that identifier. It may belong to a different corpus version, or the link may be mistyped.'
       );
       document.title = `Transmitter #${id} not found | HadithCritic`;
+      markNotIndexable();
       return;
     }
 

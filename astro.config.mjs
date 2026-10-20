@@ -10,6 +10,7 @@ import { rehypeTableWrap } from './src/lib/rehype-table-wrap.mjs';
 import { corpusDevServer } from './scripts/lib/corpus-dev-server.mjs';
 import { devSitemapServer } from './scripts/lib/dev-sitemap-server.mjs';
 import { slashRedirects } from './scripts/lib/slash-redirects.mjs';
+import { shellDevServer, shellRewrites } from './scripts/lib/shell-rewrites.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 
@@ -17,8 +18,9 @@ const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 const DEP_SCAN_ENTRIES = ['src/**/*.{astro,ts,tsx,js,mjs}'];
 
 // https://astro.build/config
-// Static by default (blog articles + Pagefind stay prerendered). Silsilah search/browse
-// record routes opt into on-demand rendering only to emit their client-filled shells.
+// Static throughout. The corpus record pages are two prerendered shells served for
+// every id by a _redirects rewrite (scripts/lib/shell-rewrites.mjs); only the
+// subscribe endpoint runs on demand.
 // GFM (tables, footnotes) is declared once, on `markdown.processor`. MDX inherits it
 // from there, which is what replaced the old arrangement of passing remarkPlugins to
 // both `mdx({...})` and `markdown`. `remarkPlugins` on the integration is deprecated
@@ -59,9 +61,12 @@ export default defineConfig({
       filter: (page) =>
         !page.includes('/admin') &&
         !page.includes('/narrators/compare') &&
+        !/\/(hadith|narrators)\/shell\/$/.test(page) &&
         !page.includes('/api/')
     }),
-    slashRedirects()
+    slashRedirects(),
+    // After slashRedirects, which it reads: its rules go last in _redirects.
+    shellRewrites()
   ],
   markdown: {
     processor: unified({
@@ -80,7 +85,7 @@ export default defineConfig({
     // served from dist-db/builds/ by this plugin, with the range support
     // sql.js-httpvfs requires; production reads it from R2. See
     // docs/static-corpus.md.
-    plugins: [corpusDevServer(), devSitemapServer()],
+    plugins: [corpusDevServer(), devSitemapServer(), shellDevServer()],
     optimizeDeps: {
       entries: DEP_SCAN_ENTRIES,
       exclude: ['astro:content']

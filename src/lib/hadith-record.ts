@@ -25,6 +25,7 @@ import {
   type HadithNarratorSurface
 } from './corpus-client';
 import { escapeHtml } from './snippet';
+import { markNotIndexable, setShellIdentity, shellId } from './corpus-shell';
 import { renderArabic, renderRich, toPlainText } from './format-text';
 
 /** Western digits as Arabic-Indic, for numbers set inside Arabic text. */
@@ -557,15 +558,18 @@ export async function initHadithRecord(): Promise<void> {
   const container = document.querySelector('.hadith-container') as HTMLElement | null;
   if (!container) return;
 
-  const id = Number(container.dataset.hadithId);
-  if (!Number.isFinite(id) || id <= 0) {
+  const id = shellId('hadith');
+  if (id === null || id <= 0) {
     container.innerHTML = degraded(
       'Not a reference',
       'Not a narration reference',
       'That address does not name a record in the corpus. The corpus index lists every collection.'
     );
+    markNotIndexable();
     return;
   }
+
+  setShellIdentity(`Hadith ${id} | HadithCritic Critical Edition`, `/hadith/${id}/`);
 
   try {
     const detail = await getHadithDetail(id);
@@ -577,6 +581,7 @@ export async function initHadithRecord(): Promise<void> {
         'No record carries that identifier. It may belong to a different corpus version, or the link may be mistyped.'
       );
       document.title = `Narration #${id} not found | HadithCritic`;
+      markNotIndexable();
       return;
     }
 

@@ -14,9 +14,11 @@ No database server is in the request path for any public page.
 ## Stack facts that change how you work
 
 - **Astro 7 on the Cloudflare adapter.** Static by default, and the corpus is
-  now static with it. Only `/hadith/[id]` and `/narrators/[id]` set
-  `export const prerender = false`, because their ids are unbounded; they read
-  nothing at request time and exist to emit a shell the client fills. Read
+  now static with it. `/hadith/<id>/` and `/narrators/<id>/` are one
+  prerendered shell each (`/hadith/shell/`, `/narrators/shell/`), served for
+  every id by a 200 rewrite that `scripts/lib/shell-rewrites.mjs` appends to
+  `_redirects`, so a record page never invokes the Worker. The client reads the
+  id from the address. Only `/api/subscribe` runs on demand. Read
   `docs/static-corpus.md` before touching anything under `/hadith` or
   `/narrators`.
 - **No UI framework anywhere.** No React, Preact, Svelte or Vue, and no islands.
@@ -98,12 +100,22 @@ No database server is in the request path for any public page.
   which matches nothing. That shipped: emphasis, bold and folio marks inside
   every narration were unstyled, with a build warning as the only sign. Unwrap
   every `:global()` when you convert a block.
-- **Middleware runs while Astro prerenders.** `src/middleware.ts` reads
-  `context.request.headers`, and there is no request during a build. Touching it
-  logs "`Astro.request.headers` is not available on prerendered pages" once per
-  page, which was 33 warnings per build once the collection editions were
-  prerendered. It returns early on `context.isPrerendered`; keep any new header
-  read below that guard.
+- **Middleware runs while Astro prerenders.** The old edge-cache middleware
+  read `context.request.headers`, and there is no request during a build, so
+  it logged "`Astro.request.headers` is not available on prerendered pages"
+  once per page. It went with the on-demand record routes. Any new middleware
+  must return early on `context.isPrerendered` before reading the request.
+- **An on-demand route is a Worker invocation per page view, cached or not.**
+  The Worker runs in front of the cache on a custom domain, so the old
+  edge-cache middleware saved rendering but never an invocation. On 2026-10-19
+  crawlers on the narrator pages took the Worker past the Free plan's 100,000
+  daily requests (124,875). A page that needs nothing at request time belongs
+  in static assets, behind a `_redirects` rewrite if its addresses are
+  unbounded.
+- **A `_redirects` placeholder matches any segment, and applies even where an
+  asset exists.** `/narrators/:id/ /narrators/shell/ 200` alone would serve the
+  shell at `/narrators/compare/`. `shell-rewrites.mjs` writes a self-serving
+  rule for every real page one level down first, found in the build output.
 - **Small corpus chunks silently lose rows.** The VFS grows its read window as
   it scans and maps each read to one chunk file, so a read wider than a chunk is
   clamped and only the pages that arrived get stored. Nothing errors: queries
@@ -327,6 +339,7 @@ Run `check`, `test:design` and `build` before finishing any UI change.
 | `src/lib/corpus-config.ts` | Which corpus version, served from where. |
 | `src/lib/corpus-client.ts` | Every corpus query, and the worker's lifecycle. |
 | `src/lib/narrator-register.ts` | The register's client module. |
+| `src/pages/{hadith,narrators}/shell.astro`, `src/lib/corpus-shell.ts`, `scripts/lib/shell-rewrites.mjs` | The record shells, their per-id identity in the browser, and the `_redirects` rewrites that serve them. |
 | `src/lib/hadith-search.ts`, `hadith-record.ts`, `narrator-dossier.ts`, `narrator-compare.ts` | The other corpus renderers. |
 | `src/data/corpus-meta.json` | Generated totals, collections and facets. Committed; never edited by hand. |
 | `scripts/fetch-ifta-toc.mjs`, `scripts/parse-ifta-toc.mjs`, `data/ifta-toc/` | The Ifta' Sunnah table of contents: fetched politely into the ignored `raw/`, recorded in `manifest.json`, parsed offline. |
