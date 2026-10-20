@@ -220,10 +220,12 @@ stored is never recounted.
 | `src/lib/corpus-types.ts` | Row shapes, mirroring the schema. |
 | `src/lib/corpus-count.ts` | The bounded-count and CTE-ranking query shapes. |
 | `src/lib/hadith-search.ts` | `/hadith` search and results. |
-| `src/lib/hadith-record.ts` | `/hadith/[id]` record. |
+| `src/lib/hadith-record.ts` | `/hadith/<id>/` record. |
 | `src/lib/kitab-page.ts` | `/hadith/collection/[slug]/kitab/[n]` chapters, read when opened. |
 | `src/lib/narrator-register.ts` | `/narrators` register. |
-| `src/lib/narrator-dossier.ts` | `/narrators/[id]` dossier. |
+| `src/lib/narrator-dossier.ts` | `/narrators/<id>/` dossier. |
+| `src/lib/corpus-shell.ts` | Id, title, canonical and noindex for the two record shells. |
+| `scripts/lib/shell-rewrites.mjs` | The `_redirects` rewrites that serve those shells, and the dev equivalent. |
 | `src/lib/narrator-compare.ts` | `/narrators/compare` table. |
 | `src/data/corpus-meta.json` | Generated totals, collections, facets. Committed. |
 | `src/data/narrator-sitemap.json` | Generated sitemap id list. Committed. |
@@ -238,12 +240,25 @@ Which routes are prerendered:
 | `/narrators` | Prerendered shell; rows client-side |
 | `/narrators/compare` | Prerendered shell |
 | `/sitemap-narrators*.xml` | Prerendered from generated ids |
-| `/hadith/[id]` | On demand, **no I/O**, edge-cached |
-| `/narrators/[id]` | On demand, **no I/O**, edge-cached |
+| `/hadith/<id>/` | Prerendered `/hadith/shell/`, served by a `_redirects` rewrite |
+| `/narrators/<id>/` | Prerendered `/narrators/shell/`, served by a `_redirects` rewrite |
 
-The last two are on demand only because their ids are unbounded, 276,347 and
-20,950 is past what Cloudflare will hold as assets. They read nothing at request
-time; they render a frame with the id in it and cost a Worker invocation.
+The ids are unbounded, 276,347 and 20,950, past what Cloudflare will hold as
+assets, so each family is one shell. These used to be on-demand routes. They
+read nothing at request time, but on demand still meant a Worker invocation per
+page view, and on 2026-10-19 crawlers walking the narrator sitemap took the
+Worker past the Free plan's 100,000 daily requests (124,875 invocations).
+Now `scripts/lib/shell-rewrites.mjs` appends `/narrators/:id/ /narrators/shell/ 200`
+(and the hadith equivalent) to `_redirects`, which Cloudflare's asset layer
+applies before the Worker, so a record page is a free static asset request.
+The browser keeps the original address, and `src/lib/corpus-shell.ts` reads
+the id from it and sets the title and canonical link.
+
+A placeholder matches any segment and a redirect applies even where an asset
+exists, so the same script first writes a self-serving rule for every real page
+one level down (`/narrators/compare/ /narrators/compare/ 200`), found in the
+build output. Under `astro dev`, which never reads `_redirects`, a Vite
+middleware rewrites numeric ids to the shell instead.
 
 ## Testing it
 
@@ -302,11 +317,12 @@ narration text were unstyled on every record page, with a build warning as the
 only sign. When converting a block to `is:global`, unwrap every `:global()` in
 it.
 
-**Middleware runs while Astro prerenders.** `src/middleware.ts` reads
-`context.request.headers` to decide cacheability, and there is no request during
-a build: touching it logs "`Astro.request.headers` is not available on
-prerendered pages" once per page, which became 33 warnings once the collection
-editions were prerendered. It now returns early on `context.isPrerendered`.
+**Middleware runs while Astro prerenders.** The edge-cache middleware that
+once served the on-demand shells read `context.request.headers`, and there is
+no request during a build, so it logged "`Astro.request.headers` is not
+available on prerendered pages" once per page. It was removed with those
+routes. Any new middleware must return early on `context.isPrerendered` before
+reading the request.
 
 **`requestChunkSize` must equal the database page size.** A mismatch makes every
 SQLite page read span two range requests. `chunk-db.mjs` reads `PRAGMA page_size`
@@ -343,12 +359,23 @@ against a loading state reports two colours and passes.
 
 ## Consequences
 
-**A crawler that does not run JavaScript sees a shell** on `/hadith/[id]` and
-`/narrators/[id]`, roughly 297,000 URLs, of which 18,924 narrator dossiers are
+**A crawler that does not run JavaScript sees a shell** on `/hadith/<id>/` and
+`/narrators/<id>/`, roughly 297,000 URLs, of which 18,924 narrator dossiers are
 submitted by sitemap. There is no free way around this: serving rendered HTML
 for those pages requires a server-side data source, which is the thing that was
 removed. The collection pages, the corpus totals, the catalogue and every
 article remain fully server-rendered.
+
+**A missing record answers 200, not 404.** A static asset cannot know which
+ids exist. The shell turns `noindex` and drops its canonical link once the
+corpus says the id is absent, which a rendering crawler such as Googlebot
+honors and a non-rendering one does not see. The id bitset that gave the old
+routes a real 404 (`src/data/corpus-ids.json`, from `build-corpus-ids.mjs`) is
+no longer read by the site.
+
+**Social previews of a record carry the generic title.** Link unfurlers do not
+run JavaScript, so they see "Rijal Dossier | HadithCritic" rather than the
+transmitter's number. They never saw a name, only the id.
 
 **Corpus browsing requires JavaScript.** Each corpus page carries a `<noscript>`
 saying so and pointing at what still works. The written research does not depend

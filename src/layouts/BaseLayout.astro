@@ -27,6 +27,12 @@ interface Props {
   tags?: string[];
   /** Render page content without the shared site header, footer, and search dialog. */
   standalone?: boolean;
+  /**
+   * One page served for many addresses by a rewrite (the corpus shells). It
+   * carries no canonical link, og:url or page-level JSON-LD, all of which
+   * would name the shell; src/lib/corpus-shell.ts sets them in the browser.
+   */
+  shell?: boolean;
 }
 
 const {
@@ -43,7 +49,8 @@ const {
   modifiedTime,
   section,
   tags = [],
-  standalone = false
+  standalone = false,
+  shell = false
 } = Astro.props;
 
 /**
@@ -98,6 +105,8 @@ const suppliesOwnPage = schema.some((n) => String(n['@id'] ?? '').endsWith('#web
 
 const nodes: Graph[] = noindex
   ? []
+  : shell
+  ? [organization(), website()]
   : [
       organization(),
       website(),
@@ -137,13 +146,13 @@ const nodes: Graph[] = noindex
     <meta name="theme-color" content="#0F0F10" />
     <meta name="msapplication-TileColor" content="#0F0F10" />
     <meta name="robots" content={robotsContent} />
-    <link rel="canonical" href={canonicalUrl} />
+    {!shell && <link rel="canonical" href={canonicalUrl} />}
     <link rel="alternate" type="application/rss+xml" title="HadithCritic RSS" href="/rss.xml" />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonicalUrl} />
+    {!shell && <meta property="og:url" content={canonicalUrl} />}
     <meta property="og:type" content={type} />
     <meta property="og:image" content={imageUrl} />
     <meta property="og:image:alt" content={imageAlt} />

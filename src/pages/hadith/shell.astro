@@ -1,73 +1,43 @@
 ---
-export const prerender = false;
-
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
-import { CORPUS_CACHE_CONTROL } from '../../lib/edge-cache';
-import { corpusHas } from '../../lib/corpus-ids';
 import '../../styles/hadith-edition.css';
 
 /**
  * Critical edition record for one narration.
  *
  * A shell, and deliberately so. There are 276,347 narrations, which is far past
- * what can be prerendered, and there is no longer a database behind the site to
- * ask at request time. So the Worker renders the frame and the identity of the
- * record it is going to show, and src/lib/hadith-record.ts fills it from the
- * static corpus in the browser: the narration, its facing texts, its isnad
- * branches and its apparatus.
+ * what can be prerendered, and there is no database behind the site to ask at
+ * request time. This one page is built once and served for every /hadith/<id>/
+ * by a 200 rewrite in `_redirects` (scripts/lib/shell-rewrites.mjs), so a
+ * record costs a static asset request and no Worker invocation.
+ * src/lib/hadith-record.ts reads the id from the address and fills the page
+ * from the static corpus in the browser: the narration, its facing texts, its
+ * isnad branches and its apparatus, and the title and canonical address.
  *
- * This route stays on-demand rather than prerendered only because the id is
- * unbounded. It performs no I/O of any kind -- no database, no fetch, nothing
- * to fail -- so it costs a Worker invocation and nothing else.
- *
- * The consequence to be aware of: a crawler that does not run JavaScript sees
- * the shell rather than the narration. That is the price of serving a 1.6 GB
- * corpus from static files, and it is paid knowingly.
+ * The consequences to be aware of: a crawler that does not run JavaScript sees
+ * the shell rather than the narration, and an id the corpus does not hold
+ * answers 200 and turns noindex once the corpus has said so, because a static
+ * asset cannot answer 404 for an id it has never seen. That is the price of
+ * serving a 1.6 GB corpus from static files, and it is paid knowingly.
  */
-
-const raw = Astro.params.id ?? '';
-const id = Number(raw);
-const valid = /^\d+$/.test(raw) && Number.isFinite(id) && id > 0;
-
-if (!valid) {
-  return new Response('Not found', { status: 404 });
-}
-
-const pageTitle = `Hadith ${id} | HadithCritic Critical Edition`;
-
-// An id the corpus does not hold answers 404 and is kept out of the index.
-// The shell still renders, so the reader gets the same "no such record"
-// explanation the client module writes. `undefined` means the id list was
-// cut from another corpus version and cannot be trusted; see corpus-ids.ts.
-const missing = corpusHas('hadith', id) === false;
-if (missing) Astro.response.status = 404;
-
-// The shell depends on the id and the deployment, and on nothing that can
-// fail, so it is unconditionally storable at the edge.
-Astro.response.headers.set('Cache-Control', CORPUS_CACHE_CONTROL);
 ---
 
 <BaseLayout image={OG.corpus}
-  title={pageTitle}
-  noindex={missing}
+  title="Hadith | HadithCritic Critical Edition"
+  shell
   description="A primary source narration in Arabic and English from the HadithCritic corpus, with its transmission chain and critical apparatus."
-  crumbs={[
-    { name: 'Home', url: '/' },
-    { name: 'Corpus', url: '/hadith/' },
-    { name: `Hadith ${id}`, url: `/hadith/${id}/` }
-  ]}
 >
   <div class="hadith-record-page hc-plate">
-  <div class="hadith-container hc-edition" data-hadith-id={id}>
+  <div class="hadith-container hc-edition">
     <div class="record-loading" data-record-loading>
       <span class="record-spinner" aria-hidden="true"></span>
-      <p>Reading narration #{id} from the corpus...</p>
+      <p>Reading this narration from the corpus...</p>
     </div>
     <noscript>
       <div class="hadith-degraded">
         <span class="hadith-degraded__badge">JavaScript required</span>
-        <h1 class="hadith-degraded__title">Narration #{id}</h1>
+        <h1 class="hadith-degraded__title">Narration</h1>
         <p class="hadith-degraded__text">
           Narrations are read from a static SQLite corpus inside your browser,
           which needs JavaScript. The written research on this site does not.
