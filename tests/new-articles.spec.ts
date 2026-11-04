@@ -15,7 +15,7 @@ for (const id of articles) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/blogs/${id}/`);
     await expect(page.locator('main h1')).toHaveCount(1);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /^index, follow/);
     await expect(page.locator('.hc-report').first()).toBeVisible();
     const broken = await page.locator('.hc-article a[href^="#"]').evaluateAll(links => links
       .map(link => link.getAttribute('href')!)
