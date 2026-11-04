@@ -62,10 +62,13 @@
   --r-mark-red: #d77a74;
   --r-mark-violet: #ad8fcb;
 
-  --measure: 40rem; /* about 72 characters a line at the 19px body (DESIGN.md) */
-  --rail: 12rem;
-  --gap: clamp(3rem, 6vw, 5.5rem);
-  --page: calc(var(--rail) + var(--gap) + var(--measure));
+  /* The article column. Below 992px it is a plain reading measure; from
+     there it follows a wide editorial layout: three quarters of a container
+     that is the window less 64px, capped at 1360px, with the content set
+     12px inside the column edges. The header and every block in the body
+     share this column. */
+  --measure: 46rem;
+  --inset: 0px;
   /* Sources are set in by this much; verse numbers hang in it. */
   --indent: clamp(0rem, 5vw, 2.75rem);
   --space-block: 2.5rem;
@@ -124,60 +127,38 @@ body:has(.hc-article) {
 
 /* ── Layout ───────────────────────────────────────────────────── */
 
-/* One column below 1100px. From there a left rail carries the contents
-   (and, in the header, the particulars) beside a centred measure. */
+/* One centred column at every width. The contents sit under the header as a
+   closed list rather than in a side rail, so the text gets the room. */
+@media (min-width: 992px) {
+  .hc-article {
+    --measure: calc(min(100vw - 64px, 1360px) * 0.75);
+    --inset: 12px;
+  }
+}
+
 .hc-article__grid {
   width: min(100% - (var(--pad) * 2), var(--measure));
   margin-inline: auto;
-  padding-block: clamp(2.5rem, 5vw, 4rem) clamp(4rem, 8vw, 7rem);
+  padding-block: clamp(var(--space-lg), 5vw, var(--space-2xl)) clamp(var(--space-2xl), 8vw, var(--space-3xl));
+  padding-inline: var(--inset);
 }
 
 .hc-article__main {
   min-width: 0;
 }
 
-.hc-article__margin {
-  display: none;
-}
-
-@media (min-width: 1100px) {
-  .hc-article__grid {
-    display: grid;
-    grid-template-columns: var(--rail) minmax(0, var(--measure));
-    column-gap: var(--gap);
-    justify-content: center;
-    align-items: start;
-    width: min(100% - (var(--pad) * 2), var(--page));
-  }
-
-  .hc-article__main {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .hc-article__margin {
-    display: block;
-    grid-column: 1;
-    grid-row: 1;
-    align-self: stretch;
-  }
-}
-
-/* Editorial labels share the component label: Plex, tracked capitals.
+/* Editorial labels share one small sentence-case label style.
    Each rule below keeps its own colour. */
 .hc-article :is(
   .hc-contents__label,
   .hc-fig__kicker,
   .hc-fig__label,
   .hc-end__label,
-  .hc-further__title,
   .hc-head__folio
 ) {
-  font: 600 0.75rem/1.4 var(--font-ui);
+  font: 600 var(--fs-xs)/1.4 var(--font-ui);
   font-variant-caps: normal;
   font-variant-numeric: lining-nums;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
 }
 
 .hc-article .hc-fig__label {
@@ -185,16 +166,31 @@ body:has(.hc-article) {
 }
 
 /* ── Header: the opening ──────────────────────────────────────────
-   Branch and number, the title, the standfirst, then a byline under a
-   hairline. On wide screens the artwork sits beside the copy and the header
-   takes the page's width plus the same rightward bleed the wide figures use;
-   below that the artwork follows the copy. The plate is shaped to the
-   drawing (see ArticleHeader). Every rule is scoped to .hc-article: this file
-   is global, and house.css uses .hc-head for the homepage-style heads. */
+   A centred block (branch, title, standfirst, byline) with the cover image
+   underneath at the column's width, rounded like every other image on the
+   site. The back link stays at the column's left edge. Every rule is scoped
+   to .hc-article: this file is global, and house.css uses .hc-head too. */
 
 .hc-article .hc-head {
   width: min(100% - (var(--pad) * 2), var(--measure));
-  margin: clamp(2.25rem, 6vw, 4.5rem) auto 0;
+  margin: clamp(var(--space-lg), 6vw, var(--space-2xl)) auto 0;
+  padding-inline: var(--inset);
+}
+
+.hc-article .hc-head__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  min-height: 44px;
+  margin-bottom: var(--space-sm);
+  color: var(--r-ink-3);
+  font: 500 var(--fs-sm)/1 var(--font-ui);
+  text-decoration: none;
+  transition: color var(--motion-fast) ease;
+}
+
+.hc-article .hc-head__back:hover {
+  color: var(--r-accent);
 }
 
 .hc-article .hc-head__leaf {
@@ -203,23 +199,26 @@ body:has(.hc-article) {
 }
 
 .hc-article .hc-head__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-width: 0;
+  text-align: center;
 }
 
 .hc-article .hc-head__kicker-line {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem 1.1rem;
-  margin: 0 0 1.25rem;
+  justify-content: center;
+  gap: var(--space-3xs) var(--space-sm);
+  margin: 0 0 var(--space-sm);
 }
 
 .hc-article .hc-head__kicker {
   color: var(--r-accent);
-  font: 600 0.75rem/1.4 var(--font-ui);
-  letter-spacing: 0.14em;
+  font: 600 var(--fs-xs)/1.4 var(--font-ui);
   text-decoration: none;
-  text-transform: uppercase;
 }
 
 .hc-article .hc-head__kicker:hover {
@@ -229,14 +228,14 @@ body:has(.hc-article) {
 }
 
 .hc-article .hc-head__folio {
-  color: var(--r-ink-3);
+  display: none;
 }
 
 .hc-article .hc-head__title {
-  max-width: 20ch;
+  max-width: 24ch;
   margin: 0;
   color: var(--r-ink);
-  font: 480 clamp(2.2rem, 1.2rem + 3.2vw, 3.9rem)/1.05 var(--font-editorial);
+  font: 480 var(--fs-2xl)/1.1 var(--font-editorial);
   letter-spacing: -0.02em;
   text-wrap: balance;
   font-optical-sizing: auto;
@@ -248,27 +247,26 @@ body:has(.hc-article) {
 }
 
 .hc-article .hc-head__standfirst {
-  max-width: 36em;
-  margin: 1.25rem 0 0;
+  max-width: 40em;
+  margin: var(--space-md) 0 0;
   color: var(--r-ink-2);
-  font: 400 clamp(1.08rem, 1rem + 0.3vw, 1.22rem)/1.55 var(--font-body);
+  font: 400 var(--fs-md)/1.55 var(--font-body);
   text-wrap: pretty;
 }
 
 .hc-article .hc-head__meta {
   display: flex;
   flex-wrap: wrap;
-  margin: 1.6rem 0 0;
-  padding-top: 0.95rem;
-  border-top: 1px solid var(--r-rule);
+  justify-content: center;
+  margin: var(--space-md) 0 0;
   color: var(--r-ink-3);
-  font: 400 0.84rem/1.6 var(--font-ui);
+  font: 400 var(--fs-sm)/1.6 var(--font-ui);
   font-variant-numeric: lining-nums;
 }
 
 .hc-article .hc-head__meta > :not(:first-child)::before {
   content: "·";
-  margin-inline: 0.6rem;
+  margin-inline: var(--space-2xs);
 }
 
 .hc-article .hc-head__author {
@@ -278,8 +276,9 @@ body:has(.hc-article) {
 
 .hc-article .hc-head__plate {
   position: relative;
-  margin: clamp(2rem, 5vw, 3rem) 0 0;
+  margin: clamp(var(--space-lg), 5vw, var(--space-xl)) 0 0;
   overflow: hidden;
+  border-radius: 12px;
   aspect-ratio: var(--plate-ratio, 16 / 9);
   background: var(--r-sunk);
 }
@@ -299,46 +298,18 @@ body:has(.hc-article) {
   object-position: center;
 }
 
-@media (min-width: 1100px) {
-  .hc-article .hc-head {
-    --head-bleed: clamp(0px, (100vw - var(--page)) / 2 - 2.5rem, 12rem);
-    width: min(100% - (var(--pad) * 2), var(--page));
-  }
-
-  .hc-article .hc-head__leaf:not(.hc-head__leaf--plain) {
-    grid-template-columns: minmax(0, 1fr) clamp(20rem, 30vw, 30rem);
-    align-items: center;
-    column-gap: clamp(2.5rem, 4.5vw, 4.5rem);
-    margin-right: calc(var(--head-bleed) * -1);
-  }
-
-  .hc-article .hc-head__leaf--plain .hc-head__copy {
-    margin-left: calc(var(--rail) + var(--gap));
-  }
-
-  .hc-article .hc-head__leaf:not(.hc-head__leaf--plain) .hc-head__title {
-    font-size: clamp(2.4rem, 0.9rem + 2.5vw, 3.5rem);
-  }
-
-  .hc-article .hc-head__plate {
-    margin: 0;
-  }
-}
-
 @media (max-width: 679px) {
   .hc-article .hc-head {
-    margin-top: 1.75rem;
+    margin-top: var(--space-md);
   }
 
   .hc-article .hc-head__title {
     max-width: none;
-    font-size: clamp(2rem, 8.6vw, 2.6rem);
+    font-size: var(--fs-xl);
   }
 
-  .hc-article .hc-head__plate--engraving {
-    width: calc(100% + var(--pad) * 2);
-    max-width: none;
-    margin-inline: calc(var(--pad) * -1);
+  .hc-article .hc-head__plate {
+    border-radius: 8px;
   }
 }
 
@@ -362,9 +333,9 @@ body:has(.hc-article) {
 }
 
 .hc-contents__label {
-  margin: 0 0 0.7rem;
+  margin: 0 0 var(--space-xs);
   color: var(--r-ink-3);
-  font-size: 0.95rem;
+  font-size: var(--fs-sm);
   font-weight: 500;
   line-height: 1.3;
 }
@@ -378,8 +349,8 @@ body:has(.hc-article) {
 }
 
 .hc-contents--margin a {
-  padding: 0.32rem 0;
-  font: 400 0.8rem/1.4 var(--font-ui);
+  padding: var(--space-3xs) 0;
+  font: 400 var(--fs-sm)/1.4 var(--font-ui);
   text-wrap: pretty;
 }
 
@@ -389,21 +360,21 @@ body:has(.hc-article) {
 }
 
 .hc-contents--margin .is-sub a {
-  padding-left: 0.85rem;
+  padding-left: var(--space-xs);
 }
 
 /* Below 1100px: a disclosure between two hairlines. */
 .hc-contents--inline {
-  margin: 0 0 2.75rem;
+  margin: 0 0 var(--space-xl);
   border-block: 1px solid var(--r-rule);
 }
 
 .hc-contents--inline summary {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: var(--space-xs);
   min-height: 48px;
-  padding-block: 0.85rem;
+  padding-block: var(--space-xs);
   cursor: pointer;
   list-style: none;
 }
@@ -419,13 +390,13 @@ body:has(.hc-article) {
 .hc-contents__count {
   margin-left: auto;
   color: var(--r-ink-3);
-  font: 400 0.8rem/1.4 var(--font-ui);
+  font: 400 var(--fs-xs)/1.4 var(--font-ui);
 }
 
 .hc-contents--inline summary::after {
   content: "Show";
   color: var(--r-accent);
-  font: 500 0.8rem/1 var(--font-ui);
+  font: 500 var(--fs-xs)/1 var(--font-ui);
 }
 
 .hc-contents--inline[open] summary::after {
@@ -433,24 +404,18 @@ body:has(.hc-article) {
 }
 
 .hc-contents--inline ol {
-  padding: 0 0 1rem;
+  padding: 0 0 var(--space-sm);
 }
 
 .hc-contents--inline li a {
   min-height: 44px;
-  padding: 0.45rem 0;
+  padding: var(--space-2xs) 0;
   color: var(--r-ink-2);
-  font: 400 0.95rem/1.45 var(--font-body);
+  font: 400 var(--fs-base)/1.45 var(--font-body);
 }
 
 .hc-contents--inline .is-sub a {
-  padding-left: 1.1rem;
-}
-
-@media (min-width: 1100px) {
-  .hc-contents--inline {
-    display: none;
-  }
+  padding-left: var(--space-sm);
 }
 
 /* ── Prose ────────────────────────────────────────────────────── */
@@ -490,9 +455,9 @@ body:has(.hc-article) {
 
 /* Section heads: space above does the separating, not a rule or an eyebrow. */
 .hc-article-body > h2 {
-  margin: clamp(3.75rem, 8vw, 5.25rem) 0 1.15rem;
+  margin: clamp(var(--space-2xl), 8vw, var(--space-3xl)) 0 var(--space-sm);
   color: var(--r-ink);
-  font: 500 clamp(1.55rem, 1.22rem + 1.2vw, 2.05rem)/1.16 var(--font-editorial);
+  font: 500 var(--fs-xl)/1.18 var(--font-editorial);
   letter-spacing: -0.015em;
   text-wrap: balance;
   font-optical-sizing: auto;
@@ -502,7 +467,7 @@ body:has(.hc-article) {
 .hc-article-body > h3 {
   margin: 2.2em 0 0.55em;
   color: var(--r-ink);
-  font: italic 500 clamp(1.22rem, 1.1rem + 0.5vw, 1.4rem)/1.3 var(--font-editorial);
+  font: italic 500 var(--fs-lg)/1.3 var(--font-editorial);
   text-wrap: balance;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
@@ -566,7 +531,7 @@ body:has(.hc-article) {
 /* A section break is an asterism, as in a printed book. */
 .hc-article-body > hr {
   height: auto;
-  margin: 3.5rem 0;
+  margin: var(--space-xl) 0;
   border: 0;
   background: none;
   color: var(--r-ink-3);
@@ -575,7 +540,7 @@ body:has(.hc-article) {
 
 .hc-article-body > hr::after {
   content: "\2042";
-  font: 400 1.1rem/1 var(--font-body);
+  font: 400 var(--fs-md)/1 var(--font-body);
 }
 
 .hc-article-body > hr:last-child {
@@ -594,7 +559,7 @@ body:has(.hc-article) {
 }
 
 .hc-article-body figcaption {
-  margin-top: 0.65rem;
+  margin-top: var(--space-xs);
   color: var(--r-ink-3);
   font: 400 0.84em/1.5 var(--font-body);
 }
@@ -610,10 +575,10 @@ body:has(.hc-article) {
 .hc-article-body pre {
   overflow-x: auto;
   margin: var(--space-block) 0;
-  padding: 1rem 0 1rem var(--indent);
+  padding: var(--space-sm) 0 var(--space-sm) var(--indent);
   border: 0;
   background: none;
-  font-size: 0.86rem;
+  font-size: var(--fs-sm);
   line-height: 1.6;
 }
 
@@ -650,7 +615,7 @@ body:has(.hc-article) {
 
 .hc-article-body .ar-block {
   display: block;
-  margin: 1.1rem 0;
+  margin: var(--space-sm) 0;
   font-size: 1.28em;
   line-height: var(--leading-arabic);
   text-align: right;
@@ -711,7 +676,7 @@ body:has(.hc-article) {
 }
 
 .hc-fig .hc-fig {
-  margin: 1rem 0 0;
+  margin: var(--space-sm) 0 0;
   font-size: 1em;
 }
 
@@ -733,7 +698,7 @@ body:has(.hc-article) {
 }
 
 .hc-fig__label {
-  margin: 0 0 0.6rem;
+  margin: 0 0 var(--space-2xs);
   color: var(--r-ink-3);
   font-size: 1.04em;
   font-weight: 500;
@@ -742,7 +707,7 @@ body:has(.hc-article) {
 
 .hc-fig__kicker {
   display: block;
-  margin: 0 0 0.25rem;
+  margin: 0 0 var(--space-3xs);
   color: var(--r-ink-3);
   font-size: 1.02em;
   font-style: normal;
@@ -753,7 +718,7 @@ body:has(.hc-article) {
 .hc-fig :is(h2, h3, h4, h5),
 .hc-fig__title {
   display: block;
-  margin: 0 0 0.35rem;
+  margin: 0 0 var(--space-3xs);
   color: var(--r-ink);
   font: 500 1.12em/1.3 var(--font-editorial);
   font-variant-caps: normal;
@@ -762,12 +727,12 @@ body:has(.hc-article) {
 }
 
 .hc-fig :is(h2) {
-  font: 500 clamp(1.35rem, 1.1rem + 0.8vw, 1.6rem)/1.2 var(--font-editorial);
+  font: 500 var(--fs-lg)/1.2 var(--font-editorial);
 }
 
 .hc-fig__ar {
   display: block;
-  margin: 0.15rem 0 0.4rem;
+  margin: 0.15rem 0 var(--space-2xs);
   color: var(--r-ink);
   font-family: var(--font-arabic);
   font-size: 1.24em;
@@ -797,7 +762,7 @@ span.hc-fig__ar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.1rem 0;
-  margin: 0.55rem 0 0;
+  margin: var(--space-2xs) 0 0;
   padding: 0;
   list-style: none;
   color: var(--r-ink-3);
@@ -817,7 +782,7 @@ span.hc-fig__ar {
 }
 
 .hc-fig__caption {
-  margin: 0.8rem 0 0;
+  margin: var(--space-xs) 0 0;
   color: var(--r-ink-3);
   font-size: 0.94em;
 }
@@ -830,7 +795,7 @@ span.hc-fig__ar {
    description) is set like a cell: ruled above, its title in the ink. */
 .hc-article-body .hc-fig a:has(> :is(p, strong, span)) {
   display: block;
-  padding: 0.75rem 0 0.9rem;
+  padding: var(--space-xs) 0 var(--space-sm);
   border-top: 1px solid var(--r-rule-strong);
   color: inherit;
   text-decoration: none;
@@ -839,14 +804,12 @@ span.hc-fig__ar {
 .hc-fig a:has(> :is(p, strong, span)) > span:first-child {
   display: block;
   color: var(--r-ink-3);
-  font: 600 0.75rem/1.4 var(--font-ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font: 600 var(--fs-xs)/1.4 var(--font-ui);
 }
 
 .hc-fig a:has(> :is(p, strong, span)) > strong {
   display: block;
-  margin: 0.1rem 0 0.25rem;
+  margin: 0.1rem 0 var(--space-3xs);
   font: 500 1.12em/1.3 var(--font-editorial);
   transition: color var(--motion-fast) ease;
 }
@@ -869,7 +832,7 @@ span.hc-fig__ar {
 
 /* An opening summary sits under the header like an abstract. */
 .hc-fig--lead {
-  padding-block: 1.25rem 1.4rem;
+  padding-block: var(--space-sm) var(--space-md);
   border-block: 1px solid var(--r-rule);
   font-size: 0.98em;
 }
@@ -886,16 +849,16 @@ span.hc-fig__ar {
 
 /* ── End matter ───────────────────────────────────────────────── */
 
-/* Text and space, never cards, so the essay ends rather than gives way
-   to a feed. */
+/* Topics and the neighbouring studies as text, then three studies from the
+   branch as cards and a closing band with the email signup. */
 .hc-end {
-  margin-top: 4.5rem;
+  margin-top: var(--space-2xl);
 }
 
 .hc-end__label {
-  margin-right: 0.5rem;
+  margin-right: var(--space-2xs);
   color: var(--r-ink-3);
-  font-size: 0.95rem;
+  font-size: var(--fs-sm);
   font-weight: 500;
   line-height: 1.3;
 }
@@ -903,21 +866,18 @@ span.hc-fig__ar {
 .hc-end__topics {
   margin: 0;
   color: var(--r-ink-2);
-  font: 400 0.95rem/1.6 var(--font-body);
+  font: 400 var(--fs-base)/1.6 var(--font-body);
 }
 
 .hc-further {
-  margin-top: 3rem;
+  margin-top: var(--space-2xl);
 }
 
-/* Over the end matter the labels match the components': Plex, tracked. */
 .hc-article .hc-further__title {
-  margin: 0 0 0.5rem;
-  color: var(--r-accent);
-  font: 600 0.75rem/1.4 var(--font-ui);
-  font-variant-caps: normal;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  margin: 0 0 var(--space-md);
+  color: var(--r-ink);
+  font: 500 var(--fs-xl)/1.2 var(--font-editorial);
+  text-align: center;
 }
 
 .hc-further__title a {
@@ -928,52 +888,106 @@ span.hc-fig__ar {
 }
 
 .hc-further__title a:hover {
-  color: var(--r-accent-hover);
+  color: var(--r-accent);
 }
 
-.hc-further__list {
+.hc-further__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.hc-further__list li {
+.hc-further__card {
+  position: relative;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 2rem;
-  padding-block: 0.95rem;
-  border-bottom: 1px solid var(--r-rule);
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-xs) var(--space-sm);
+  border: 1px solid var(--r-rule);
+  border-radius: 12px;
+  background: var(--r-surface);
+  transition: border-color var(--motion-fast) ease;
 }
 
-.hc-further__list a {
-  min-width: 0;
-  color: var(--r-ink);
-  font: 500 1.2rem/1.3 var(--font-editorial);
-  text-decoration: none;
-  text-wrap: balance;
-  transition: color var(--motion-fast) ease;
+.hc-further__card:hover {
+  border-color: var(--r-rule-accent);
 }
 
-.hc-further__list a:hover {
-  color: var(--r-accent);
+.hc-further__card img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  margin-bottom: var(--space-3xs);
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .hc-further__date {
-  flex: none;
   color: var(--r-ink-3);
-  font: 400 0.75rem/1.8 var(--font-ui);
+  font: 400 var(--fs-xs)/1.4 var(--font-ui);
   font-variant-numeric: lining-nums tabular-nums;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
+}
+
+.hc-further__link {
+  color: var(--r-ink);
+  font: 600 var(--fs-base)/1.35 var(--font-ui);
+  text-decoration: none;
+  text-wrap: balance;
+}
+
+/* The title link covers the card. */
+.hc-further__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.hc-further__card:hover .hc-further__link {
+  color: var(--r-accent);
+}
+
+.hc-further__desc {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--r-ink-2);
+  font: 400 var(--fs-sm)/1.55 var(--font-ui);
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+/* Closing band: the signup as the page's last action. */
+.hc-end__band {
+  margin-top: var(--space-2xl);
+  padding: clamp(var(--space-lg), 5vw, var(--space-2xl)) var(--space-md);
+  border: 1px solid var(--r-rule);
+  border-radius: 16px;
+  background: var(--r-surface);
+  text-align: center;
+}
+
+.hc-article .hc-end__band-title {
+  max-width: 24ch;
+  margin: 0 auto;
+  color: var(--r-ink);
+  font: 500 var(--fs-2xl)/1.1 var(--font-editorial);
+  text-wrap: balance;
+}
+
+.hc-end__band-lead {
+  margin: var(--space-xs) auto var(--space-md);
+  color: var(--r-ink-2);
+  font: 400 var(--fs-base)/1.55 var(--font-body);
 }
 
 .hc-turn {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem 2.5rem;
-  margin-top: 3rem;
+  gap: var(--space-md) var(--space-lg);
+  margin-top: var(--space-xl);
 }
 
 .hc-turn__link {
@@ -983,7 +997,7 @@ span.hc-fig__ar {
 
 .hc-turn__link .hc-end__label {
   display: block;
-  margin: 0 0 0.25rem;
+  margin: 0 0 var(--space-3xs);
 }
 
 .hc-turn__link--later {
@@ -993,7 +1007,7 @@ span.hc-fig__ar {
 
 .hc-turn__title {
   display: block;
-  font: 480 clamp(1.2rem, 1.1rem + 0.45vw, 1.45rem)/1.25 var(--font-editorial);
+  font: 480 var(--fs-lg)/1.25 var(--font-editorial);
   letter-spacing: -0.01em;
   text-wrap: balance;
   transition: color var(--motion-fast) ease;
@@ -1004,9 +1018,12 @@ span.hc-fig__ar {
 }
 
 @media (max-width: 679px) {
-  .hc-further__list li {
-    flex-direction: column;
-    gap: 0.2rem;
+  .hc-further__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hc-article .hc-end__band-title {
+    font-size: var(--fs-xl);
   }
 
   .hc-turn {
@@ -1029,7 +1046,6 @@ span.hc-fig__ar {
 }
 
 @media print {
-  .hc-article__margin,
   .hc-contents,
   .hc-end {
     display: none !important;
@@ -1049,5 +1065,12 @@ span.hc-fig__ar {
 
   .hc-article .hc-source-mark--alt {
     text-decoration-style: dotted;
+  }
+}
+
+/* Tablet step for the title, between the desktop and phone sizes. */
+@media (min-width: 680px) and (max-width: 1100px) {
+  .hc-article .hc-head__title {
+    font-size: var(--fs-2xl);
   }
 }

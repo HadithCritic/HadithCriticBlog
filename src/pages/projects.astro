@@ -3,9 +3,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
 import { CORPUS_META } from "../lib/corpus-config";
-import { academicStudies } from "../data/academic-studies";
-import { studyFamily } from "../data/icma-families";
-import researchGraph from "../data/research-graph.json";
 import qiraatIndex from "../data/qiraat/index.json";
 import { historySources } from "../data/history";
 import "../styles/projects.css";
@@ -13,9 +10,6 @@ import "../styles/projects.css";
 /* Every figure on this page is read from the data the project is built from. */
 const n = (value: number) => value.toLocaleString("en-US");
 const corpus = CORPUS_META.counts;
-const icma = academicStudies.filter((study) => study.category === "icma");
-const icmaFamilies = new Set(icma.map((study) => studyFamily[study.slug] ?? "network")).size;
-const citations = researchGraph.edges.filter((edge) => edge.type === "cites").length;
 const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
 interface Entry {
@@ -113,51 +107,14 @@ const history: Project = {
   status: "Coming soon",
 };
 
-const research: Project[] = [
-  {
-    id: "hadith-criticism-atlas",
-    href: "/projects/islamic-studies-atlas/",
-    art: "atlas",
-    kind: "Research network",
-    arabic: "الدراسات",
-    title: "Islamic Studies Atlas",
-    desc: "Modern scholarship on ḥadīth criticism, laid out by author and year. Select a work to see what it cites and what cites it.",
-    figures: [`${researchGraph.works.length} works`, `${researchGraph.scholars.length} scholars`, `${n(citations)} citations`],
-    entries: [
-      { label: "Explore the citations", href: "/projects/islamic-studies-atlas/#map" },
-      { label: "Bibliography", href: "/projects/islamic-studies-atlas/#works" },
-      { label: "Scholars", href: "/projects/islamic-studies-atlas/#scholars" },
-    ],
-    action: "Explore the atlas",
-    scope: `${researchGraph.works.length} works, ${researchGraph.scholars.length} scholars, ${n(citations)} citations`,
-    status: "Live",
-  },
-  {
-    id: "academic-studies",
-    href: "/projects/academic-studies/",
-    art: "icma",
-    kind: "Isnād-cum-matn studies",
-    arabic: "الإسناد والمتن",
-    title: "The ICMA Register",
-    desc: "Studies that trace a tradition to its common link and date it, grouped by research family.",
-    figures: [`${icma.length} studies`, `${icmaFamilies} research families`],
-    entries: [
-      { label: "Browse the register", href: "/projects/academic-studies/#register" },
-    ],
-    action: "Browse the register",
-    scope: `${icma.length} studies in ${icmaFamilies} families`,
-    status: "Live",
-  },
-];
-
-const projects = [...databases, history, ...research];
+const projects = [...databases, history];
 const all = [lead, ...projects];
 ---
 
 <BaseLayout
   image={OG.projects}
   title="Projects | HadithCritic"
-  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants, History (Tārīkh), the Islamic Studies Atlas and the ICMA Register."
+  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants and History (Tārīkh)."
 >
   <div class="hc-page pj-page">
     <PageHero
@@ -181,7 +138,6 @@ const all = [lead, ...projects];
         <span><strong>{all.length}</strong> projects</span>
         <span><strong>{n(corpus.hadith)}</strong> narrations</span>
         <span><strong>{n(corpus.narrators)}</strong> transmitters</span>
-        <span><strong>{researchGraph.works.length}</strong> works in the atlas</span>
       </Fragment>
     </PageHero>
 

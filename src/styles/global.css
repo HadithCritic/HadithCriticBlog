@@ -41,6 +41,8 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+  /* Height of the sticky site header, for sections that sit beneath it. */
+  --hc-header-h: calc(80px + var(--safe-top));
   --hc-black: #0f0f10;
   --hc-black-soft: #141416;
   --hc-charcoal: #1a1a1d;
@@ -186,8 +188,10 @@
      /projects/) keep the earlier faces; see [data-type="project"] below. */
   --font-editorial: "Newsreader", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
   --font-display: "Newsreader", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-body: "Literata", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-critical: "Literata", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
+  /* Two families: Newsreader for headings, Public Sans for everything else,
+     reading text included. */
+  --font-body: "Public Sans", "Noto Naskh Arabic", "Segoe UI", system-ui, sans-serif;
+  --font-critical: "Public Sans", "Noto Naskh Arabic", "Segoe UI", system-ui, sans-serif;
   --font-brand: var(--font-editorial);
   --font-ui: "Public Sans", "Noto Naskh Arabic", "Segoe UI", system-ui, sans-serif;
 
@@ -246,6 +250,28 @@
   --leading-arabic: 2.05;
   --text-arabic: clamp(1.15rem, 0.35vw + 1.08rem, 1.3rem);
 
+  /* Type scale. Interface and display sizes are chosen from these steps
+     rather than set one-off, so related text lines up at the same size.
+     Display sizes change step at breakpoints instead of scaling with the
+     viewport. Long-form article text keeps its own reading size. */
+  --fs-xs: 0.75rem;     /* 12px  labels, badges */
+  --fs-sm: 0.875rem;    /* 14px  metadata, controls, notes */
+  --fs-base: 1rem;      /* 16px  summaries, list text */
+  --fs-md: 1.125rem;    /* 18px  ledes */
+  --fs-lg: 1.3125rem;   /* 21px  list titles */
+  --fs-xl: 1.75rem;     /* 28px  section heads */
+  --fs-2xl: 2.5rem;     /* 40px  page and feature titles */
+  --fs-3xl: 3.5rem;     /* 56px  large display */
+  --fs-4xl: 4.5rem;     /* 72px  homepage hero only */
+
+  /* Responsive steps for display type, which change step at breakpoints
+     (see the media queries after this block) rather than scaling with the
+     viewport. */
+  --fs-title: var(--fs-3xl);        /* 56 / 40 / 28 */
+  --fs-heading: var(--fs-2xl);      /* 40 / 28 */
+  --fs-subheading: var(--fs-xl);    /* 28 / 21 */
+  --fs-body: var(--fs-md);          /* 18 / 16, the page base outside articles */
+
   /* Hero section rhythm: catalogue used clamp(4,8vw,7rem), collection
      and treatise clamp(3.5,7vw,6rem). One token ends the drift. */
   --section-y-hero: clamp(3.5rem, 7vw, 6rem);
@@ -281,14 +307,23 @@
   /* 96px */
 }
 
-/* The research projects keep the faces they were designed with. */
-:root[data-type="project"] {
-  --font-editorial: "Cormorant Garamond", "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-display: "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-body: "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-critical: "Source Serif 4", "Noto Naskh Arabic", "Georgia", serif;
-  --font-ui: "IBM Plex Sans", "Noto Naskh Arabic", "Segoe UI", system-ui, sans-serif;
+@media (max-width: 1100px) {
+  :root {
+    --fs-title: var(--fs-2xl);
+  }
 }
+
+@media (max-width: 640px) {
+  :root {
+    --fs-title: var(--fs-xl);
+    --fs-heading: var(--fs-xl);
+    --fs-subheading: var(--fs-lg);
+    --fs-body: var(--fs-base);
+  }
+}
+
+/* The research projects share the site's two families; they no longer carry
+   a type system of their own. */
 
 /* ═══════════════════════════════════════════════════════════════
    DARK THEME — this is the default, defined by :root above.
@@ -511,7 +546,7 @@ body {
   margin: 0;
   color: var(--hc-text-primary);
   font-family: var(--font-body);
-  font-size: clamp(1.03rem, 0.25vw + 1rem, 1.13rem);
+  font-size: var(--fs-body);
   line-height: 1.72;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -634,10 +669,8 @@ main {
   background: var(--hc-surface-1);
   color: var(--hc-text-primary);
   font-family: var(--font-ui);
-  font-size: 0.8125rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   text-decoration: none;
   transition: transform 160ms var(--ease-emphasis);
 }
@@ -719,64 +752,24 @@ main {
   color: var(--hc-fixed-parchment);
 }
 
-/* ── Parchment leaf: .hc-parchment ──
-   The inverse of a plate: a fixed sheet of paper set into a dark page, used
-   sparingly for the one item a section wants read first (the homepage's
-   featured study and its closing note). It pins the paper ink set in both
-   themes, so tokens used inside it resolve to dark ink on parchment. The
-   inset double rule is the same tipped-in border the masthead instrument
-   uses. Inks are the light theme's audited values: secondary 6.5:1 and gold
-   6.4:1 against --hc-fixed-parchment-deep, the darker end of the sheet. */
+/* ── Surface card: .hc-parchment ──
+   Once a sheet of paper set into the dark page; now the site's one card
+   surface, a step lighter than the ground, so every featured item, form and
+   closing note shares a single treatment in both themes. The class name is
+   kept so existing markup needs no change. */
 .hc-parchment {
-  --hc-surface-0: var(--hc-fixed-parchment);
-  --hc-surface-1: var(--hc-fixed-parchment);
-  --hc-surface-2: var(--hc-fixed-parchment-deep);
-  --hc-text-primary: var(--hc-fixed-parchment-ink);
-  --hc-text-secondary: #4e4842;
-  --hc-text-tertiary: #58534c;
-  --hc-text-inverse: var(--hc-fixed-parchment);
-  --hc-gold: #6a4c18;
-  --hc-gold-bright: #4f380f;
-  --hc-gold-dim: #7a5920;
-  --hc-rule: rgba(26, 23, 21, 0.18);
-  --hc-rule-soft: rgba(26, 23, 21, 0.1);
-  --hc-rule-strong: rgba(26, 23, 21, 0.32);
-  --cat-history-text: #713e20;
-  --cat-prophecies-text: #7e3727;
-  --cat-theology-text: #39533d;
-  --cat-philosophy-text: #414c64;
   position: relative;
-  color: var(--hc-fixed-parchment-ink);
-  background:
-    radial-gradient(120% 140% at 50% 50%, transparent 55%, rgba(122, 89, 32, 0.16) 100%),
-    linear-gradient(180deg, var(--hc-fixed-parchment) 0%, #ece2cd 100%);
-  box-shadow:
-    inset 0 0 0 6px var(--hc-fixed-parchment),
-    inset 0 0 0 7px rgba(26, 23, 21, 0.24);
+  border: 1px solid var(--hc-rule-soft);
+  border-radius: 12px;
+  background: var(--hc-surface-1);
+  color: var(--hc-text-primary);
 }
 
 /* ── Ornamental rule: .hc-ornament ──
-   A hairline with a lozenge at its centre, the chapter divider of the brand
-   sheet. Decorative, so always aria-hidden at the call site. */
+   Retired: the lozenge-and-hairline divider is left out of the minimal
+   layout. Hidden rather than deleted so call sites need no change. */
 .hc-ornament {
-  --ornament-width: 14rem;
-  position: relative;
-  display: block;
-  width: min(100%, var(--ornament-width));
-  height: 9px;
-  background: linear-gradient(var(--hc-gold-dim), var(--hc-gold-dim)) left center / 100% 1px no-repeat;
-}
-
-.hc-ornament::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 7px;
-  height: 7px;
-  border: 1px solid var(--hc-gold);
-  background: var(--ornament-ground, var(--hc-surface-0));
-  transform: translate(-50%, -50%) rotate(45deg);
+  display: none;
 }
 
 /* On paper a plate needs an opaque base under its own fill. These fills are
@@ -811,9 +804,7 @@ main {
 .hc-eyebrow,
 .hc-label {
   font-family: var(--font-ui);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1.3;
   color: var(--hc-gold);
   font-weight: 500;
@@ -845,27 +836,27 @@ main {
 }
 
 .hc-title--xl {
-  font-size: clamp(2.98rem, 7vw, 5.1rem);
+  font-size: var(--fs-title);
 }
 
 .hc-title--lg {
-  font-size: clamp(2.55rem, 6vw, 4.93rem);
+  font-size: var(--fs-title);
 }
 
 .hc-title--md {
-  font-size: clamp(1.91rem, 4vw, 3.4rem);
+  font-size: var(--fs-title);
 }
 
 .hc-copy {
   color: var(--hc-text-secondary);
-  font-size: clamp(1.03rem, 0.5vw + 0.96rem, 1.22rem);
+  font-size: var(--fs-lg);
   line-height: 1.72;
 }
 
 .hc-small {
   font-family: var(--font-body);
   color: var(--hc-text-tertiary);
-  font-size: 0.96rem;
+  font-size: var(--fs-base);
   line-height: 1.55;
 }
 
@@ -938,7 +929,7 @@ span.arabic {
   background: var(--hc-gold);
   font-family: var(--font-ui);
   font-weight: 500;
-  font-size: 0.94rem;
+  font-size: var(--fs-sm);
   letter-spacing: 0.01em;
   text-decoration: none;
   transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
@@ -1096,7 +1087,7 @@ span.arabic {
   left: 50%;
   transform: translate(-50%, -50%);
   color: var(--hc-gold);
-  font-size: 0.87rem;
+  font-size: var(--fs-sm);
   line-height: 1;
   background: var(--hc-surface-0);
   padding: 0 12px;
@@ -1136,7 +1127,7 @@ span.arabic {
 .hc-directory-card h3 {
   margin: 0.65rem 0 0;
   font-family: var(--font-editorial);
-  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  font-size: var(--fs-title);
   line-height: 0.98;
   letter-spacing: -0.01em;
   font-weight: 600;
@@ -1245,7 +1236,7 @@ span.arabic {
   color: var(--cat-color, var(--hc-gold-soft));
   background: var(--cat-bg, rgba(216, 177, 102, 0.06));
   font-family: var(--font-ui);
-  font-size: 0.87rem;
+  font-size: var(--fs-sm);
   text-decoration: none;
 }
 
@@ -1293,7 +1284,7 @@ span.arabic {
   }
 
   .hc-title--xl {
-    font-size: clamp(2.98rem, 15vw, 5.1rem);
+    font-size: var(--fs-title);
   }
 }
 
@@ -1699,7 +1690,7 @@ footer {
 .hc-stat__num {
   display: block;
   font-family: var(--font-body);
-  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  font-size: var(--fs-subheading);
   font-weight: 500;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -1711,11 +1702,9 @@ footer {
   display: block;
   margin-top: 0.45rem;
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1.3;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--hc-text-tertiary);
 }
 
@@ -1723,7 +1712,7 @@ footer {
    Authenticity grading"). */
 .hc-stat--display .hc-stat__num {
   font-family: var(--font-display);
-  font-size: clamp(1.1rem, 1.7vw, 1.45rem);
+  font-size: var(--fs-lg);
   letter-spacing: -0.01em;
 }
 
@@ -1778,7 +1767,7 @@ footer {
   gap: 0.4rem;
   min-height: 44px;
   font-family: var(--font-ui);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--hc-gold);
   text-decoration: none;
@@ -1822,7 +1811,7 @@ footer {
   background: transparent;
   color: var(--hc-text-primary);
   font-family: var(--font-body);
-  font-size: 1.02rem;
+  font-size: var(--fs-base);
 }
 
 .hc-searchbar__input::placeholder {
@@ -1838,7 +1827,7 @@ footer {
   background: transparent;
   color: var(--hc-gold);
   font-family: var(--font-ui);
-  font-size: 0.94rem;
+  font-size: var(--fs-base);
   font-weight: 600;
   cursor: pointer;
   transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
@@ -1864,7 +1853,7 @@ footer {
   gap: 0.5rem;
   min-height: 24px;
   font-family: var(--font-ui);
-  font-size: 0.81rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--hc-text-secondary);
 }
@@ -1986,7 +1975,7 @@ footer {
 .hc-section-head__title {
   margin: 0.42rem 0 0;
   font-family: var(--font-editorial);
-  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  font-size: var(--fs-heading);
   font-weight: 600;
   line-height: 1.04;
   letter-spacing: -0.01em;
@@ -1999,7 +1988,7 @@ footer {
    sections. Still display face, still a real step above the apparatus. */
 .hc-section-head--panel .hc-section-head__title {
   font-family: var(--font-display);
-  font-size: clamp(1.3rem, 2vw, 1.65rem);
+  font-size: var(--fs-subheading);
   letter-spacing: -0.005em;
 }
 
@@ -2007,7 +1996,7 @@ footer {
   max-width: 68ch;
   margin: 0.8rem 0 0;
   font-family: var(--font-body);
-  font-size: 0.98rem;
+  font-size: var(--fs-base);
   line-height: 1.7;
   color: var(--hc-text-secondary);
 }
@@ -2019,11 +2008,9 @@ footer {
   max-width: 30ch;
   margin: 0 0 0.15rem;
   font-family: var(--font-ui);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   line-height: 1.5;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   text-align: right;
   color: var(--hc-text-tertiary);
 }
@@ -2175,7 +2162,7 @@ footer {
 .hc-masthead__title {
   margin: 0.9rem 0 1.1rem;
   font-family: var(--font-editorial);
-  font-size: clamp(2.7rem, 5.8vw, 4.6rem);
+  font-size: var(--fs-title);
   font-weight: 600;
   line-height: 1.02;
   letter-spacing: -0.012em;
@@ -2186,7 +2173,7 @@ footer {
 .hc-masthead__lead {
   max-width: 52ch;
   margin: 0;
-  font-size: 1.08rem;
+  font-size: var(--fs-md);
   line-height: 1.68;
   color: var(--hc-text-secondary);
 }
@@ -2225,7 +2212,7 @@ footer {
 
 .hc-instrument__figure {
   font-family: var(--font-display);
-  font-size: clamp(2.3rem, 4.4vw, 3rem);
+  font-size: var(--fs-heading);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -2233,7 +2220,7 @@ footer {
 }
 
 .hc-instrument__note {
-  font-size: 0.95rem;
+  font-size: var(--fs-base);
   line-height: 1.4;
 }
 
@@ -2241,9 +2228,7 @@ footer {
   margin: 0;
   padding: 1.05rem 0.4rem 0.3rem;
   color: var(--hc-gold-dim);
-  font: 700 0.81rem/1.3 var(--font-ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font: 700 var(--fs-xs)/1.3 var(--font-ui);
 }
 
 .hc-hatch {
@@ -2278,16 +2263,14 @@ footer {
 .hc-project-hero__kicker {
   margin: 0 0 0.45rem;
   color: var(--hc-gold);
-  font: 600 0.75rem/1.4 var(--font-ui);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font: 600 var(--fs-xs)/1.4 var(--font-ui);
 }
 
 .hc-project-hero__title {
   max-width: 11ch;
   margin: 0;
   color: var(--hc-text-primary);
-  font: 600 clamp(3.4rem, 7.5vw, 6rem)/0.98 var(--font-editorial);
+  font: 600 var(--fs-title)/0.98 var(--font-editorial);
   letter-spacing: -0.015em;
   text-wrap: balance;
 }
@@ -2296,7 +2279,7 @@ footer {
   max-width: 62ch;
   margin: 1.35rem 0 2rem;
   color: var(--hc-text-secondary);
-  font-size: 1.02rem;
+  font-size: var(--fs-base);
   line-height: 1.7;
 }
 
@@ -2318,15 +2301,13 @@ footer {
 .hc-project-hero__aside-label {
   margin: 0 0 1rem;
   color: var(--hc-text-tertiary);
-  font: 600 0.75rem/1.3 var(--font-ui);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  font: 600 var(--fs-xs)/1.3 var(--font-ui);
 }
 
 .hc-project-hero__figure {
   margin: 0;
   color: var(--hc-text-primary);
-  font: 600 clamp(2.6rem, 5vw, 4rem)/0.98 var(--font-display);
+  font: 600 var(--fs-title)/0.98 var(--font-display);
   font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -2340,7 +2321,7 @@ footer {
 .hc-project-hero__caption {
   margin: 0.5rem 0 0;
   color: var(--hc-text-secondary);
-  font: 500 0.875rem/1.5 var(--font-ui);
+  font: 500 var(--fs-sm)/1.5 var(--font-ui);
 }
 
 @media (max-width: 900px) {
@@ -2349,7 +2330,7 @@ footer {
 }
 
 @media (max-width: 640px) {
-  .hc-project-hero__title { font-size: clamp(3rem, 16vw, 4.8rem); }
+  .hc-project-hero__title { font-size: var(--fs-title); }
   .hc-project-hero__actions .hc-btn { flex: 1 1 100%; justify-content: center; }
 }
 

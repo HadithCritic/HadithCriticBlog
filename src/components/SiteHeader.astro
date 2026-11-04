@@ -14,7 +14,7 @@ const links = [
 ---
 
 <header class="site-header" id="siteHeader">
-  <div class="wrap header-inner">
+  <div class="header-inner">
     <a href="/" class="header-brand" aria-label="HadithCritic home">
       <img src="/images/brand/geometric-emblem-96.webp" alt="" class="header-emblem" width="32" height="32" decoding="async" />
       <span class="header-brand-name">HadithCritic</span>
@@ -40,6 +40,8 @@ const links = [
           <span class="header-search-kbd-key">K</span>
         </kbd>
       </button>
+
+      <a href="/#subscribe" class="header-subscribe">Subscribe</a>
 
       <button
         class="theme-toggle"
@@ -85,6 +87,14 @@ const links = [
     </div>
   </div>
 </header>
+<script is:inline>
+  // Set the top-of-page state before first paint so the header never flashes
+  // solid over the hero. Without JS the header simply stays solid.
+  (function () {
+    var header = document.getElementById('siteHeader');
+    if (header && window.scrollY <= 20) header.classList.add('is-at-top');
+  })();
+</script>
 <div class="mobile-nav-backdrop" id="mobileNavBackdrop" hidden></div>
 <nav class="header-mobile-nav" id="mobileNav" aria-label="Mobile navigation" aria-hidden="true">
   <div class="mobile-nav-top">
@@ -114,13 +124,14 @@ const links = [
   </button>
   <div class="mobile-nav-links">
     {links.map((link) => link.label === 'Projects' ? <ProjectNavigation mobile /> : <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>{link.label}</a>)}
+    <a href="/#subscribe" class="hc-header-link">Subscribe by email</a>
   </div>
 </nav>
 
 <noscript>
   <style is:global>
     @media (max-width: 980px) {
-      #siteHeader .header-inner { flex-wrap: wrap; padding-bottom: 0.5rem; }
+      #siteHeader .header-inner { flex-wrap: wrap; padding-bottom: var(--space-2xs); }
       #siteHeader .header-nav { display: flex; flex-wrap: wrap; width: 100%; order: 3; }
       #siteHeader .header-menu-toggle { display: none; }
       #siteHeader .project-nav { position: static; }
@@ -131,35 +142,60 @@ const links = [
 </noscript>
 
 <style>
+  /* The bar is solid by default (and without JS). At the very top of the page
+     it drops its ground and rule so it reads as part of whatever sits behind
+     it, then returns once the reader scrolls. The rule is an inset shadow, not
+     a border, so the bar's height is exactly --hc-header-h in both states. */
   .site-header {
+    --hc-header-wrap: 1680px;
+    --hc-header-gutter: clamp(1rem, 3vw, 3rem);
     position: sticky;
     top: 0;
     z-index: 50;
-    border-bottom: 1px solid var(--hc-rule);
     background: rgba(var(--hc-scrim), 0.88);
+    box-shadow: inset 0 -1px 0 var(--hc-rule);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    transition: border-color var(--motion-base) var(--ease-standard),
-                box-shadow var(--motion-base) var(--ease-standard),
-                background var(--motion-base) var(--ease-standard);
+  }
+  /* Transitions start only after the first paint, so a page that loads at
+     the top never fades from solid to clear. */
+  .site-header.is-ready {
+    transition: box-shadow var(--motion-base) var(--ease-standard),
+                background var(--motion-base) var(--ease-standard),
+                backdrop-filter var(--motion-base) var(--ease-standard);
   }
   .site-header.is-scrolled {
-    border-bottom-color: var(--hc-rule-strong);
-    box-shadow: var(--hc-header-shadow);
+    box-shadow: inset 0 -1px 0 var(--hc-rule-strong), var(--hc-header-shadow);
     background: rgba(var(--hc-scrim), 0.96);
   }
+  .site-header.is-at-top {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* Wider than the page's content measure, so the brand and the actions sit
+     out toward the edges and the links have room to breathe. */
   .header-inner {
     display: flex;
-    min-height: 72px;
+    box-sizing: border-box;
+    width: min(100%, var(--hc-header-wrap));
+    min-height: 80px;
+    margin-inline: auto;
+    padding-inline: max(var(--hc-header-gutter), var(--sal)) max(var(--hc-header-gutter), var(--sar));
     align-items: center;
     justify-content: space-between;
-    gap: 1.25rem;
-    padding-top: var(--safe-top);
+    gap: var(--space-sm);
+  }
+  @media (max-width: 640px) {
+    .site-header {
+      --hc-header-gutter: 0.9rem;
+    }
   }
   .header-brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--space-xs);
     flex: 0 0 auto;
     color: var(--hc-text-primary);
     text-decoration: none;
@@ -186,69 +222,49 @@ const links = [
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(0.4rem, 1.3vw, 1.15rem);
+    gap: var(--space-3xs);
   }
+  /* Links are rounded pills that shade on hover; the current section keeps a
+     quieter shade so the reader can see where they are. */
   .hc-header-link {
     position: relative;
     display: inline-flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    padding: 0.4rem 0.6rem;
+    min-height: 40px;
+    padding: 0 var(--space-sm);
     color: var(--hc-text-secondary);
-    font: 500 0.8rem/1 var(--font-ui);
-    letter-spacing: 0.1em;
+    font: 500 var(--fs-base)/1 var(--font-ui);
     text-decoration: none;
-    text-transform: uppercase;
-    border-radius: var(--radius-xs);
-    transition: color var(--motion-fast) var(--ease-standard);
+    border-radius: 12px;
+    transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
   }
   .hc-header-link__indicator {
-    position: absolute;
-    bottom: 6px;
-    left: 0.6rem;
-    right: 0.6rem;
-    height: 2px;
-    background: var(--hc-gold);
-    border-radius: 1px;
-    transform: scaleX(0);
-    transform-origin: center;
-    opacity: 0;
-    transition: transform var(--motion-base) var(--ease-standard),
-                opacity var(--motion-base) var(--ease-standard);
+    display: none;
   }
   .hc-header-link:hover {
     color: var(--hc-text-primary);
-  }
-  .hc-header-link:hover .hc-header-link__indicator {
-    transform: scaleX(0.5);
-    opacity: 0.6;
+    background: color-mix(in srgb, var(--hc-text-primary) 8%, transparent);
   }
   .hc-header-link[aria-current='page'] {
-    color: var(--hc-gold);
-  }
-  .hc-header-link[aria-current='page'] .hc-header-link__indicator {
-    transform: scaleX(1);
-    opacity: 1;
+    color: var(--hc-text-primary);
+    background: color-mix(in srgb, var(--hc-text-primary) 5%, transparent);
   }
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: var(--space-2xs);
   }
   .header-search-btn,
   .header-menu-toggle,
   .mobile-search,
   .mobile-nav-close-btn {
-    min-height: 40px;
+    min-height: 36px;
     border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
+    border-radius: 8px;
     color: var(--hc-text-secondary);
     background: rgba(var(--hc-scrim), 0.55);
-    font: 500 0.78rem/1 var(--font-ui);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font: 500 var(--fs-sm)/1 var(--font-ui);
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -270,8 +286,8 @@ const links = [
   .header-search-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
-    padding: 0.4rem 0.55rem 0.4rem 0.75rem;
+    gap: var(--space-xs);
+    padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) var(--space-xs);
   }
   .header-search-icon {
     color: var(--hc-gold);
@@ -287,18 +303,18 @@ const links = [
     color: var(--hc-gold-bright);
   }
   .header-search-label {
-    letter-spacing: 0.08em;
+    letter-spacing: 0;
   }
   .header-search-kbd {
     display: inline-flex;
     align-items: center;
     gap: 2px;
-    padding: 0.18rem 0.4rem;
+    padding: 0.18rem var(--space-2xs);
     border: 1px solid var(--hc-rule-soft);
     border-radius: 2px;
     background: var(--hc-surface-2);
     color: var(--hc-gold-soft);
-    font: 600 0.75rem/1 var(--font-ui);
+    font: 600 var(--fs-xs)/1 var(--font-ui);
     letter-spacing: 0.04em;
     box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
     transition: border-color var(--motion-fast) var(--ease-standard),
@@ -347,7 +363,7 @@ const links = [
     justify-content: space-between;
     width: 100%;
     height: 100%;
-    padding: 0 4px;
+    padding: 0 var(--space-3xs);
   }
   .theme-toggle__glyph-slot {
     display: flex;
@@ -473,7 +489,7 @@ const links = [
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     width: 18px;
     height: 14px;
   }
@@ -509,6 +525,44 @@ const links = [
     display: none;
   }
 
+  /* The shortcut hint is left off the bar; Ctrl K still opens search. */
+  .header-search-kbd,
+  .mobile-search-kbd {
+    display: none;
+  }
+
+  /* One highlighted action, as the bar's last word before the theme switch. */
+  .header-subscribe {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 var(--space-sm);
+    border-radius: 8px;
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--motion-fast) var(--ease-standard);
+  }
+  .header-subscribe:hover {
+    background: var(--hc-gold-bright);
+  }
+
+  /* Between the mobile menu and a wide window the links need the room, so
+     search shrinks to its icon and Subscribe moves into the menu. */
+  @media (max-width: 1200px) {
+    .header-search-label,
+    .header-subscribe {
+      display: none;
+    }
+    .header-search-btn {
+      width: 40px;
+      padding: 0;
+      justify-content: center;
+    }
+  }
+
   @media (max-width: 980px) {
     .header-nav,
     .header-search-btn {
@@ -525,7 +579,7 @@ const links = [
       bottom: 0;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: var(--space-xs);
       width: min(24rem, calc(100vw - 1.5rem));
       padding: max(1.25rem, var(--safe-top)) 1.25rem max(1.5rem, var(--safe-bottom));
       border-left: 1px solid var(--hc-rule-strong);
@@ -545,13 +599,13 @@ const links = [
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 0.85rem;
+      padding-bottom: var(--space-xs);
       border-bottom: 1px solid var(--hc-rule);
     }
     .mobile-nav-brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: var(--space-xs);
     }
     .mobile-nav-emblem {
       width: 24px;
@@ -560,7 +614,7 @@ const links = [
     }
     .mobile-nav-title {
       font-family: var(--font-editorial);
-      font-size: 1.4rem;
+      font-size: var(--fs-lg);
       font-weight: 600;
       letter-spacing: 0;
       color: var(--hc-text-primary);
@@ -599,9 +653,9 @@ const links = [
       width: 100%;
       min-height: 48px;
       align-items: center;
-      padding: 0.75rem 0.5rem;
+      padding: var(--space-xs) var(--space-2xs);
       border-bottom: 1px solid var(--hc-rule-soft);
-      font-size: 0.95rem;
+      font-size: var(--fs-base);
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
@@ -613,7 +667,7 @@ const links = [
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      padding: 0.65rem 0.85rem;
+      padding: var(--space-xs) var(--space-xs);
       color: var(--hc-text-secondary);
       background: var(--hc-surface-2);
       border: 1px solid var(--hc-rule);
@@ -632,7 +686,7 @@ const links = [
     .mobile-search-left {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: var(--space-xs);
     }
     .mobile-search-icon {
       color: var(--hc-gold);
@@ -642,12 +696,12 @@ const links = [
       display: inline-flex;
       align-items: center;
       gap: 2px;
-      padding: 0.15rem 0.35rem;
+      padding: 0.15rem var(--space-3xs);
       border: 1px solid var(--hc-rule-soft);
       border-radius: 2px;
       background: var(--hc-surface-1);
       color: var(--hc-gold-soft);
-      font: 600 0.75rem/1 var(--font-ui);
+      font: 600 var(--fs-xs)/1 var(--font-ui);
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -672,9 +726,14 @@ const links = [
   const mainContent = document.querySelector<HTMLElement>('#main-content');
   const footer = document.querySelector<HTMLElement>('.site-footer');
   let scrollY = 0;
-  const onScroll = () => header?.classList.toggle('is-scrolled', window.scrollY > 20);
+  const onScroll = () => {
+    const scrolled = window.scrollY > 20;
+    header?.classList.toggle('is-scrolled', scrolled);
+    header?.classList.toggle('is-at-top', !scrolled);
+  };
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+  requestAnimationFrame(() => requestAnimationFrame(() => header?.classList.add('is-ready')));
 
   const setMenu = (open: boolean, returnFocus = false) => {
     if (!toggle || !menu || !backdrop) return;
