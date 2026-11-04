@@ -1,21 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════
    ARTICLE READER
 
-   One reading column and one set of rules for everything inside it.
-   The article is set like a journal: Cormorant for the title and the
-   section heads, Source Serif 4 for the text and for every editorial
-   label (in real small caps), IBM Plex Sans only for interface
-   apparatus such as the byline, dates and the share control.
+   Set like a printed critical edition rather than a dashboard: no
+   shadows, no ornaments, no side stripes. Hierarchy comes from type,
+   space and flat grounds. Newsreader for the title, the section heads and
+   the notes; Literata for the text; Public Sans for interface
+   apparatus and the tracked labels over components.
+
+   Sources (the Qur'an, reports, quotations) sit on one flat panel with
+   the English first and the Arabic beneath a hairline. A finding sits on
+   an accent-tinted panel and the verdict on an inverted one. The accent
+   is the site gold, used for labels, verse numbers, note calls, link
+   underlines and the wash behind quoted wording. The highlight hues that
+   tie one passage to another are the only other colour in the text.
 
    This file holds the page, the prose, the Arabic and highlight
    rules, and the base parts of the shared figure vocabulary (.hc-fig).
-   Every component that draws its own ground (notes, sources, quotes,
-   tables, figure layouts, media, footnotes, the part divider) lives in
-   article-plates.css, which global.css imports after this one.
-
-   Colour in the prose is limited to the ink ramp, one accent for links,
-   note labels and reference numerals, and the highlight hues articles
-   use to tie passages together.
+   Every component (notes, sources, quotes, tables, figure layouts,
+   media, footnotes, the part divider) lives in article-plates.css,
+   which global.css imports after this one.
 
    Body rules use child combinators (`.hc-article-body > p`) so that a
    figure's own paragraphs and headings take the figure setting rather
@@ -26,18 +29,32 @@
 
 .hc-article {
   /* Ink ramp, measured against --r-bg (dark #0f0f10, light #fbf9f4):
-       ink 14.7:1 / 15.6:1, ink-2 8.6:1 / 8.7:1, ink-3 5.8:1 / 5.8:1,
-       accent 8.9:1 / 6.2:1. Mark hues are underlines, held above 3:1. */
+       ink 15.1:1 / 15.6:1, ink-2 10.6:1 / 9.6:1, ink-3 6.9:1 / 6.0:1,
+       accent 8.9:1 / 6.2:1. On --r-panel ink-3 holds 6.2:1 / 5.4:1 and
+       the accent 8.0:1 / 5.6:1; ink on --r-wash 8.3:1 / 10.0:1, on --r-wash-alt 8.7:1 / 10.3:1.
+       Mark hues are underlines, held above 3:1. */
   --r-bg: var(--hc-surface-0);
-  --r-ink: #e8e1d2;
-  --r-ink-2: #b7ad9b;
-  --r-ink-3: #948d81;
+  --r-sunk: #1b1815;
+  --r-ink: #e9e4dc;
+  --r-ink-2: #c5c0b8;
+  --r-ink-3: #9f9b93;
   --r-accent: #d2ab62;
   --r-accent-hover: #e6c47f;
-  --r-rule: rgba(232, 225, 210, 0.12);
-  --r-rule-strong: rgba(232, 225, 210, 0.24);
-  --r-rule-accent: rgba(210, 171, 98, 0.5);
-  --r-tint: rgba(232, 225, 210, 0.045);
+  --r-rule: rgba(233, 228, 220, 0.13);
+  --r-rule-strong: rgba(233, 228, 220, 0.24);
+  --r-tint: rgba(233, 228, 220, 0.045);
+
+  --r-rule-accent: rgba(210, 171, 98, 0.6);
+
+  /* Grounds for the components: a source panel (ink at 5.5% over the
+     page) and a finding panel (the accent at 7%). */
+  --r-panel: #1b1b1b;
+  --r-panel-claim: #1d1a16;
+  --r-wash: #473e2c;
+  --r-wash-alt: #2b4040;
+  --r-surface: var(--r-panel);
+  --r-surface-2: var(--r-panel);
+  --r-frame: var(--r-rule-strong);
 
   --r-mark-gold: #e2c34f;
   --r-mark-amber: #d99a55;
@@ -45,10 +62,13 @@
   --r-mark-red: #d77a74;
   --r-mark-violet: #ad8fcb;
 
-  --measure: 44.5rem; /* about 82 characters a line at the 19px body (DESIGN.md) */
-  --page-wide: 1240px;
-  --margin-col: 14rem;
-  --space-block: 2.25rem;
+  --measure: 40rem; /* about 72 characters a line at the 19px body (DESIGN.md) */
+  --rail: 12rem;
+  --gap: clamp(3rem, 6vw, 5.5rem);
+  --page: calc(var(--rail) + var(--gap) + var(--measure));
+  /* Sources are set in by this much; verse numbers hang in it. */
+  --indent: clamp(0rem, 5vw, 2.75rem);
+  --space-block: 2.5rem;
 
   /* Re-point the site tokens so figures and components inside the
      article inherit the reader palette instead of their own. */
@@ -61,7 +81,8 @@
   --hc-gold-dim: var(--r-ink-3);
   --hc-rule: var(--r-rule-strong);
   --hc-rule-soft: var(--r-rule);
-  --hc-rule-strong: var(--r-rule-accent);
+  --hc-rule-strong: var(--r-rule-strong);
+  --hc-focus-color: var(--r-accent);
 
   color: var(--r-ink);
   background: var(--r-bg);
@@ -69,15 +90,20 @@
 }
 
 [data-theme="light"] .hc-article {
-  --r-ink: #221f1b;
-  --r-ink-2: #4d4740;
-  --r-ink-3: #686157;
+  --r-sunk: #f2f0ec;
+  --r-ink: #241e1a;
+  --r-ink-2: #47413c;
+  --r-ink-3: #665f5a;
   --r-accent: #7a571c;
   --r-accent-hover: #5c4012;
-  --r-rule: rgba(34, 31, 27, 0.11);
-  --r-rule-strong: rgba(34, 31, 27, 0.22);
-  --r-rule-accent: rgba(122, 87, 28, 0.45);
-  --r-tint: rgba(34, 31, 27, 0.035);
+  --r-rule: rgba(36, 30, 26, 0.14);
+  --r-rule-strong: rgba(36, 30, 26, 0.24);
+  --r-rule-accent: rgba(122, 87, 28, 0.55);
+  --r-panel: #efede8;
+  --r-panel-claim: #f2eee5;
+  --r-wash: #d3c9b7;
+  --r-wash-alt: #bfd0ca;
+  --r-tint: rgba(36, 30, 26, 0.035);
 
   --r-mark-gold: #a5850c;
   --r-mark-amber: #a9651f;
@@ -91,12 +117,19 @@ body:has(.hc-article) {
   --hc-footer-gap: 0px;
 }
 
+.hc-article ::selection {
+  background: color-mix(in srgb, var(--r-accent) 22%, transparent);
+  color: inherit;
+}
+
 /* ── Layout ───────────────────────────────────────────────────── */
 
+/* One column below 1100px. From there a left rail carries the contents
+   (and, in the header, the particulars) beside a centred measure. */
 .hc-article__grid {
   width: min(100% - (var(--pad) * 2), var(--measure));
   margin-inline: auto;
-  padding-block: clamp(2.25rem, 5vw, 3.5rem) clamp(3rem, 6vw, 5rem);
+  padding-block: clamp(2.5rem, 5vw, 4rem) clamp(4rem, 8vw, 7rem);
 }
 
 .hc-article__main {
@@ -107,288 +140,205 @@ body:has(.hc-article) {
   display: none;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1100px) {
   .hc-article__grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, var(--measure)) minmax(0, 1fr);
-    column-gap: clamp(2.5rem, 4vw, 4rem);
+    grid-template-columns: var(--rail) minmax(0, var(--measure));
+    column-gap: var(--gap);
+    justify-content: center;
     align-items: start;
-    /* As wide as the title leaf, so the contents align with its left edge
-       while the column stays centred. */
-    width: min(100% - (var(--pad) * 2), var(--page-wide));
+    width: min(100% - (var(--pad) * 2), var(--page));
   }
 
   .hc-article__main {
     grid-column: 2;
+    grid-row: 1;
   }
 
   .hc-article__margin {
     display: block;
     grid-column: 1;
     grid-row: 1;
-    justify-self: start;
-    width: 100%;
-    max-width: var(--margin-col);
-    height: 100%;
+    align-self: stretch;
   }
 }
 
-/* Small caps for editorial labels, used across the system. Source Serif 4
-   carries smcp and c2sc, so these are drawn caps, not shrunken capitals. */
+/* Editorial labels share the component label: Plex, tracked capitals.
+   Each rule below keeps its own colour. */
 .hc-article :is(
   .hc-contents__label,
   .hc-fig__kicker,
   .hc-fig__label,
   .hc-end__label,
-  .hc-further__title
+  .hc-further__title,
+  .hc-head__folio
 ) {
-  font-family: var(--font-body);
-  font-variant-caps: small-caps;
+  font: 600 0.75rem/1.4 var(--font-ui);
+  font-variant-caps: normal;
   font-variant-numeric: lining-nums;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-/* ── Header: the title leaf ───────────────────────────────────────
-   A leaf set across the top of the page, wider than the reading column:
-   copy on the left, the artwork on the right. Its inks are fixed per theme
-   rather than read from the reader ramp, because its ground is its own.
-   Dark theme: a dark plate with a gold double rule, the artwork framed in
-   it. Light theme: the parchment leaf of the homepage's featured study
-   (.hc-parchment), where an engraving fades into the paper. Every rule is
-   scoped to .hc-article: this file is global, and house.css uses .hc-head
-   for the homepage-style section heads. */
+.hc-article .hc-fig__label {
+  color: var(--r-accent);
+}
+
+/* ── Header: the opening ──────────────────────────────────────────
+   Branch and number, the title, the standfirst, then a byline under a
+   hairline. On wide screens the artwork sits beside the copy and the header
+   takes the page's width plus the same rightward bleed the wide figures use;
+   below that the artwork follows the copy. The plate is shaped to the
+   drawing (see ArticleHeader). Every rule is scoped to .hc-article: this file
+   is global, and house.css uses .hc-head for the homepage-style heads. */
 
 .hc-article .hc-head {
-  width: min(100% - (var(--pad) * 2), var(--page-wide));
-  margin: clamp(1.25rem, 3vw, 2rem) auto 0;
+  width: min(100% - (var(--pad) * 2), var(--measure));
+  margin: clamp(2.25rem, 6vw, 4.5rem) auto 0;
 }
 
 .hc-article .hc-head__leaf {
-  --leaf-ground: #12110f;
-  --leaf-ink: #f2ebdc;
-  --leaf-ink-2: #c4b9a4;
-  --leaf-ink-3: #a79d8a;
-  --leaf-gold: #d8b166;
-  --leaf-gold-dim: #bf9957;
-  --leaf-rule: rgba(216, 177, 102, 0.32);
-  --leaf-rule-strong: rgba(216, 177, 102, 0.55);
-  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
-  min-height: 18rem;
-  color: var(--leaf-ink);
-  background: radial-gradient(90% 120% at 85% 50%, #1d1a15 0%, var(--leaf-ground) 70%);
-  box-shadow:
-    inset 0 0 0 1px var(--leaf-rule-strong),
-    inset 0 0 0 7px var(--leaf-ground),
-    inset 0 0 0 8px var(--leaf-rule);
-}
-
-.hc-article .hc-head__leaf--plain {
   grid-template-columns: minmax(0, 1fr);
-  min-height: 0;
-}
-
-/* Corner ticks inside the double rule. */
-.hc-article .hc-head__leaf::after {
-  --tick: var(--leaf-gold-dim);
-  content: "";
-  position: absolute;
-  inset: 14px;
-  pointer-events: none;
-  opacity: 0.8;
-  background:
-    linear-gradient(var(--tick), var(--tick)) 0 0 / 16px 1px,
-    linear-gradient(var(--tick), var(--tick)) 0 0 / 1px 16px,
-    linear-gradient(var(--tick), var(--tick)) 100% 0 / 16px 1px,
-    linear-gradient(var(--tick), var(--tick)) 100% 0 / 1px 16px,
-    linear-gradient(var(--tick), var(--tick)) 0 100% / 16px 1px,
-    linear-gradient(var(--tick), var(--tick)) 0 100% / 1px 16px,
-    linear-gradient(var(--tick), var(--tick)) 100% 100% / 16px 1px,
-    linear-gradient(var(--tick), var(--tick)) 100% 100% / 1px 16px;
-  background-repeat: no-repeat;
 }
 
 .hc-article .hc-head__copy {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.85rem;
   min-width: 0;
-  padding: clamp(1.75rem, 3vw, 2.6rem) clamp(1.6rem, 3vw, 2.75rem) clamp(1.75rem, 3vw, 2.6rem) clamp(2rem, 3.4vw, 3.2rem);
+}
+
+.hc-article .hc-head__kicker-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 1.1rem;
+  margin: 0 0 1.25rem;
+}
+
+.hc-article .hc-head__kicker {
+  color: var(--r-accent);
+  font: 600 0.75rem/1.4 var(--font-ui);
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.hc-article .hc-head__kicker:hover {
+  color: var(--r-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+.hc-article .hc-head__folio {
+  color: var(--r-ink-3);
+}
+
+.hc-article .hc-head__title {
+  max-width: 20ch;
+  margin: 0;
+  color: var(--r-ink);
+  font: 480 clamp(2.2rem, 1.2rem + 3.2vw, 3.9rem)/1.05 var(--font-editorial);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  font-optical-sizing: auto;
+}
+
+/* ʿayn and hamza come from the fallback face; see ArticleHeader. */
+.hc-article .hc-head__tl {
+  margin-inline: 0.05em;
+}
+
+.hc-article .hc-head__standfirst {
+  max-width: 36em;
+  margin: 1.25rem 0 0;
+  color: var(--r-ink-2);
+  font: 400 clamp(1.08rem, 1rem + 0.3vw, 1.22rem)/1.55 var(--font-body);
+  text-wrap: pretty;
 }
 
 .hc-article .hc-head__meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 1.1rem;
-  margin: 0;
-  color: var(--leaf-ink-2);
-  font: 500 0.8rem/1.4 var(--font-ui);
-  font-variant-numeric: lining-nums tabular-nums;
+  margin: 1.6rem 0 0;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--r-rule);
+  color: var(--r-ink-3);
+  font: 400 0.84rem/1.6 var(--font-ui);
+  font-variant-numeric: lining-nums;
 }
 
-/* The branch, in its own ink, behind a lozenge. */
-.hc-article .hc-head__kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--cat-color, var(--leaf-gold));
-  text-decoration: none;
+.hc-article .hc-head__meta > :not(:first-child)::before {
+  content: "·";
+  margin-inline: 0.6rem;
 }
 
-.hc-article .hc-head__kicker::before {
-  content: "";
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-  transform: rotate(45deg);
+.hc-article .hc-head__author {
+  color: var(--r-ink-2);
+  font-weight: 500;
 }
 
-.hc-article .hc-head__kicker:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.hc-article .hc-head__title {
-  max-width: 30ch;
-  margin: 0;
-  color: var(--leaf-ink);
-  font: 600 clamp(1.9rem, 1rem + 2.4vw, 2.85rem)/1.08 var(--font-editorial);
-  letter-spacing: -0.005em;
-  text-wrap: balance;
-}
-
-.hc-article .hc-head__standfirst {
-  max-width: 62ch;
-  margin: 0;
-  color: var(--leaf-ink-2);
-  font: 400 clamp(1rem, 0.95rem + 0.2vw, 1.08rem)/1.6 var(--font-body);
-  text-wrap: pretty;
-}
-
-.hc-article .hc-head__folio {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0;
-  padding-top: 0.55rem;
-  color: var(--leaf-ink-3);
-  font: 500 0.8rem/1.3 var(--font-ui);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.hc-article .hc-head__folio::after {
-  content: "";
-  width: 3rem;
-  height: 1px;
-  background: var(--leaf-rule-strong);
-}
-
-/* The artwork, framed inside the double rule. */
 .hc-article .hc-head__plate {
   position: relative;
-  min-height: 14rem;
-  margin: 0;
+  margin: clamp(2rem, 5vw, 3rem) 0 0;
+  overflow: hidden;
+  aspect-ratio: var(--plate-ratio, 16 / 9);
+  background: var(--r-sunk);
 }
 
 .hc-article .hc-head__plate img {
   position: absolute;
-  inset: 22px 22px 22px 0;
-  width: calc(100% - 22px);
-  height: calc(100% - 44px);
-  object-fit: cover;
-  object-position: center;
-  border: 1px solid var(--leaf-gold-dim);
-  box-shadow: 0 0 0 4px var(--leaf-ground), 0 0 0 5px var(--leaf-rule);
-}
-
-.hc-article .hc-head__plate--engraving img {
-  object-position: right center;
-}
-
-/* An older thumbnail carries its title in the image, so it keeps its own
-   16:9 shape, centred in the plate, rather than being cropped to fill it. */
-.hc-article .hc-head__plate:not(.hc-head__plate--engraving) {
-  display: flex;
-  align-items: center;
-  min-height: 0;
-  padding: 22px 22px 22px 0;
-}
-
-.hc-article .hc-head__plate:not(.hc-head__plate--engraving) img {
-  position: static;
+  inset: 0;
   width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
+  height: 100%;
+  object-fit: cover;
+  object-position: 100% 50%;
 }
 
-[data-theme="light"] .hc-article .hc-head__leaf {
-  --leaf-ground: var(--hc-fixed-parchment);
-  --leaf-ink: var(--hc-fixed-parchment-ink);
-  --leaf-ink-2: #4e4842;
-  --leaf-ink-3: #58534c;
-  --leaf-gold: #6a4c18;
-  --leaf-gold-dim: #7a5920;
-  --leaf-rule: rgba(26, 23, 21, 0.18);
-  --leaf-rule-strong: rgba(26, 23, 21, 0.32);
-  background:
-    radial-gradient(120% 140% at 50% 50%, transparent 55%, rgba(122, 89, 32, 0.16) 100%),
-    linear-gradient(180deg, var(--hc-fixed-parchment) 0%, #ece2cd 100%);
-  box-shadow:
-    inset 0 0 0 6px var(--hc-fixed-parchment),
-    inset 0 0 0 7px rgba(26, 23, 21, 0.24);
-  outline: 1px solid rgba(26, 23, 21, 0.14);
+/* An older thumbnail carries its title in the image, so it is shown whole. */
+.hc-article .hc-head__plate:not(.hc-head__plate--engraving) img {
+  object-fit: contain;
+  object-position: center;
 }
 
-/* On paper an engraving is not framed: it was drawn on parchment, and the
-   mask lets its left edge return to the leaf. */
-[data-theme="light"] .hc-article .hc-head__plate--engraving img {
-  inset: 7px 7px 7px 0;
-  width: calc(100% - 7px);
-  height: calc(100% - 14px);
-  border: 0;
-  box-shadow: none;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 28%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 28%);
-}
+@media (min-width: 1100px) {
+  .hc-article .hc-head {
+    --head-bleed: clamp(0px, (100vw - var(--page)) / 2 - 2.5rem, 12rem);
+    width: min(100% - (var(--pad) * 2), var(--page));
+  }
 
-/* Stacked below 1000px: side by side, a landscape engraving would be cut to
-   a tall sliver. The band grows with the viewport. */
-@media (max-width: 1000px) {
-  .hc-article .hc-head__leaf {
-    grid-template-columns: minmax(0, 1fr);
+  .hc-article .hc-head__leaf:not(.hc-head__leaf--plain) {
+    grid-template-columns: minmax(0, 1fr) clamp(20rem, 30vw, 30rem);
+    align-items: center;
+    column-gap: clamp(2.5rem, 4.5vw, 4.5rem);
+    margin-right: calc(var(--head-bleed) * -1);
+  }
+
+  .hc-article .hc-head__leaf--plain .hc-head__copy {
+    margin-left: calc(var(--rail) + var(--gap));
+  }
+
+  .hc-article .hc-head__leaf:not(.hc-head__leaf--plain) .hc-head__title {
+    font-size: clamp(2.4rem, 0.9rem + 2.5vw, 3.5rem);
   }
 
   .hc-article .hc-head__plate {
-    grid-row: 1;
-    min-height: clamp(12rem, 36vw, 20rem);
+    margin: 0;
+  }
+}
+
+@media (max-width: 679px) {
+  .hc-article .hc-head {
+    margin-top: 1.75rem;
   }
 
-  .hc-article .hc-head__plate img {
-    inset: 22px 22px 0;
-    width: calc(100% - 44px);
-    height: calc(100% - 22px);
+  .hc-article .hc-head__title {
+    max-width: none;
+    font-size: clamp(2rem, 8.6vw, 2.6rem);
   }
 
-  [data-theme="light"] .hc-article .hc-head__plate--engraving img {
-    inset: 7px 7px 0;
-    width: calc(100% - 14px);
-    height: calc(100% - 7px);
-    -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-    mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  }
-
-  .hc-article .hc-head__plate:not(.hc-head__plate--engraving) {
-    padding: 22px 22px 0;
-  }
-
-  .hc-article .hc-head__copy {
-    padding: 1.25rem 1.4rem 1.6rem;
+  .hc-article .hc-head__plate--engraving {
+    width: calc(100% + var(--pad) * 2);
+    max-width: none;
+    margin-inline: calc(var(--pad) * -1);
   }
 }
 
@@ -412,59 +362,39 @@ body:has(.hc-article) {
 }
 
 .hc-contents__label {
-  margin: 0 0 0.9rem;
+  margin: 0 0 0.7rem;
   color: var(--r-ink-3);
   font-size: 0.95rem;
+  font-weight: 500;
   line-height: 1.3;
 }
 
 .hc-contents--margin {
   position: sticky;
-  top: calc(var(--site-header-height) + 2.75rem);
-  max-height: calc(100vh - var(--site-header-height) - 4.5rem);
+  top: calc(var(--site-header-height) + 2rem);
+  max-height: calc(100vh - var(--site-header-height) - 4rem);
   overflow-y: auto;
   scrollbar-width: none;
-  padding-top: 0.5rem;
 }
 
 .hc-contents--margin a {
-  position: relative;
-  padding: 0.3rem 0 0.3rem 1rem;
-  font: 400 0.875rem/1.42 var(--font-body);
+  padding: 0.32rem 0;
+  font: 400 0.8rem/1.4 var(--font-ui);
   text-wrap: pretty;
-}
-
-.hc-contents--margin a::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0.85em;
-  width: 0.4rem;
-  height: 1px;
-  background: var(--r-rule-strong);
-  transition: width var(--motion-fast) ease, background var(--motion-fast) ease;
 }
 
 .hc-contents--margin a[aria-current] {
   color: var(--r-ink);
-}
-
-.hc-contents--margin a[aria-current]::before {
-  width: 0.65rem;
-  background: var(--r-accent);
+  font-weight: 500;
 }
 
 .hc-contents--margin .is-sub a {
-  padding-left: 1.75rem;
-  font-size: 0.82rem;
+  padding-left: 0.85rem;
 }
 
-.hc-contents--margin .is-sub a::before {
-  left: 0.85rem;
-}
-
+/* Below 1100px: a disclosure between two hairlines. */
 .hc-contents--inline {
-  margin: 2rem 0 0;
+  margin: 0 0 2.75rem;
   border-block: 1px solid var(--r-rule);
 }
 
@@ -472,10 +402,8 @@ body:has(.hc-article) {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
-  min-height: 44px;
-  padding-block: 0.7rem;
-  color: var(--r-ink-2);
-  font: 400 0.95rem/1.5 var(--font-body);
+  min-height: 48px;
+  padding-block: 0.85rem;
   cursor: pointer;
   list-style: none;
 }
@@ -486,28 +414,22 @@ body:has(.hc-article) {
 
 .hc-contents--inline summary .hc-contents__label {
   margin: 0;
-  color: var(--r-ink);
-  font-size: 1rem;
 }
 
 .hc-contents__count {
+  margin-left: auto;
   color: var(--r-ink-3);
-  font: 400 0.82rem/1.5 var(--font-ui);
+  font: 400 0.8rem/1.4 var(--font-ui);
 }
 
 .hc-contents--inline summary::after {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  margin-left: auto;
-  border-right: 1px solid var(--r-ink-3);
-  border-bottom: 1px solid var(--r-ink-3);
-  transform: translateY(-0.2rem) rotate(45deg);
-  transition: transform var(--motion-fast) ease;
+  content: "Show";
+  color: var(--r-accent);
+  font: 500 0.8rem/1 var(--font-ui);
 }
 
 .hc-contents--inline[open] summary::after {
-  transform: translateY(0.1rem) rotate(225deg);
+  content: "Hide";
 }
 
 .hc-contents--inline ol {
@@ -515,16 +437,17 @@ body:has(.hc-article) {
 }
 
 .hc-contents--inline li a {
-  padding: 0.4rem 0;
-  font: 400 1rem/1.45 var(--font-body);
+  min-height: 44px;
+  padding: 0.45rem 0;
+  color: var(--r-ink-2);
+  font: 400 0.95rem/1.45 var(--font-body);
 }
 
 .hc-contents--inline .is-sub a {
   padding-left: 1.1rem;
-  font-size: 0.94rem;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1100px) {
   .hc-contents--inline {
     display: none;
   }
@@ -533,33 +456,13 @@ body:has(.hc-article) {
 /* ── Prose ────────────────────────────────────────────────────── */
 
 .hc-article-body {
-  margin-top: clamp(2.25rem, 5vw, 3rem);
   color: var(--r-ink);
   font-family: var(--font-body);
-  font-size: 1.0625rem;
-  line-height: 1.68;
+  font-size: clamp(1.0625rem, 0.99rem + 0.3vw, 1.175rem);
+  line-height: 1.7;
   overflow-wrap: break-word;
   font-variant-numeric: oldstyle-nums proportional-nums;
   font-kerning: normal;
-}
-
-/* The title now sits above the grid, so with no inline contents the body
-   opens the column and the grid's own padding is the gap. */
-.hc-article__main > .hc-article-body:first-child {
-  margin-top: 0;
-}
-
-@media (min-width: 720px) {
-  .hc-article-body {
-    font-size: 1.125rem;
-    line-height: 1.7;
-  }
-}
-
-@media (min-width: 1200px) {
-  .hc-article-body {
-    font-size: 1.1875rem;
-  }
 }
 
 @media (max-width: 719px) {
@@ -585,19 +488,21 @@ body:has(.hc-article) {
   text-wrap: pretty;
 }
 
+/* Section heads: space above does the separating, not a rule or an eyebrow. */
 .hc-article-body > h2 {
-  margin: 2.6em 0 0.75em;
+  margin: clamp(3.75rem, 8vw, 5.25rem) 0 1.15rem;
   color: var(--r-ink);
-  font: 600 clamp(1.7rem, 1.3rem + 1.4vw, 2.2rem)/1.15 var(--font-editorial);
-  letter-spacing: -0.005em;
+  font: 500 clamp(1.55rem, 1.22rem + 1.2vw, 2.05rem)/1.16 var(--font-editorial);
+  letter-spacing: -0.015em;
   text-wrap: balance;
+  font-optical-sizing: auto;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
 
 .hc-article-body > h3 {
-  margin: 2.1em 0 0.6em;
+  margin: 2.2em 0 0.55em;
   color: var(--r-ink);
-  font: 600 1.13em/1.35 var(--font-body);
+  font: italic 500 clamp(1.22rem, 1.1rem + 0.5vw, 1.4rem)/1.3 var(--font-editorial);
   text-wrap: balance;
   scroll-margin-top: calc(var(--site-header-height) + 1.5rem);
 }
@@ -605,9 +510,8 @@ body:has(.hc-article) {
 .hc-article-body > h4,
 .hc-article-body > h5 {
   margin: 1.9em 0 0.5em;
-  color: var(--r-ink-2);
+  color: var(--r-ink);
   font: 600 1em/1.4 var(--font-body);
-  font-style: italic;
 }
 
 .hc-article-body > :is(h2, h3, h4) + :is(h3, h4) {
@@ -617,20 +521,19 @@ body:has(.hc-article) {
 .hc-article-body a {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--r-rule-accent);
+  text-decoration-color: var(--r-accent);
   text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
-  transition: text-decoration-color var(--motion-fast) ease, color var(--motion-fast) ease;
+  text-underline-offset: 0.2em;
+  transition: color var(--motion-fast) ease;
 }
 
 .hc-article-body a:hover {
-  color: var(--r-accent-hover);
-  text-decoration-color: currentColor;
+  color: var(--r-accent);
 }
 
 .hc-article-body strong,
 .hc-article-body b {
-  font-weight: 600;
+  font-weight: 620;
 }
 
 .hc-article-body > :is(ul, ol) {
@@ -652,23 +555,27 @@ body:has(.hc-article) {
   margin: 0 0 0.5em;
 }
 
-.hc-article-body > ul li::marker {
-  color: var(--r-accent);
+.hc-article-body > :is(ul, ol) li::marker {
+  color: var(--r-ink-3);
 }
 
 .hc-article-body > ol li::marker {
-  color: var(--r-ink-3);
   font-variant-numeric: lining-nums;
 }
 
-/* A section break: the brand lozenge, alone, in the measure's centre. */
+/* A section break is an asterism, as in a printed book. */
 .hc-article-body > hr {
-  width: 7px;
-  height: 7px;
-  margin: 3.25rem auto;
-  border: 1px solid var(--r-accent);
+  height: auto;
+  margin: 3.5rem 0;
+  border: 0;
   background: none;
-  transform: rotate(45deg);
+  color: var(--r-ink-3);
+  text-align: center;
+}
+
+.hc-article-body > hr::after {
+  content: "\2042";
+  font: 400 1.1rem/1 var(--font-body);
 }
 
 .hc-article-body > hr:last-child {
@@ -703,9 +610,8 @@ body:has(.hc-article) {
 .hc-article-body pre {
   overflow-x: auto;
   margin: var(--space-block) 0;
-  padding: 1rem 0 1rem 1.25rem;
+  padding: 1rem 0 1rem var(--indent);
   border: 0;
-  border-left: 1px solid var(--r-rule-strong);
   background: none;
   font-size: 0.86rem;
   line-height: 1.6;
@@ -800,8 +706,8 @@ body:has(.hc-article) {
 
 .hc-fig {
   margin: var(--space-block) 0;
-  font-size: 0.92em;
-  line-height: 1.58;
+  font-size: 0.94em;
+  line-height: 1.6;
 }
 
 .hc-fig .hc-fig {
@@ -828,7 +734,7 @@ body:has(.hc-article) {
 
 .hc-fig__label {
   margin: 0 0 0.6rem;
-  color: var(--r-ink-2);
+  color: var(--r-ink-3);
   font-size: 1.04em;
   font-weight: 500;
   line-height: 1.4;
@@ -849,14 +755,14 @@ body:has(.hc-article) {
   display: block;
   margin: 0 0 0.35rem;
   color: var(--r-ink);
-  font: 600 1.06em/1.35 var(--font-body);
+  font: 500 1.12em/1.3 var(--font-editorial);
   font-variant-caps: normal;
   letter-spacing: 0;
   text-wrap: balance;
 }
 
 .hc-fig :is(h2) {
-  font: 600 clamp(1.35rem, 1.1rem + 0.8vw, 1.6rem)/1.2 var(--font-editorial);
+  font: 500 clamp(1.35rem, 1.1rem + 0.8vw, 1.6rem)/1.2 var(--font-editorial);
 }
 
 .hc-fig__ar {
@@ -905,8 +811,8 @@ span.hc-fig__ar {
 }
 
 .hc-fig__tags > :not(:last-child)::after {
-  content: "·";
-  margin: 0 0.5rem;
+  content: ",";
+  margin-right: 0.35em;
   font-style: normal;
 }
 
@@ -933,14 +839,15 @@ span.hc-fig__ar {
 .hc-fig a:has(> :is(p, strong, span)) > span:first-child {
   display: block;
   color: var(--r-ink-3);
-  font-weight: 500;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.05em;
+  font: 600 0.75rem/1.4 var(--font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .hc-fig a:has(> :is(p, strong, span)) > strong {
   display: block;
   margin: 0.1rem 0 0.25rem;
+  font: 500 1.12em/1.3 var(--font-editorial);
   transition: color var(--motion-fast) ease;
 }
 
@@ -950,7 +857,7 @@ span.hc-fig__ar {
 }
 
 .hc-fig a:has(> :is(p, strong, span)):hover > strong {
-  color: var(--r-accent-hover);
+  color: var(--r-accent);
 }
 
 .hc-fig__tags :is(b, strong) {
@@ -963,7 +870,7 @@ span.hc-fig__ar {
 /* An opening summary sits under the header like an abstract. */
 .hc-fig--lead {
   padding-block: 1.25rem 1.4rem;
-  border-block: 1px solid var(--r-rule-strong);
+  border-block: 1px solid var(--r-rule);
   font-size: 0.98em;
 }
 
@@ -979,17 +886,17 @@ span.hc-fig__ar {
 
 /* ── End matter ───────────────────────────────────────────────── */
 
+/* Text and space, never cards, so the essay ends rather than gives way
+   to a feed. */
 .hc-end {
-  margin-top: clamp(3.5rem, 7vw, 5rem);
-  padding-top: 1.75rem;
-  border-top: 1px solid var(--r-rule-strong);
+  margin-top: 4.5rem;
 }
 
 .hc-end__label {
-  display: block;
-  margin-bottom: 0.3rem;
+  margin-right: 0.5rem;
   color: var(--r-ink-3);
   font-size: 0.95rem;
+  font-weight: 500;
   line-height: 1.3;
 }
 
@@ -999,26 +906,25 @@ span.hc-fig__ar {
   font: 400 0.95rem/1.6 var(--font-body);
 }
 
-.hc-end__topics .hc-end__label {
-  display: inline;
-  margin-right: 0.5rem;
-}
-
 .hc-further {
-  margin-top: 2.75rem;
+  margin-top: 3rem;
 }
 
-.hc-further__title {
-  margin: 0 0 0.6rem;
-  color: var(--r-ink-3);
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.35;
+/* Over the end matter the labels match the components': Plex, tracked. */
+.hc-article .hc-further__title {
+  margin: 0 0 0.5rem;
+  color: var(--r-accent);
+  font: 600 0.75rem/1.4 var(--font-ui);
+  font-variant-caps: normal;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .hc-further__title a {
-  color: var(--r-accent);
-  text-decoration: none;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--r-rule-accent);
+  text-underline-offset: 0.2em;
 }
 
 .hc-further__title a:hover {
@@ -1033,35 +939,33 @@ span.hc-fig__ar {
 
 .hc-further__list li {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.15rem 1.5rem;
-  padding-block: 0.85rem;
-  border-top: 1px solid var(--r-rule);
-}
-
-.hc-further__list li:last-child {
+  gap: 2rem;
+  padding-block: 0.95rem;
   border-bottom: 1px solid var(--r-rule);
 }
 
 .hc-further__list a {
-  flex: 1 1 18rem;
+  min-width: 0;
   color: var(--r-ink);
-  font: 600 1.06rem/1.4 var(--font-body);
+  font: 500 1.2rem/1.3 var(--font-editorial);
   text-decoration: none;
   text-wrap: balance;
   transition: color var(--motion-fast) ease;
 }
 
 .hc-further__list a:hover {
-  color: var(--r-accent-hover);
+  color: var(--r-accent);
 }
 
 .hc-further__date {
+  flex: none;
   color: var(--r-ink-3);
-  font: 400 0.8rem/1.4 var(--font-ui);
-  font-variant-numeric: lining-nums;
+  font: 400 0.75rem/1.8 var(--font-ui);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1069,12 +973,17 @@ span.hc-fig__ar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem 2.5rem;
-  margin-top: 2.75rem;
+  margin-top: 3rem;
 }
 
 .hc-turn__link {
   color: var(--r-ink);
   text-decoration: none;
+}
+
+.hc-turn__link .hc-end__label {
+  display: block;
+  margin: 0 0 0.25rem;
 }
 
 .hc-turn__link--later {
@@ -1084,17 +993,22 @@ span.hc-fig__ar {
 
 .hc-turn__title {
   display: block;
-  font: 400 1rem/1.45 var(--font-body);
-  font-style: italic;
+  font: 480 clamp(1.2rem, 1.1rem + 0.45vw, 1.45rem)/1.25 var(--font-editorial);
+  letter-spacing: -0.01em;
   text-wrap: balance;
   transition: color var(--motion-fast) ease;
 }
 
 .hc-turn__link:hover .hc-turn__title {
-  color: var(--r-accent-hover);
+  color: var(--r-accent);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 679px) {
+  .hc-further__list li {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
   .hc-turn {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1127,5 +1041,13 @@ span.hc-fig__ar {
     --r-ink-3: #444;
     --r-accent: #000;
     background: #fff;
+  }
+
+  .hc-article .hc-source-mark {
+    text-decoration: underline;
+  }
+
+  .hc-article .hc-source-mark--alt {
+    text-decoration-style: dotted;
   }
 }

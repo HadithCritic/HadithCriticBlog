@@ -5,14 +5,15 @@
  *
  * Set as a verse card (src/styles/article-plates.css, "Qur'an"): every verse
  * is a row with its reference, the English first in the DOM, then the Arabic
- * in Amiri Quran one word at a time, reading right to left. Each reference is
+ * in Amiri Quran, reading right to left. A highlighted phrase is one mark,
+ * spaces included. Each reference is
  * a link to that verse on WikiSubmission and takes its colour from there. The
  * footer names the sūra (linked to the chapter) and carries the citation.
  */
 import verses from '../../../data/quran-verses.json';
 import suraNames from '../../../data/quran-sura-names.json';
 import { quranWords } from '../../../lib/article-text';
-import { markedSourceParts as markedParts } from '../../../lib/source-highlight';
+import { markedSourceParts as markedParts, sourceRuns } from '../../../lib/source-highlight';
 
 export interface Props {
   verse: string;
@@ -69,15 +70,15 @@ const suraLine = suras.length === 1
         <a class="hc-verse__badge" href={`${WIKISUBMISSION}${v.ref}`} target="_blank" rel="noopener noreferrer" aria-label={`Quran ${v.ref} on WikiSubmission`}>{v.ref}</a>
         {v.en && (() => {
           const parts = v.en.split(/(\s+)/);
-          const marked = markedParts(parts, highlightEnglish, false);
-          return <p class="hc-verse__en" data-source-quoted>{parts.map((part, index) => marked.has(index) ? <mark class="hc-source-mark">{part}</mark> : part)}</p>;
+          const runs = sourceRuns(parts, markedParts(parts, highlightEnglish, false));
+          return <p class="hc-verse__en" data-source-quoted>{runs.map((run) => run.marked ? <mark class="hc-source-mark">{run.text}</mark> : run.text)}</p>;
         })()}
         {v.ar && (
           <p class="hc-verse__ar" lang="ar" dir="rtl" data-source-primary>
             {(() => {
-              const words = quranWords(v.ar);
-              const marked = markedParts(words, highlightArabic, true);
-              return words.map((word, index) => <><span class="hc-verse__word">{marked.has(index) ? <mark class="hc-source-mark">{word}</mark> : word}</span>{' '}</>);
+              const parts = quranWords(v.ar).flatMap((word, index) => (index ? [' ', word] : [word]));
+              const runs = sourceRuns(parts, markedParts(parts, highlightArabic, true));
+              return runs.map((run) => run.marked ? <mark class="hc-source-mark">{run.text}</mark> : run.text);
             })()}
           </p>
         )}

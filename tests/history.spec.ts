@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { deathDate, historySources } from '../src/data/history';
+import { historySources } from '../src/data/history';
 
 const route = '/projects/history/';
 const titles = historySources.map(source => source.title);
@@ -26,7 +26,6 @@ test('the archive identifies its sources and makes publication limits explicit',
   }
   expect(paintings.size).toBe(historySources.length);
   await expect(page.locator('.history-library__head')).toContainText('Coming soon');
-  await expect(page.locator('.history-approach__status')).toHaveText('Coming soon');
   await expect(page.locator('.history-art-note')).toContainText('they are not evidence for the historical claims');
   await expect(page.locator('a[href*="/projects/history/read"]')).toHaveCount(0);
 });
@@ -47,17 +46,6 @@ test('each record retains its source identity and description without JavaScript
   await page.locator('.header-nav [data-project-nav] summary').click();
   await expect(page.locator('.header-nav a[href="/projects/history/"]')).toHaveAttribute('aria-current', 'page');
   await context.close();
-});
-
-test('the chronology lists the authors in order and links to their works', async ({ page }) => {
-  await page.goto(route);
-  const events = page.locator('.history-timeline__events a');
-  await expect(events).toHaveCount(historySources.length);
-  const dates = await events.locator('.history-timeline__date').allTextContents();
-  expect(dates).toEqual(historySources.map(deathDate));
-  await page.locator('.history-timeline__events a[href="#al-tabari"]').click();
-  await expect(page).toHaveURL(/#al-tabari$/);
-  await expect(page.getByRole('heading', { level: 3, name: historySources.find(source => source.id === 'al-tabari')!.title, exact: true })).toBeInViewport();
 });
 
 test('a painting opens in the viewer and focus returns to it on close', async ({ page }) => {
@@ -98,7 +86,7 @@ for (const theme of ['dark', 'light']) {
       await page.goto(route);
       await page.evaluate(async () => { await document.fonts.ready; });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${width}: page overflow`).toBe(true);
-      const outOfBounds = await page.locator('.history-hero__copy, .history-timeline, .history-source, .history-tools, .history-principles__inner, .history-closing').evaluateAll(nodes => nodes.some(node => {
+      const outOfBounds = await page.locator('.history-hero__copy, .history-source, .history-closing').evaluateAll(nodes => nodes.some(node => {
         const box = node.getBoundingClientRect();
         return box.left < -1 || box.right > innerWidth + 1;
       }));

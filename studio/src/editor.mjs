@@ -47,6 +47,7 @@ const LABELS = {
   sources:'Sources', marks:'Marks', name:'Name', src:'Image path', alt:'Alt text'
 };
 const HINTS = { verse:'For example 2:255 or 4:11-12', ariaLabel:'Read aloud in place of the figure', alt:'Describe what the image shows' };
+let nextLinkDialogId = 0;
 export const BLOCK_GROUPS = [
   ['Writing', [['Prose','Text section'],['QuoteBlock','Quotation'],['Arabic','Arabic passage'],['ContextNote','Context note'],['ClaimBox','Claim box'],['VerdictBox','Verdict box']]],
   ['Sources', [['HadithBlock','Hadith report'],['QuranPassage','Qurʾān passage'],['QuranVerse','Qurʾān verse (reference)'],['BibleVerse','Bible verse'],['Source','Source extract'],['Bibliography','Bibliography']]],
@@ -129,22 +130,49 @@ export function createVisualEditor(host, onChange, { outline: outlineHost = null
     ['Paragraph','Heading 2','Heading 3','Heading 4','Heading 5','Heading 6'].forEach((label,i)=>{const option=el('option',label);option.value=String(i ? i+1 : 0);heading.append(option);});
     const editor=new Editor({ element:canvas,injectCSS:false,extensions:[StarterKit.configure({heading:{levels:[2,3,4,5,6]},codeBlock:false,strike:false,underline:false,link:{openOnClick:false},trailingNode:false}),Footnote,Arabic,Superscript],content,
       onFocus:()=>{ focus = inNote ? null : { index, editor }; },
-      onSelectionUpdate:()=>{ const level=editor.getAttributes('heading').level; heading.value=String(editor.isActive('heading')?level:0); },
+      onSelectionUpdate:()=>{ const level=editor.getAttributes('heading').level; heading.value=String(editor.isActive('heading')?level:0); syncToolbar(); },
+      onTransaction:()=>syncToolbar(),
       onUpdate:()=>typeChange(()=>set(editor.getJSON())) });
     editors.push(editor);
+    const syncToolbar=()=>{
+      for(const control of toolbar.querySelectorAll('[data-mark]')){
+        const active=editor.isActive(control.dataset.mark);
+        control.setAttribute('aria-pressed',String(active));
+        control.classList.toggle('is-active',active);
+      }
+    };
     heading.onchange=()=>Number(heading.value) ? editor.chain().focus().toggleHeading({level:Number(heading.value)}).run() : editor.chain().focus().setParagraph().run();
     toolbar.append(heading);
+    const linkDialog=el('dialog',undefined,'dialog dialog--narrow link-dialog');
+    const linkId=++nextLinkDialogId;
+    linkDialog.setAttribute('aria-labelledby',`link-dialog-title-${linkId}`);
+    const linkForm=el('form',undefined,'link-dialog__form');linkForm.method='dialog';
+    const linkTitle=el('h2','Edit link');linkTitle.id=`link-dialog-title-${linkId}`;
+    const linkLabel=el('label',undefined,'field');linkLabel.append(el('span','Destination (HTTPS or site path)'));
+    const linkInput=el('input');linkInput.type='text';linkInput.inputMode='url';linkInput.autocomplete='off';linkInput.required=true;linkInput.placeholder='https://example.org or /blogs/study/';linkLabel.append(linkInput);
+    const linkError=el('p','Enter an HTTPS URL or a site path beginning with /.','link-dialog__error');linkError.id=`link-error-${linkId}`;linkError.hidden=true;linkError.setAttribute('role','alert');linkInput.setAttribute('aria-describedby',linkError.id);
+    const linkActions=el('div',undefined,'link-dialog__actions');
+    let linkRange=null;
+    const applyToLinkRange=command=>{const chain=editor.chain().focus();if(linkRange?.from<linkRange?.to)chain.setTextSelection(linkRange);command(chain).run();};
+    const removeLink=button('Remove link',()=>{linkDialog.close();applyToLinkRange(chain=>chain.unsetLink());},'button button--ghost');
+    const cancelLink=button('Cancel',()=>linkDialog.close(),'button');cancelLink.addEventListener('click',()=>linkButton.focus());
+    const applyLink=el('button','Apply link','button button--primary');applyLink.type='submit';
+    linkActions.append(removeLink,cancelLink,applyLink);linkForm.append(linkTitle,linkLabel,linkError,linkActions);linkDialog.append(linkForm);wrap.append(linkDialog);
+    let linkButton;
+    linkForm.addEventListener('submit',event=>{
+      event.preventDefault();const value=linkInput.value.trim();
+      if(!(/^(https:\/\/|\/)/i.test(value))||value.startsWith('//')){linkError.hidden=false;linkInput.setAttribute('aria-invalid','true');linkInput.focus();return;}
+      linkError.hidden=true;linkInput.removeAttribute('aria-invalid');linkDialog.close();applyToLinkRange(chain=>chain.setLink({href:value}));
+    });
+    linkDialog.addEventListener('close',()=>{if(linkButton?.isConnected)linkButton.focus();});
     const commands = [
-      ['Bold',()=>editor.chain().focus().toggleBold().run()], ['Italic',()=>editor.chain().focus().toggleItalic().run()],
-      ['Arabic RTL',()=>editor.chain().focus().toggleMark('arabic').run()], ['Superscript',()=>editor.chain().focus().toggleMark('superscript').run()],
-      ['Code',()=>editor.chain().focus().toggleCode().run()], ['Link',()=>{
-        const value=prompt('Link URL (HTTPS or site path)',editor.getAttributes('link').href||'https://');
-        if(value) editor.chain().focus().setLink({href:value}).run();
-      }],
-      ['Quote',()=>editor.chain().focus().toggleBlockquote().run()], ['Bullets',()=>editor.chain().focus().toggleBulletList().run()],
-      ['Numbered',()=>editor.chain().focus().toggleOrderedList().run()], ['Rule',()=>editor.chain().focus().setHorizontalRule().run()]
+      ['Bold','bold',()=>editor.chain().focus().toggleBold().run()], ['Italic','italic',()=>editor.chain().focus().toggleItalic().run()],
+      ['Arabic RTL','arabic',()=>editor.chain().focus().toggleMark('arabic').run()], ['Superscript','superscript',()=>editor.chain().focus().toggleMark('superscript').run()],
+      ['Code','code',()=>editor.chain().focus().toggleCode().run()], ['Link',null,()=>{linkButton=toolbar.querySelector('[data-action="link"]');linkRange={from:editor.state.selection.from,to:editor.state.selection.to};linkInput.value=editor.getAttributes('link').href||'';linkError.hidden=true;linkInput.removeAttribute('aria-invalid');removeLink.hidden=!editor.isActive('link');linkDialog.showModal();linkInput.focus();}],
+      ['Quote','blockquote',()=>editor.chain().focus().toggleBlockquote().run()], ['Bullets','bulletList',()=>editor.chain().focus().toggleBulletList().run()],
+      ['Numbered','orderedList',()=>editor.chain().focus().toggleOrderedList().run()], ['Rule',null,()=>editor.chain().focus().setHorizontalRule().run()]
     ];
-    for (const [label,action] of commands) toolbar.append(button(label,action,'tool'));
+    for (const [label,mark,action] of commands){const control=button(label,action,'tool');if(mark){control.dataset.mark=mark;control.setAttribute('aria-pressed','false');}if(label==='Link')control.dataset.action='link';control.title=mark?`${label} formatting (toggle)`:label;toolbar.append(control);}
     if (!inNote) toolbar.append(button('Footnote',()=>addFootnote(editor,nextNoteId()),'tool tool--accent'));
   }
 

@@ -97,6 +97,12 @@ try{
   await page.locator('#visual-editor').waitFor({state:'visible'});
   assert.equal(await page.locator('#visual-editor').isVisible(),true);
   await page.locator('#visual-editor select[aria-label="Block type"]').selectOption('Prose');await page.getByRole('button',{name:'Insert block',exact:true}).click();await page.locator('.tiptap').first().fill('A new article without editing source.');
+  const articleProse=page.locator('.tiptap').filter({hasText:'A new article without editing source.'}).first();
+  const proseToolbar=page.locator('.rich').filter({has:articleProse}).locator('.rich__toolbar');
+  await articleProse.click();await page.keyboard.press('Control+A');
+  const boldButton=proseToolbar.locator('[data-mark="bold"]');await boldButton.click();assert.equal(await boldButton.getAttribute('aria-pressed'),'true','formatting toggle announces active state');
+  const linkButton=proseToolbar.locator('[data-action="link"]');await linkButton.click();await page.locator('.link-dialog input').fill('javascript:alert(1)');await page.getByRole('button',{name:'Apply link',exact:true}).click();assert.equal(await page.locator('.link-dialog__error').isVisible(),true,'unsafe link schemes are rejected');await page.locator('.link-dialog input').fill('/blogs/transmission-narrators/legacy-fixture/');await page.getByRole('button',{name:'Apply link',exact:true}).click();
+  assert.equal(await articleProse.locator('a').getAttribute('href'),'/blogs/transmission-narrators/legacy-fixture/','site-relative links apply to the selected text');
   await page.locator('#visual-editor select[aria-label="Paragraph or heading"]').first().selectOption('2');
   await page.locator('.tiptap').first().click();await page.keyboard.press('End');await page.keyboard.press('Enter');await page.keyboard.type('Exact new prose with a footnote.');
   await page.locator('#visual-editor input[aria-label="New footnote ID"]').fill('note-ui');await page.getByRole('button',{name:'Insert footnote at cursor',exact:true}).click();await page.locator('.tiptap').last().fill('Exact citation: Test Author, vol. 3, p. 4. إِنَّ');

@@ -1,11 +1,8 @@
-/** Emphasize source wording without ever searching generated HTML. */
-export function highlightSource(
-  raw: string | undefined,
-  phrases: string[],
-  format: (value: string) => string
-): string {
-  if (!raw) return '';
-  const ranges: [number, number][] = [];
+type Range = [number, number];
+
+/** Every occurrence of every phrase, with overlapping ranges merged. */
+function phraseRanges(raw: string, phrases: string[]): Range[] {
+  const ranges: Range[] = [];
   for (const phrase of new Set(phrases.filter(Boolean))) {
     let start = raw.indexOf(phrase);
     while (start !== -1) {
@@ -14,17 +11,37 @@ export function highlightSource(
     }
   }
   ranges.sort((a, b) => a[0] - b[0] || b[1] - a[1]);
-  const merged: [number, number][] = [];
-  for (const range of ranges) {
+  return ranges.reduce<Range[]>((merged, range) => {
     const previous = merged.at(-1);
-    if (previous && range[0] <= previous[1]) previous[1] = Math.max(previous[1], range[1]);
-    else merged.push([...range]);
-  }
+    return previous && range[0] <= previous[1]
+      ? [...merged.slice(0, -1), [previous[0], Math.max(previous[1], range[1])]]
+      : [...merged, range];
+  }, []);
+}
+
+/** Emphasize source wording without ever searching generated HTML. The
+    `secondary` phrases are marked in a second tone; where one overlaps a
+    primary phrase, the primary mark wins. */
+export function highlightSource(
+  raw: string | undefined,
+  phrases: string[],
+  format: (value: string) => string,
+  secondary: string[] = []
+): string {
+  if (!raw) return '';
+  const primary = phraseRanges(raw, phrases);
+  const overlapsPrimary = ([start, end]: Range) => primary.some(([a, b]) => start < b && a < end);
+  const marks = [
+    ...primary.map((range) => ({ range, tone: 'hc-source-mark' })),
+    ...phraseRanges(raw, secondary)
+      .filter((range) => !overlapsPrimary(range))
+      .map((range) => ({ range, tone: 'hc-source-mark hc-source-mark--alt' })),
+  ].sort((a, b) => a.range[0] - b.range[0]);
   let cursor = 0;
   let html = '';
-  for (const [start, end] of merged) {
+  for (const { range: [start, end], tone } of marks) {
     html += format(raw.slice(cursor, start));
-    html += `<mark class="hc-source-mark">${format(raw.slice(start, end))}</mark>`;
+    html += `<mark class="${tone}">${format(raw.slice(start, end))}</mark>`;
     cursor = end;
   }
   return html + format(raw.slice(cursor));
@@ -38,7 +55,9 @@ const normalize = (value: string, arabic: boolean) => value
   .replace(/[^\p{L}\p{N}]+/gu, ' ')
   .trim();
 
-/** Map normalized phrase matches back to the untouched display parts. */
+/** Map normalized phrase matches back to the untouched display parts. A match
+    marks every part from its first word to its last, so the spaces and
+    punctuation inside a phrase are marked with it. */
 export function markedSourceParts(parts: string[], phrases: string[], arabic: boolean): Set<number> {
   const words: { value: string; part: number }[] = [];
   parts.forEach((part, index) => {
@@ -52,9 +71,27 @@ export function markedSourceParts(parts: string[], phrases: string[], arabic: bo
     if (!sequence.length) continue;
     for (let start = 0; start <= words.length - sequence.length; start++) {
       if (sequence.every((word, offset) => words[start + offset].value === word)) {
-        for (let offset = 0; offset < sequence.length; offset++) marked.add(words[start + offset].part);
+        const last = words[start + sequence.length - 1].part;
+        for (let part = words[start].part; part <= last; part++) marked.add(part);
       }
     }
   }
   return marked;
+}
+
+export interface SourceRun {
+  text: string;
+  marked: boolean;
+}
+
+/** Join display parts into runs, so one highlighted phrase renders as one
+    mark rather than a mark per word with the spaces left bare. */
+export function sourceRuns(parts: string[], marked: Set<number>): SourceRun[] {
+  return parts.reduce<SourceRun[]>((runs, text, index) => {
+    const isMarked = marked.has(index);
+    const previous = runs.at(-1);
+    return previous && previous.marked === isMarked
+      ? [...runs.slice(0, -1), { text: previous.text + text, marked: isMarked }]
+      : [...runs, { text, marked: isMarked }];
+  }, []);
 }

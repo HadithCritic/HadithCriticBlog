@@ -75,7 +75,6 @@ export const OG = {
   corpus: '/og/hadith.jpg',
   register: '/og/narrators.jpg',
   quran: '/og/quran.jpg',
-  tafsir: '/og/tafsir.jpg',
   atlas: '/og/atlas.jpg',
   icma: '/og/icma.jpg',
   category: (slug?: string | null) =>

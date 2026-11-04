@@ -7,7 +7,6 @@ import { academicStudies } from "../data/academic-studies";
 import { studyFamily } from "../data/icma-families";
 import researchGraph from "../data/research-graph.json";
 import qiraatIndex from "../data/qiraat/index.json";
-import { totalEntries, works as tafsirWorkList } from "../lib/tafsir";
 import { historySources } from "../data/history";
 import "../styles/projects.css";
 
@@ -17,8 +16,6 @@ const corpus = CORPUS_META.counts;
 const icma = academicStudies.filter((study) => study.category === "icma");
 const icmaFamilies = new Set(icma.map((study) => studyFamily[study.slug] ?? "network")).size;
 const citations = researchGraph.edges.filter((edge) => edge.type === "cites").length;
-const tafsirPassages = totalEntries();
-const tafsirWorks = tafsirWorkList.length;
 const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
 interface Entry {
@@ -97,23 +94,6 @@ const databases: Project[] = [
     scope: `10 readers, ${qiraatIndex.suras_with_data} of 114 suras`,
     status: "Machine-checked; readings await human review",
   },
-  {
-    id: "tafsir-reader",
-    href: "/projects/tafsir/",
-    art: "tafsir",
-    kind: "Verse-first reader",
-    arabic: "التفسير",
-    title: "Tafsir Reader",
-    desc: "The earliest commentaries, from Mujāhid to al-Ṭabarī’s Jāmiʿ al-bayān, set under the verse each passage comments on, with the volume and page of the printed edition.",
-    figures: [`${n(tafsirPassages)} passages`, `${tafsirWorks} works`, "114 suras"],
-    entries: [
-      { label: "Choose a sura", href: "/projects/tafsir/#suras" },
-      { label: "Begin at al-Fātiḥa", href: "/projects/tafsir/sura/1/" },
-    ],
-    action: "Open the reader",
-    scope: `${n(tafsirPassages)} passages from ${tafsirWorks} works, 114 suras`,
-    status: "Placements proposed; none reviewed",
-  },
 ];
 
 const history: Project = {
@@ -127,7 +107,6 @@ const history: Project = {
   figures: [`${historySources.length} works`, "207–310 AH", "Coming soon"],
   entries: [
     { label: "The source library", href: "/projects/history/#sources" },
-    { label: "The reading approach", href: "/projects/history/#approach" },
   ],
   action: "Explore the history project",
   scope: "Coming soon",
@@ -164,7 +143,6 @@ const research: Project[] = [
     figures: [`${icma.length} studies`, `${icmaFamilies} research families`],
     entries: [
       { label: "Browse the register", href: "/projects/academic-studies/#register" },
-      { label: "The monograph series", href: "/academia/#series" },
     ],
     action: "Browse the register",
     scope: `${icma.length} studies in ${icmaFamilies} families`,
@@ -172,33 +150,16 @@ const research: Project[] = [
   },
 ];
 
-const prototype: Project = {
-  id: "fiqh-compass-quiz",
-  href: "/projects/fiqh-compass/",
-  kind: "Research prototype",
-  arabic: "بوصلة الفقه",
-  title: "Fiqh Compass",
-  desc: "Twelve dimensions of legal reasoning explored through a guided questionnaire, then compared with historical figures on the dimensions you share, each placement citing its passage. Not a school identity or a religious ruling.",
-  figures: ["96 draft statements", "12 dimensions"],
-  entries: [
-    { label: "Take the quiz", href: "/projects/fiqh-compass/quiz/" },
-    { label: "Methodology and safeguards", href: "/projects/fiqh-compass/methodology/" },
-  ],
-  action: "Explore the prototype",
-  scope: "96 draft statements, 12 dimensions, 20 historical figures",
-  status: "Prototype (M1)",
-};
-
-const all = [lead, ...databases, history, ...research, prototype];
-const kinds = ["Database", "Database", "Database", "Database", "History", "Research", "Research", "Prototype"];
+const projects = [...databases, history, ...research];
+const all = [lead, ...projects];
 ---
 
 <BaseLayout
   image={OG.projects}
   title="Projects | HadithCritic"
-  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants, a tafsir reader, History (Tārīkh), the Islamic Studies Atlas, the ICMA Register and the Fiqh Compass prototype."
+  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants, History (Tārīkh), the Islamic Studies Atlas and the ICMA Register."
 >
-  <div class="hc-page hc-plate pj-page">
+  <div class="hc-page pj-page">
     <PageHero
       title="Research tools"
       accent="and registers"
@@ -209,11 +170,11 @@ const kinds = ["Database", "Database", "Database", "Database", "History", "Resea
       measure="11ch"
     >
       <p class="hc-hero__lede">
-        Four reference databases, a historical source library coming soon, two registers of the scholarship,
-        and one research prototype. Every figure here is counted from the project's own data.
+        Research tools for the hadith, its transmitters, the Qur’an’s variant readings, early history and
+        modern scholarship. Every figure here is counted from the project's own data.
       </p>
       <Fragment slot="actions">
-        <a href="#databases" class="hc-btn">See the databases</a>
+        <a href="#projects" class="hc-btn">See the projects</a>
         <a href="#glance" class="hc-btn hc-btn--ghost">All projects at a glance</a>
       </Fragment>
       <Fragment slot="register">
@@ -224,15 +185,15 @@ const kinds = ["Database", "Database", "Database", "Database", "History", "Resea
       </Fragment>
     </PageHero>
 
-    <!-- Databases -->
-    <section class="hc-band hc-band--soft pj-databases" id="databases" aria-labelledby="databases-title">
+    <!-- Projects -->
+    <section class="hc-band hc-band--soft pj-projects" id="projects" aria-labelledby="projects-title">
       <div class="hc-container">
         <header class="hc-head">
           <div class="hc-head__main">
-            <h2 id="databases-title" class="hc-head__title">Reference <span>databases</span></h2>
+            <h2 id="projects-title" class="hc-head__title">The <span>projects</span></h2>
             <p class="hc-head__note">
-              Each runs in your browser from published data files, with no database server between you
-              and the sources.
+              Each runs in your browser from published data files, with no server between you and the
+              sources.
             </p>
           </div>
         </header>
@@ -251,7 +212,7 @@ const kinds = ["Database", "Database", "Database", "Database", "History", "Resea
         </article>
 
         <ul class="pj-grid pj-grid--three">
-          {databases.map((project) => (
+          {projects.map((project) => (
             <li>
               <article class="pj-panel" id={project.id}>
                 <img class="pj-panel__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
@@ -266,81 +227,6 @@ const kinds = ["Database", "Database", "Database", "Database", "History", "Resea
             </li>
           ))}
         </ul>
-      </div>
-    </section>
-
-    <section class="hc-band hc-band--warm" aria-labelledby="history-section-title">
-      <div class="hc-container">
-        <header class="hc-head">
-          <div class="hc-head__main">
-            <h2 id="history-section-title" class="hc-head__title">History <span>in translation</span></h2>
-            <p class="hc-head__note">Chronicles, conquests and social histories, with their own reading project.</p>
-          </div>
-        </header>
-        <article class="pj-lead" id={history.id}>
-          <img class="pj-lead__art" src="/images/platform/history-archive-v2.webp" srcset="/images/platform/history-archive-v2-1086.webp 1086w, /images/platform/history-archive-v2.webp 2172w" sizes="(max-width: 860px) 100vw, 60vw" alt="" width="2172" height="724" loading="lazy" decoding="async" />
-          <div class="pj-lead__copy">
-            <p class="pj-kind">{history.kind} <span lang="ar" dir="rtl">{history.arabic}</span></p>
-            <h3 class="pj-lead__title"><a href={history.href}>{history.title}</a></h3>
-            <p class="pj-desc">{history.desc}</p>
-            <ul class="hc-figures pj-figures">{history.figures.map((figure) => <li>{figure}</li>)}</ul>
-            <nav class="pj-entries" aria-label="Inside the history project">
-              <ul>{history.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
-            </nav>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- Research registers -->
-    <section class="hc-band pj-research" id="research" aria-labelledby="research-title">
-      <div class="hc-container">
-        <header class="hc-head">
-          <div class="hc-head__main">
-            <h2 id="research-title" class="hc-head__title">Registers of <span>the scholarship</span></h2>
-            <p class="hc-head__note">Maps of modern research on ḥadīth, and of HadithCritic's own isnād-cum-matn studies.</p>
-          </div>
-        </header>
-        <ul class="pj-grid pj-grid--two">
-          {research.map((project) => (
-            <li>
-              <article class="pj-panel pj-panel--wide" id={project.id}>
-                <img class="pj-panel__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
-                <p class="pj-kind">{project.kind} <span lang="ar" dir="rtl">{project.arabic}</span></p>
-                <h3 class="pj-panel__title"><a href={project.href}>{project.title}</a></h3>
-                <p class="pj-desc">{project.desc}</p>
-                <ul class="hc-figures pj-figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
-                <nav class="pj-entries" aria-label={`Inside ${project.title}`}>
-                  <ul>{project.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
-                </nav>
-              </article>
-            </li>
-          ))}
-        </ul>
-
-        <article class="pj-proto" id={prototype.id}>
-          <svg class="pj-proto__motif" viewBox="0 0 240 240" aria-hidden="true" focusable="false">
-            <circle cx="120" cy="120" r="96" />
-            <circle cx="120" cy="120" r="70" />
-            {Array.from({ length: 12 }, (_, index) => {
-              const angle = (index * Math.PI) / 6;
-              return <line x1={120 + Math.cos(angle) * 73} y1={120 + Math.sin(angle) * 73} x2={120 + Math.cos(angle) * 94} y2={120 + Math.sin(angle) * 94} />;
-            })}
-            <path d="M120 62 136 120 120 178 104 120Z" />
-            <circle class="pj-proto__hub" cx="120" cy="120" r="5" />
-          </svg>
-          <div class="pj-proto__copy">
-            <p class="pj-kind">{prototype.kind} <span lang="ar" dir="rtl">{prototype.arabic}</span></p>
-            <h3 class="pj-panel__title"><a href={prototype.href}>{prototype.title}</a></h3>
-            <p class="pj-desc">{prototype.desc}</p>
-          </div>
-          <div class="pj-proto__side">
-            <ul class="hc-figures pj-figures">{prototype.figures.map((figure) => <li>{figure}</li>)}</ul>
-            <nav class="pj-entries" aria-label={`Inside ${prototype.title}`}>
-              <ul>{prototype.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
-            </nav>
-          </div>
-        </article>
       </div>
     </section>
 
@@ -369,7 +255,7 @@ const kinds = ["Database", "Database", "Database", "Database", "History", "Resea
                 <tr>
                   <td class="pj-table__no">{String(index + 1).padStart(2, "0")}</td>
                   <th scope="row"><a class="pj-table__name" href={project.href}>{project.title}</a> <a class="pj-table__jump" href={`#${project.id}`}>Details</a></th>
-                  <td>{kinds[index]}</td>
+                  <td>{project.kind}</td>
                   <td>{project.scope}</td>
                   <td class="pj-table__status">{project.status}</td>
                 </tr>
