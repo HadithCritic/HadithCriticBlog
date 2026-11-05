@@ -367,7 +367,10 @@ function renderThumbnail() {
   const media = path.match(/^\/images\/studio\/([a-f0-9-]{36})\./);
   const name = path.split('/').at(-1)?.replace(/\.webp$/, '');
   const art = name ? Object.values(state.artwork).find((entry) => entry.card.includes(name) || entry.thumb.includes(name)) : null;
-  const src = media ? `/api/media/${media[1]}` : art?.thumb;
+  const localArt = art?.thumb && /^\/(?:images\/studio|artwork)\/[a-zA-Z0-9._-]+\.(?:webp|png|jpe?g)$/.test(art.thumb)
+    ? art.thumb
+    : null;
+  const src = media ? `/api/media/${media[1]}` : localArt;
   image.hidden = !src;
   if (src) { image.src = src; image.alt = fields.heroAlt.value; }
 }

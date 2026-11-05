@@ -20,7 +20,7 @@ test('deterministic serialization preserves Unicode and compiles as MDX with GFM
   // Plain punctuation stays readable in the public source; only syntax is escaped.
   assert.match(source,/al-Zuhrī \(d\. 124\/742\): see {"www\.example\.org"}/);
   assert.doesNotMatch(source,/&#\d+;/);
-  assert.doesNotMatch(source,/<script>/);
+  assert.equal(source.toLowerCase().includes('<script>'),false);
 });
 test('footnotes reject duplicate IDs, missing definitions, unused definitions and nested references',()=>{
   let doc=sample();doc.notes.push(doc.notes[0]);assert.throws(()=>validateDocument(doc),/unique/);
@@ -31,7 +31,7 @@ test('footnotes reject duplicate IDs, missing definitions, unused definitions an
 });
 test('preview escapes code and links, has stable repeated-reference backlinks, never executes MDX',()=>{
   const html=renderPreview(sample());
-  assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
+  assert.equal(html.includes('&lt;script&gt;'),true);assert.equal(html.toLowerCase().includes('<script'),false);
   assert.match(html,/id="ref-source-a-1"/);assert.match(html,/id="ref-source-a-2"/);
   assert.match(html,/href="#ref-source-a-2"/);
   const doc=sample();doc.blocks[0].content.content[1].content[0].marks=[{type:'link',attrs:{href:'javascript:alert(1)'}}];assert.throws(()=>renderPreview(doc),/HTTPS/);
