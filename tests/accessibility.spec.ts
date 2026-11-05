@@ -23,7 +23,7 @@ test('production Pagefind returns an article result', async ({ page }) => {
   await expect(page.locator('[data-search-results] a').first()).toBeVisible({ timeout: 10_000 });
 });
 
-test('theme initialization and switching work when browser storage is disabled', async ({ page }) => {
+test('dark theme is the default and switching works when browser storage is disabled', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.emulateMedia({ colorScheme: 'light' });
@@ -33,10 +33,10 @@ test('theme initialization and switching work when browser storage is disabled',
     }
   });
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const toggle = page.locator('#themeToggle');
   await toggle.click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(toggle).toHaveAttribute('aria-checked', 'true');
   expect(errors).toEqual([]);
 });
