@@ -28,7 +28,7 @@ for (const [source, name] of [
   ['images/academic-studies-art.webp', 'art-writing'],
   ['images/editorial/contact-hero-1086.webp', 'art-newsletter'],
   ['images/editorial/projects-hero-1086.webp', 'art-analytics'],
-  ['images/editorial/academia-hero-1086.webp', 'art-health'],
+  ['images/editorial/blog-hero-1086.webp', 'art-health'],
   ['images/editorial/youtube-hero-1086.webp', 'art-activity']
 ]) await copyFile(`../public/${source}`, `public/brand/${name}.webp`);
 const { blogArtwork } = await import(pathToFileURL(resolve('../src/data/blog-artwork.ts')).href);
