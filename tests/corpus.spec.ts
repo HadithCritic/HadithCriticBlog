@@ -122,7 +122,7 @@ test.describe('hadith corpus', () => {
     // The page must agree with the corpus it is serving. Hardcoding a number
     // here would pass against a stale metadata file, which is the bug this is
     // meant to catch.
-    await expect(page.locator('.hc-project-hero__figure').first()).toHaveText(
+    await expect(page.locator('[data-corpus-total="hadith"]')).toHaveText(
       m.counts.hadith.toLocaleString()
     );
     await expect(page.locator('.catalog-row')).toHaveCount(m.counts.collections);

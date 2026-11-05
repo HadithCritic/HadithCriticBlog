@@ -5,7 +5,6 @@ import ProjectNavigation from './ProjectNavigation.astro';
 const pathname = Astro.url.pathname.replace(/(.)\/$/, '$1');
 const links = [
   { href: '/blogs/', label: 'Blog', active: pathname === '/blogs' || pathname.startsWith('/blogs/') },
-  { href: '/academia/', label: 'Academia', active: pathname === '/academia' },
   { href: '/projects/', label: 'Projects', active: pathname === '/projects' },
   { href: '/resources/', label: 'Resources', active: pathname === '/resources' },
   { href: '/youtube/', label: 'YouTube', active: pathname === '/youtube' },
@@ -41,7 +40,7 @@ const links = [
         </kbd>
       </button>
 
-      <a href="/#subscribe" class="header-subscribe">Subscribe</a>
+      <a href="/#subscribe" class="header-subscribe" data-subscribe-trigger aria-haspopup="dialog">Subscribe</a>
 
       <button
         class="theme-toggle"
@@ -52,29 +51,13 @@ const links = [
         aria-label="Toggle light and dark theme"
         title="Switch to light theme"
       >
-        <span class="theme-toggle__capsule" aria-hidden="true">
-          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--moon">
-            <svg class="theme-toggle__glyph" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </span>
-          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--sun">
-            <svg class="theme-toggle__glyph" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"></circle>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-            </svg>
-          </span>
-          <span class="theme-toggle__thumb">
-            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-              <circle cx="16.5" cy="7.5" r="0.75" fill="currentColor" stroke="none"></circle>
-            </svg>
-            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4.2"></circle>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-            </svg>
-          </span>
-        </span>
+        <svg class="theme-toggle__icon theme-toggle__icon--moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.6 6.6 0 0 0 10.7 10.7z"></path>
+        </svg>
+        <svg class="theme-toggle__icon theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path>
+        </svg>
       </button>
 
       <button class="header-menu-toggle" id="menuToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNav">
@@ -124,7 +107,7 @@ const links = [
   </button>
   <div class="mobile-nav-links">
     {links.map((link) => link.label === 'Projects' ? <ProjectNavigation mobile /> : <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>{link.label}</a>)}
-    <a href="/#subscribe" class="hc-header-link">Subscribe by email</a>
+    <a href="/#subscribe" class="hc-header-link" data-subscribe-trigger aria-haspopup="dialog">Subscribe by email</a>
   </div>
 </nav>
 
@@ -255,224 +238,106 @@ const links = [
     align-items: center;
     gap: var(--space-2xs);
   }
+  /* Controls stay quiet: no frame or fill until the pointer is on them. The
+     search bar is the one exception, a faint field so it reads as search. */
   .header-search-btn,
   .header-menu-toggle,
-  .mobile-search,
-  .mobile-nav-close-btn {
-    min-height: 36px;
-    border: 1px solid var(--hc-rule);
-    border-radius: 8px;
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
     color: var(--hc-text-secondary);
-    background: rgba(var(--hc-scrim), 0.55);
     font: 500 var(--fs-sm)/1 var(--font-ui);
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: border-color var(--motion-fast) var(--ease-standard),
+    transition: color var(--motion-fast) var(--ease-standard),
                 background var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                box-shadow var(--motion-fast) var(--ease-standard),
-                transform var(--motion-fast) var(--ease-standard);
+                border-color var(--motion-fast) var(--ease-standard);
   }
   .header-search-btn:hover,
-  .header-menu-toggle:hover {
-    border-color: var(--hc-gold-dim);
-    background: var(--hc-surface-2);
+  .header-menu-toggle:hover,
+  .theme-toggle:hover {
     color: var(--hc-text-primary);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    background: color-mix(in srgb, var(--hc-text-primary) 8%, transparent);
+  }
+  .header-search-btn:focus-visible,
+  .header-menu-toggle:focus-visible,
+  .theme-toggle:focus-visible,
+  .header-subscribe:focus-visible {
+    outline: 2px solid var(--hc-gold);
+    outline-offset: 2px;
+  }
+  .mobile-search,
+  .mobile-nav-close-btn {
+    min-height: 36px;
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* Search button styling */
+  /* Search bar */
   .header-search-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-xs);
-    padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) var(--space-xs);
+    justify-content: flex-start;
+    gap: 0.55rem;
+    width: 13.5rem;
+    padding: 0 0.45rem 0 0.75rem;
+    border-color: color-mix(in srgb, var(--hc-text-primary) 9%, transparent);
+    background: color-mix(in srgb, var(--hc-text-primary) 4%, transparent);
+    color: var(--hc-text-tertiary);
+  }
+  .header-search-btn:hover {
+    border-color: color-mix(in srgb, var(--hc-text-primary) 16%, transparent);
   }
   .header-search-icon {
-    color: var(--hc-gold);
-    opacity: 0.9;
     flex-shrink: 0;
-    transition: transform var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                opacity var(--motion-fast) var(--ease-standard);
-  }
-  .header-search-btn:hover .header-search-icon {
-    transform: scale(1.1);
-    opacity: 1;
-    color: var(--hc-gold-bright);
+    opacity: 0.8;
   }
   .header-search-label {
+    flex: 1;
+    text-align: left;
     letter-spacing: 0;
   }
   .header-search-kbd {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding: 0.18rem var(--space-2xs);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-2);
-    color: var(--hc-gold-soft);
-    font: 600 var(--fs-xs)/1 var(--font-ui);
-    letter-spacing: 0.04em;
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-    transition: border-color var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                background var(--motion-fast) var(--ease-standard);
-  }
-  .header-search-btn:hover .header-search-kbd {
-    border-color: var(--hc-rule);
-    background: var(--hc-surface-3);
-    color: var(--hc-gold-bright);
+    gap: 3px;
+    padding: 0.22rem 0.4rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--hc-text-primary) 7%, transparent);
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+    letter-spacing: 0.02em;
   }
 
-  /* Bespoke Archival Theme Capsule Switch */
+  /* Theme switch: one glyph, the theme the reader is in. */
   .theme-toggle {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 62px;
-    height: 36px;
-    min-height: 36px;
-    padding: 3px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule);
-    background: rgba(var(--hc-scrim), 0.65);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
-    cursor: pointer;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-    transition: border-color var(--motion-fast) var(--ease-standard),
-                background var(--motion-fast) var(--ease-standard),
-                box-shadow var(--motion-fast) var(--ease-standard);
   }
-  .theme-toggle:hover {
-    border-color: var(--hc-gold-dim);
-    background: rgba(var(--hc-scrim), 0.85);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(216, 177, 102, 0.15);
-  }
-  .theme-toggle:active .theme-toggle__thumb {
-    transform: translateY(-50%) scale(0.92);
-  }
-  .theme-toggle__capsule {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 100%;
-    padding: 0 var(--space-3xs);
-  }
-  .theme-toggle__glyph-slot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    color: var(--hc-text-tertiary);
-    opacity: 0.45;
-    transition: opacity var(--motion-base) var(--ease-standard),
-                color var(--motion-base) var(--ease-standard);
-  }
-  .theme-toggle:hover .theme-toggle__glyph-slot {
-    opacity: 0.7;
-  }
-  .theme-toggle__glyph {
-    flex-shrink: 0;
-  }
-  .theme-toggle__thumb {
-    position: absolute;
-    top: 50%;
-    left: 2px;
-    transform: translateY(-50%) translateX(0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--hc-surface-3), var(--hc-surface-1));
-    border: 1px solid rgba(216, 177, 102, 0.5);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 8px rgba(216, 177, 102, 0.25);
-    transition: transform 280ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
-                background var(--motion-base) var(--ease-standard),
-                border-color var(--motion-base) var(--ease-standard),
-                box-shadow var(--motion-base) var(--ease-standard);
-  }
-  .theme-toggle__thumb-icon {
+  .theme-toggle__icon {
     position: absolute;
     inset: 0;
     margin: auto;
-    transition: transform 260ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
-                opacity 200ms ease,
-                color 200ms ease;
+    transition: transform 320ms var(--ease-standard), opacity 200ms ease;
   }
-  .theme-toggle__thumb-icon--moon {
-    color: var(--hc-gold-soft);
-    transform: rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  .theme-toggle__thumb-icon--sun {
-    color: var(--hc-gold);
-    transform: rotate(-90deg) scale(0.5);
+  .theme-toggle__icon--sun {
     opacity: 0;
-    pointer-events: none;
+    transform: rotate(-60deg) scale(0.6);
   }
-
-  /* Light theme styling for the capsule switch */
-  :global([data-theme="light"]) .theme-toggle {
-    background: rgba(var(--hc-scrim), 0.75);
-    border-color: var(--hc-rule);
-    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.12);
-  }
-  :global([data-theme="light"]) .theme-toggle:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.16), 0 0 8px rgba(111, 80, 25, 0.12);
-  }
-  :global([data-theme="light"]) .theme-toggle__thumb {
-    transform: translateY(-50%) translateX(26px);
-    background: linear-gradient(135deg, #ffffff, var(--hc-surface-1));
-    border-color: rgba(111, 80, 25, 0.45);
-    box-shadow: 0 2px 6px rgba(43, 40, 36, 0.18), 0 0 8px rgba(111, 80, 25, 0.15);
-  }
-  :global([data-theme="light"]) .theme-toggle:active .theme-toggle__thumb {
-    transform: translateY(-50%) translateX(26px) scale(0.92);
-  }
-  :global([data-theme="light"]) .theme-toggle__thumb-icon--moon {
-    transform: rotate(90deg) scale(0.5);
+  :global([data-theme="light"]) .theme-toggle__icon--moon {
     opacity: 0;
-    pointer-events: none;
+    transform: rotate(60deg) scale(0.6);
   }
-  :global([data-theme="light"]) .theme-toggle__thumb-icon--sun {
-    color: var(--hc-gold);
-    transform: rotate(0deg) scale(1);
+  :global([data-theme="light"]) .theme-toggle__icon--sun {
     opacity: 1;
-    pointer-events: auto;
-  }
-  :global([data-theme="light"]) .header-search-btn,
-  :global([data-theme="light"]) .header-menu-toggle {
-    background: rgba(var(--hc-scrim), 0.7);
-    border-color: var(--hc-rule);
-    box-shadow: none;
-  }
-  :global([data-theme="light"]) .header-search-btn:hover,
-  :global([data-theme="light"]) .header-menu-toggle:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 2px 10px rgba(43, 40, 36, 0.08);
-  }
-  :global([data-theme="light"]) .header-search-kbd {
-    background: var(--hc-surface-1);
-    border-color: var(--hc-rule);
-    color: var(--hc-gold);
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
-  }
-  :global([data-theme="light"]) .header-search-btn:hover .header-search-kbd {
-    background: var(--hc-surface-3);
-    border-color: var(--hc-gold-dim);
+    transform: none;
   }
 
   /* Mobile menu button */
@@ -525,8 +390,7 @@ const links = [
     display: none;
   }
 
-  /* The shortcut hint is left off the bar; Ctrl K still opens search. */
-  .header-search-kbd,
+  /* The menu leaves the shortcut hint off; Ctrl K still opens search. */
   .mobile-search-kbd {
     display: none;
   }
@@ -535,9 +399,9 @@ const links = [
   .header-subscribe {
     display: inline-flex;
     align-items: center;
-    min-height: 36px;
+    min-height: 38px;
     padding: 0 var(--space-sm);
-    border-radius: 8px;
+    border-radius: 10px;
     background: var(--hc-gold);
     color: var(--hc-text-inverse);
     font: 500 var(--fs-sm)/1 var(--font-ui);
@@ -710,8 +574,7 @@ const links = [
     .header-mobile-nav,
     .hamburger-line,
     .theme-toggle,
-    .theme-toggle__thumb,
-    .theme-toggle__thumb-icon {
+    .theme-toggle__icon {
       transition: none !important;
     }
   }

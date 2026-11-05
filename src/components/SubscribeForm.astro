@@ -74,55 +74,9 @@ const { variant } = Astro.props;
 </section>
 
 <script>
-  document.querySelectorAll("[data-subscribe-form]").forEach((container) => {
-    const form = container.querySelector("[data-subscribe-form-el]");
-    const status = container.querySelector("[data-subscribe-form-status]");
-    if (!(form instanceof HTMLFormElement) || !status) return;
-    form.hidden = false;
+  import { bindSubscribeForms } from "../lib/subscribe-client";
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = new FormData(form);
-      const email = data.get("email");
-      const website = data.get("website");
-      if (typeof email !== "string" || !email) return;
-
-      const submitButton = form.querySelector('button[type="submit"]');
-      if (submitButton instanceof HTMLButtonElement)
-        submitButton.disabled = true;
-      status.textContent = "";
-      container.classList.remove("is-success", "is-error");
-
-      try {
-        const response = await fetch("/api/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, website }),
-        });
-        const result = (await response.json()) as {
-          success: boolean;
-          error?: string;
-        };
-
-        if (result.success) {
-          status.textContent =
-            "You're on the blog update list. We'll email you when a new post is published.";
-          container.classList.add("is-success");
-          form.reset();
-        } else {
-          status.textContent =
-            result.error || "Something went wrong. Please try again.";
-          container.classList.add("is-error");
-        }
-      } catch {
-        status.textContent = "Something went wrong. Please try again.";
-        container.classList.add("is-error");
-      } finally {
-        if (submitButton instanceof HTMLButtonElement)
-          submitButton.disabled = false;
-      }
-    });
-  });
+  bindSubscribeForms();
 </script>
 
 <style>

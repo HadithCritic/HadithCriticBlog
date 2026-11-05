@@ -68,7 +68,6 @@ export const OG = {
   default: '/og/default.jpg',
   blogs: '/og/blogs.jpg',
   projects: '/og/projects.jpg',
-  academia: '/og/academia.jpg',
   youtube: '/og/youtube.jpg',
   contact: '/og/contact.jpg',
   resources: '/og/resources.jpg',

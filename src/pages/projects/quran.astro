@@ -1,13 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { OG } from '../../lib/seo';
-import ResearchHero from "../../components/ResearchHero.astro";
 import names from "../../data/quran-sura-names.json";
 import index from "../../data/qiraat/index.json";
 import silent from "../../data/qiraat/silent-suras.json";
 import vanPutten from "../../data/qiraat/van-putten-taysir.json";
 import authorities from "../../data/qiraat/sura-001.json";
-import QiraatReaderCard from "../../components/qiraat/QiraatReaderCard.astro";
 import "../../styles/qiraat.css";
 import "../../styles/qiraat-ui.css";
 import QiraatSectionHeader from "../../components/qiraat/QiraatSectionHeader.astro";
@@ -25,28 +23,7 @@ for (const st of vanPutten.statements as VpEntry[]) {
 }
 const SILENT_META: Record<string, string> = { none: "No difference stated", rule: "Only a general rule", report: "Only an outside report" };
 const rulesCount = index.rules?.rules ?? 0;
-const sevenIds = ["nafi", "ibn_kathir", "abu_amr", "ibn_amir", "asim", "hamza", "kisai"];
-const additionalIds = ["abu_jafar", "yaqub", "khalaf_ashir"];
-const qariOf = new Map(authorities.qaris.map((qari) => [qari.id, qari]));
-const seven = sevenIds.map((id) => qariOf.get(id)!);
-const additional = additionalIds.map((id) => qariOf.get(id)!);
-const regionOf: Record<string, { key: string; label: string }> = {
-  nafi: { key: "medina", label: "Medina" },
-  ibn_kathir: { key: "mecca", label: "Mecca" },
-  abu_amr: { key: "basra", label: "Basra" },
-  ibn_amir: { key: "syria", label: "Syria" },
-  asim: { key: "kufa", label: "Kufa" },
-  hamza: { key: "kufa", label: "Kufa" },
-  kisai: { key: "kufa", label: "Kufa" },
-  abu_jafar: { key: "medina", label: "Medina" },
-  yaqub: { key: "basra", label: "Basra" },
-  khalaf_ashir: { key: "kufa", label: "Kufa" },
-};
-const readers = [
-  ...seven.map((reader) => ({ reader, additional: false, region: regionOf[reader.id] })),
-  ...additional.map((reader) => ({ reader, additional: true, region: regionOf[reader.id] })),
-];
-
+const featuredVariant = authorities.features.find((feature) => feature.id === "f-1-4-malik")!;
 const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
 ---
 
@@ -55,51 +32,65 @@ const totalVerses = names.reduce((sum, sura) => sum + sura.verses, 0);
   description="The ten qirāʾāt set side by side, word by word, sura by sura, with the classical books that report each reading."
 >
   <div class="qh q-ui rp-page rp-qiraat">
-    <ResearchHero artwork="qiraat" variant="readings" title="The Qirāʾāt Variants" titleId="qh-title" kicker="A comparative reading register" arabic="القراءات">
-      <p>The ten qirāʾāt, set side by side word by word, with the classical books that report each reading.
-            Every reading is a proposal that no reviewer has checked yet, and every quotation is checked against its page.</p>
-      <div slot="actions"><nav class="q-nav" aria-label="Qur’an project sections">
-            <a href="#readers">Readers <span>10</span></a>
-            <a href="#suras">Sura register <span>114</span></a>
+    <header class="qiraat-hero" aria-labelledby="qh-title">
+      <img
+        class="qiraat-hero__art"
+        src="/images/platform/qiraat-reading-landscape.webp"
+        srcset="/images/platform/qiraat-reading-landscape-1086.webp 1086w, /images/platform/qiraat-reading-landscape.webp 2172w"
+        sizes="(max-width: 760px) 100vw, 58vw"
+        width="2172"
+        height="724"
+        alt=""
+        fetchpriority="high"
+      />
+      <div class="hc-container qiraat-hero__inner">
+        <div class="qiraat-hero__copy">
+          <p class="qiraat-hero__kicker">A comparative reading register</p>
+          <h1 id="qh-title">The Qirāʾāt Variants</h1>
+          <p class="qiraat-hero__ar" lang="ar" dir="rtl">القراءات</p>
+          <p class="qiraat-hero__lede">The ten qirāʾāt, set side by side word by word, with the classical books that report each reading. Every reading is a proposal that no reviewer has checked yet, and every quotation is checked against its page.</p>
+          <nav class="qiraat-hero__nav" aria-label="Qur’an project sections">
+            <a class="qiraat-hero__primary" href="#suras">Browse suras <span aria-hidden="true">↗</span></a>
             <a href="/projects/quran/rules/">General rules <span>{rulesCount}</span></a>
             <a href="/projects/quran/transmission/">Transmission</a>
-          </nav></div>
-      <figure slot="signature" class="rp-readers">
-        <figcaption class="rp-sig__caption">The ten readers, each with his own hue</figcaption>
-        <ol class="rp-readers__list">
-          {readers.map(({ reader, additional }) => (
-            <li class:list={[`q-${reader.id}`, { "is-added": additional }]}>
-              <span class="sw" aria-hidden="true"></span>
-              <span class="rp-readers__name">{reader.display}</span>
-              <span class="rp-readers__ar" lang="ar" dir="rtl">{reader.name_ar}</span>
-            </li>
-          ))}
-        </ol>
-      </figure>
-      <div slot="stats" class="rp-figures" aria-label="Coverage at a glance">
-        <p><span class="hc-project-hero__figure">{index.suras_with_data}</span> of 114 suras with readings</p>
-        <p><span>{rulesCount}</span> general rules</p>
-        <p><span>10</span> readers and their <span>{authorities.riwayat.length}</span> transmitters</p>
+            <a href="#status">How it is checked</a>
+          </nav>
+        </div>
+
+        <figure class="qiraat-example" aria-labelledby="qiraat-example-title">
+          <figcaption id="qiraat-example-title">
+            <span>Al-Fātiḥa · 1:4</span>
+            <span>First word</span>
+          </figcaption>
+          <div class="qiraat-example__word">
+            <span>Qur’an text · Cairo 1924</span>
+            <b lang="ar" dir="rtl" class="hc-quran">{featuredVariant.words[0].text}</b>
+          </div>
+          <div class="qiraat-example__groups">
+            {featuredVariant.groups.map((group) => (
+              <div class="qiraat-example__group">
+                <span>{group.value_label}</span>
+                <b>{group.member_count} transmitters</b>
+              </div>
+            ))}
+          </div>
+          <a href={`/projects/quran/sura/1/#${featuredVariant.id}`}>Open this entry <span aria-hidden="true">↗</span></a>
+        </figure>
       </div>
-    </ResearchHero>
+      <div class="qiraat-hero__figures" aria-label="Coverage at a glance">
+        <div class="hc-container qiraat-hero__figure-list">
+          <p><b>{index.suras_with_data}</b><span>of 114 suras with readings</span></p>
+          <p><b>{rulesCount}</b><span>general rules</span></p>
+          <p><b>{authorities.qaris.length}</b><span>readers</span></p>
+          <p><b>{authorities.riwayat.length}</b><span>transmitters</span></p>
+        </div>
+      </div>
+    </header>
 
     <div class="hc-container qh-body">
-      <section class="sec" id="readers" aria-labelledby="readers-h">
-        <QiraatSectionHeader id="readers-h">
-          <Fragment slot="title">The ten readers</Fragment>
-          <Fragment slot="count">10</Fragment>
-        </QiraatSectionHeader>
-        <p class="lede">The seven readers associated with Ibn Mujāhid’s list appear first. Ibn al-Jazarī’s ten-reading list adds three more. The distinction marks the history of the lists, not a ranking of readings. <a class="hc-ulink" href="https://en.wikipedia.org/wiki/Qira%27at#The_seven_canonical_qira%27at">Source for the grouping <span aria-hidden="true">↗</span></a></p>
-        <ol class="roster" aria-label="The seven primary and three additional qirāʾāt readers">
-          {readers.map(({ reader, additional, region }, i) => (
-            <li><QiraatReaderCard reader={reader} rank={i + 1} additional={additional} region={region} /></li>
-          ))}
-        </ol>
-      </section>
-
       <section class="sec" id="suras" aria-labelledby="suras-h">
         <QiraatSectionHeader id="suras-h">
-          <Fragment slot="title">The suras</Fragment>
+          <Fragment slot="title">Sura register</Fragment>
           <Fragment slot="count">114</Fragment>
         </QiraatSectionHeader>
         <p class="lede">A sura opens once the books have been read for it. The number under each name is how many words in it have a difference among the ten readers.</p>

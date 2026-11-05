@@ -1,28 +1,5 @@
 import {expect,test} from '@playwright/test';
 
-test('Academia retains cover controls, citation formats, and thesis disclosures',async({page})=>{
- await page.goto('/academia/');
- await page.locator('#tab-back').click();
- await expect(page.locator('#acad-book-viewport')).toHaveAttribute('data-view','back');
- await page.locator('#tab-front').click();
- await expect(page.locator('#acad-book-viewport')).toHaveAttribute('data-view','front');
- await page.locator('#cite-tab-chicago').click();
- await expect(page.locator('#cite-panel-chicago')).toBeVisible();
- await expect(page.locator('#cite-panel-bibtex')).toBeHidden();
- await page.locator('#cite-tab-apa').click();
- await expect(page.locator('#cite-panel-apa')).toBeVisible();
- await page.locator('.acad-thesis-item summary').first().click();
- await expect(page.locator('.acad-thesis-body').first()).toBeVisible();
-});
-
-test('Academia prints every citation format without JavaScript',async({browser})=>{
- const context=await browser.newContext({javaScriptEnabled:false});
- const page=await context.newPage();
- await page.goto('/academia/');
- for(const format of ['bibtex','chicago','apa']) await expect(page.locator(`#cite-panel-${format}`)).toBeVisible();
- await context.close();
-});
-
 test('Projects preserves every project destination and index anchor',async({page})=>{
  await page.goto('/projects/');
  const destinations=await page.locator('.pj-lead, .pj-panel, .pj-proto').evaluateAll(items=>items.map(item=>({id:item.id,href:item.querySelector('h3 a')?.getAttribute('href')})));

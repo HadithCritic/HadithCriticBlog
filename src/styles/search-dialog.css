@@ -1,0 +1,485 @@
+/* Site search. A quiet command palette: one field, a row of category
+   filters, then either the starting view (destinations and suggested
+   searches) or a list of results. Results are built in the browser, so
+   these rules are global rather than scoped to the component.
+
+   html.has-modal is shared with the subscribe dialog and stops the page
+   scrolling behind either one. */
+
+html.has-modal {
+  overflow: hidden;
+}
+
+.search-dialog {
+  --sd-surface: var(--hc-surface-1);
+  --sd-raised: color-mix(in srgb, var(--hc-text-primary) 6%, transparent);
+  --sd-line: color-mix(in srgb, var(--hc-text-primary) 10%, transparent);
+  --sd-shadow: 0 32px 90px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  position: fixed;
+  inset: 0;
+  width: min(40rem, calc(100vw - 2rem));
+  max-width: none;
+  height: fit-content;
+  max-height: min(38rem, calc(100dvh - 6rem));
+  margin: clamp(3rem, 12vh, 7.5rem) auto auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--sd-line);
+  border-radius: 16px;
+  background: var(--sd-surface);
+  color: var(--hc-text-primary);
+  box-shadow: var(--sd-shadow);
+}
+
+[data-theme="light"] .search-dialog {
+  --sd-surface: #fffdf9;
+  --sd-shadow: 0 32px 90px rgba(43, 40, 36, 0.22), 0 0 0 1px rgba(43, 40, 36, 0.04);
+}
+
+.search-dialog[open] {
+  animation: sd-in 200ms var(--ease-standard);
+}
+
+.search-dialog::backdrop {
+  background: rgba(8, 8, 8, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+[data-theme="light"] .search-dialog::backdrop {
+  background: rgba(43, 40, 36, 0.3);
+}
+
+@keyframes sd-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+}
+
+.sd {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+/* ── Field ───────────────────────────────────────────────────── */
+
+.sd__field,
+.sd__filters,
+.sd__foot {
+  flex: none;
+}
+
+.sd__field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.85rem 0 1.15rem;
+  border-bottom: 1px solid var(--sd-line);
+}
+
+.sd__field-icon {
+  flex: none;
+  color: var(--hc-text-tertiary);
+}
+
+.sd__input {
+  flex: 1;
+  min-width: 0;
+  height: 3.75rem;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--hc-text-primary);
+  font: 400 1.125rem/1.2 var(--font-ui);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* The field sits in a framed row, so it needs no focus ring of its own. */
+.search-dialog .sd__input {
+  --hc-focus-width: 0;
+}
+
+.sd__input::placeholder {
+  color: var(--hc-text-tertiary);
+  opacity: 0.85;
+}
+
+.sd__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.sd__clear,
+.sd__esc {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: var(--sd-raised);
+  color: var(--hc-text-tertiary);
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.sd__clear {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+}
+
+.sd__esc {
+  height: 26px;
+  padding: 0 0.5rem;
+  border-radius: 6px;
+  font: 500 var(--fs-xs)/1 var(--font-ui);
+}
+
+.sd__clear:hover,
+.sd__esc:hover {
+  background: color-mix(in srgb, var(--hc-text-primary) 12%, transparent);
+  color: var(--hc-text-primary);
+}
+
+/* ── Filters ─────────────────────────────────────────────────── */
+
+.sd__filters {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.6rem 0.85rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--sd-line);
+  scrollbar-width: none;
+}
+
+.sd__filters::-webkit-scrollbar {
+  display: none;
+}
+
+.sd__filter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.45rem;
+  height: 30px;
+  padding: 0 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hc-text-secondary);
+  font: 500 var(--fs-sm)/1 var(--font-ui);
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, background var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.sd__filter:hover {
+  color: var(--hc-text-primary);
+  background: var(--sd-raised);
+}
+
+.sd__filter.is-active {
+  border-color: var(--sd-line);
+  background: var(--sd-raised);
+  color: var(--hc-text-primary);
+}
+
+.sd__dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sd-cat, var(--hc-gold));
+}
+
+.sd__filter[data-category="Origins & Early History"] { --sd-cat: var(--cat-history-text); }
+.sd__filter[data-category="Prophecies & Eschatology"] { --sd-cat: var(--cat-prophecies-text); }
+.sd__filter[data-category="Theology & Epistemology"] { --sd-cat: var(--cat-theology-text); }
+.sd__filter[data-category="Transmission & Narrators"] { --sd-cat: var(--cat-philosophy-text); }
+
+/* ── Body ────────────────────────────────────────────────────── */
+
+.sd__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.35rem 0.6rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sd__label {
+  margin: 0.75rem 0.6rem 0.45rem;
+  color: var(--hc-text-tertiary);
+  font: 600 var(--fs-xs)/1.2 var(--font-ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sd__destinations {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sd__destination {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 2rem 0.7rem 0.75rem;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--motion-fast) ease;
+}
+
+.sd__destination:hover,
+.sd__destination:focus-visible {
+  outline: 0;
+  background: var(--sd-raised);
+}
+
+.sd__destination-title {
+  font: 600 var(--fs-base)/1.25 var(--font-display);
+}
+
+.sd__destination-note {
+  color: var(--hc-text-tertiary);
+  font: 400 var(--fs-xs)/1.35 var(--font-ui);
+}
+
+.sd__destination-arrow {
+  position: absolute;
+  top: 50%;
+  right: 0.8rem;
+  color: var(--hc-gold);
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  transition: opacity var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+
+.sd__destination:hover .sd__destination-arrow,
+.sd__destination:focus-visible .sd__destination-arrow {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.sd__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 0.6rem 0.25rem;
+}
+
+.sd__suggestion {
+  height: 32px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--sd-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--hc-text-secondary);
+  font: 400 var(--fs-sm)/1 var(--font-ui);
+  cursor: pointer;
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease, background var(--motion-fast) ease;
+}
+
+.sd__suggestion:hover,
+.sd__suggestion:focus-visible {
+  outline: 0;
+  border-color: color-mix(in srgb, var(--hc-gold) 55%, transparent);
+  background: color-mix(in srgb, var(--hc-gold) 8%, transparent);
+  color: var(--hc-text-primary);
+}
+
+/* ── Results ─────────────────────────────────────────────────── */
+
+.sd__results {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sd__result {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 2.75rem 0.8rem 0.85rem;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.sd__result::before {
+  content: "";
+  position: absolute;
+  top: 0.8rem;
+  bottom: 0.8rem;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--hc-gold);
+  opacity: 0;
+}
+
+.sd__result:hover {
+  background: color-mix(in srgb, var(--hc-text-primary) 4%, transparent);
+}
+
+.sd__result.is-selected,
+.sd__result:focus-visible {
+  outline: 0;
+  background: color-mix(in srgb, var(--hc-gold) 9%, transparent);
+}
+
+.sd__result.is-selected::before,
+.sd__result:focus-visible::before {
+  opacity: 1;
+}
+
+.sd__result-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--sd-cat);
+  font: 600 var(--fs-xs)/1.2 var(--font-ui);
+  letter-spacing: 0.04em;
+}
+
+.sd__result-meta .sd__dot {
+  width: 6px;
+  height: 6px;
+}
+
+.sd__result-date {
+  color: var(--hc-text-tertiary);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.sd__result-date::before {
+  content: "·";
+  margin-right: 0.45rem;
+}
+
+.sd__result-title {
+  color: var(--hc-text-primary);
+  font: 600 1.0625rem/1.3 var(--font-display);
+  text-wrap: balance;
+}
+
+.sd__result-section {
+  color: var(--hc-gold);
+  font: 500 var(--fs-xs)/1.3 var(--font-ui);
+}
+
+.sd__result-excerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--hc-text-secondary);
+  font: 400 var(--fs-sm)/1.55 var(--font-body);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.sd__result mark {
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--hc-gold) 22%, transparent);
+  color: inherit;
+}
+
+.sd__result-enter {
+  position: absolute;
+  top: 50%;
+  right: 0.85rem;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--sd-raised);
+  color: var(--hc-text-tertiary);
+  font: 500 var(--fs-xs)/1 var(--font-ui);
+  opacity: 0;
+  transform: translateY(-50%);
+}
+
+.sd__result.is-selected .sd__result-enter {
+  opacity: 1;
+}
+
+.sd__empty {
+  padding: 2.5rem 1rem 2rem;
+  text-align: center;
+}
+
+.sd__empty-title {
+  margin: 0;
+  font: 600 var(--fs-lg)/1.2 var(--font-display);
+}
+
+.sd__empty-text {
+  max-width: 34ch;
+  margin: 0.5rem auto 0;
+  color: var(--hc-text-tertiary);
+  font: 400 var(--fs-sm)/1.55 var(--font-ui);
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.sd__foot {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.65rem 1.15rem;
+  border-top: 1px solid var(--sd-line);
+  color: var(--hc-text-tertiary);
+  font: 400 var(--fs-xs)/1 var(--font-ui);
+}
+
+.sd__foot span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.sd__foot kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.3rem;
+  border-radius: 5px;
+  background: var(--sd-raised);
+  color: var(--hc-text-secondary);
+  font: 500 var(--fs-xs)/1 var(--font-ui);
+}
+
+/* ── Small screens ───────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .search-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    margin-top: max(0.5rem, var(--safe-top, 0px));
+    border-radius: 14px;
+  }
+
+  .sd__destinations {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sd__foot {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-dialog[open] {
+    animation: none;
+  }
+}

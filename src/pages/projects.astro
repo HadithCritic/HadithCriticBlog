@@ -4,11 +4,14 @@ import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
 import { CORPUS_META } from "../lib/corpus-config";
 import qiraatIndex from "../data/qiraat/index.json";
-import { historySources } from "../data/history";
+import { historySources, openReaders } from "../data/history";
+import "../styles/home.css";
+import "../styles/home-platform.css";
 import "../styles/projects.css";
 
 /* Every figure on this page is read from the data the project is built from. */
 const n = (value: number) => value.toLocaleString("en-US");
+const historyWords = openReaders.reduce((sum, item) => sum + item.reader.words, 0);
 const corpus = CORPUS_META.counts;
 const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
@@ -28,7 +31,6 @@ interface Project {
   figures: string[];
   entries: Entry[];
   action: string;
-  scope: string;
   status: string;
 }
 
@@ -47,7 +49,6 @@ const lead: Project = {
     { label: "Open Ṣaḥīḥ al-Bukhārī", href: "/hadith/collection/sahih-al-bukhari/" },
   ],
   action: "Search the corpus",
-  scope: `${n(corpus.hadith)} narrations in ${corpus.collections} collections`,
   status: "Live",
 };
 
@@ -66,7 +67,6 @@ const databases: Project[] = [
       { label: "Compare two transmitters", href: "/narrators/compare/" },
     ],
     action: "Browse the register",
-    scope: `${n(corpus.narrators)} transmitters, ${n(corpus.criticismStatements)} attributed statements`,
     status: "Live",
   },
   {
@@ -85,8 +85,7 @@ const databases: Project[] = [
       { label: "Transmission", href: "/projects/quran/transmission/" },
     ],
     action: "Compare the readings",
-    scope: `10 readers, ${qiraatIndex.suras_with_data} of 114 suras`,
-    status: "Machine-checked; readings await human review",
+    status: "Readings await human review",
   },
 ];
 
@@ -97,14 +96,15 @@ const history: Project = {
   kind: "Historical source library",
   arabic: "التاريخ",
   title: "History (Tārīkh)",
-  desc: `${historySources.length} early historical works range from annalistic chronicles and conquest accounts to genealogical and social compendia. The archive brings their people, places and parallel accounts into view.`,
-  figures: [`${historySources.length} works`, "207–310 AH", "Coming soon"],
+  desc: "The earliest Arabic histories of Islam in English: chronicles, conquest narratives and genealogies, each in its own reader with the chapters beside the text.",
+  figures: [`${openReaders.length} of ${historySources.length} books open`, `${(historyWords / 1e6).toFixed(1)}M words`, "207–310 AH"],
   entries: [
     { label: "The source library", href: "/projects/history/#sources" },
+    { label: "Read Khalīfa ibn Khayyāṭ’s chronicle", href: "/projects/history/khalifa/" },
+    { label: "Read the Conquests of the Lands", href: "/projects/history/futuh-al-buldan/" },
   ],
-  action: "Explore the history project",
-  scope: "Coming soon",
-  status: "Coming soon",
+  action: "Open the history library",
+  status: "Live",
 };
 
 const projects = [...databases, history];
@@ -116,10 +116,10 @@ const all = [lead, ...projects];
   title="Projects | HadithCritic"
   description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants and History (Tārīkh)."
 >
-  <div class="hc-page pj-page">
+  <div class="hc-page home pj-page">
     <PageHero
       title="Research tools"
-      accent="and registers"
+      accent="and registers."
       titleId="pj-title"
       kicker="Projects"
       art="/images/editorial/projects-hero.webp"
@@ -132,7 +132,7 @@ const all = [lead, ...projects];
       </p>
       <Fragment slot="actions">
         <a href="#projects" class="hc-btn">See the projects</a>
-        <a href="#glance" class="hc-btn hc-btn--ghost">All projects at a glance</a>
+        <a href="#contribute" class="hc-btn hc-btn--ghost">Contribute</a>
       </Fragment>
       <Fragment slot="register">
         <span><strong>{all.length}</strong> projects</span>
@@ -141,88 +141,52 @@ const all = [lead, ...projects];
       </Fragment>
     </PageHero>
 
-    <!-- Projects -->
-    <section class="hc-band hc-band--soft pj-projects" id="projects" aria-labelledby="projects-title">
+    <!-- One row per project, as the homepage sets its research tools: the
+         copy beside the engraving that heads the project's own page. -->
+    <section class="home-section home-platform pj-showcase" id="projects" aria-labelledby="projects-title">
       <div class="hc-container">
-        <header class="hc-head">
-          <div class="hc-head__main">
-            <h2 id="projects-title" class="hc-head__title">The <span>projects</span></h2>
-            <p class="hc-head__note">
-              Each runs in your browser from published data files, with no server between you and the
-              sources.
-            </p>
-          </div>
+        <header class="home-head">
+          <p class="home-kicker">The projects</p>
+          <h2 id="projects-title" class="home-title">Four projects,<br />one archive.</h2>
+          <p class="home-head__lede">
+            Each runs in your browser from published data files, with no server between you and the sources.
+          </p>
         </header>
 
-        <article class="pj-lead" id={lead.id}>
-          <img class="pj-lead__art" src={`/images/platform/${lead.art}.webp`} srcset={`/images/platform/${lead.art}-1086.webp 1086w, /images/platform/${lead.art}.webp 2172w`} sizes="(max-width: 860px) 100vw, 60vw" alt="" width="2172" height="724" loading="eager" decoding="async" />
-          <div class="pj-lead__copy">
-            <p class="pj-kind">{lead.kind} <span lang="ar" dir="rtl">{lead.arabic}</span></p>
-            <h3 class="pj-lead__title"><a href={lead.href}>{lead.title}</a></h3>
-            <p class="pj-desc">{lead.desc}</p>
-            <ul class="hc-figures pj-figures">{lead.figures.map((figure) => <li>{figure}</li>)}</ul>
-            <nav class="pj-entries" aria-label={`Inside the ${lead.title}`}>
-              <ul>{lead.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
-            </nav>
-          </div>
-        </article>
-
-        <ul class="pj-grid pj-grid--three">
-          {projects.map((project) => (
-            <li>
-              <article class="pj-panel" id={project.id}>
-                <img class="pj-panel__art" src={`/images/platform/${project.art}-1086.webp`} alt="" width="1086" height="362" loading="lazy" decoding="async" />
-                <p class="pj-kind">{project.kind} <span lang="ar" dir="rtl">{project.arabic}</span></p>
-                <h3 class="pj-panel__title"><a href={project.href}>{project.title}</a></h3>
-                <p class="pj-desc">{project.desc}</p>
-                <ul class="hc-figures pj-figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
-                <nav class="pj-entries" aria-label={`Inside ${project.title}`}>
+        <div class="showcase">
+          {all.map((project, index) => (
+            <article class:list={["showcase__row", "pj-row", index % 2 === 1 && "showcase__row--flip"]} id={project.id}>
+              <div class="showcase__copy">
+                <p class="showcase__kicker">{String(index + 1).padStart(2, "0")} / {project.kind}</p>
+                <h3><a class="pj-row__title" href={project.href}>{project.title}</a></h3>
+                {project.arabic && <p class="pj-row__ar" lang="ar" dir="rtl">{project.arabic}</p>}
+                <p>{project.desc}</p>
+                <ul class="pj-row__figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
+                <nav class="pj-row__entries" aria-label={`Inside ${project.title}`}>
                   <ul>{project.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
                 </nav>
-              </article>
-            </li>
+                <a href={project.href} class="showcase__link">{project.action} <span aria-hidden="true">→</span></a>
+              </div>
+              <a class="showcase__visual pj-plate" href={project.href} tabindex="-1" aria-hidden="true">
+                <img
+                  src={`/images/platform/${project.art}.webp`}
+                  srcset={`/images/platform/${project.art}-1086.webp 1086w, /images/platform/${project.art}.webp 2172w`}
+                  sizes="(max-width: 860px) 100vw, 58vw"
+                  alt=""
+                  width="2172"
+                  height="724"
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                />
+                <span class="pj-plate__status">{project.status}</span>
+              </a>
+            </article>
           ))}
-        </ul>
-      </div>
-    </section>
-
-    <!-- At a glance -->
-    <section class="hc-band hc-band--warm pj-glance" id="glance" aria-labelledby="glance-title">
-      <div class="hc-container">
-        <header class="hc-head">
-          <div class="hc-head__main">
-            <h2 id="glance-title" class="hc-head__title">At a <span>glance</span></h2>
-            <p class="hc-head__note">What each project holds, and how far along it is.</p>
-          </div>
-        </header>
-        <div class="pj-table-wrap">
-          <table class="pj-table">
-            <thead>
-              <tr>
-                <th scope="col">No.</th>
-                <th scope="col">Project</th>
-                <th scope="col">Kind</th>
-                <th scope="col">Holds</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {all.map((project, index) => (
-                <tr>
-                  <td class="pj-table__no">{String(index + 1).padStart(2, "0")}</td>
-                  <th scope="row"><a class="pj-table__name" href={project.href}>{project.title}</a> <a class="pj-table__jump" href={`#${project.id}`}>Details</a></th>
-                  <td>{project.kind}</td>
-                  <td>{project.scope}</td>
-                  <td class="pj-table__status">{project.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
     </section>
 
-    <section class="hc-band pj-closing" aria-labelledby="pj-closing-title">
+    <section class="hc-band pj-closing" id="contribute" aria-labelledby="pj-closing-title">
       <div class="hc-container">
         <div class="hc-closing hc-parchment">
           <figure class="hc-closing__plate" style="--plate-focus: 70% center">

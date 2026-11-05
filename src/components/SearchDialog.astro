@@ -1,873 +1,113 @@
-<dialog class="search-dialog" id="site-search-dialog" aria-label="Search HadithCritic Archive">
-  <div class="search-dialog__surface">
-    <!-- Top Search Input Bar (Enterprise Command Palette Hero) -->
-    <div class="search-dialog__input-row">
-      <div class="search-dialog__search-icon" aria-hidden="true">
-        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"></circle>
-          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-        </svg>
-      </div>
+---
+import '../styles/search-dialog.css';
 
-      <label class="sr-only" for="site-search-input">Search HadithCritic archive</label>
+/* Shown before the reader types: the research platforms, then a few
+   searches that land on substantial studies. */
+const destinations = [
+  { href: '/blogs/', title: 'Research archive', note: 'Every published study' },
+  { href: '/hadith/', title: 'Hadith Corpus', note: 'Narrations in Arabic and English' },
+  { href: '/narrators/', title: 'Rijāl Register', note: 'Transmitters and verdicts' },
+  { href: '/projects/quran/', title: 'Qirāʾāt Variants', note: 'The ten readings side by side' },
+];
+const suggestions = [
+  'Messiah ben Aaron',
+  'The Family of Amram',
+  'Ibn Shihab al-Zuhri',
+  'Isnad Politics',
+  'Bukhari Fourth Criterion',
+  'Zubayrid Call Narrative',
+  'Prophetic Knowledge',
+  'Plural of Participation',
+];
+const filters = [
+  { value: 'all', label: 'All' },
+  { value: 'Origins & Early History', label: 'History' },
+  { value: 'Prophecies & Eschatology', label: 'Prophecies' },
+  { value: 'Theology & Epistemology', label: 'Theology' },
+  { value: 'Transmission & Narrators', label: 'Transmission' },
+];
+---
+
+<dialog class="search-dialog" id="site-search-dialog" aria-label="Search the HadithCritic archive">
+  <div class="sd">
+    <div class="sd__field">
+      <svg class="sd__field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7.5"></circle>
+        <path d="m20.5 20.5-4.2-4.2"></path>
+      </svg>
+      <label class="sr-only" for="site-search-input">Search the HadithCritic archive</label>
       <input
         type="search"
         id="site-search-input"
-        class="search-dialog__input"
+        class="sd__input"
         autocomplete="off"
         spellcheck="false"
-        placeholder="Search studies, isnads, narrators, topics, or terms…"
+        placeholder="Search studies, narrators, topics…"
         data-search-input
         aria-controls="search-results-list"
         aria-autocomplete="list"
       />
+      <button type="button" class="sd__clear" data-search-clear aria-label="Clear search" hidden>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+      <button type="button" class="sd__esc" data-search-close aria-label="Close search">Esc</button>
+    </div>
 
-      <div class="search-dialog__input-actions">
-        <button type="button" class="search-dialog__clear-btn" data-search-clear aria-label="Clear search input" hidden>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+    <div class="sd__filters" role="group" aria-label="Filter by category">
+      {filters.map((filter, index) => (
+        <button
+          type="button"
+          class:list={['sd__filter', { 'is-active': index === 0 }]}
+          data-cat-filter={filter.value}
+          data-category={index ? filter.value : undefined}
+          aria-pressed={index === 0 ? 'true' : 'false'}
+        >
+          {index > 0 && <span class="sd__dot" aria-hidden="true"></span>}
+          {filter.label}
         </button>
-        <button type="button" class="search-dialog__esc-btn" data-search-close aria-label="Close search dialog">
-          <kbd class="search-dialog__kbd">ESC</kbd>
-        </button>
-      </div>
+      ))}
     </div>
 
-    <!-- Minimalist Category Filter Chips -->
-    <div class="search-dialog__filters-bar" role="tablist" aria-label="Filter search results by category">
-      <button type="button" class="search-filter-tab is-active" data-cat-filter="all">
-        All Topics
-      </button>
-      <button type="button" class="search-filter-tab" data-cat-filter="Origins & Early History" data-category="Origins & Early History">
-        <span class="search-filter-dot" aria-hidden="true"></span>
-        <span>Origins & History</span>
-      </button>
-      <button type="button" class="search-filter-tab" data-cat-filter="Prophecies & Eschatology" data-category="Prophecies & Eschatology">
-        <span class="search-filter-dot" aria-hidden="true"></span>
-        <span>Prophecies</span>
-      </button>
-      <button type="button" class="search-filter-tab" data-cat-filter="Theology & Epistemology" data-category="Theology & Epistemology">
-        <span class="search-filter-dot" aria-hidden="true"></span>
-        <span>Theology</span>
-      </button>
-      <button type="button" class="search-filter-tab" data-cat-filter="Transmission & Narrators" data-category="Transmission & Narrators">
-        <span class="search-filter-dot" aria-hidden="true"></span>
-        <span>Transmission</span>
-      </button>
-    </div>
+    <div class="sd__body">
+      <p class="sd__label" data-search-status role="status" aria-live="polite">Jump to</p>
 
-    <!-- Status & Navigation Meta -->
-    <div class="search-dialog__status-bar">
-      <span class="search-dialog__status" data-search-status role="status" aria-live="polite">
-        Suggested Research Topics
-      </span>
-      <span class="search-dialog__nav-hint" aria-hidden="true">
-        Use the Up and Down keys to navigate
-      </span>
-    </div>
-
-    <!-- Main Scrollable Body Area -->
-    <div class="search-dialog__body">
-      <!-- Suggested Inquiries (Enterprise Bento List) -->
-      <div class="search-dialog__suggested" data-search-suggested>
-        <div class="suggested-grid">
-          <button type="button" class="suggested-card" data-suggest="Messiah ben Aaron">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Messiah ben Aaron</span>
-              <span class="suggested-card__cat">Theology & Epistemology</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="The Family of Amram">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Family of Amram</span>
-              <span class="suggested-card__cat">Theology & Epistemology</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Plural of Participation">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Plural of Participation</span>
-              <span class="suggested-card__cat">Theology & Epistemology</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Ibn Shihab al-Zuhri">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Al-Zuhri Forensics</span>
-              <span class="suggested-card__cat">Transmission & Narrators</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Isnad Politics">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Isnad Politics</span>
-              <span class="suggested-card__cat">Transmission & Narrators</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Bukhari Fourth Criterion">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Bukhari Criteria</span>
-              <span class="suggested-card__cat">Transmission & Narrators</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Zubayrid Call Narrative">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Zubayrid Narrative</span>
-              <span class="suggested-card__cat">Origins & Early History</span>
-            </div>
-          </button>
-
-          <button type="button" class="suggested-card" data-suggest="Prophetic Knowledge">
-            <div class="suggested-card__body">
-              <span class="suggested-card__title">Prophetic Knowledge</span>
-              <span class="suggested-card__cat">Theology & Epistemology</span>
-            </div>
-          </button>
+      <div class="sd__start" data-search-suggested>
+        <ul class="sd__destinations">
+          {destinations.map((item) => (
+            <li>
+              <a href={item.href} class="sd__destination" data-search-close-on-click>
+                <span class="sd__destination-title">{item.title}</span>
+                <span class="sd__destination-note">{item.note}</span>
+                <span class="sd__destination-arrow" aria-hidden="true">→</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="sd__label">Try searching</p>
+        <div class="sd__suggestions">
+          {suggestions.map((term) => (
+            <button type="button" class="sd__suggestion" data-suggest={term}>{term}</button>
+          ))}
         </div>
       </div>
 
-      <!-- Results List -->
-      <ol class="search-dialog__results" id="search-results-list" data-search-results hidden></ol>
+      <ol class="sd__results" id="search-results-list" data-search-results hidden></ol>
 
-      <!-- Empty State -->
-      <div class="search-dialog__empty" data-search-empty hidden>
-        <div class="search-dialog__empty-icon" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            <line x1="8" y1="11" x2="14" y2="11"></line>
-          </svg>
-        </div>
-        <p class="search-dialog__empty-title">No matching studies found</p>
-        <p class="search-dialog__empty-desc">No articles match your query. Try broadening your keywords, searching narrator names, or resetting category filters.</p>
+      <div class="sd__empty" data-search-empty hidden>
+        <p class="sd__empty-title">Nothing found</p>
+        <p class="sd__empty-text">Try a narrator’s name, a shorter phrase, or clear the category filter.</p>
       </div>
     </div>
 
-    <!-- Clean Enterprise Footer Dock -->
-    <div class="search-dialog__footer" aria-hidden="true">
-      <div class="search-dialog__footer-hint">
-        <kbd class="hc-kbd">Enter</kbd> <span>Select</span>
-      </div>
-      <div class="search-dialog__footer-hint">
-        <kbd class="hc-kbd">Up</kbd><kbd class="hc-kbd">Down</kbd> <span>Navigate</span>
-      </div>
-      <div class="search-dialog__footer-hint">
-        <kbd class="hc-kbd">ESC</kbd> <span>Dismiss</span>
-      </div>
+    <div class="sd__foot" aria-hidden="true">
+      <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+      <span><kbd>↵</kbd> Open</span>
+      <span><kbd>Esc</kbd> Close</span>
     </div>
   </div>
 </dialog>
-
-<style>
-  .search-dialog {
-    width: min(46rem, calc(100vw - 2rem));
-    max-height: min(44rem, calc(100vh - 4rem));
-    padding: 0;
-    margin: auto;
-    border: 1px solid rgba(216, 177, 102, 0.2);
-    border-radius: var(--radius-lg, 12px);
-    color: var(--hc-text-primary, #f2ebdc);
-    background: linear-gradient(180deg, rgba(22, 21, 20, 0.98) 0%, rgba(13, 12, 11, 0.99) 100%);
-    box-shadow: 
-      0 32px 90px -12px rgba(0, 0, 0, 0.85),
-      0 0 0 1px rgba(216, 177, 102, 0.14),
-      0 0 50px rgba(216, 177, 102, 0.05);
-    overflow: hidden;
-  }
-
-  .search-dialog[open] {
-    animation: searchModalEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
-
-  @keyframes searchModalEnter {
-    from {
-      opacity: 0;
-      transform: scale(0.97) translateY(-6px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  .search-dialog::backdrop {
-    background: rgba(8, 7, 7, 0.82);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    animation: searchBackdropEnter 0.2s ease both;
-  }
-
-  @keyframes searchBackdropEnter {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  .search-dialog__surface {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    max-height: inherit;
-    padding: 0;
-  }
-
-  /* ── Search Input Row (Hero) ── */
-  .search-dialog__input-row {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.95rem 1.4rem;
-    border-bottom: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .search-dialog__search-icon {
-    display: grid;
-    place-items: center;
-    color: var(--hc-gold, #c89b4b);
-    flex-shrink: 0;
-    transition: color 180ms ease;
-  }
-
-  .search-dialog__input-row:focus-within {
-    border-bottom-color: rgba(216, 177, 102, 0.32);
-    background: rgba(216, 177, 102, 0.03);
-  }
-
-  .search-dialog__input {
-    flex: 1;
-    min-width: 0;
-    height: 40px;
-    border: 0;
-    padding: 0;
-    color: var(--hc-text-primary, #f2ebdc);
-    background: transparent;
-    font-family: var(--font-body, sans-serif);
-    font-size: var(--fs-md);
-    line-height: 1.3;
-  }
-
-  .search-dialog__input:focus:not(:focus-visible) {
-    outline: none;
-  }
-
-  .search-dialog__input::placeholder {
-    color: var(--hc-text-tertiary, #8c8577);
-    font-family: var(--font-body, sans-serif);
-    font-size: var(--fs-base);
-  }
-
-  .search-dialog__input::-webkit-search-cancel-button,
-  .search-dialog__input::-webkit-search-decoration {
-    -webkit-appearance: none;
-    appearance: none;
-  }
-
-  .search-dialog__input-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-  }
-
-  .search-dialog__clear-btn {
-    display: grid;
-    place-items: center;
-    width: 24px;
-    height: 24px;
-    border: 0;
-    border-radius: 50%;
-    color: var(--hc-text-secondary, #c7beab);
-    background: rgba(242, 235, 220, 0.08);
-    cursor: pointer;
-    transition: all 160ms ease;
-  }
-
-  .search-dialog__clear-btn:hover {
-    color: var(--hc-text-primary, #f2ebdc);
-    background: rgba(216, 177, 102, 0.2);
-  }
-
-  .search-dialog__esc-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .search-dialog__kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.2rem 0.45rem;
-    border: 1px solid var(--hc-rule, rgba(242, 235, 220, 0.14));
-    border-radius: 4px;
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    color: var(--hc-text-secondary, #c7beab);
-    background: rgba(0, 0, 0, 0.35);
-    transition: all 160ms ease;
-  }
-
-  .search-dialog__esc-btn:hover .search-dialog__kbd {
-    color: var(--hc-gold-bright, #e8c67c);
-    border-color: var(--hc-gold, #c89b4b);
-    background: rgba(216, 177, 102, 0.12);
-  }
-
-  /* ── Filter Tabs Bar ── */
-  .search-dialog__filters-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.65rem 1.4rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    border-bottom: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
-    background: rgba(0, 0, 0, 0.14);
-  }
-
-  .search-dialog__filters-bar::-webkit-scrollbar {
-    display: none;
-  }
-
-  .search-filter-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 28px;
-    padding: 0.22rem 0.72rem;
-    border: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.1));
-    border-radius: var(--radius-pill, 999px);
-    color: var(--hc-text-secondary, #c7beab);
-    background: rgba(242, 235, 220, 0.02);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    white-space: nowrap;
-    flex-shrink: 0;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .search-filter-tab:hover {
-    color: var(--hc-text-primary, #f2ebdc);
-    border-color: var(--hc-rule, rgba(242, 235, 220, 0.2));
-    background: rgba(242, 235, 220, 0.06);
-  }
-
-  .search-filter-tab.is-active {
-    color: var(--hc-text-inverse, #0f0f10);
-    background: var(--hc-gold, #c89b4b);
-    border-color: var(--hc-gold, #c89b4b);
-    font-weight: 700;
-    box-shadow: 0 2px 10px rgba(200, 155, 75, 0.35);
-  }
-
-  .search-filter-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 5px currentColor;
-    flex-shrink: 0;
-  }
-
-  .search-filter-tab[data-category="Origins & Early History"] .search-filter-dot {
-    color: var(--cat-history-text, #d5b091);
-  }
-  .search-filter-tab[data-category="Prophecies & Eschatology"] .search-filter-dot {
-    color: var(--cat-prophecies-text, #d7988b);
-  }
-  .search-filter-tab[data-category="Theology & Epistemology"] .search-filter-dot {
-    color: var(--cat-theology-text, #9cb8a4);
-  }
-  .search-filter-tab[data-category="Transmission & Narrators"] .search-filter-dot {
-    color: var(--cat-philosophy-text, #a3afc7);
-  }
-
-  /* ── Status Bar ── */
-  .search-dialog__status-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.45rem 1.4rem;
-    border-bottom: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.06));
-    background: rgba(0, 0, 0, 0.22);
-  }
-
-  .search-dialog__status {
-    color: var(--hc-gold-soft, #d8b166);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 700;
-  }
-
-  .search-dialog__nav-hint {
-    color: var(--hc-text-tertiary, #8c8577);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-  }
-
-  .search-dialog__nav-hint kbd {
-    padding: 0.1rem 0.3rem;
-    border: 1px solid var(--hc-rule, rgba(242, 235, 220, 0.14));
-    border-radius: 3px;
-    font-size: var(--fs-xs);
-    color: var(--hc-text-secondary, #c7beab);
-  }
-
-  /* ── Main Body Container ── */
-  .search-dialog__body {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    padding: 0.85rem 1.4rem;
-    max-height: 24rem;
-    scrollbar-width: thin;
-    scrollbar-color: var(--hc-rule, rgba(242, 235, 220, 0.14)) transparent;
-  }
-
-  .search-dialog__body::-webkit-scrollbar {
-    width: 6px;
-  }
-  .search-dialog__body::-webkit-scrollbar-thumb {
-    background: var(--hc-rule, rgba(242, 235, 220, 0.14));
-    border-radius: 3px;
-  }
-
-  /* ── Suggested Inquiries Grid ── */
-  .search-dialog__suggested {
-    padding: 0.25rem 0 0.5rem;
-  }
-
-  .suggested-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.6rem;
-  }
-
-  .suggested-card {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.65rem 0.9rem;
-    border: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
-    border-radius: var(--radius-md, 8px);
-    color: var(--hc-text-primary, #f2ebdc);
-    background: rgba(242, 235, 220, 0.02);
-    text-align: left;
-    cursor: pointer;
-    transition: all 180ms ease;
-  }
-
-  .suggested-card__glyph {
-    color: var(--hc-gold, #c89b4b);
-    font-size: var(--fs-sm);
-    flex-shrink: 0;
-    opacity: 0.85;
-    transition: transform 180ms ease, color 180ms ease;
-  }
-
-  .suggested-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .suggested-card__title {
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    color: var(--hc-text-primary, #f2ebdc);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    transition: color 160ms ease;
-  }
-
-  .suggested-card__cat {
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    color: var(--hc-text-tertiary, #8c8577);
-  }
-
-  .suggested-card__arrow {
-    color: var(--hc-text-tertiary, #8c8577);
-    flex-shrink: 0;
-    opacity: 0;
-    transform: translateX(-4px);
-    transition: all 180ms ease;
-  }
-
-  .suggested-card:hover {
-    border-color: rgba(216, 177, 102, 0.35);
-    background: rgba(216, 177, 102, 0.06);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
-  }
-
-  .suggested-card:hover .suggested-card__title {
-    color: var(--hc-gold-bright, #e8c67c);
-  }
-
-  .suggested-card:hover .suggested-card__glyph {
-    transform: scale(1.2);
-    color: var(--hc-gold-bright, #e8c67c);
-  }
-
-  .suggested-card:hover .suggested-card__arrow {
-    opacity: 1;
-    transform: translateX(0);
-    color: var(--hc-gold, #c89b4b);
-  }
-
-  /* ── Empty State ── */
-  .search-dialog__empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 2.5rem 1.5rem;
-  }
-
-  .search-dialog__empty-icon {
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid var(--hc-rule, rgba(242, 235, 220, 0.14));
-    color: var(--hc-gold-dim, #9d7a3c);
-    background: rgba(216, 177, 102, 0.06);
-    margin-bottom: 0.85rem;
-  }
-
-  .search-dialog__empty-title {
-    margin: 0 0 0.35rem;
-    font-family: var(--font-display, serif);
-    font-size: var(--fs-lg);
-    font-weight: 600;
-    color: var(--hc-text-primary, #f2ebdc);
-  }
-
-  .search-dialog__empty-desc {
-    max-width: 380px;
-    margin: 0;
-    color: var(--hc-text-secondary, #c7beab);
-    font-family: var(--font-body, sans-serif);
-    font-size: var(--fs-sm);
-    line-height: 1.55;
-  }
-
-  /* ── Footer ── */
-  .search-dialog__footer {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1.25rem;
-    padding: 0.65rem 1.4rem;
-    border-top: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.08));
-    background: rgba(0, 0, 0, 0.3);
-  }
-
-  .search-dialog__footer-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    color: var(--hc-text-tertiary, #8c8577);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-  }
-
-  .hc-kbd {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
-    border: 1px solid var(--hc-rule, rgba(242, 235, 220, 0.14));
-    border-radius: 3px;
-    color: var(--hc-text-secondary, #c7beab);
-    background: rgba(242, 235, 220, 0.05);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-  }
-
-  /* ── Hidden State Guard ── */
-  [hidden] {
-    display: none !important;
-  }
-  .search-dialog__empty[hidden],
-  .search-dialog__suggested[hidden],
-  .search-dialog__results[hidden],
-  .search-dialog__clear-btn[hidden] {
-    display: none !important;
-  }
-
-  /* ═══════════════════════════════════════════════════════════════
-     DYNAMIC SEARCH RESULTS STYLING (GLOBAL FOR RUNTIME ELEMENTS)
-     ═══════════════════════════════════════════════════════════════ */
-  :global(.search-dialog__results) {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-  }
-
-  :global(.search-dialog__item) {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  :global(.search-result-card) {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    padding: 0.95rem 1.15rem;
-    border: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.1));
-    border-radius: var(--radius-md, 8px);
-    background: rgba(20, 19, 18, 0.65);
-    text-decoration: none;
-    color: inherit;
-    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease, box-shadow 160ms ease;
-  }
-
-  :global(.search-result-card:hover),
-  :global(.search-result-card.is-selected),
-  :global(.search-result-card:focus-visible) {
-    border-color: rgba(216, 177, 102, 0.45);
-    background: rgba(26, 25, 23, 0.95);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(216, 177, 102, 0.18);
-  }
-
-  :global(.search-card__header) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-  }
-
-  :global(.search-card__category) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 700;
-    color: var(--card-cat-color, var(--hc-gold, #c89b4b));
-  }
-
-  :global(.search-card__cat-dot) {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 6px currentColor;
-  }
-
-  :global(.search-card__date) {
-    color: var(--hc-text-tertiary, #8c8577);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.02em;
-  }
-
-  :global(.search-card__title) {
-    margin: 0;
-    font-family: var(--font-display, serif);
-    font-size: var(--fs-md);
-    font-weight: 600;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
-    color: var(--hc-text-primary, #f2ebdc);
-    transition: color 160ms ease;
-  }
-
-  :global(.search-result-card:hover .search-card__title),
-  :global(.search-result-card.is-selected .search-card__title) {
-    color: var(--hc-gold-bright, #e8c67c);
-  }
-
-  :global(.search-card__section-match) {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    background: rgba(216, 177, 102, 0.08);
-    border: 1px solid rgba(216, 177, 102, 0.2);
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    color: var(--hc-text-secondary, #c7beab);
-    width: fit-content;
-  }
-
-  :global(.search-card__section-icon) {
-    color: var(--hc-gold, #c89b4b);
-    font-weight: 700;
-  }
-
-  :global(.search-card__section-text strong) {
-    color: var(--hc-text-primary, #f2ebdc);
-    font-weight: 600;
-  }
-
-  :global(.search-card__excerpt) {
-    margin: 0;
-    color: var(--hc-text-secondary, #c7beab);
-    font-family: var(--font-body, sans-serif);
-    font-size: var(--fs-sm);
-    line-height: 1.55;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  :global(.search-highlight) {
-    background: rgba(216, 177, 102, 0.25);
-    color: var(--hc-gold-bright, #fcefd6);
-    font-weight: 600;
-    padding: 0 3px;
-    border-radius: 2px;
-    text-decoration: none;
-  }
-
-  :global(.search-card__footer) {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 0.1rem;
-    padding-top: 0.45rem;
-    border-top: 1px solid var(--hc-rule-soft, rgba(242, 235, 220, 0.06));
-  }
-
-  :global(.search-card__link-text) {
-    font-family: var(--font-ui, sans-serif);
-    font-size: var(--fs-xs);
-    font-weight: 700;
-    color: var(--hc-gold, #c89b4b);
-  }
-
-  :global(.search-card__arrow) {
-    color: var(--hc-gold, #c89b4b);
-    transform: translateX(0);
-    transition: transform 160ms ease;
-  }
-
-  :global(.search-result-card:hover .search-card__arrow),
-  :global(.search-result-card.is-selected .search-card__arrow) {
-    transform: translateX(3px);
-  }
-
-  /* Responsive styling */
-  @media (max-width: 640px) {
-    .search-dialog {
-      width: 100vw;
-      max-height: 100vh;
-      max-height: 100dvh;
-      height: 100vh;
-      height: 100dvh;
-      border-radius: 0;
-      border: none;
-    }
-
-    .suggested-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .search-dialog__input-row,
-    .search-dialog__filters-bar,
-    .search-dialog__status-bar,
-    .search-dialog__body {
-      padding-inline: 1rem;
-    }
-
-    .search-dialog__footer {
-      padding-inline: 1rem;
-      padding-bottom: max(0.85rem, var(--sab, 0px));
-    }
-
-    .search-dialog__footer-hint:not(:first-child) {
-      display: none;
-    }
-  }
-
-  /* ═══════════════════════════════════════════════════════════════
-     LIGHT THEME OVERRIDES
-     ═══════════════════════════════════════════════════════════════ */
-  :global([data-theme="light"]) .search-dialog {
-    background: var(--hc-surface-0, #fbf9f4);
-    border-color: var(--hc-rule-strong, rgba(43, 40, 36, 0.2));
-    box-shadow: 0 20px 60px rgba(43, 40, 36, 0.18);
-  }
-
-  :global([data-theme="light"]) .search-dialog__input-row {
-    background: rgba(43, 40, 36, 0.02);
-  }
-
-  :global([data-theme="light"]) .search-dialog__status-bar,
-  :global([data-theme="light"]) .search-dialog__footer,
-  :global([data-theme="light"]) .search-dialog__filters-bar {
-    background: var(--hc-surface-1, #f5f0e6);
-    border-color: var(--hc-rule-soft, rgba(43, 40, 36, 0.1));
-  }
-
-  :global([data-theme="light"]) .suggested-card {
-    background: var(--hc-surface-0, #fbf9f4);
-    border-color: var(--hc-rule-soft, rgba(43, 40, 36, 0.1));
-  }
-
-  :global([data-theme="light"]) .suggested-card:hover {
-    background: var(--hc-surface-1, #f5f0e6);
-    border-color: var(--hc-gold-dim, #9d7a3c);
-  }
-
-  :global([data-theme="light"]) .search-result-card {
-    background: var(--hc-surface-0, #fbf9f4);
-    border-color: var(--hc-rule, rgba(43, 40, 36, 0.14));
-  }
-
-  :global([data-theme="light"]) .search-result-card:hover,
-  :global([data-theme="light"]) .search-result-card.is-selected,
-  :global([data-theme="light"]) .search-result-card:focus-visible {
-    background: var(--hc-surface-1, #f5f0e6);
-    border-color: var(--hc-gold-dim, #9d7a3c);
-    box-shadow: 0 6px 18px rgba(43, 40, 36, 0.1);
-  }
-
-  :global([data-theme="light"]) .search-card__section-match {
-    background: rgba(43, 40, 36, 0.04);
-    border-color: var(--hc-rule-soft, rgba(43, 40, 36, 0.1));
-    color: var(--hc-text-secondary, #5c5549);
-  }
-
-  :global([data-theme="light"]) .search-highlight {
-    background: rgba(176, 126, 44, 0.2);
-    color: #4a340d;
-  }
-</style>
 
 <script>
   interface SearchSection {
@@ -893,13 +133,22 @@
     tags: string[];
     date: string;
   }
+  interface Result {
+    url: string;
+    title: string;
+    excerpt: string;
+    category?: string;
+    date?: string;
+    sectionHeading?: string;
+    score: number;
+  }
 
   const dialog = document.querySelector<HTMLDialogElement>('#site-search-dialog');
   const input = dialog?.querySelector<HTMLInputElement>('[data-search-input]');
   const clearBtn = dialog?.querySelector<HTMLButtonElement>('[data-search-clear]');
   const status = dialog?.querySelector<HTMLElement>('[data-search-status]');
   const resultList = dialog?.querySelector<HTMLOListElement>('[data-search-results]');
-  const suggestedView = dialog?.querySelector<HTMLElement>('[data-search-suggested]');
+  const startView = dialog?.querySelector<HTMLElement>('[data-search-suggested]');
   const emptyView = dialog?.querySelector<HTMLElement>('[data-search-empty]');
   const chipButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-cat-filter]')) : [];
   const suggestButtons = dialog ? Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-suggest]')) : [];
@@ -915,7 +164,7 @@
       .then((res) => res.json() as Promise<ArticleEntry[]>)
       .then((entries) => {
         localCatalog = entries;
-        if (!deepCatalog.length && input?.value.trim()) runSearch(input.value);
+        if (!deepCatalog.length && input?.value.trim()) runSearch(input.value.trim());
       })
       .catch((err) => console.error('Failed to load local article catalog', err));
     return localCatalogRequest;
@@ -930,7 +179,7 @@
       .then((res) => res.json() as Promise<SearchDoc[]>)
       .then((docs) => {
         deepCatalog = docs;
-        if (input?.value.trim()) runSearch(input.value);
+        if (input?.value.trim()) runSearch(input.value.trim());
       })
       .catch(() => {});
     return deepCatalogRequest;
@@ -942,18 +191,16 @@
   let selectedIndex = -1;
 
   const open = (button?: HTMLElement) => {
-    if (!dialog?.open) {
-      invoker = button || (document.activeElement as HTMLElement);
-      loadLocalCatalog();
-      loadDeepCatalog();
-      dialog?.showModal();
-      setTimeout(() => input?.focus(), 50);
-    }
+    if (!dialog || dialog.open) return;
+    invoker = button || (document.activeElement as HTMLElement);
+    loadLocalCatalog();
+    loadDeepCatalog();
+    dialog.showModal();
+    document.documentElement.classList.add('has-modal');
+    setTimeout(() => input?.focus(), 30);
   };
 
-  const close = () => {
-    dialog?.close();
-  };
+  const close = () => dialog?.close();
 
   document.addEventListener('hc:search-open', (event) => open((event as CustomEvent).detail));
 
@@ -966,7 +213,7 @@
   };
   document.addEventListener('pointerover', warmOnTrigger, { passive: true });
   document.addEventListener('focusin', warmOnTrigger);
-  
+
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
@@ -975,24 +222,30 @@
   });
 
   dialog?.querySelector('[data-search-close]')?.addEventListener('click', close);
-  dialog?.addEventListener('close', () => invoker?.focus());
+  dialog?.querySelectorAll('[data-search-close-on-click]').forEach((link) => link.addEventListener('click', close));
+  dialog?.addEventListener('close', () => {
+    document.documentElement.classList.remove('has-modal');
+    invoker?.focus();
+  });
+  // A click on the backdrop lands on the dialog element itself.
   dialog?.addEventListener('click', (event) => {
     if (event.target === dialog) close();
   });
 
   clearBtn?.addEventListener('click', () => {
-    if (input) {
-      input.value = '';
-      clearBtn.hidden = true;
-      input.focus();
-      runSearch('');
-    }
+    if (!input) return;
+    input.value = '';
+    clearBtn.hidden = true;
+    input.focus();
+    runSearch('');
   });
 
   chipButtons.forEach((chip) => {
     chip.addEventListener('click', () => {
-      chipButtons.forEach((c) => c.classList.remove('is-active'));
-      chip.classList.add('is-active');
+      chipButtons.forEach((c) => {
+        c.classList.toggle('is-active', c === chip);
+        c.setAttribute('aria-pressed', String(c === chip));
+      });
       activeCategory = chip.dataset.catFilter || 'all';
       runSearch(input?.value.trim() || '');
     });
@@ -1000,12 +253,11 @@
 
   suggestButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      const term = btn.dataset.suggest || '';
-      if (input) {
-        input.value = term;
-        clearBtn && (clearBtn.hidden = false);
-        runSearch(term);
-      }
+      if (!input) return;
+      input.value = btn.dataset.suggest || '';
+      if (clearBtn) clearBtn.hidden = false;
+      input.focus();
+      runSearch(input.value);
     });
   });
 
@@ -1023,43 +275,32 @@
     const escaped = escapeHtml(text);
     const terms = query.split(/\s+/).filter(Boolean);
     if (!terms.length) return escaped;
-    const regex = new RegExp(`(${terms.map(t => escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
-    return escaped.replace(regex, '<mark class="search-highlight">$1</mark>');
+    const pattern = terms.map((t) => escapeHtml(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    return escaped.replace(new RegExp(`(${pattern})`, 'gi'), '<mark>$1</mark>');
   }
 
   function cleanSnippet(raw: string): string {
     if (!raw) return '';
-    return raw
-      .replace(/\\n/g, ' ')
-      .replace(/[{}\[\]]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    return raw.replace(/\\n/g, ' ').replace(/[{}\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
   function createSnippetText(text: string, term: string): string {
     const cleaned = cleanSnippet(text);
-    const lower = cleaned.toLowerCase();
-    const idx = lower.indexOf(term.toLowerCase());
-    if (idx === -1) {
-      return cleaned.slice(0, 140) + (cleaned.length > 140 ? '…' : '');
-    }
-
+    const idx = cleaned.toLowerCase().indexOf(term.toLowerCase());
+    if (idx === -1) return cleaned.slice(0, 140) + (cleaned.length > 140 ? '…' : '');
     const start = Math.max(0, idx - 60);
     const end = Math.min(cleaned.length, idx + term.length + 80);
-    let snippet = cleaned.slice(start, end);
-    if (start > 0) snippet = '…' + snippet;
-    if (end < cleaned.length) snippet = snippet + '…';
-    return snippet;
+    return (start > 0 ? '…' : '') + cleaned.slice(start, end) + (end < cleaned.length ? '…' : '');
   }
 
   function formatDate(rawDate?: string): string {
     if (!rawDate) return '';
     const d = new Date(rawDate);
     if (isNaN(d.getTime())) return rawDate;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   }
 
-  function getCategoryColorVar(category?: string): string {
+  function categoryColor(category?: string): string {
     switch (category) {
       case 'Origins & Early History':
         return 'var(--cat-history-text, #d5b091)';
@@ -1074,92 +315,54 @@
     }
   }
 
-  function renderCards(
-    entries: Array<{
-      url: string;
-      title: string;
-      excerpt: string;
-      category?: string;
-      date?: string;
-      sectionHeading?: string;
-    }>,
-    query: string
-  ) {
-    if (!resultList || !status || !emptyView || !suggestedView) return;
+  function showView(view: 'start' | 'results' | 'empty') {
+    if (startView) startView.hidden = view !== 'start';
+    if (resultList) resultList.hidden = view !== 'results';
+    if (emptyView) emptyView.hidden = view !== 'empty';
+  }
 
+  function renderResults(entries: Result[], query: string) {
+    if (!resultList || !status) return;
     resultList.innerHTML = '';
     selectedIndex = -1;
 
     if (!entries.length) {
-      suggestedView.hidden = true;
-      resultList.hidden = true;
-      emptyView.hidden = false;
-      status.textContent = 'No matching studies';
+      showView('empty');
+      status.textContent = 'No results';
       return;
     }
 
-    suggestedView.hidden = true;
-    emptyView.hidden = true;
-    resultList.hidden = false;
-    status.textContent = `${entries.length} ${entries.length === 1 ? 'study' : 'studies'} discovered`;
+    showView('results');
+    status.textContent = `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`;
 
     entries.forEach((item, idx) => {
       const li = document.createElement('li');
-      li.className = 'search-dialog__item';
-      const categoryLabel = item.category || 'Analysis';
-      const dateDisplay = formatDate(item.date);
-      const catColor = getCategoryColorVar(item.category);
-
+      const date = formatDate(item.date);
       li.innerHTML = `
-        <a href="${item.url}" class="search-result-card" data-index="${idx}" style="--card-cat-color: ${catColor};">
-          <div class="search-card__header">
-            <span class="search-card__category">
-              <span class="search-card__cat-dot" aria-hidden="true"></span>
-              ${escapeHtml(categoryLabel)}
-            </span>
-            ${dateDisplay ? `<span class="search-card__date">${dateDisplay}</span>` : ''}
-          </div>
-          <h3 class="search-card__title">${highlightMatches(item.title, query)}</h3>
-          ${item.sectionHeading ? `
-            <div class="search-card__section-match">
-              <span class="search-card__section-icon" aria-hidden="true">§</span>
-              <span class="search-card__section-text">Section: <strong>${escapeHtml(item.sectionHeading)}</strong></span>
-            </div>
-          ` : ''}
-          ${item.excerpt ? `<p class="search-card__excerpt">${highlightMatches(item.excerpt, query)}</p>` : ''}
-          <div class="search-card__footer">
-            <span class="search-card__link-text">${item.sectionHeading ? 'Jump to section' : 'Read study'}</span>
-            <svg class="search-card__arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
-            </svg>
-          </div>
+        <a href="${escapeHtml(item.url)}" class="sd__result" data-index="${idx}" style="--sd-cat: ${categoryColor(item.category)};">
+          <span class="sd__result-meta">
+            <span class="sd__dot" aria-hidden="true"></span>${escapeHtml(item.category || 'Study')}${date ? `<span class="sd__result-date">${date}</span>` : ''}
+          </span>
+          <span class="sd__result-title">${highlightMatches(item.title, query)}</span>
+          ${item.sectionHeading ? `<span class="sd__result-section">§ ${escapeHtml(item.sectionHeading)}</span>` : ''}
+          ${item.excerpt ? `<span class="sd__result-excerpt">${highlightMatches(item.excerpt, query)}</span>` : ''}
+          <span class="sd__result-enter" aria-hidden="true">↵</span>
         </a>
       `;
-
-      const link = li.querySelector('a');
+      const link = li.querySelector<HTMLAnchorElement>('a');
       link?.addEventListener('click', close);
+      link?.addEventListener('pointermove', () => {
+        if (selectedIndex === idx) return;
+        selectedIndex = idx;
+        updateSelection(false);
+      });
       resultList.appendChild(li);
     });
   }
 
-  async function runSearch(query: string) {
-    if (!status || !resultList || !suggestedView || !emptyView) return;
-
-    if (!query) {
-      resultList.innerHTML = '';
-      resultList.hidden = true;
-      emptyView.hidden = true;
-      suggestedView.hidden = false;
-      status.textContent = 'Suggested Research Topics';
-      selectedIndex = -1;
-      return;
-    }
-
-    status.textContent = 'Searching archive & content…';
-
-    const lowerQuery = query.toLowerCase();
-    const catalogToSearch = deepCatalog.length > 0 ? deepCatalog : localCatalog.map(c => ({
+  function catalogDocs(): SearchDoc[] {
+    if (deepCatalog.length) return deepCatalog;
+    return localCatalog.map((c) => ({
       id: c.url.replace('/blogs/', ''),
       title: c.title,
       description: c.description,
@@ -1167,109 +370,83 @@
       tags: c.tags,
       date: c.date,
       sections: [],
-      fullText: `${c.title} ${c.description} ${c.tags.join(' ')}`
+      fullText: `${c.title} ${c.description} ${c.tags.join(' ')}`,
     }));
-
-    const results: Array<{
-      url: string;
-      title: string;
-      excerpt: string;
-      category?: string;
-      date?: string;
-      sectionHeading?: string;
-      score: number;
-    }> = [];
-
-    for (const item of catalogToSearch) {
-      if (activeCategory !== 'all' && item.category !== activeCategory) {
-        continue;
-      }
-
-      const inTitle = item.title.toLowerCase().includes(lowerQuery);
-      const inDesc = item.description.toLowerCase().includes(lowerQuery);
-      const inTags = item.tags ? item.tags.some(t => t.toLowerCase().includes(lowerQuery)) : false;
-      
-      let sectionMatch: SearchSection | null = null;
-      let sectionSnippet = '';
-
-      if (item.sections && item.sections.length > 0) {
-        for (const sec of item.sections) {
-          if (sec.heading.toLowerCase().includes(lowerQuery) || sec.text.toLowerCase().includes(lowerQuery)) {
-            sectionMatch = sec;
-            const src = sec.text.toLowerCase().includes(lowerQuery) ? sec.text : sec.heading;
-            sectionSnippet = createSnippetText(src, lowerQuery);
-            break;
-          }
-        }
-      }
-
-      const inFullText = item.fullText ? item.fullText.toLowerCase().includes(lowerQuery) : false;
-
-      if (inTitle || inDesc || inTags || sectionMatch || inFullText) {
-        let score = 0;
-        if (inTitle) score += 10;
-        if (inTags) score += 6;
-        if (inDesc) score += 4;
-        if (sectionMatch) score += 5;
-
-        const targetUrl = sectionMatch && sectionMatch.slug 
-          ? `/blogs/${item.id}/#${sectionMatch.slug}` 
-          : `/blogs/${item.id}/`;
-
-        const excerpt = sectionSnippet || item.description || (item.fullText ? createSnippetText(item.fullText, lowerQuery) : '');
-
-        results.push({
-          url: targetUrl,
-          title: item.title,
-          excerpt,
-          category: item.category,
-          date: item.date,
-          sectionHeading: sectionMatch ? sectionMatch.heading : undefined,
-          score
-        });
-      }
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    renderCards(results.slice(0, 16), query);
   }
 
-  dialog?.addEventListener('keydown', (e: KeyboardEvent) => {
-    const cards = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('.search-result-card'));
-    if (!cards.length) return;
+  function scoreDoc(item: SearchDoc, q: string): Result | null {
+    const inTitle = item.title.toLowerCase().includes(q);
+    const inDesc = item.description.toLowerCase().includes(q);
+    const inTags = item.tags?.some((t) => t.toLowerCase().includes(q)) ?? false;
+    const section = item.sections?.find((sec) => sec.heading.toLowerCase().includes(q) || sec.text.toLowerCase().includes(q));
+    const inFullText = item.fullText?.toLowerCase().includes(q) ?? false;
+    if (!inTitle && !inDesc && !inTags && !section && !inFullText) return null;
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      selectedIndex = (selectedIndex + 1) % cards.length;
-      updateSelection(cards);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      selectedIndex = (selectedIndex - 1 + cards.length) % cards.length;
-      updateSelection(cards);
-    } else if (e.key === 'Enter') {
-      if (selectedIndex >= 0 && selectedIndex < cards.length) {
-        e.preventDefault();
-        cards[selectedIndex].click();
-      }
+    const sectionSnippet = section
+      ? createSnippetText(section.text.toLowerCase().includes(q) ? section.text : section.heading, q)
+      : '';
+    return {
+      url: section?.slug ? `/blogs/${item.id}/#${section.slug}` : `/blogs/${item.id}/`,
+      title: item.title,
+      excerpt: sectionSnippet || item.description || (item.fullText ? createSnippetText(item.fullText, q) : ''),
+      category: item.category,
+      date: item.date,
+      sectionHeading: section?.heading,
+      score: (inTitle ? 10 : 0) + (inTags ? 6 : 0) + (inDesc ? 4 : 0) + (section ? 5 : 0),
+    };
+  }
+
+  function runSearch(query: string) {
+    if (!status) return;
+    if (!query) {
+      if (resultList) resultList.innerHTML = '';
+      showView('start');
+      status.textContent = 'Jump to';
+      selectedIndex = -1;
+      return;
     }
-  });
+    const q = query.toLowerCase();
+    const results = catalogDocs()
+      .filter((item) => activeCategory === 'all' || item.category === activeCategory)
+      .map((item) => scoreDoc(item, q))
+      .filter((item): item is Result => item !== null)
+      .sort((a, b) => b.score - a.score);
+    renderResults(results.slice(0, 16), query);
+  }
 
-  function updateSelection(cards: HTMLAnchorElement[]) {
+  function updateSelection(scroll = true) {
+    const cards = dialog ? Array.from(dialog.querySelectorAll<HTMLAnchorElement>('.sd__result')) : [];
     cards.forEach((card, idx) => {
       const isSelected = idx === selectedIndex;
       card.classList.toggle('is-selected', isSelected);
-      if (isSelected) {
-        card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
+      if (isSelected && scroll) card.scrollIntoView({ block: 'nearest' });
     });
   }
+
+  dialog?.addEventListener('keydown', (e: KeyboardEvent) => {
+    const cards = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('.sd__result'));
+    if (!cards.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex + 1) % cards.length;
+      updateSelection();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIndex = (selectedIndex - 1 + cards.length) % cards.length;
+      updateSelection();
+    } else if (e.key === 'Enter') {
+      // Enter in the field opens the top result when nothing is selected.
+      const target = selectedIndex >= 0 ? selectedIndex : e.target === input ? 0 : -1;
+      if (target < 0 || target >= cards.length) return;
+      e.preventDefault();
+      cards[target].click();
+    }
+  });
 
   input?.addEventListener('input', () => {
     window.clearTimeout(timer);
     const query = input.value.trim();
     if (clearBtn) clearBtn.hidden = !query;
-    timer = window.setTimeout(() => {
-      runSearch(query);
-    }, 120);
+    timer = window.setTimeout(() => runSearch(query), 120);
   });
 </script>

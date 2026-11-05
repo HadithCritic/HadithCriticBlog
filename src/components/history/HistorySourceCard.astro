@@ -1,9 +1,10 @@
 ---
-import { deathDate, type HistorySource } from '../../data/history';
+import { deathDate, readerFor, roundedWords, type HistorySource } from '../../data/history';
 
 interface Props { source: HistorySource; index: number; }
 const { source, index } = Astro.props;
 const titleId = `${source.id}-title`;
+const reader = readerFor(source);
 const numeral = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][index] ?? String(index + 1);
 ---
 
@@ -37,11 +38,21 @@ const numeral = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][in
       <p class="history-source__numeral" aria-hidden="true">{numeral}</p>
       <div>
         <p class="history-source__author">{source.author}<span>{deathDate(source)}</span><span>{source.form}</span></p>
-        <h3 id={titleId}>{source.title}</h3>
+        <h3 id={titleId}>{reader ? <a href={reader.href}>{source.title}</a> : source.title}</h3>
         <p class="history-source__arabic" lang="ar" dir="rtl">{source.arabic}</p>
       </div>
     </header>
     <p class="history-source__description">{source.description}</p>
-
+    {reader ? (
+      <p class="history-source__foot">
+        <span>{roundedWords(reader.words)} · {reader.entries.toLocaleString("en-US")} sections</span>
+        <a class="hc-btn" href={reader.href}>Read the book <span aria-hidden="true">→</span></a>
+      </p>
+    ) : (
+      <p class="history-source__foot is-soon">
+        <span>The English translation is still in progress.</span>
+        <span class="history-source__soon">Not open yet</span>
+      </p>
+    )}
   </div>
 </article>

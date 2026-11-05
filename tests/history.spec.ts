@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { historySources } from '../src/data/history';
+import { historySources, openReaders } from '../src/data/history';
 
 const route = '/projects/history/';
 const titles = historySources.map(source => source.title);
+const readers = openReaders.map(({ reader }) => reader);
+const foreignAsset = /\/assets\/hadith\/|^\/history\/(art|book)|^\/projects\/history\/reader\//;
 
-test('the archive identifies its sources and makes publication limits explicit', async ({ page, request }) => {
+test('the archive identifies its sources and links each open reader', async ({ page, request }) => {
   await page.goto(route);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('History (Tārīkh)');
   await expect(page.locator('[data-history-source]')).toHaveCount(historySources.length);
@@ -25,9 +27,47 @@ test('the archive identifies its sources and makes publication limits explicit',
     expect(response.headers()['content-type']).toContain('image/webp');
   }
   expect(paintings.size).toBe(historySources.length);
-  await expect(page.locator('.history-library__head')).toContainText('Coming soon');
   await expect(page.locator('.history-art-note')).toContainText('they are not evidence for the historical claims');
-  await expect(page.locator('a[href*="/projects/history/read"]')).toHaveCount(0);
+  for (const reader of readers) {
+    await expect(page.locator(`.history-source__foot a[href="${reader.href}"]`)).toHaveCount(1);
+  }
+  await expect(page.locator('#al-tabari .history-source__foot')).toContainText('Not open yet');
+});
+
+test('every open history reader sits in the site layout with a working contents list', async ({ page }) => {
+  for (const reader of readers) {
+    const foreign: string[] = [];
+    const failed: string[] = [];
+    const onRequest = (req: { url(): string }) => { if (foreignAsset.test(new URL(req.url()).pathname)) foreign.push(req.url()); };
+    const onResponse = (res: { status(): number; url(): string }) => { if (res.status() >= 400) failed.push(`${res.status()} ${res.url()}`); };
+    page.on('request', onRequest);
+    page.on('response', onResponse);
+    await page.goto(reader.href);
+    await expect(page).toHaveTitle(/\| HadithCritic$/);
+    await expect(page.locator('.site-header .header-brand')).toBeVisible();
+    await expect(page.locator('main')).toHaveCount(1);
+    await expect(page.locator('#main-content h1')).toHaveCount(1);
+    await expect(page.locator('.side')).toHaveClass(/is-enhanced/);
+    await expect(page.locator('.side-foot a')).toHaveAttribute('href', '/projects/history/');
+    await expect(page.locator('.bk-end a[href="/projects/history/"]')).toHaveCount(1);
+    expect(foreign, reader.href).toEqual([]);
+    expect(failed, reader.href).toEqual([]);
+    page.off('request', onRequest);
+    page.off('response', onResponse);
+  }
+});
+
+test('a reader keeps its contents drawer below the site header on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(readers[0].href);
+  await page.locator('#navbtn').click();
+  const side = page.locator('.side');
+  await expect(side.locator('.side-close')).toBeVisible();
+  const header = await page.locator('.site-header').boundingBox();
+  const box = await side.boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(813);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
 test('each record retains its source identity and description without JavaScript', async ({ browser }) => {

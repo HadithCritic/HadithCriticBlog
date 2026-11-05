@@ -66,7 +66,6 @@ const ROUTES = [
   '/narrators/compare?ids=484,3889',
   '/blogs',
   '/blogs/category/transmission-narrators',
-  '/academia',
   '/resources',
   '/projects',
   '/projects/quran/sura/1',
