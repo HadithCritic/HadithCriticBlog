@@ -230,9 +230,12 @@ export function initHadithSearch(): void {
   if (!results) return;
 
   const input = form.querySelector('#corpus-q') as HTMLInputElement | null;
-  const scopeSelect = form.querySelector('select[name="scope"]') as HTMLSelectElement | null;
-  const bookSelect = form.querySelector('select[name="book"]') as HTMLSelectElement | null;
-  const phraseBox = form.querySelector('input[name="phrase"]') as HTMLInputElement | null;
+  // Scope, collection and exact phrase have no visible controls on the index;
+  // they ride along as hidden fields, set from the URL and disabled when empty
+  // so an unset filter stays out of the next query string.
+  const scopeField = form.querySelector('input[name="scope"]') as HTMLInputElement | null;
+  const bookField = form.querySelector('input[name="book"]') as HTMLInputElement | null;
+  const phraseField = form.querySelector('input[name="phrase"]') as HTMLInputElement | null;
   const narratorField = form.querySelector('input[name="narrator"]') as HTMLInputElement | null;
   const subjectField = form.querySelector('input[name="subject"]') as HTMLInputElement | null;
 
@@ -242,9 +245,9 @@ export function initHadithSearch(): void {
   /** Put the controls in step with a state, so a deep link shows its own filters. */
   function applyToForm(state: SearchState) {
     if (input) input.value = state.q;
-    if (scopeSelect) scopeSelect.value = state.scope;
-    if (bookSelect) bookSelect.value = state.book > 0 ? String(state.book) : '';
-    if (phraseBox) phraseBox.checked = state.phrase;
+    setHidden(scopeField, state.scope === 'all' ? '' : state.scope);
+    setHidden(bookField, state.book > 0 ? String(state.book) : '');
+    setHidden(phraseField, state.phrase ? '1' : '');
     // Disabled fields are not submitted, which is how an absent filter stays
     // absent from the next query string rather than arriving as an empty one.
     if (narratorField) {
@@ -257,13 +260,21 @@ export function initHadithSearch(): void {
     }
   }
 
+  function setHidden(field: HTMLInputElement | null, value: string) {
+    if (!field) return;
+    field.value = value;
+    field.disabled = !value;
+  }
+
+  const live = (field: HTMLInputElement | null) => (field && !field.disabled ? field.value : '');
+
   function readForm(page = 1): SearchState {
-    const scope = (scopeSelect?.value || 'all') as SearchScope;
+    const scope = (live(scopeField) || 'all') as SearchScope;
     return {
       q: (input?.value || '').trim(),
       scope: SCOPES.includes(scope) ? scope : 'all',
-      phrase: Boolean(phraseBox?.checked),
-      book: Math.max(0, parseInt(bookSelect?.value || '', 10) || 0),
+      phrase: live(phraseField) === '1',
+      book: Math.max(0, parseInt(live(bookField), 10) || 0),
       narrator: Math.max(0, parseInt(narratorField?.value || '', 10) || 0),
       subject: (subjectField?.value || '').trim(),
       page
@@ -392,10 +403,6 @@ export function initHadithSearch(): void {
     render(readForm(1), true);
   });
 
-  scopeSelect?.addEventListener('change', () => render(readForm(1), true));
-  bookSelect?.addEventListener('change', () => render(readForm(1), true));
-  phraseBox?.addEventListener('change', () => render(readForm(1), true));
-
   results.addEventListener('click', (event) => {
     const link = (event.target as HTMLElement).closest('a.corpus-pager__btn') as HTMLAnchorElement | null;
     if (!link?.dataset.page) return;
@@ -403,7 +410,7 @@ export function initHadithSearch(): void {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
     render({ ...readForm(1), page: parseInt(link.dataset.page, 10) }, true);
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   window.addEventListener('popstate', () => {

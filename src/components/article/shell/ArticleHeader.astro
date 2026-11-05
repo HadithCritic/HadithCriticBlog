@@ -1,13 +1,17 @@
 ---
 /**
- * The article's opening: a leaf set across the top of the page, wider than
- * the reading column. Copy on the left in reading order (branch, date,
- * reading time and author; the title; the standfirst; the folio), the
- * artwork on the right. In the dark theme the leaf is a dark plate and the
- * artwork is framed inside it; in the light theme it is a parchment leaf and
- * an engraving fades into the paper. Topics are listed at the end of the
- * article, not here, so the opening stays a title page.
+ * The article's opening. The branch and number sit above the title, the
+ * standfirst below it, then a byline with the date and reading time. The
+ * artwork sits beside the copy on wide screens and below it otherwise.
+ *
+ * The editorial engravings were drawn to sit under text, so most carry a
+ * blank parchment band down their left side. The plate takes the shape of
+ * the drawing alone (src/data/blog-artwork-crop.json, measured by
+ * scripts/measure-artwork-crop.mjs) and anchors the image to its right edge,
+ * so the band falls outside the frame.
  */
+import artworkCrop from '../../../data/blog-artwork-crop.json';
+
 export interface Props {
   title: string;
   description?: string;
@@ -25,7 +29,7 @@ export interface Props {
   heroSrcset?: string;
   heroWidth?: number;
   heroHeight?: number;
-  /** True for the editorial engravings, which were drawn on parchment and may fade into it. */
+  /** True for the editorial engravings; older thumbnails carry their title in the image and are never cropped. */
   heroEngraving?: boolean;
 }
 
@@ -33,29 +37,47 @@ const {
   title, description, category, categoryHref, author, dateISO, dateLabel, updatedISO, updatedLabel,
   readingMinutes, folio, heroImage, heroAlt, heroSrcset, heroWidth = 1200, heroHeight = 675, heroEngraving = false
 } = Astro.props;
+
+/* Newsreader has no ʿayn or hamza (U+02BF, U+02BE), so they fall back to
+   Source Serif and, at the title's tracking, the hamza touches a macron
+   before it. Each mark gets its own span so it can be spaced; the text is
+   unchanged. */
+const titleParts = title.split(/([ʾʿ])/).filter(Boolean);
+
+/* An engraving with no measurement keeps a typical crop rather than its band. */
+const crops = artworkCrop as Record<string, number>;
+const crop = heroEngraving && heroImage ? (crops[heroImage] ?? 0.25) : 0;
+const plateRatio = ((1 - crop) * heroWidth / heroHeight).toFixed(3);
+const number = folio ? Number(folio) : undefined;
 ---
 
 <header class="hc-head">
+  <a class="hc-head__back" href="/blogs/">Back to all studies</a>
   <div class:list={['hc-head__leaf', { 'hc-head__leaf--plain': !heroImage }]}>
     <div class="hc-head__copy">
-      <p class="hc-head__meta">
+      <p class="hc-head__kicker-line">
         <a class="hc-head__kicker" href={categoryHref} data-category={category}>{category}</a>
-        <time datetime={dateISO}>{dateLabel}</time>
-        {updatedISO && <span>Revised <time datetime={updatedISO}>{updatedLabel}</time></span>}
-        <span>{readingMinutes} min read</span>
-        <span class="hc-head__author">By {author}</span>
+        {number && <span class="hc-head__folio">No. {number}</span>}
       </p>
 
-      <h1 id="article-title" class="hc-head__title">{title}</h1>
+      <h1 id="article-title" class="hc-head__title">{titleParts.map((part) => /^[ʾʿ]$/.test(part) ? <span class="hc-head__tl">{part}</span> : part)}</h1>
 
       {description && <p class="hc-head__standfirst">{description}</p>}
 
-      {folio && <p class="hc-head__folio">Folio {folio}</p>}
+      <p class="hc-head__meta">
+        <span class="hc-head__author">By {author}</span>
+        <time datetime={dateISO}>{dateLabel}</time>
+        {updatedISO && <span>Revised <time datetime={updatedISO}>{updatedLabel}</time></span>}
+        <span>{readingMinutes} min read</span>
+      </p>
     </div>
 
     {heroImage && (
-      <figure class:list={['hc-head__plate', { 'hc-head__plate--engraving': heroEngraving }]}>
-        <img src={heroImage} srcset={heroSrcset} sizes="(max-width: 800px) 100vw, 520px" alt={heroAlt ?? ''} width={heroWidth} height={heroHeight} decoding="async" fetchpriority="high" />
+      <figure
+        class:list={['hc-head__plate', { 'hc-head__plate--engraving': heroEngraving }]}
+        style={heroEngraving ? `--plate-ratio: ${plateRatio}` : undefined}
+      >
+        <img src={heroImage} srcset={heroSrcset} sizes="(max-width: 1100px) 100vw, 480px" alt={heroAlt ?? ''} width={heroWidth} height={heroHeight} decoding="async" fetchpriority="high" />
       </figure>
     )}
   </div>

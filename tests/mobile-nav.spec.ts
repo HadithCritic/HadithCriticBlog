@@ -53,18 +53,7 @@ test.describe('Mobile Navigation', () => {
     await page.waitForLoadState('load');
     await expect(mobileNav).not.toBeVisible();
 
-    // Now test navigating to /academia from /blogs
-    await toggle.click();
-    await expect(mobileNav).toBeVisible();
-    const academiaLink = mobileNav.locator('a[href="/academia/"]');
-    await expect(academiaLink).toBeVisible();
-    await academiaLink.click();
-    await expect(page).toHaveURL(/\/academia/);
-    // The header script attaches on load; clicking the toggle before that is a no-op.
-    await page.waitForLoadState('load');
-    await expect(mobileNav).not.toBeVisible();
-
-    // Now test navigating to /projects from /academia
+    // Now test navigating to /projects from /blogs
     await toggle.click();
     await expect(mobileNav).toBeVisible();
     const projectsMenu = mobileNav.locator('[data-project-nav]');

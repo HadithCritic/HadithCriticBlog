@@ -2,10 +2,9 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
 import ArchiveEntry from '../../components/ArchiveEntry.astro';
-import { getCollection, render } from 'astro:content';
+import { getCollection } from 'astro:content';
 import { OG } from '../../lib/seo';
 import { CATEGORIES } from '../../lib/categories';
-import { isNewPost } from '../../lib/new-badge';
 import { toEntries, byYear } from '../../lib/article-index';
 import '../../styles/blog-index.css';
 
@@ -14,12 +13,6 @@ const entries = toEntries(posts);
 const years = byYear(entries);
 
 const [lead] = entries;
-
-/* The lead study's own section headings, as a contents list. */
-const { headings } = await render(lead.post);
-const contents = headings
-  .filter((heading) => heading.depth === 2 && !/^(foot ?notes|notes|references|bibliography|sources)$/i.test(heading.text.trim()))
-  .slice(0, 6);
 
 /* Branches, largest first, for the archive's filter list. */
 const branches = CATEGORIES.map((category) => ({
@@ -35,75 +28,55 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
   title="Blog: Research and Analysis | HadithCritic"
   description="Critical studies, transmission forensics, and historical analyses of prophetic reports and early Islamic source texts."
 >
-  <div class="hc-page hc-plate bi-page">
+  <div class="hc-page bi-page">
     <PageHero
       class="bi-hero"
       title="Research, analysis,"
       accent="and critical inquiry."
       titleId="bi-title"
       kicker="Blog"
-      art="/images/blog-editorial/hero.webp"
-      focus="78% center"
-      measure="22ch"
+      art="/images/editorial/blog-hero.webp"
+      focus="80% center"
+      measure="20ch"
     >
       <p class="hc-hero__lede">
         Critical studies, transmission forensics, and historical analyses of prophetic reports
         and early Islamic source texts.
       </p>
       <Fragment slot="actions">
-        <a href="#archive" class="hc-btn">Search the archive <span aria-hidden="true">↓</span></a>
-        <a href={`/blogs/${lead.post.id}/`} class="hc-btn hc-btn--ghost">Read the latest study</a>
-        <a href="/rss.xml" class="hc-btn hc-btn--ghost">Follow by RSS <span aria-hidden="true">↗</span></a>
+        <a href="#archive" class="hc-btn">Search the archive</a>
+        <a href="/rss.xml" class="hc-btn hc-btn--ghost">Follow by RSS</a>
       </Fragment>
     </PageHero>
 
-    <!-- The latest study, set as a leaf with its own contents. -->
-    <section class="hc-band hc-band--soft bi-lead-band" aria-labelledby="bi-lead-title">
+    <!-- The latest study as one wide card. -->
+    <section class="bi-lead-band" aria-labelledby="bi-lead-title">
       <div class="hc-container">
-        <h2 id="bi-lead-title" class="bi-lead-heading">Latest Published Blog:</h2>
-
+        <h2 id="bi-lead-title" class="sr-only">Latest study</h2>
         <article class="bi-lead hc-parchment" data-category={lead.post.data.category} data-timestamp={lead.post.data.date.valueOf()}>
           <div class="bi-lead__copy">
             <p class="bi-lead__meta">
-              <span class="bi-lead__label">Latest investigation</span>
-              <span class="hc-cat" data-category={lead.post.data.category}>{lead.post.data.category}</span>
+              <span>{lead.post.data.category}</span>
               <time datetime={lead.dateISO}>{lead.dateLabel}</time>
               <span>{lead.minutes} min read</span>
-              {isNewPost(lead.post.data.date) && <span class="hc-new">New</span>}
             </p>
             <h3 class="bi-lead__title">
               <a href={`/blogs/${lead.post.id}/`} class="bi-lead__link">{lead.post.data.title}</a>
             </h3>
             {lead.post.data.description && <p class="bi-lead__desc">{lead.post.data.description}</p>}
-            {contents.length > 0 && (
-              <div class="bi-lead__contents">
-                <p class="bi-lead__contents-label">In this study</p>
-                <ol>
-                  {contents.map((heading) => (
-                    <li><a href={`/blogs/${lead.post.id}/#${heading.slug}`}>{heading.text}</a></li>
-                  ))}
-                </ol>
-              </div>
-            )}
-            <p class="bi-lead__foot">
-              <span class="bi-lead__folio">Folio {lead.folio}</span>
-              <span class="bi-lead__cta" aria-hidden="true">Read the investigation <span>→</span></span>
-            </p>
+            <span class="bi-lead__cta" aria-hidden="true">Read the study <span>→</span></span>
           </div>
-          {lead.artwork && (
-            <figure class="bi-lead__plate">
-              <img
-                src={lead.artwork.src}
-                srcset={lead.artwork.srcset}
-                sizes="(max-width: 860px) 100vw, 46vw"
-                width={lead.artwork.width}
-                height={lead.artwork.height}
-                alt={lead.artwork.alt}
-                loading="eager"
-                decoding="async"
-              />
-            </figure>
-          )}
+          <img
+            class="bi-lead__image"
+            src={lead.artwork?.src ?? lead.post.data.thumbnail ?? "/images/blog_thumbnails/tn.generic.webp"}
+            srcset={lead.artwork?.srcset}
+            sizes="(max-width: 860px) 100vw, 560px"
+            width={lead.artwork?.width ?? 1672}
+            height={lead.artwork?.height ?? 941}
+            alt=""
+            loading="eager"
+            decoding="async"
+          />
         </article>
       </div>
     </section>

@@ -1,0 +1,289 @@
+---
+/* Email signup pop-up for the header's Subscribe button (and the menu link
+   on small screens), centered on the screen. Every trigger is a real link to
+   /#subscribe, so without script the reader still reaches a form. */
+---
+
+<dialog class="subscribe-dialog" id="subscribe-dialog" aria-labelledby="subscribe-dialog-title">
+  <div class="sub" data-subscribe-form>
+    <button type="button" class="sub__close" data-subscribe-close aria-label="Close">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+        <path d="M18 6 6 18M6 6l12 12"></path>
+      </svg>
+    </button>
+
+    <div class="sub__intro">
+      <img class="sub__mark" src="/images/brand/geometric-emblem-96.webp" alt="" width="30" height="30" loading="lazy" decoding="async" />
+      <p class="sub__eyebrow">The HadithCritic Dispatch</p>
+      <h2 class="sub__title" id="subscribe-dialog-title">New studies, by email</h2>
+      <p class="sub__text">One short email when a study is published, with a link to read it. Nothing else.</p>
+    </div>
+
+    <form class="sub__form" data-subscribe-form-el hidden>
+      <label class="sr-only" for="subscribe-dialog-email">Email address</label>
+      <div class="sub__field">
+        <input
+          type="email"
+          id="subscribe-dialog-email"
+          name="email"
+          placeholder="you@example.com"
+          required
+          autocomplete="email"
+          inputmode="email"
+        />
+        <!-- Honeypot: never shown or focusable, so only a bot fills it. -->
+        <input type="text" name="website" hidden tabindex="-1" autocomplete="off" />
+        <button type="submit">Subscribe</button>
+      </div>
+    </form>
+
+    <p class="sub__status" data-subscribe-form-status role="status" aria-live="polite"></p>
+
+    <p class="sub__note">
+      Unsubscribe anytime. Prefer a feed? <a href="/rss.xml">RSS</a>
+    </p>
+    <noscript><p class="sub__note"><a href="/#subscribe">Subscribe on the homepage</a></p></noscript>
+  </div>
+</dialog>
+
+<script>
+  import { bindSubscribeForms } from "../lib/subscribe-client";
+
+  const dialog = document.querySelector<HTMLDialogElement>("#subscribe-dialog");
+  let invoker: HTMLElement | null = null;
+
+  if (dialog) bindSubscribeForms(dialog);
+
+  const open = (trigger: HTMLElement) => {
+    if (!dialog || dialog.open) return;
+    invoker = trigger;
+    dialog.showModal();
+    document.documentElement.classList.add("has-modal");
+    window.setTimeout(() => dialog.querySelector<HTMLInputElement>('input[type="email"]')?.focus(), 30);
+  };
+
+  document.addEventListener("click", (event) => {
+    const trigger = (event.target as Element | null)?.closest<HTMLElement>("[data-subscribe-trigger]");
+    if (!trigger || event.metaKey || event.ctrlKey || event.shiftKey) return;
+    event.preventDefault();
+    open(trigger);
+  });
+
+  dialog?.querySelector("[data-subscribe-close]")?.addEventListener("click", () => dialog.close());
+  // A click on the backdrop lands on the dialog element itself.
+  dialog?.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog?.addEventListener("close", () => {
+    document.documentElement.classList.remove("has-modal");
+    // The menu link is hidden once the menu closes; fall back to its toggle.
+    const target = invoker?.checkVisibility?.() === false ? document.querySelector<HTMLElement>("#menuToggle") : invoker;
+    target?.focus();
+  });
+</script>
+
+<style>
+  .subscribe-dialog {
+    --sub-surface: var(--hc-surface-1);
+    --sub-line: color-mix(in srgb, var(--hc-text-primary) 10%, transparent);
+    --sub-raised: color-mix(in srgb, var(--hc-text-primary) 6%, transparent);
+    position: fixed;
+    inset: 0;
+    width: calc(100vw - 2rem);
+    max-width: 24rem;
+    height: fit-content;
+    margin: auto;
+    padding: 0;
+    overflow: visible;
+    border: 1px solid var(--sub-line);
+    border-radius: 16px;
+    background: var(--sub-surface);
+    color: var(--hc-text-primary);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  }
+
+  :global([data-theme="light"]) .subscribe-dialog {
+    --sub-surface: #fffdf9;
+    box-shadow: 0 28px 80px rgba(43, 40, 36, 0.2), 0 0 0 1px rgba(43, 40, 36, 0.03);
+  }
+
+  .subscribe-dialog[open] {
+    animation: sub-in 220ms var(--ease-standard);
+  }
+
+  .subscribe-dialog::backdrop {
+    background: rgba(8, 8, 8, 0.5);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  :global([data-theme="light"]) .subscribe-dialog::backdrop {
+    background: rgba(43, 40, 36, 0.3);
+  }
+
+  @keyframes sub-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+  }
+
+  .sub {
+    position: relative;
+    padding: 1.5rem 1.5rem 1.25rem;
+  }
+
+  .sub__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--hc-text-tertiary);
+    cursor: pointer;
+    transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+  }
+
+  .sub__close:hover {
+    background: var(--sub-raised);
+    color: var(--hc-text-primary);
+  }
+
+  .sub__mark {
+    display: block;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 1rem;
+    object-fit: contain;
+  }
+
+  .sub__eyebrow {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .sub__title {
+    margin: 0.4rem 0 0;
+    font: 600 1.5rem/1.15 var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  .sub__text {
+    margin: 0.5rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.55 var(--font-body);
+  }
+
+  .sub__form {
+    margin-top: 1.15rem;
+  }
+
+  /* One field with the button set inside it. */
+  .sub__field {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 4px;
+    border: 1px solid var(--sub-line);
+    border-radius: 12px;
+    background: var(--sub-raised);
+    transition: border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
+  }
+
+  .sub__field:focus-within {
+    border-color: color-mix(in srgb, var(--hc-gold) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--hc-gold) 16%, transparent);
+  }
+
+  /* The field frame carries the focus ring, so the input itself does not. */
+  .sub__field input[type="email"] {
+    --hc-focus-width: 0;
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    padding: 0 0.6rem;
+    border: 0;
+    background: transparent;
+    color: var(--hc-text-primary);
+    font: 400 var(--fs-base)/1 var(--font-ui);
+  }
+
+  .sub__field input::placeholder {
+    color: var(--hc-text-tertiary);
+  }
+
+  .sub__field button {
+    flex: none;
+    height: 40px;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 9px;
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+    font: 600 var(--fs-sm)/1 var(--font-ui);
+    cursor: pointer;
+    transition: background var(--motion-fast) ease;
+  }
+
+  .sub__field button:hover {
+    background: var(--hc-gold-bright);
+  }
+
+  .sub__field button:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .sub__status {
+    margin: 0.75rem 0 0;
+    font: 400 var(--fs-sm)/1.5 var(--font-ui);
+  }
+
+  .sub__status:empty {
+    display: none;
+  }
+
+  .sub.is-error .sub__status {
+    color: var(--hc-danger);
+  }
+
+  /* After a successful signup the form gives way to the confirmation. */
+  .sub.is-success .sub__form {
+    display: none;
+  }
+
+  .sub.is-success .sub__status {
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--hc-gold) 10%, transparent);
+    color: var(--hc-text-primary);
+  }
+
+  .sub__note {
+    margin: 0.85rem 0 0;
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-xs)/1.4 var(--font-ui);
+  }
+
+  .sub__note a {
+    color: var(--hc-text-secondary);
+  }
+
+  .sub__note a:hover {
+    color: var(--hc-gold);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .subscribe-dialog[open] {
+      animation: none;
+    }
+  }
+</style>

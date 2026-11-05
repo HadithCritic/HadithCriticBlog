@@ -6,7 +6,7 @@
  * chapter reads its narrations by id range, 25 at a time, and sets each one
  * as a parchment card: English on the left and first in the DOM, the Arabic
  * beside it, and a link to the full record. The cards are built here, so
- * their rules live in src/styles/kitab-page.css, which is global.
+ * their rules live in src/styles/hadith-reader.css, which is global.
  */
 
 import { CorpusUnavailableError, getRecordsInRange, type HadithRecord } from './corpus-client';
@@ -25,14 +25,23 @@ function cardMarkup(record: HadithRecord): string {
   ].filter(Boolean);
   return `
     <article class="kb-card-record" aria-label="${label}">
-      <p class="kb-card-record__meta"><span class="kb-card-record__num">${label}</span></p>
+      <div class="kb-card-record__topline">
+        <span class="kb-card-record__meta">${label}</span>
+        <span>Corpus record ${record.id}</span>
+      </div>
       <div class="kb-card-record__spread">
-        <div class="kb-card-record__en">${english ? renderRich(english) : '<span class="kb-card-record__none">No English is recorded for this report.</span>'}</div>
-        <div class="kb-card-record__ar" lang="ar" dir="rtl">${renderArabic(arabic)}</div>
+        <section class="kb-card-record__lang" lang="en">
+          <h4>English <span>· machine translation</span></h4>
+          <div class="kb-card-record__en">${english ? renderRich(english) : '<span class="kb-card-record__none">No English is recorded for this report.</span>'}</div>
+        </section>
+        <section class="kb-card-record__lang kb-card-record__lang--ar">
+          <h4>Arabic <span lang="ar">· العربية</span></h4>
+          <div class="kb-card-record__ar" lang="ar" dir="rtl">${renderArabic(arabic)}</div>
+        </section>
       </div>
       <p class="kb-card-record__foot">
         ${facts.map((fact) => `<span>${fact}</span>`).join('')}
-        <a class="kb-card-record__open" href="/hadith/${record.id}/">Open the record</a>
+        <a class="kb-card-record__open" href="/hadith/${record.id}/">Open the record <span aria-hidden="true">→</span></a>
       </p>
     </article>`;
 }

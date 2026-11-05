@@ -1,12 +1,12 @@
 ---
-import EditionIcon from "../../../components/EditionIcon.astro";
-import { collectionArtwork } from "../../../lib/collection-presentation";
-import "../../../styles/collection-page.css";
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { CORPUS_META } from "../../../lib/corpus-config";
+import { COMPILER_DATES } from "../../../lib/collection-catalogue";
+import { compilerFor } from "../../../lib/hadith-compilers";
 import { divisionNoun, kitabTitle, structureFor } from "../../../lib/collection-structure";
 import { renderArabic, renderRich } from "../../../lib/format-text";
+import "../../../styles/hadith-library.css";
 
 /**
  * Digital source edition for a single hadith compilation.
@@ -26,21 +26,19 @@ export function getStaticPaths() {
 
 const { slug } = Astro.params;
 const { book } = Astro.props;
-const hasKitabArtwork = slug === 'muwatta-malik';
-
+const compiler = compilerFor(slug);
+const year = COMPILER_DATES[slug];
 const total = book.hadith_count;
-const pages = Math.max(1, Math.ceil(total / 25));
-const muwattaKitabArt = [
-  'times-of-prayer', 'prayer', 'two-festivals', 'prayer-of-fear', 'eclipse-prayer', 'praying-for-rain', 'qibla', 'quran', 'funerals', 'zakat', 'fasting',
-  'retreat-in-the-mosque', 'night-of-decree', 'pilgrimage', 'jihad', 'vows-and-oaths', 'sacrifices', 'slaughter', 'hunting', 'birth-sacrifice',
-  'inheritance-shares', 'marriage', 'divorce', 'suckling', 'sales', 'silent-partnership', 'irrigation-contracts', 'renting-land', 'pre-emption', 'judicial-decisions',
-  'wills', 'manumission-and-clientage', 'contracted-slave', 'freeing-slave-at-owners-death', 'stoning-and-prescribed-punishments', 'theft', 'drinks', 'blood-money', 'collective-oaths', 'comprehensive-book',
-  'divine-decree', 'good-character', 'description-of-the-prophet', 'evil-eye', 'hair', 'asking-permission', 'pledge-of-allegiance', 'speech', 'hell', 'charity', 'knowledge', 'prayer-of-the-wronged', 'names-of-the-prophet',
-] as const;
 // Its books, from the Ifta' Sunnah table of contents, where the collection has them.
 const structure = structureFor(slug);
 const noun = structure ? divisionNoun(structure.shape) : null;
+const isFlat = structure?.shape === "flat";
 const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0) ?? 0;
+const divisions = structure && !isFlat ? structure.kitabs.length : 0;
+const largest = Math.max(1, ...(structure?.kitabs.map((kitab) => kitab.count) ?? [1]));
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+const kitabUrl = (n: number) => `/hadith/collection/${slug}/kitab/${n}/`;
 ---
 
 <BaseLayout
@@ -54,97 +52,134 @@ const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapte
     { name: book.title_en, url: '/hadith/collection/' + slug + '/' },
   ]}
 >
-  <div class="edition-view hc-plate">
-    <header class="edition-head">
-      <picture class="edition-head__art" aria-hidden="true">
-        <source srcset="/images/hadith/compilation-library-1086.webp 1086w, /images/hadith/compilation-library.webp 2172w" sizes="100vw" />
-        <img src="/images/hadith/compilation-library.webp" alt="" width="2172" height="724" fetchpriority="high" />
-      </picture>
-      <div class="wrap edition-head__inner">
-        <a class="hc-back-link" href="/hadith/"><span aria-hidden="true">←</span> Hadith Corpus</a>
-        <div class="edition-head__titles">
-          <p class="edition-kicker">Hadith compilation</p>
-          <h1 class="edition-title">{book.title_en}</h1>
-          {book.title_ar && <p class="edition-title-ar" lang="ar" dir="rtl">{book.title_ar}</p>}
-          <p class="edition-head__description">
-            A bilingual source edition of {total.toLocaleString()} narrations
-            {structure && structure.shape !== 'flat' && <>{' '}across {structure.kitabs.length.toLocaleString()} {noun?.many.toLowerCase()}</>}.
-            {' '}Browse its books and chapters, then open a report to follow its transmission and source notes.
+  <div class="hl hl-collection" data-region={compiler?.region}>
+    <section class="hl-khero" aria-labelledby="collection-title">
+      <img class="hl-khero__art" src="/images/hadith/library-room.webp" width="1200" height="675" alt="" fetchpriority="high" />
+      <div class="hl-wrap hl-khero__inner">
+        <div class="hl-khero__copy">
+          <a class="hl-back" href="/hadith/"><span aria-hidden="true">←</span> Hadith library</a>
+          <p class="hl-eyebrow hl-khero__eyebrow">{compiler ? `${compiler.name} · d. ${year} AH · ${compiler.origin}` : `Compiler d. ${year} AH`}</p>
+          <h1 class="hl-khero__title edition-title" id="collection-title">{book.title_en}</h1>
+          {book.title_ar && <p class="hl-khero__ar" lang="ar" dir="rtl">{book.title_ar}</p>}
+          <p class="hl-khero__lede">
+            {book.title_en} in Arabic and English: {total.toLocaleString()} narrations
+            {divisions > 0 && <> across {plural(divisions, noun!.one.toLowerCase(), noun!.many.toLowerCase())}</>}.
+            {' '}Open a {isFlat ? 'chapter' : noun?.one.toLowerCase() ?? 'book'} to read its narrations in the order of the printed edition.
           </p>
-          <a class="edition-head__browse" href="#edition-books-title">Explore this collection <span aria-hidden="true">↓</span></a>
+          <dl class="hl-khero__meta" aria-label="Collection at a glance">
+            <div class="edition-stat-entry"><dt>narrations</dt><dd>{total.toLocaleString()}</dd></div>
+            {divisions > 0 && <div class="edition-stat-entry"><dt>{noun!.many.toLowerCase()}</dt><dd>{divisions.toLocaleString()}</dd></div>}
+            {chapterCount > 0 && <div class="edition-stat-entry"><dt>chapters</dt><dd>{chapterCount.toLocaleString()}</dd></div>}
+            <div class="edition-stat-entry"><dt>Collection ID</dt><dd>{book.id}</dd></div>
+          </dl>
+          <div class="hl-khero__actions">
+            {structure && <a class="hl-browse" href="#books">Browse the {isFlat ? 'chapters' : noun!.many.toLowerCase()} <span aria-hidden="true">↓</span></a>}
+            <form class="hl-khero__search" method="get" action="/hadith/">
+              <input type="hidden" name="book" value={book.id} />
+              <label class="sr-only" for="edition-q">Search within {book.title_en}</label>
+              <div class="hl-search__bar">
+                <span class="hl-search__icon" aria-hidden="true">⌕</span>
+                <input id="edition-q" type="search" name="q" placeholder={`Search ${book.title_en}`} autocomplete="off" />
+                <button type="submit">Search</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </header>
+    </section>
 
-    <div class="wrap">
-      <dl class="edition-stats-ledger hc-parchment" aria-label="Collection at a glance">
-        <div class="edition-stat-entry">
-          <EditionIcon name="book" />
-          <div><dt>Total hadith</dt><dd>{total.toLocaleString()}<span>narrations</span></dd></div>
-        </div>
-        <div class="edition-stat-entry">
-          <EditionIcon name="books" />
-          <div><dt>{structure?.shape === 'flat' ? 'Reading sequence' : noun?.many || 'Reading sequence'}</dt><dd>{structure && structure.shape !== 'flat' ? structure.kitabs.length.toLocaleString() : pages.toLocaleString()}<span>{structure && structure.shape !== 'flat' ? noun?.many.toLowerCase() : 'pages'}</span></dd></div>
-        </div>
-        <div class="edition-stat-entry">
-          <EditionIcon name="pages" />
-          <div><dt>{structure ? 'Chapters' : 'Edition'}</dt><dd>{structure ? chapterCount.toLocaleString() : 'Bilingual'}<span>{structure ? 'source headings' : 'Arabic & English'}</span></dd></div>
-        </div>
-        <div class="edition-stat-entry">
-          <EditionIcon name="record" />
-          <div><dt>Collection ID</dt><dd>{book.id}<span>HadithCritic corpus</span></dd></div>
-        </div>
-      </dl>
-
-      <section class="edition-search-plate" aria-label="Search this collection">
-        <form class="edition-search-form" method="get" action="/hadith/">
-          <input type="hidden" name="book" value={book.id} />
-          <label class="sr-only" for="edition-q">Search within {book.title_en}</label>
-          <div class="edition-search-row">
-            <div class="edition-search-bar"><EditionIcon name="search" /><input id="edition-q" class="edition-search-input" type="search" name="q" placeholder={'Search within ' + book.title_en + '…'} autocomplete="off" /></div>
-            <button type="submit" class="edition-search-btn">Search collection <span aria-hidden="true">→</span></button>
+    <div class="hl-wrap">
+      {structure && noun && isFlat && (
+        <section class="hl-index" id="books" aria-labelledby="edition-books-title">
+          <div class="hl-index__head">
+            <div><p class="hl-eyebrow">One preserved sequence</p><h2 id="edition-books-title">Chapters</h2></div>
+            <p>{plural(chapterCount, 'chapter')} · {total.toLocaleString()} narrations</p>
           </div>
-        </form>
-        {structure && structure.shape !== 'flat' ? (
-          <div class="edition-book-controls" data-book-controls hidden>
-            <label>Sort by<select data-book-sort><option value="order">{noun?.one} order</option><option value="title">Title A–Z</option><option value="extent">Most narrations</option></select></label>
-            <label>{noun?.one} title<input type="search" data-book-query placeholder="Find a title…" /></label>
-            <label>{noun?.one} length<select data-book-length><option value="all">All lengths</option><option value="short">Under 100 narrations</option><option value="medium">100–499 narrations</option><option value="long">500+ narrations</option></select></label>
-            <button type="button" class="edition-reset" data-book-reset><span aria-hidden="true">↻</span> Reset filters</button>
-          </div>
-        ) : <p class="edition-search-context">Search is limited to this collection. <a href="/hadith/">Search the full corpus</a></p>}
-      </section>
-
-      {structure && noun && (
-        <section class="edition-books" data-collection={slug} data-collection-browser data-divisions={noun.many.toLowerCase()} data-view="grid" aria-labelledby="edition-books-title">
-          <div class="edition-books__heading">
-            <div><p class="edition-kicker">The {noun.many.toLowerCase()}</p><h2 class="edition-books__title" id="edition-books-title">{structure.shape === 'flat' ? 'Explore the chapters' : 'Browse the ' + structure.kitabs.length.toLocaleString() + ' ' + noun.many}</h2></div>
-            <p class="edition-books__intro">{structure.shape === 'flat' ? 'Read the chapters in the order of the printed edition.' : 'Open a ' + noun.one.toLowerCase() + ' to explore its chapters and narrations in the order of the printed edition.'}</p>
-            {structure.shape !== 'flat' && <div class="edition-books__views" data-book-controls hidden aria-label="Book catalogue view"><button type="button" data-book-view="grid" aria-pressed="true"><EditionIcon name="grid" />Grid</button><button type="button" data-book-view="list" aria-pressed="false"><EditionIcon name="list" />List</button></div>}
-          </div>
-          <div class="edition-books__rule" aria-hidden="true"><span>◇</span></div>
-          {structure.shape === 'flat' ? (
-            <a class="edition-books__flat" href={'/hadith/collection/' + slug + '/kitab/1/'}>Browse all {structure.kitabs[0].chapters.length.toLocaleString()} chapters <span aria-hidden="true">→</span></a>
-          ) : (
-            <>
-              <ol class="edition-books__list" id="edition-book-list">
-                {structure.kitabs.map((kitab) => (
-                  <li data-book-card data-number={kitab.n} data-count={kitab.count} data-title={kitabTitle(structure, kitab) + ' ' + kitab.title_ar}>
-                    <a class="edition-book" href={'/hadith/collection/' + slug + '/kitab/' + kitab.n + '/'}>
-                      <img class="edition-book__art" src={hasKitabArtwork ? `/images/mm/${String(kitab.n).padStart(2, '0')}-${muwattaKitabArt[kitab.n - 1]}.png` : '/images/hadith/books/' + collectionArtwork(kitabTitle(structure, kitab)) + '.webp'} alt="" loading="lazy" width={hasKitabArtwork ? 1774 : 512} height={hasKitabArtwork ? 887 : 512} />
-                      <div class="edition-book__head"><span class="edition-books__n">{String(kitab.n).padStart(2, '0')}</span><div class="edition-books__names"><span class="edition-books__en" set:html={renderRich(kitabTitle(structure, kitab))} /><span class="edition-books__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} /></div></div>
-                      <div class="edition-book__foot"><span><EditionIcon name="pages" />{kitab.chapters.length.toLocaleString()} {kitab.chapters.length === 1 ? 'chapter' : 'chapters'}</span><span class="edition-books__extent"><EditionIcon name="book" />{kitab.count.toLocaleString()} {kitab.count === 1 ? 'narration' : 'narrations'}</span><span class="edition-book__arrow" aria-hidden="true">→</span></div>
-                    </a>
-                  </li>
-                ))}
-              </ol>
-              <p class="edition-books__empty" data-book-empty hidden>No {noun.many.toLowerCase()} match these filters. Try another title or reset the filters.</p>
-              <div class="edition-books__bottom"><p data-book-status role="status" aria-live="polite" data-book-controls hidden></p><button type="button" class="edition-books__more" data-book-more aria-controls="edition-book-list" aria-expanded="false" hidden>View all books →</button></div>
-            </>
-          )}
+          <ol class="hl-books edition-books__list">
+            <li>
+              <a class="hl-book" href={kitabUrl(1)}>
+                <span class="hl-book__top"><span class="hl-book__n">01</span><span class="hl-book__tag">No books above its chapters</span></span>
+                <span class="hl-book__copy"><span class="hl-book__en">All {chapterCount.toLocaleString()} chapters</span><span class="hl-book__ar" lang="ar" dir="rtl">{book.title_ar}</span></span>
+                <span class="hl-book__stub"><small>{plural(total, 'narration')}</small><span class="hl-book__arrow" aria-hidden="true">→</span></span>
+              </a>
+            </li>
+          </ol>
         </section>
       )}
 
+      {structure && noun && !isFlat && (
+        <section class="hl-index edition-books" id="books" data-collection-browser data-divisions={noun.many.toLowerCase()} data-view="grid" aria-labelledby="edition-books-title">
+          <div class="hl-index__head">
+            <div>
+              <p class="hl-eyebrow">One preserved sequence · {plural(divisions, noun.one.toLowerCase(), noun.many.toLowerCase())}</p>
+              <h2 id="edition-books-title">{noun.many}</h2>
+            </div>
+            <p>{plural(divisions, noun.one.toLowerCase(), noun.many.toLowerCase())} · {plural(chapterCount, 'chapter')} · {total.toLocaleString()} narrations</p>
+          </div>
+
+          <div class="hl-toolbar" role="search" aria-label={`Find a ${noun.one.toLowerCase()}`} data-book-controls hidden>
+            <label class="hl-search__bar" for="book-query">
+              <span class="hl-search__icon" aria-hidden="true">⌕</span>
+              <span class="sr-only">Find a {noun.one.toLowerCase()} by title</span>
+              <input id="book-query" type="search" data-book-query placeholder={`Find a ${noun.one.toLowerCase()} by English or Arabic title`} autocomplete="off" />
+            </label>
+            <label class="hl-inline" for="book-sort"><span>Sort</span>
+              <select id="book-sort" data-book-sort>
+                <option value="order">{noun.one} order</option>
+                <option value="extent">Most narrations</option>
+                <option value="title">Title A–Z</option>
+              </select>
+            </label>
+            <div class="hl-toggle" role="group" aria-label={`${noun.one} display`}>
+              <button type="button" data-book-view="grid" aria-pressed="true">Grid</button>
+              <button type="button" data-book-view="list" aria-pressed="false">List</button>
+            </div>
+            <span class="hl-count" data-book-status aria-live="polite">{divisions} of {divisions} {noun.many.toLowerCase()}</span>
+          </div>
+
+          <div class="hl-dist">
+            <div class="hl-dist__head">
+              <h3>Narrations by {noun.one.toLowerCase()}</h3>
+              <span>In {noun.one.toLowerCase()} order · tallest {largest.toLocaleString()}</span>
+            </div>
+            <div class="hl-dist__bars" role="img" aria-label={`Narrations in each ${noun.one.toLowerCase()}, in ${noun.one.toLowerCase()} order`}>
+              {structure.kitabs.map((kitab) => (
+                <span data-bar={kitab.n} style={`--bar:${Math.max(4, Math.round((kitab.count / largest) * 100))}%`} title={`${pad(kitab.n)} · ${kitab.title_en || kitab.title_ar} · ${kitab.count.toLocaleString()} narrations`}></span>
+              ))}
+            </div>
+          </div>
+
+          <div class="hl-chips" role="group" aria-label="Filter by number of narrations" data-book-controls hidden>
+            <span class="hl-chips__label">Narrations</span>
+            <button type="button" class="hl-filter" data-book-length="all" aria-pressed="true">Any</button>
+            <button type="button" class="hl-filter" data-book-length="short" aria-pressed="false">Under 100</button>
+            <button type="button" class="hl-filter" data-book-length="medium" aria-pressed="false">100–499</button>
+            <button type="button" class="hl-filter" data-book-length="long" aria-pressed="false">500+</button>
+          </div>
+
+          <ol class="hl-books edition-books__list" id="edition-book-list">
+            {structure.kitabs.map((kitab) => (
+              <li data-book-card data-number={kitab.n} data-count={kitab.count} data-title={kitabTitle(structure, kitab) + ' ' + kitab.title_ar}>
+                <a class="hl-book edition-book" id={`book-${kitab.n}`} href={kitabUrl(kitab.n)}>
+                  <span class="hl-book__top">
+                    <span class="hl-book__n">{pad(kitab.n)}</span>
+                    <span class="hl-book__tag">{plural(kitab.chapters.length, 'chapter')}</span>
+                  </span>
+                  <span class="hl-book__copy">
+                    <span class="hl-book__en" set:html={renderRich(kitabTitle(structure, kitab))} />
+                    <span class="hl-book__ar" lang="ar" dir="rtl" set:html={renderArabic(kitab.title_ar)} />
+                  </span>
+                  <span class="hl-book__stub">
+                    <small>{plural(kitab.count, 'narration')}</small>
+                    <span class="hl-book__arrow" aria-hidden="true">→</span>
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ol>
+          <p class="hl-empty" data-book-empty hidden>No {noun.many.toLowerCase()} match. Try another title or clear the filters.</p>
+        </section>
+      )}
     </div>
   </div>
 </BaseLayout>

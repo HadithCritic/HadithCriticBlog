@@ -1,25 +1,28 @@
 ---
 interface Props {
-  variant: "article" | "footer" | "home";
+  /** "closing" is the form alone, set inside a band that supplies its own heading. */
+  variant: "article" | "footer" | "home" | "closing";
 }
 
 const { variant } = Astro.props;
 ---
 
 <section
+  id={variant === "home" || variant === "closing" ? "subscribe" : undefined}
   class:list={["subscribe-form", `subscribe-form--${variant}`]}
   data-subscribe-form
-  aria-labelledby={`subscribe-title-${variant}`}
+  aria-labelledby={variant === "closing" ? undefined : `subscribe-title-${variant}`}
+  aria-label={variant === "closing" ? "Subscribe by email" : undefined}
 >
   <div class="subscribe-form__inner">
-    {variant !== "home" && <div class="subscribe-form__identity" aria-hidden="true">
+    {variant !== "home" && variant !== "closing" && <div class="subscribe-form__identity" aria-hidden="true">
       <span class="subscribe-form__index">HadithCritic Dispatch</span>
       <span class="subscribe-form__rule"></span>
     </div>}
 
-    <div class="subscribe-form__content">
+    {variant !== "closing" && <div class="subscribe-form__content">
       {variant === "home" ? (
-        <h2 id={`subscribe-title-${variant}`} class="home-head__title">Get new blog <span>posts</span></h2>
+        <h2 id={`subscribe-title-${variant}`} class="home-head__title">Get new blog posts</h2>
       ) : (
         <>
           <div class="subscribe-form__eyebrow">Stay informed</div>
@@ -29,7 +32,7 @@ const { variant } = Astro.props;
       <p>
         Get one email when a new blog post is published, with a direct link to read it.
       </p>
-    </div>
+    </div>}
 
     <form class="subscribe-form__form" data-subscribe-form-el hidden>
       <label for={`subscribe-email-${variant}`} class:list={[variant === "home" ? "subscribe-form__label" : "sr-only"]}
@@ -71,55 +74,9 @@ const { variant } = Astro.props;
 </section>
 
 <script>
-  document.querySelectorAll("[data-subscribe-form]").forEach((container) => {
-    const form = container.querySelector("[data-subscribe-form-el]");
-    const status = container.querySelector("[data-subscribe-form-status]");
-    if (!(form instanceof HTMLFormElement) || !status) return;
-    form.hidden = false;
+  import { bindSubscribeForms } from "../lib/subscribe-client";
 
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = new FormData(form);
-      const email = data.get("email");
-      const website = data.get("website");
-      if (typeof email !== "string" || !email) return;
-
-      const submitButton = form.querySelector('button[type="submit"]');
-      if (submitButton instanceof HTMLButtonElement)
-        submitButton.disabled = true;
-      status.textContent = "";
-      container.classList.remove("is-success", "is-error");
-
-      try {
-        const response = await fetch("/api/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, website }),
-        });
-        const result = (await response.json()) as {
-          success: boolean;
-          error?: string;
-        };
-
-        if (result.success) {
-          status.textContent =
-            "You're on the blog update list. We'll email you when a new post is published.";
-          container.classList.add("is-success");
-          form.reset();
-        } else {
-          status.textContent =
-            result.error || "Something went wrong. Please try again.";
-          container.classList.add("is-error");
-        }
-      } catch {
-        status.textContent = "Something went wrong. Please try again.";
-        container.classList.add("is-error");
-      } finally {
-        if (submitButton instanceof HTMLButtonElement)
-          submitButton.disabled = false;
-      }
-    });
-  });
+  bindSubscribeForms();
 </script>
 
 <style>
@@ -129,7 +86,7 @@ const { variant } = Astro.props;
     --subscribe-panel: color-mix(in srgb, var(--hc-surface-2) 74%, transparent);
 
     position: relative;
-    margin-top: clamp(3rem, 5vw, 4.5rem);
+    margin-top: clamp(var(--space-xl), 5vw, var(--space-2xl));
     overflow: hidden;
     border: 1px solid var(--hc-rule);
     background: var(--subscribe-panel);
@@ -169,8 +126,8 @@ const { variant } = Astro.props;
     display: grid;
     grid-template-columns: auto minmax(0, 1.05fr) minmax(20rem, 1fr);
     align-items: center;
-    gap: clamp(1.5rem, 3vw, 3rem);
-    padding: clamp(1.75rem, 3vw, 2.5rem);
+    gap: clamp(var(--space-md), 3vw, var(--space-xl));
+    padding: clamp(var(--space-md), 3vw, var(--space-lg));
   }
 
   .subscribe-form__identity {
@@ -178,20 +135,18 @@ const { variant } = Astro.props;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 0.8rem;
+    gap: var(--space-xs);
     min-width: 4.5rem;
-    padding-right: clamp(1.25rem, 2vw, 2rem);
+    padding-right: clamp(var(--space-sm), 2vw, var(--space-lg));
     border-right: 1px solid var(--hc-rule);
   }
 
   .subscribe-form__index {
     font-family: var(--font-ui);
-    font-size: 0.77rem;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    letter-spacing: 0.13em;
     line-height: 1.4;
     color: var(--hc-text-tertiary);
-    text-transform: uppercase;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
   }
@@ -215,19 +170,17 @@ const { variant } = Astro.props;
   }
 
   .subscribe-form__eyebrow {
-    margin-bottom: 0.45rem;
+    margin-bottom: var(--space-2xs);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: var(--fs-xs);
     font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     color: var(--subscribe-accent);
   }
 
   .subscribe-form__content h3 {
-    margin: 0 0 0.55rem;
+    margin: 0 0 var(--space-2xs);
     font-family: var(--font-display);
-    font-size: clamp(1.35rem, 2vw, 1.53rem);
+    font-size: var(--fs-lg);
     font-weight: 500;
     line-height: 1.1;
     letter-spacing: -0.02em;
@@ -239,7 +192,7 @@ const { variant } = Astro.props;
     max-width: 48ch;
     color: var(--hc-text-secondary);
     font-family: var(--font-body);
-    font-size: 0.96rem;
+    font-size: var(--fs-base);
     line-height: 1.6;
   }
 
@@ -250,20 +203,20 @@ const { variant } = Astro.props;
   .subscribe-form__field {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
+    gap: var(--space-2xs);
   }
 
   .subscribe-form__form input {
     width: 100%;
     min-width: 0;
     height: 2.9rem;
-    padding: 0 0.9rem;
+    padding: 0 var(--space-sm);
     border: 1px solid var(--hc-rule);
     border-radius: 0;
     background: color-mix(in srgb, var(--hc-surface-1) 72%, transparent);
     color: var(--hc-text-primary);
     font-family: var(--font-body);
-    font-size: 0.96rem;
+    font-size: var(--fs-base);
     transition:
       border-color 180ms ease,
       background 180ms ease,
@@ -289,18 +242,16 @@ const { variant } = Astro.props;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.65rem;
+    gap: var(--space-xs);
     height: 2.9rem;
-    padding: 0 1rem;
+    padding: 0 var(--space-sm);
     border: 1px solid var(--subscribe-accent);
     border-radius: 0;
     background: var(--subscribe-accent);
     color: var(--hc-text-inverse, #17130d);
     font-family: var(--font-ui);
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     font-weight: 800;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
     cursor: pointer;
     transition:
       transform 180ms ease,
@@ -326,10 +277,10 @@ const { variant } = Astro.props;
   }
 
   .subscribe-form__note {
-    margin: 0.6rem 0 0;
+    margin: var(--space-2xs) 0 0;
     color: var(--hc-text-tertiary);
     font-family: var(--font-ui);
-    font-size: 0.8rem;
+    font-size: var(--fs-xs);
     line-height: 1.5;
   }
 
@@ -337,10 +288,10 @@ const { variant } = Astro.props;
     position: relative;
     z-index: 1;
     margin: 0;
-    padding: 0 clamp(1.75rem, 3vw, 2.5rem) 1rem;
+    padding: 0 clamp(var(--space-md), 3vw, var(--space-lg)) var(--space-sm);
     min-height: 1.2rem;
     font-family: var(--font-ui);
-    font-size: 0.85rem;
+    font-size: var(--fs-sm);
     color: var(--subscribe-accent-soft);
   }
 
@@ -378,23 +329,21 @@ const { variant } = Astro.props;
 
   .subscribe-form--home .subscribe-form__inner {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: clamp(2rem, 5vw, 4.5rem);
-    padding: clamp(2rem, 4vw, 3.25rem) 0;
+    gap: clamp(var(--space-lg), 5vw, var(--space-2xl));
+    padding: clamp(var(--space-lg), 4vw, var(--space-xl)) 0;
   }
 
   .subscribe-form--home .subscribe-form__content p {
     max-width: 44ch;
-    margin-top: 0.75rem;
-    font-size: 1.04rem;
+    margin-top: var(--space-xs);
+    font-size: var(--fs-base);
   }
 
   .subscribe-form__label {
     display: block;
-    margin-bottom: 0.65rem;
+    margin-bottom: var(--space-xs);
     color: var(--hc-text-secondary);
-    font: 500 0.78rem/1.4 var(--font-ui);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font: 500 var(--fs-xs)/1.4 var(--font-ui);
   }
 
   .subscribe-form--home .subscribe-form__field {
@@ -410,21 +359,21 @@ const { variant } = Astro.props;
   .subscribe-form--home .subscribe-form__form input {
     min-height: 3.25rem;
     height: auto;
-    padding: 0.75rem 0.75rem 0.75rem 0;
+    padding: var(--space-xs) var(--space-xs) var(--space-xs) 0;
     border: 0;
     background: transparent;
     box-shadow: none;
-    font-size: 1.04rem;
+    font-size: var(--fs-base);
   }
 
   .subscribe-form--home .subscribe-form__form button {
     min-height: 3.25rem;
     height: auto;
-    padding: 0.75rem 0 0.75rem 1rem;
+    padding: var(--space-xs) 0 var(--space-xs) var(--space-sm);
     border: 0;
     background: transparent;
     color: var(--hc-gold);
-    font-size: 0.94rem;
+    font-size: var(--fs-sm);
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
@@ -439,15 +388,15 @@ const { variant } = Astro.props;
   }
 
   .subscribe-form--home .subscribe-form__note {
-    margin-top: 0.75rem;
+    margin-top: var(--space-xs);
     font-family: var(--font-body);
-    font-size: 0.9rem;
+    font-size: var(--fs-sm);
   }
 
   .subscribe-form--home .subscribe-form__status {
-    padding: 0 0 1.25rem;
+    padding: 0 0 var(--space-sm);
     font-family: var(--font-body);
-    font-size: 1rem;
+    font-size: var(--fs-base);
   }
 
   .subscribe-form--home .subscribe-form__status:empty {
@@ -458,9 +407,89 @@ const { variant } = Astro.props;
     color: var(--hc-danger);
   }
 
+  /* Closing band: one centred field with a filled button. */
+  .subscribe-form--closing {
+    width: min(100%, 30rem);
+    margin: 0 auto;
+    overflow: visible;
+    border: 0;
+    background: none;
+  }
+
+  .subscribe-form--closing::before,
+  .subscribe-form--closing::after {
+    display: none;
+  }
+
+  .subscribe-form--closing .subscribe-form__inner {
+    display: block;
+    padding: 0;
+  }
+
+  .subscribe-form--closing .subscribe-form__field {
+    display: flex;
+    gap: var(--space-2xs);
+  }
+
+  .subscribe-form--closing .subscribe-form__form input {
+    flex: 1;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: var(--radius-xs);
+    background: color-mix(in srgb, var(--hc-surface-0) 70%, transparent);
+    color: var(--hc-text-primary);
+    font: 400 var(--fs-base)/1.2 var(--font-ui);
+  }
+
+  .subscribe-form--closing .subscribe-form__form input:focus {
+    border-color: var(--hc-gold);
+  }
+
+  .subscribe-form--closing .subscribe-form__form button {
+    min-height: 48px;
+    padding: 0 var(--space-sm);
+    border: 0;
+    border-radius: var(--radius-xs);
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .subscribe-form--closing .subscribe-form__form button:hover {
+    background: var(--hc-gold-bright);
+  }
+
+  .subscribe-form--closing .subscribe-form__note,
+  .subscribe-form--closing .subscribe-form__status {
+    margin: var(--space-xs) 0 0;
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-sm)/1.4 var(--font-ui);
+    text-align: center;
+  }
+
+  .subscribe-form--closing .subscribe-form__status:empty {
+    display: none;
+  }
+
+  .subscribe-form--closing.is-error .subscribe-form__status {
+    color: var(--hc-danger);
+  }
+
+  @media (max-width: 480px) {
+    .subscribe-form--closing .subscribe-form__field {
+      flex-direction: column;
+    }
+  }
+
   .subscribe-form__fallback {
     color: var(--hc-text-secondary);
-    font: 400 1rem/1.6 var(--font-body);
+    font: 400 var(--fs-base)/1.6 var(--font-body);
   }
 
   .subscribe-form__fallback a {
@@ -492,8 +521,8 @@ const { variant } = Astro.props;
   @media (max-width: 640px) {
     .subscribe-form__inner {
       grid-template-columns: 1fr;
-      gap: 1.35rem;
-      padding: 1.5rem;
+      gap: var(--space-md);
+      padding: var(--space-md);
     }
 
     .subscribe-form__identity {
@@ -513,13 +542,13 @@ const { variant } = Astro.props;
     }
 
     .subscribe-form__status {
-      padding-inline: 1.5rem;
+      padding-inline: var(--space-md);
     }
 
     .subscribe-form--home .subscribe-form__inner {
       grid-template-columns: minmax(0, 1fr);
-      gap: 1.75rem;
-      padding-block: 2rem;
+      gap: var(--space-md);
+      padding-block: var(--space-lg);
     }
 
     .subscribe-form--home .subscribe-form__field {

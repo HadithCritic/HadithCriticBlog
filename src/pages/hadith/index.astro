@@ -1,13 +1,15 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
-import EditionIcon from '../../components/EditionIcon.astro';
 import { CORPUS_META } from '../../lib/corpus-config';
 import { chronologicalCollections, COMPILER_DATES, collectionType } from '../../lib/collection-catalogue';
-import '../../styles/corpus-catalogue.css';
+import { compilerFor, SIX_BOOKS } from '../../lib/hadith-compilers';
+import { divisionNoun, structureFor } from '../../lib/collection-structure';
+import '../../styles/corpus-results.css';
+import '../../styles/hadith-library.css';
 
 /**
- * Hadith corpus discovery and search console.
+ * Hadith corpus: a hero with one search field, then the library of collections.
  *
  * Prerendered. Everything on this page that does not depend on a reader's
  * query is a property of the corpus version (the totals, the thirty-three
@@ -23,24 +25,29 @@ import '../../styles/corpus-catalogue.css';
  */
 
 const books = chronologicalCollections(CORPUS_META.collections);
-const coreSlugs = ['sahih-al-bukhari', 'sahih-muslim', 'sunan-ibn-majah', 'sunan-abi-dawud', 'jami-al-tirmidhi', 'sunan-al-nasa-i'];
-const coreBooks = books.filter(book => coreSlugs.includes(book.slug));
-const featuredBook = coreBooks[0];
-const remainingCoreBooks = coreBooks.slice(1);
-const coreArtworkDimensions: Record<string, { width: number; height: number }> = {
-  'sahih-al-bukhari': { width: 1536, height: 1024 },
-  'sahih-muslim': { width: 1600, height: 671 },
-  'sunan-ibn-majah': { width: 1600, height: 603 },
-  'sunan-abi-dawud': { width: 1600, height: 600 },
-  'jami-al-tirmidhi': { width: 1600, height: 600 },
-  'sunan-al-nasa-i': { width: 1600, height: 667 },
-};
 const stats = {
   narrations: CORPUS_META.counts.hadith,
   collections: CORPUS_META.counts.collections,
   transmitters: CORPUS_META.counts.narrators
 };
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
+/** The chips under a card's title: its divisions, chapters and genre. */
+function chipsFor(slug: string): string[] {
+  const structure = structureFor(slug);
+  const chips: string[] = [];
+  if (structure) {
+    const chapters = structure.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0);
+    if (structure.shape !== 'flat') {
+      const noun = divisionNoun(structure.shape);
+      chips.push(plural(structure.kitabs.length, noun.one.toLowerCase(), noun.many.toLowerCase()));
+    }
+    if (chapters) chips.push(plural(chapters, 'chapter'));
+  }
+  chips.push(collectionType(slug));
+  return chips;
+}
 ---
 
 <BaseLayout image={OG.corpus}
@@ -48,178 +55,78 @@ const stats = {
   description={`Search ${stats.narrations.toLocaleString()} textual records across ${stats.collections} compilations in facing Arabic and English. Transmitters linked to biographical registers with descriptive apparatus.`}
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith Corpus', url: '/hadith/' }]}
 >
-  <div class="corpus-page">
-    <header class="corpus-masthead hc-plate" aria-labelledby="corpus-title">
-      <div class="corpus-masthead__art" aria-hidden="true"><img src="/images/hadith/compilation-library-1086.webp" srcset="/images/hadith/compilation-library-1086.webp 1086w, /images/hadith/compilation-library.webp 2172w" sizes="100vw" width="2172" height="724" alt="" fetchpriority="high" /></div>
-      <div class="corpus-masthead__inner">
-        <p class="hc-eyebrow">Corpus Attestation Archive</p>
-        <h1 id="corpus-title">The Hadith<br />Research Corpus</h1>
-        <p class="corpus-masthead__arabic" lang="ar" dir="rtl">الحديث</p>
-        <p class="corpus-masthead__lead">A searchable critical archive of {stats.narrations.toLocaleString()} narrations across {stats.collections} early and canonical compilations. Transmission chains link directly to the transmitter register with no theological grading apparatus.</p>
-      <div class="corpus-masthead__actions">
-        <a class="hc-btn" href="#corpus-q">Search the archive</a>
-        <a class="hc-btn hc-btn--ghost" href="#collections-heading">Browse the collections</a>
+  <div class="hl corpus-page">
+    <section class="hl-hero" aria-labelledby="corpus-title">
+      <img class="hl-hero__art" src="/images/hadith/scholars-header.webp" srcset="/images/hadith/scholars-header-960.webp 960w, /images/hadith/scholars-header.webp 1920w" sizes="(max-width: 760px) 145vw, 77vw" width="1920" height="640" alt="" fetchpriority="high" />
+      <div class="hl-wrap hl-hero__inner">
+        <div class="hl-hero__copy">
+          <p class="hl-eyebrow">HadithCritic · Hadith corpus</p>
+          <h1 id="corpus-title">Read the tradition<br /><span>from its sources.</span></h1>
+          <div class="hl-ornament" aria-hidden="true"><span></span>◇<span></span></div>
+          <p><span data-corpus-total="hadith">{stats.narrations.toLocaleString()}</span> narrations from <span data-corpus-total="collections">{stats.collections}</span> compilations, in Arabic and English. Each collection opens into its books and chapters, and every chain links to the <a href="/narrators/">Rijāl register</a>.</p>
+          <form class="hl-hero__search corpus-controls" id="corpus-search" role="search" method="get" action="/hadith/">
+            <label class="sr-only" for="corpus-q">Search the hadith corpus</label>
+            <input id="corpus-q" type="search" name="q" value="" placeholder="Search Arabic or English" autocomplete="off" spellcheck="false" />
+            <button type="submit">Search <b aria-hidden="true">⌕</b></button>
+            <!--
+              Filters arrive by URL from collection and narrator pages. The
+              search module sets these from the address and disables the empty
+              ones, so a new query keeps them and an unset filter stays absent.
+            -->
+            <input type="hidden" name="scope" value="" disabled />
+            <input type="hidden" name="book" value="" disabled />
+            <input type="hidden" name="phrase" value="" disabled />
+            <input type="hidden" name="narrator" value="" disabled />
+            <input type="hidden" name="subject" value="" disabled />
+          </form>
+          <a class="hl-hero__browse" href="#collections">or browse the {stats.collections} collections <b aria-hidden="true">↓</b></a>
+        </div>
       </div>
-      </div>
-    </header>
+    </section>
 
-    <div class="wrap corpus-body">
-      <section class="corpus-console" aria-label="Textual Search Console">
-        <form class="corpus-controls" method="get" action="/hadith/">
-          <div class="console-box hc-parchment">
-            <div class="console-box__input-row">
-              <div class="console-box__search-icon" aria-hidden="true">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </div>
-              <input
-                id="corpus-q"
-                class="hc-searchbar__input console-box__input"
-                type="search"
-                name="q"
-                value=""
-                placeholder="Search textual matn, chains, or topics (e.g. عائشة, intention, صلاة الفجر)…"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <label class="sr-only" for="corpus-q">Search the hadith corpus</label>
-              <button type="submit" class="hc-searchbar__submit console-box__submit">
-                <span>Search Archive</span>
-              </button>
-            </div>
-
-            <div class="console-box__options">
-              <div class="console-param-group">
-                <label class="console-param" for="scope-select">
-                  <span class="console-param__label">Target Scope:</span>
-                  <select id="scope-select" name="scope" class="console-select">
-                    <option value="all">Entire Formulation (Matn + Isnād)</option>
-                    <option value="matn">Substantive Matn Only</option>
-                    <option value="arabic">Arabic Text Only</option>
-                    <option value="english">English Translation Only</option>
-                  </select>
-                </label>
-
-                <label class="console-param" for="book-select">
-                  <span class="console-param__label">Source Corpus:</span>
-                  <select id="book-select" name="book" class="console-select">
-                    <option value="">All {stats.collections} Compilations</option>
-                    {books.map((b) => (
-                      <option value={b.id}>
-                        {b.title_en} ({b.hadith_count.toLocaleString()})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <label class="console-checkbox">
-                <input type="checkbox" name="phrase" value="1" />
-                <span>Exact Phrase</span>
-              </label>
-            </div>
-          </div>
-
-          <!--
-            Carried through a submit so a narrator or subject filter survives a
-            new query. The search module sets them from the URL on load; they
-            start empty because the shell is prerendered and knows no query.
-          -->
-          <input type="hidden" name="narrator" value="" disabled />
-          <input type="hidden" name="subject" value="" disabled />
-        </form>
-
-        <!-- Filled by the search module once a query is in play. -->
-        <div class="corpus-active-filters" hidden></div>
-      </section>
+    <div class="hl-wrap corpus-body">
+      <!-- Filled by the search module once a query is in play. -->
+      <div class="corpus-active-filters" hidden></div>
 
       <!-- Results mount. Empty until the reader asks for something. -->
       <div class="corpus-results-wrap"></div>
 
-      <dl class="corpus-totals" aria-label="Corpus totals">
-        <div><EditionIcon name="book" /><dt>Narrations</dt><dd class="hc-project-hero__figure">{stats.narrations.toLocaleString()}</dd></div>
-        <div><EditionIcon name="books" /><dt>Compilations</dt><dd>{stats.collections}</dd></div>
-        <div><EditionIcon name="record" /><dt>Named transmitters</dt><dd>{stats.transmitters.toLocaleString()}</dd></div>
-        <div><EditionIcon name="pages" /><dt>Chain links</dt><dd>{CORPUS_META.counts.chainLinks.toLocaleString()}</dd></div>
-      </dl>
-
-      <section class="corpus-core" aria-labelledby="core-heading">
-        <div class="corpus-section-head">
-          <div><p class="hc-eyebrow">Core collections</p><h2 id="core-heading">Six Foundational Hadith Collections</h2></div>
-          <a href="#collections-heading">View all {stats.collections} compilations →</a>
-        </div>
-        <div class="corpus-core__composition">
-          {featuredBook && <a class="corpus-core__feature" href={`/hadith/collection/${featuredBook.slug}/`}>
-            <img class="corpus-core__feature-art" src={`/images/hadith/collections/${featuredBook.slug}-800.webp`} srcset={`/images/hadith/collections/${featuredBook.slug}-800.webp 800w, /images/hadith/collections/${featuredBook.slug}.webp ${coreArtworkDimensions[featuredBook.slug].width}w`} sizes="(max-width: 780px) 100vw, 42vw" width={coreArtworkDimensions[featuredBook.slug].width} height={coreArtworkDimensions[featuredBook.slug].height} alt="" loading="lazy" decoding="async" />
-            <span class="corpus-core__feature-wash" aria-hidden="true"></span>
-            <span class="corpus-core__feature-copy">
-              <span class="corpus-core__feature-kicker"><span>01</span> Foundational collection</span>
-              <span class="corpus-core__feature-title">{featuredBook.title_en}</span>
-              <span class="corpus-core__feature-arabic" lang="ar" dir="rtl">{featuredBook.title_ar}</span>
-              <span class="corpus-core__feature-facts"><span><small>Narrations</small>{featuredBook.hadith_count.toLocaleString()}</span></span>
-              <span class="corpus-core__feature-link">Explore collection <span aria-hidden="true">→</span></span>
-            </span>
-          </a>}
-          <ol class="corpus-core__secondary">
-            {remainingCoreBooks.map((book, i) => <li class:list={[`corpus-core__item`, `corpus-core__item--${book.slug}`, i < 3 && 'corpus-core__item--wide']}>
-              <a href={`/hadith/collection/${book.slug}/`}>
-                <img src={`/images/hadith/collections/${book.slug}-800.webp`} srcset={`/images/hadith/collections/${book.slug}-800.webp 800w, /images/hadith/collections/${book.slug}.webp ${coreArtworkDimensions[book.slug].width}w`} sizes="(max-width: 780px) 100vw, (max-width: 1200px) 65vw, 46vw" width={coreArtworkDimensions[book.slug].width} height={coreArtworkDimensions[book.slug].height} alt="" loading="lazy" decoding="async" />
-                <span class="corpus-core__item-wash" aria-hidden="true"></span>
-                <span class="corpus-core__item-number">{String(i + 2).padStart(2, '0')}</span>
-                <span class="corpus-core__item-copy"><span class="corpus-core__item-title">{book.title_en}</span><span class="corpus-core__item-arabic" lang="ar" dir="rtl">{book.title_ar}</span><span class="corpus-core__item-facts"><span>Compiler d. {COMPILER_DATES[book.slug]} AH</span><span>{book.hadith_count.toLocaleString()} narrations</span></span></span>
-                <span class="corpus-core__item-arrow" aria-hidden="true">→</span>
-              </a>
-            </li>)}
-          </ol>
-        </div>
-      </section>
-
-      <section class="corpus-index" aria-labelledby="collections-heading" data-corpus-catalogue data-view="grid">
-        <div class="corpus-index__header">
+      <section class="hl-library corpus-index" id="collections" aria-labelledby="collections-heading">
+        <div class="hl-section-head">
           <div>
-            <span class="hc-eyebrow">The complete archive</span>
-            <h2 class="corpus-index__heading" id="collections-heading">All {stats.collections} Hadith Compilations</h2>
+            <p class="hl-eyebrow">The library</p>
+            <h2 id="collections-heading">The collections</h2>
           </div>
-          <p class="corpus-index__note">
-            Earliest to latest by compiler’s death year (AH), with works by the same compiler grouped together. These dates indicate compiler chronology, not exact dates of composition.
-          </p>
+          <p>All {stats.collections} compilations, from earliest to latest by the compiler’s death. The dates are the compilers’ chronology, not dates of composition.</p>
         </div>
-        <div class="corpus-catalogue__views" data-catalogue-controls hidden>
-          <span data-catalogue-status aria-live="polite">{stats.collections} compilations</span>
-          <button type="button" data-catalogue-view="grid" aria-pressed="true"><EditionIcon name="grid" />Grid view</button>
-          <button type="button" data-catalogue-view="list" aria-pressed="false"><EditionIcon name="list" />List view</button>
-        </div>
-        <div class="corpus-catalogue__layout">
-          <aside class="corpus-catalogue__filters hc-parchment" aria-label="Filter compilations" data-catalogue-controls hidden>
-            <h3>Filter collections</h3>
-            <label for="catalogue-query">Find a collection<input id="catalogue-query" type="search" data-catalogue-query placeholder="English or Arabic title" /></label>
-            <label for="catalogue-period">Compiler period<select id="catalogue-period" data-catalogue-period><option value="">All periods</option><option value="early">Before 300 AH</option><option value="middle">300–499 AH</option><option value="later">500 AH onward</option></select></label>
-            <label for="catalogue-type">Collection type<select id="catalogue-type" data-catalogue-type><option value="">All types</option>{['Sahih', 'Sunan', 'Musnad', 'Musannaf', 'Muʿjam', 'Other'].map(type => <option value={type}>{type}</option>)}</select></label>
-            <label for="catalogue-sort">Sort by<select id="catalogue-sort" data-catalogue-sort><option value="earliest">Earliest first (default)</option><option value="latest">Latest first</option><option value="size">Most narrations</option><option value="title">Title A–Z</option></select></label>
-            <button type="button" data-catalogue-reset>Reset filters</button>
-          </aside>
-          <div class="corpus-catalogue__results">
-        <ol class="catalog-ledger">
-          {books.map((b, i) => (
-            <li class="catalog-row" data-year={COMPILER_DATES[b.slug]} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar}`} data-count={b.hadith_count} data-order={i}>
-              <a class="catalog-row__link" href={`/hadith/collection/${b.slug}/`}>
-                <span class="catalog-row__no">{String(i + 1).padStart(2, '0')}</span>
-                <span class="catalog-row__titles">
-                  <span class="catalog-row__en">{b.title_en}</span>
-                  {b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}
-                  <span class="catalog-row__date">Compiler d. {COMPILER_DATES[b.slug]} AH</span>
-                </span>
-                <span class="catalog-row__count">{b.hadith_count.toLocaleString()} <span>narrations</span></span>
-                <span class="catalog-row__arrow" aria-hidden="true">›</span>
-              </a>
-            </li>
-          ))}
+
+        <ol class="hl-cards catalog-ledger">
+          {books.map((b, i) => {
+            const compiler = compilerFor(b.slug);
+            const canon = SIX_BOOKS.indexOf(b.slug as typeof SIX_BOOKS[number]);
+            const year = COMPILER_DATES[b.slug];
+            return (
+              <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i}>
+                <a class="hl-card catalog-row__link" href={`/hadith/collection/${b.slug}/`} data-region={compiler?.region} data-canon={canon >= 0 ? `The Six Books · ${ROMAN[canon]}` : undefined}>
+                  <span class="hl-card__art" style={`--collection-art: url('/images/hadith/compilations/${b.slug}.webp')`} aria-hidden="true"></span>
+                  {compiler?.medallion
+                    ? <span class="hl-card__portrait"><img src={`/images/hadith/medallions/${compiler.medallion}.webp`} width="224" height="224" loading="lazy" decoding="async" alt={`Engraved medallion for ${compiler.name}; not a likeness`} /></span>
+                    : <span class="hl-card__portrait hl-card__portrait--empty" aria-hidden="true">◇</span>}
+                  <span class="hl-card__content">
+                    <span class="hl-card__kicker">d. {year} AH{compiler && ` · ${compiler.origin}`}</span>
+                    <span class="hl-card__title"><strong class="catalog-row__en">{b.title_en}</strong>{b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}</span>
+                    {compiler && <span class="hl-card__compiler">{compiler.name}</span>}
+                    <span class="hl-card__chips">{chipsFor(b.slug).map((chip) => <span class="hl-chip">{chip}</span>)}</span>
+                  </span>
+                  <span class="hl-card__aside">
+                    <span class="hl-card__stat catalog-row__count"><b>{b.hadith_count.toLocaleString()}</b><small>narrations</small></span>
+                    <span class="hl-card__open">Open collection <b aria-hidden="true">↗</b></span>
+                  </span>
+                </a>
+              </li>
+            );
+          })}
         </ol>
-          <p class="corpus-catalogue__empty" data-catalogue-empty hidden>No compilations match these filters. Try another title or reset the filters.</p>
-          </div>
-        </div>
       </section>
 
       <!--
@@ -228,7 +135,7 @@ const stats = {
         saying which one is the difference between a reproducible reference
         and one that quietly stops matching.
       -->
-      <p class="corpus-provenance">
+      <p class="hl-provenance corpus-provenance">
         <span class="corpus-provenance__label">Corpus build</span>
         <span class="corpus-provenance__version">{CORPUS_META.corpusVersion}</span>
         <span class="corpus-provenance__figures">
@@ -249,438 +156,12 @@ const stats = {
 
   <script>
     import { initHadithSearch } from '../../lib/hadith-search';
-    import { initCorpusCatalogue } from '../../lib/corpus-catalogue';
-    initCorpusCatalogue();
+    import { CORPUS_MANIFEST_URL, CORPUS_VERSION } from '../../lib/corpus-config';
+
+    const corpusWindow = window as unknown as Record<string, unknown>;
+    corpusWindow.__corpusVersion = CORPUS_VERSION;
+    corpusWindow.__corpusManifest = CORPUS_MANIFEST_URL;
+
     initHadithSearch();
   </script>
 </BaseLayout>
-
-
-
-<!-- Global styles for client-side search hydration -->
-<style is:global>
-  /* Rendered by src/lib/hadith-search.ts after the corpus answers, so these
-     cannot be scoped: a node created by script never carries the page's
-     data-astro-cid attribute and a scoped rule would not reach it. */
-  .corpus-active-filters {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1rem;
-    padding: 0.5rem 0;
-  }
-
-  .corpus-active-filters__label {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-active-filters__list {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.25rem 0.65rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    color: var(--hc-text-secondary);
-  }
-
-  .filter-chip__key {
-    color: var(--hc-text-tertiary);
-    text-transform: uppercase;
-    font-size: 0.75rem;
-  }
-
-  .filter-chip__val {
-    color: var(--hc-gold);
-  }
-
-  .filter-chip__link {
-    color: var(--hc-gold);
-    text-decoration: none;
-  }
-
-  .filter-chip-clear {
-    margin-left: 0.5rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--hc-gold);
-    text-decoration: none;
-  }
-
-  .filter-chip-clear:hover {
-    text-decoration: underline;
-  }
-
-  /* ── Notices ───────────────────────────────────────────────── */
-  .corpus-notice {
-    padding: 1.5rem 1.75rem;
-    margin-bottom: 2rem;
-    border-radius: var(--radius-xs);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-  }
-
-  .corpus-notice--error {
-    border: 1px solid rgba(220, 38, 38, 0.4);
-    background: color-mix(in srgb, red 8%, var(--hc-surface-1));
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-notice--warn {
-    border: 1px solid var(--hc-rule-strong);
-    background: var(--hc-surface-1);
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-toolbar {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.85rem;
-    border-bottom: 1px solid var(--hc-rule-soft);
-  }
-
-  .corpus-status {
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .corpus-status__count {
-    font-weight: 600;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-status__context {
-    margin-left: 0.45rem;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-ranking-note {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-results {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1.15rem;
-  }
-
-  .corpus-record-card {
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
-  }
-
-  .corpus-record-card:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  }
-
-  .corpus-record-card__hitarea {
-    display: block;
-    padding: 1.5rem 1.75rem;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .corpus-record-card__top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .corpus-record-card__breadcrumbs {
-    display: flex;
-    align-items: baseline;
-    gap: 0.65rem;
-  }
-
-  .corpus-record-card__book {
-    font-family: var(--font-ui);
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--hc-gold);
-  }
-
-  .corpus-record-card__num {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-record-card__action {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--hc-gold-dim);
-    transition: color var(--motion-fast) ease, gap var(--motion-fast) ease;
-  }
-
-  .corpus-record-card:hover .corpus-record-card__action {
-    color: var(--hc-gold);
-    gap: 0.55rem;
-  }
-
-  .corpus-record-card__chapter {
-    margin: 0 0 1rem;
-    font-family: var(--font-display);
-    font-size: 1.22rem;
-    font-weight: 500;
-    line-height: 1.35;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-record-card__spread {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1.25rem, 2.5vw, 2.2rem);
-  }
-
-  .corpus-record-card__col {
-    min-width: 0;
-  }
-
-  .corpus-record-card__snippet-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    margin-bottom: 0.45rem;
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-badge-indicator {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-  }
-
-  .corpus-badge-indicator--en {
-    background: var(--hc-text-tertiary);
-  }
-
-  .corpus-badge-indicator--ar {
-    background: var(--hc-gold);
-  }
-
-  .corpus-record-card__text {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 0.98rem;
-    line-height: 1.75;
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-record-card__ar {
-    margin: 0;
-    font-family: var(--font-arabic);
-    font-size: 1.25rem;
-    line-height: 2.1;
-    color: var(--hc-text-primary);
-    direction: rtl;
-    text-align: right;
-  }
-
-  .corpus-record-card__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1.2rem;
-    padding-top: 0.9rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .corpus-record-card__pills {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .corpus-pill {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    padding: 0.22rem 0.55rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-2);
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-  }
-
-  .corpus-pill__label {
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-pill__num {
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-record-card__id-meta {
-    font-family: var(--font-ui);
-    font-size: 0.75rem;
-    letter-spacing: 0.04em;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-empty-card {
-    padding: 4.5rem 2rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    text-align: center;
-  }
-
-  .corpus-empty-card__icon {
-    font-size: 2.5rem;
-    color: var(--hc-gold-dim);
-    margin-bottom: 0.75rem;
-  }
-
-  .corpus-empty-card__title {
-    margin: 0 0 0.65rem;
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: var(--hc-text-primary);
-  }
-
-  .corpus-empty-card__text {
-    max-width: 52ch;
-    margin: 0 auto 1.5rem;
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    line-height: 1.7;
-    color: var(--hc-text-secondary);
-  }
-
-  /* Pager */
-  .corpus-pager {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-top: 2.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--hc-rule-soft);
-  }
-
-  .corpus-pager__btn {
-    padding: 0.45rem 0.95rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    color: var(--hc-gold);
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-decoration: none;
-    transition: background var(--motion-fast) ease, border-color var(--motion-fast) ease;
-  }
-
-  .corpus-pager__btn:hover:not(.is-disabled) {
-    border-color: var(--hc-gold);
-    background: var(--hc-surface-2);
-  }
-
-  .corpus-pager__btn.is-disabled {
-    color: var(--hc-text-tertiary);
-    border-color: transparent;
-    background: transparent;
-    pointer-events: none;
-  }
-
-  .corpus-pager__info {
-    font-family: var(--font-ui);
-    font-size: 0.8rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--hc-text-tertiary);
-  }
-
-  .corpus-pager__info strong {
-    color: var(--hc-text-secondary);
-  }
-
-  .corpus-record-card mark {
-    background: color-mix(in srgb, var(--hc-gold) 28%, transparent);
-    color: inherit;
-    padding: 0.05em 0.25em;
-    border-radius: 2px;
-  }
-
-  @media (max-width: 780px) {
-    .corpus-record-card__spread {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 1.25rem;
-    }
-    .corpus-record-card__col--ar {
-      grid-column: 1;
-      grid-row: 1;
-    }
-    .corpus-record-card__col--en {
-      grid-column: 1;
-      grid-row: 2;
-    }
-  }
-</style>
-
-<style is:global>
-  /* Hallmark · genre: editorial · macrostructure: reference catalogue · design-system: DESIGN.md · designed-as-app */
-  .corpus-page .corpus-console,
-  .corpus-page .console-box { box-shadow: none; }
-  .corpus-page .corpus-index__header { align-items: end; }
-</style>

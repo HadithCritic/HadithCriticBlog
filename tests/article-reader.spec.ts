@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-/* The article reader: one column, quiet contents, real notes. See DESIGN.md,
-   "Article reader". */
+/* The article reader: one column, quiet contents, real notes. */
 const LONG = '/blogs/theology-epistemology/81-the-people-of-the-canyon-in-q85-a-case-for-the-valley-of-hinnom-gehenna/';
 
-test('wide screens get margin contents that link to real sections', async ({ page }) => {
+test('contents link to real sections on wide screens', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(LONG);
-  const links = page.locator('.hc-contents--margin a');
+  const contents = page.locator('.hc-contents');
+  await expect(contents).toBeVisible();
+  const links = contents.locator('a');
   expect(await links.count()).toBeGreaterThan(2);
-  await expect(page.locator('.hc-contents--inline')).toBeHidden();
   for (const href of await links.evaluateAll((as) => as.map((a) => a.getAttribute('href')))) {
     await expect(page.locator(`[id="${decodeURIComponent(href!.slice(1))}"]`)).toHaveCount(1);
   }
@@ -43,7 +43,7 @@ test('report headings passed as title are rendered', async ({ page }) => {
 test('article publication dates use the same UTC day as the archive and catalog', async ({ page, request }) => {
   const id = 'origins-early-history/13-imam-ahmad-supplicates-through-dead-people';
   await page.goto(`/blogs/${id}/`);
-  await expect(page.locator('.hc-head__meta time').first()).toHaveText('31 December 2024');
+  await expect(page.locator('.hc-head__meta time').first()).toHaveText('December 31, 2024');
   const catalog = await (await request.get('/article-catalog.json')).json();
   expect(catalog.find((article: { url: string }) => article.url === `/blogs/${id}/`).date).toBe('31 Dec 2024');
 });

@@ -5,7 +5,6 @@ import ProjectNavigation from './ProjectNavigation.astro';
 const pathname = Astro.url.pathname.replace(/(.)\/$/, '$1');
 const links = [
   { href: '/blogs/', label: 'Blog', active: pathname === '/blogs' || pathname.startsWith('/blogs/') },
-  { href: '/academia/', label: 'Academia', active: pathname === '/academia' },
   { href: '/projects/', label: 'Projects', active: pathname === '/projects' },
   { href: '/resources/', label: 'Resources', active: pathname === '/resources' },
   { href: '/youtube/', label: 'YouTube', active: pathname === '/youtube' },
@@ -14,7 +13,7 @@ const links = [
 ---
 
 <header class="site-header" id="siteHeader">
-  <div class="wrap header-inner">
+  <div class="header-inner">
     <a href="/" class="header-brand" aria-label="HadithCritic home">
       <img src="/images/brand/geometric-emblem-96.webp" alt="" class="header-emblem" width="32" height="32" decoding="async" />
       <span class="header-brand-name">HadithCritic</span>
@@ -41,6 +40,8 @@ const links = [
         </kbd>
       </button>
 
+      <a href="/#subscribe" class="header-subscribe" data-subscribe-trigger aria-haspopup="dialog">Subscribe</a>
+
       <button
         class="theme-toggle"
         id="themeToggle"
@@ -50,29 +51,13 @@ const links = [
         aria-label="Toggle light and dark theme"
         title="Switch to light theme"
       >
-        <span class="theme-toggle__capsule" aria-hidden="true">
-          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--moon">
-            <svg class="theme-toggle__glyph" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-            </svg>
-          </span>
-          <span class="theme-toggle__glyph-slot theme-toggle__glyph-slot--sun">
-            <svg class="theme-toggle__glyph" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4"></circle>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-            </svg>
-          </span>
-          <span class="theme-toggle__thumb">
-            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--moon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-              <circle cx="16.5" cy="7.5" r="0.75" fill="currentColor" stroke="none"></circle>
-            </svg>
-            <svg class="theme-toggle__thumb-icon theme-toggle__thumb-icon--sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="4.2"></circle>
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-            </svg>
-          </span>
-        </span>
+        <svg class="theme-toggle__icon theme-toggle__icon--moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.5 14.2A8.5 8.5 0 1 1 9.8 3.5a6.6 6.6 0 0 0 10.7 10.7z"></path>
+        </svg>
+        <svg class="theme-toggle__icon theme-toggle__icon--sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"></path>
+        </svg>
       </button>
 
       <button class="header-menu-toggle" id="menuToggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobileNav">
@@ -85,6 +70,14 @@ const links = [
     </div>
   </div>
 </header>
+<script is:inline>
+  // Set the top-of-page state before first paint so the header never flashes
+  // solid over the hero. Without JS the header simply stays solid.
+  (function () {
+    var header = document.getElementById('siteHeader');
+    if (header && window.scrollY <= 20) header.classList.add('is-at-top');
+  })();
+</script>
 <div class="mobile-nav-backdrop" id="mobileNavBackdrop" hidden></div>
 <nav class="header-mobile-nav" id="mobileNav" aria-label="Mobile navigation" aria-hidden="true">
   <div class="mobile-nav-top">
@@ -114,52 +107,78 @@ const links = [
   </button>
   <div class="mobile-nav-links">
     {links.map((link) => link.label === 'Projects' ? <ProjectNavigation mobile /> : <a href={link.href} class="hc-header-link" aria-current={link.active ? 'page' : undefined}>{link.label}</a>)}
+    <a href="/#subscribe" class="hc-header-link" data-subscribe-trigger aria-haspopup="dialog">Subscribe by email</a>
   </div>
 </nav>
 
 <noscript>
   <style is:global>
     @media (max-width: 980px) {
-      #siteHeader .header-inner { flex-wrap: wrap; padding-bottom: 0.5rem; }
+      #siteHeader .header-inner { flex-wrap: wrap; padding-bottom: var(--space-2xs); }
       #siteHeader .header-nav { display: flex; flex-wrap: wrap; width: 100%; order: 3; }
       #siteHeader .header-menu-toggle { display: none; }
       #siteHeader .project-nav { position: static; }
       #siteHeader .project-nav__panel { position: absolute; left: 1rem; right: 1rem; top: 100%; width: auto; transform: none; }
-      #siteHeader .project-nav__groups { grid-template-columns: 1fr; max-height: 65vh; overflow-y: auto; }
+      #siteHeader .project-nav__list { grid-template-columns: 1fr; max-height: 65vh; overflow-y: auto; }
     }
   </style>
 </noscript>
 
 <style>
+  /* The bar is solid by default (and without JS). At the very top of the page
+     it drops its ground and rule so it reads as part of whatever sits behind
+     it, then returns once the reader scrolls. The rule is an inset shadow, not
+     a border, so the bar's height is exactly --hc-header-h in both states. */
   .site-header {
+    --hc-header-wrap: 1680px;
+    --hc-header-gutter: clamp(1rem, 3vw, 3rem);
     position: sticky;
     top: 0;
     z-index: 50;
-    border-bottom: 1px solid var(--hc-rule);
     background: rgba(var(--hc-scrim), 0.88);
+    box-shadow: inset 0 -1px 0 var(--hc-rule);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    transition: border-color var(--motion-base) var(--ease-standard),
-                box-shadow var(--motion-base) var(--ease-standard),
-                background var(--motion-base) var(--ease-standard);
+  }
+  /* Transitions start only after the first paint, so a page that loads at
+     the top never fades from solid to clear. */
+  .site-header.is-ready {
+    transition: box-shadow var(--motion-base) var(--ease-standard),
+                background var(--motion-base) var(--ease-standard),
+                backdrop-filter var(--motion-base) var(--ease-standard);
   }
   .site-header.is-scrolled {
-    border-bottom-color: var(--hc-rule-strong);
-    box-shadow: var(--hc-header-shadow);
+    box-shadow: inset 0 -1px 0 var(--hc-rule-strong), var(--hc-header-shadow);
     background: rgba(var(--hc-scrim), 0.96);
   }
+  .site-header.is-at-top {
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  /* Wider than the page's content measure, so the brand and the actions sit
+     out toward the edges and the links have room to breathe. */
   .header-inner {
     display: flex;
-    min-height: 72px;
+    box-sizing: border-box;
+    width: min(100%, var(--hc-header-wrap));
+    min-height: 80px;
+    margin-inline: auto;
+    padding-inline: max(var(--hc-header-gutter), var(--sal)) max(var(--hc-header-gutter), var(--sar));
     align-items: center;
     justify-content: space-between;
-    gap: 1.25rem;
-    padding-top: var(--safe-top);
+    gap: var(--space-sm);
+  }
+  @media (max-width: 640px) {
+    .site-header {
+      --hc-header-gutter: 0.9rem;
+    }
   }
   .header-brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--space-xs);
     flex: 0 0 auto;
     color: var(--hc-text-primary);
     text-decoration: none;
@@ -186,277 +205,139 @@ const links = [
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(0.4rem, 1.3vw, 1.15rem);
+    gap: var(--space-3xs);
   }
+  /* Links are rounded pills that shade on hover; the current section keeps a
+     quieter shade so the reader can see where they are. */
   .hc-header-link {
     position: relative;
     display: inline-flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
-    padding: 0.4rem 0.6rem;
+    min-height: 40px;
+    padding: 0 var(--space-sm);
     color: var(--hc-text-secondary);
-    font: 500 0.8rem/1 var(--font-ui);
-    letter-spacing: 0.1em;
+    font: 500 var(--fs-base)/1 var(--font-ui);
     text-decoration: none;
-    text-transform: uppercase;
-    border-radius: var(--radius-xs);
-    transition: color var(--motion-fast) var(--ease-standard);
+    border-radius: 12px;
+    transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
   }
   .hc-header-link__indicator {
-    position: absolute;
-    bottom: 6px;
-    left: 0.6rem;
-    right: 0.6rem;
-    height: 2px;
-    background: var(--hc-gold);
-    border-radius: 1px;
-    transform: scaleX(0);
-    transform-origin: center;
-    opacity: 0;
-    transition: transform var(--motion-base) var(--ease-standard),
-                opacity var(--motion-base) var(--ease-standard);
+    display: none;
   }
   .hc-header-link:hover {
     color: var(--hc-text-primary);
-  }
-  .hc-header-link:hover .hc-header-link__indicator {
-    transform: scaleX(0.5);
-    opacity: 0.6;
+    background: color-mix(in srgb, var(--hc-text-primary) 8%, transparent);
   }
   .hc-header-link[aria-current='page'] {
-    color: var(--hc-gold);
-  }
-  .hc-header-link[aria-current='page'] .hc-header-link__indicator {
-    transform: scaleX(1);
-    opacity: 1;
+    color: var(--hc-text-primary);
+    background: color-mix(in srgb, var(--hc-text-primary) 5%, transparent);
   }
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: var(--space-2xs);
   }
+  /* Controls stay quiet: no frame or fill until the pointer is on them. The
+     search bar is the one exception, a faint field so it reads as search. */
   .header-search-btn,
   .header-menu-toggle,
-  .mobile-search,
-  .mobile-nav-close-btn {
-    min-height: 40px;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
     color: var(--hc-text-secondary);
-    background: rgba(var(--hc-scrim), 0.55);
-    font: 500 0.78rem/1 var(--font-ui);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font: 500 var(--fs-sm)/1 var(--font-ui);
     cursor: pointer;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-    transition: border-color var(--motion-fast) var(--ease-standard),
+    transition: color var(--motion-fast) var(--ease-standard),
                 background var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                box-shadow var(--motion-fast) var(--ease-standard),
-                transform var(--motion-fast) var(--ease-standard);
+                border-color var(--motion-fast) var(--ease-standard);
   }
   .header-search-btn:hover,
-  .header-menu-toggle:hover {
-    border-color: var(--hc-gold-dim);
-    background: var(--hc-surface-2);
+  .header-menu-toggle:hover,
+  .theme-toggle:hover {
     color: var(--hc-text-primary);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    background: color-mix(in srgb, var(--hc-text-primary) 8%, transparent);
+  }
+  .header-search-btn:focus-visible,
+  .header-menu-toggle:focus-visible,
+  .theme-toggle:focus-visible,
+  .header-subscribe:focus-visible {
+    outline: 2px solid var(--hc-gold);
+    outline-offset: 2px;
+  }
+  .mobile-search,
+  .mobile-nav-close-btn {
+    min-height: 36px;
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* Search button styling */
+  /* Search bar */
   .header-search-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    padding: 0.4rem 0.55rem 0.4rem 0.75rem;
+    justify-content: flex-start;
+    gap: 0.55rem;
+    width: 13.5rem;
+    padding: 0 0.45rem 0 0.75rem;
+    border-color: color-mix(in srgb, var(--hc-text-primary) 9%, transparent);
+    background: color-mix(in srgb, var(--hc-text-primary) 4%, transparent);
+    color: var(--hc-text-tertiary);
+  }
+  .header-search-btn:hover {
+    border-color: color-mix(in srgb, var(--hc-text-primary) 16%, transparent);
   }
   .header-search-icon {
-    color: var(--hc-gold);
-    opacity: 0.9;
     flex-shrink: 0;
-    transition: transform var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                opacity var(--motion-fast) var(--ease-standard);
-  }
-  .header-search-btn:hover .header-search-icon {
-    transform: scale(1.1);
-    opacity: 1;
-    color: var(--hc-gold-bright);
+    opacity: 0.8;
   }
   .header-search-label {
-    letter-spacing: 0.08em;
+    flex: 1;
+    text-align: left;
+    letter-spacing: 0;
   }
   .header-search-kbd {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding: 0.18rem 0.4rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 2px;
-    background: var(--hc-surface-2);
-    color: var(--hc-gold-soft);
-    font: 600 0.75rem/1 var(--font-ui);
-    letter-spacing: 0.04em;
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-    transition: border-color var(--motion-fast) var(--ease-standard),
-                color var(--motion-fast) var(--ease-standard),
-                background var(--motion-fast) var(--ease-standard);
-  }
-  .header-search-btn:hover .header-search-kbd {
-    border-color: var(--hc-rule);
-    background: var(--hc-surface-3);
-    color: var(--hc-gold-bright);
+    gap: 3px;
+    padding: 0.22rem 0.4rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--hc-text-primary) 7%, transparent);
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+    letter-spacing: 0.02em;
   }
 
-  /* Bespoke Archival Theme Capsule Switch */
+  /* Theme switch: one glyph, the theme the reader is in. */
   .theme-toggle {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 62px;
-    height: 36px;
-    min-height: 36px;
-    padding: 3px;
-    border-radius: var(--radius-pill);
-    border: 1px solid var(--hc-rule);
-    background: rgba(var(--hc-scrim), 0.65);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45);
-    cursor: pointer;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-    transition: border-color var(--motion-fast) var(--ease-standard),
-                background var(--motion-fast) var(--ease-standard),
-                box-shadow var(--motion-fast) var(--ease-standard);
   }
-  .theme-toggle:hover {
-    border-color: var(--hc-gold-dim);
-    background: rgba(var(--hc-scrim), 0.85);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(216, 177, 102, 0.15);
-  }
-  .theme-toggle:active .theme-toggle__thumb {
-    transform: translateY(-50%) scale(0.92);
-  }
-  .theme-toggle__capsule {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 100%;
-    padding: 0 4px;
-  }
-  .theme-toggle__glyph-slot {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    color: var(--hc-text-tertiary);
-    opacity: 0.45;
-    transition: opacity var(--motion-base) var(--ease-standard),
-                color var(--motion-base) var(--ease-standard);
-  }
-  .theme-toggle:hover .theme-toggle__glyph-slot {
-    opacity: 0.7;
-  }
-  .theme-toggle__glyph {
-    flex-shrink: 0;
-  }
-  .theme-toggle__thumb {
-    position: absolute;
-    top: 50%;
-    left: 2px;
-    transform: translateY(-50%) translateX(0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--hc-surface-3), var(--hc-surface-1));
-    border: 1px solid rgba(216, 177, 102, 0.5);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), 0 0 8px rgba(216, 177, 102, 0.25);
-    transition: transform 280ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
-                background var(--motion-base) var(--ease-standard),
-                border-color var(--motion-base) var(--ease-standard),
-                box-shadow var(--motion-base) var(--ease-standard);
-  }
-  .theme-toggle__thumb-icon {
+  .theme-toggle__icon {
     position: absolute;
     inset: 0;
     margin: auto;
-    transition: transform 260ms var(--ease-emphasis, cubic-bezier(0.16, 1, 0.3, 1)),
-                opacity 200ms ease,
-                color 200ms ease;
+    transition: transform 320ms var(--ease-standard), opacity 200ms ease;
   }
-  .theme-toggle__thumb-icon--moon {
-    color: var(--hc-gold-soft);
-    transform: rotate(0deg) scale(1);
-    opacity: 1;
-  }
-  .theme-toggle__thumb-icon--sun {
-    color: var(--hc-gold);
-    transform: rotate(-90deg) scale(0.5);
+  .theme-toggle__icon--sun {
     opacity: 0;
-    pointer-events: none;
+    transform: rotate(-60deg) scale(0.6);
   }
-
-  /* Light theme styling for the capsule switch */
-  :global([data-theme="light"]) .theme-toggle {
-    background: rgba(var(--hc-scrim), 0.75);
-    border-color: var(--hc-rule);
-    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.12);
-  }
-  :global([data-theme="light"]) .theme-toggle:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: inset 0 2px 4px rgba(43, 40, 36, 0.16), 0 0 8px rgba(111, 80, 25, 0.12);
-  }
-  :global([data-theme="light"]) .theme-toggle__thumb {
-    transform: translateY(-50%) translateX(26px);
-    background: linear-gradient(135deg, #ffffff, var(--hc-surface-1));
-    border-color: rgba(111, 80, 25, 0.45);
-    box-shadow: 0 2px 6px rgba(43, 40, 36, 0.18), 0 0 8px rgba(111, 80, 25, 0.15);
-  }
-  :global([data-theme="light"]) .theme-toggle:active .theme-toggle__thumb {
-    transform: translateY(-50%) translateX(26px) scale(0.92);
-  }
-  :global([data-theme="light"]) .theme-toggle__thumb-icon--moon {
-    transform: rotate(90deg) scale(0.5);
+  :global([data-theme="light"]) .theme-toggle__icon--moon {
     opacity: 0;
-    pointer-events: none;
+    transform: rotate(60deg) scale(0.6);
   }
-  :global([data-theme="light"]) .theme-toggle__thumb-icon--sun {
-    color: var(--hc-gold);
-    transform: rotate(0deg) scale(1);
+  :global([data-theme="light"]) .theme-toggle__icon--sun {
     opacity: 1;
-    pointer-events: auto;
-  }
-  :global([data-theme="light"]) .header-search-btn,
-  :global([data-theme="light"]) .header-menu-toggle {
-    background: rgba(var(--hc-scrim), 0.7);
-    border-color: var(--hc-rule);
-    box-shadow: none;
-  }
-  :global([data-theme="light"]) .header-search-btn:hover,
-  :global([data-theme="light"]) .header-menu-toggle:hover {
-    background: var(--hc-surface-2);
-    border-color: var(--hc-gold-dim);
-    box-shadow: 0 2px 10px rgba(43, 40, 36, 0.08);
-  }
-  :global([data-theme="light"]) .header-search-kbd {
-    background: var(--hc-surface-1);
-    border-color: var(--hc-rule);
-    color: var(--hc-gold);
-    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.08);
-  }
-  :global([data-theme="light"]) .header-search-btn:hover .header-search-kbd {
-    background: var(--hc-surface-3);
-    border-color: var(--hc-gold-dim);
+    transform: none;
   }
 
   /* Mobile menu button */
@@ -473,7 +354,7 @@ const links = [
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-3xs);
     width: 18px;
     height: 14px;
   }
@@ -509,6 +390,43 @@ const links = [
     display: none;
   }
 
+  /* The menu leaves the shortcut hint off; Ctrl K still opens search. */
+  .mobile-search-kbd {
+    display: none;
+  }
+
+  /* One highlighted action, as the bar's last word before the theme switch. */
+  .header-subscribe {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 var(--space-sm);
+    border-radius: 10px;
+    background: var(--hc-gold);
+    color: var(--hc-text-inverse);
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background var(--motion-fast) var(--ease-standard);
+  }
+  .header-subscribe:hover {
+    background: var(--hc-gold-bright);
+  }
+
+  /* Between the mobile menu and a wide window the links need the room, so
+     search shrinks to its icon and Subscribe moves into the menu. */
+  @media (max-width: 1200px) {
+    .header-search-label,
+    .header-subscribe {
+      display: none;
+    }
+    .header-search-btn {
+      width: 40px;
+      padding: 0;
+      justify-content: center;
+    }
+  }
+
   @media (max-width: 980px) {
     .header-nav,
     .header-search-btn {
@@ -525,7 +443,7 @@ const links = [
       bottom: 0;
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: var(--space-xs);
       width: min(24rem, calc(100vw - 1.5rem));
       padding: max(1.25rem, var(--safe-top)) 1.25rem max(1.5rem, var(--safe-bottom));
       border-left: 1px solid var(--hc-rule-strong);
@@ -545,13 +463,13 @@ const links = [
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding-bottom: 0.85rem;
+      padding-bottom: var(--space-xs);
       border-bottom: 1px solid var(--hc-rule);
     }
     .mobile-nav-brand {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: var(--space-xs);
     }
     .mobile-nav-emblem {
       width: 24px;
@@ -560,7 +478,7 @@ const links = [
     }
     .mobile-nav-title {
       font-family: var(--font-editorial);
-      font-size: 1.4rem;
+      font-size: var(--fs-lg);
       font-weight: 600;
       letter-spacing: 0;
       color: var(--hc-text-primary);
@@ -599,9 +517,9 @@ const links = [
       width: 100%;
       min-height: 48px;
       align-items: center;
-      padding: 0.75rem 0.5rem;
+      padding: var(--space-xs) var(--space-2xs);
       border-bottom: 1px solid var(--hc-rule-soft);
-      font-size: 0.95rem;
+      font-size: var(--fs-base);
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
@@ -613,7 +531,7 @@ const links = [
       align-items: center;
       justify-content: space-between;
       width: 100%;
-      padding: 0.65rem 0.85rem;
+      padding: var(--space-xs) var(--space-xs);
       color: var(--hc-text-secondary);
       background: var(--hc-surface-2);
       border: 1px solid var(--hc-rule);
@@ -632,7 +550,7 @@ const links = [
     .mobile-search-left {
       display: inline-flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: var(--space-xs);
     }
     .mobile-search-icon {
       color: var(--hc-gold);
@@ -642,12 +560,12 @@ const links = [
       display: inline-flex;
       align-items: center;
       gap: 2px;
-      padding: 0.15rem 0.35rem;
+      padding: 0.15rem var(--space-3xs);
       border: 1px solid var(--hc-rule-soft);
       border-radius: 2px;
       background: var(--hc-surface-1);
       color: var(--hc-gold-soft);
-      font: 600 0.75rem/1 var(--font-ui);
+      font: 600 var(--fs-xs)/1 var(--font-ui);
     }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -656,8 +574,7 @@ const links = [
     .header-mobile-nav,
     .hamburger-line,
     .theme-toggle,
-    .theme-toggle__thumb,
-    .theme-toggle__thumb-icon {
+    .theme-toggle__icon {
       transition: none !important;
     }
   }
@@ -672,9 +589,14 @@ const links = [
   const mainContent = document.querySelector<HTMLElement>('#main-content');
   const footer = document.querySelector<HTMLElement>('.site-footer');
   let scrollY = 0;
-  const onScroll = () => header?.classList.toggle('is-scrolled', window.scrollY > 20);
+  const onScroll = () => {
+    const scrolled = window.scrollY > 20;
+    header?.classList.toggle('is-scrolled', scrolled);
+    header?.classList.toggle('is-at-top', !scrolled);
+  };
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
+  requestAnimationFrame(() => requestAnimationFrame(() => header?.classList.add('is-ready')));
 
   const setMenu = (open: boolean, returnFocus = false) => {
     if (!toggle || !menu || !backdrop) return;

@@ -108,8 +108,9 @@ export function shellRewrites() {
  * dev server's own routes and its 404.
  */
 export function shellDevServer() {
+  const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
-    `^(${SHELL_FAMILIES.map(({ prefix }) => prefix.replace(/\//g, '\\/')).join('|')})\\/\\d+\\/?(?=$|[?#])`
+    `^(${SHELL_FAMILIES.map(({ prefix }) => escapeRegExp(prefix)).join('|')})\\/\\d+\\/?(?=$|[?#])`
   );
   return {
     name: 'hadithcritic:shell-dev-server',

@@ -3,9 +3,10 @@ import BaseLayout from "../../../../../layouts/BaseLayout.astro";
 import { OG } from "../../../../../lib/seo";
 import { CORPUS_META } from "../../../../../lib/corpus-config";
 import { STRUCTURES, divisionNoun, kitabTitle } from "../../../../../lib/collection-structure";
+import { compilerFor } from "../../../../../lib/hadith-compilers";
 import { renderArabic, renderRich, toPlainText } from "../../../../../lib/format-text";
-import "../../../../../styles/hadith-edition.css";
-import "../../../../../styles/kitab-page.css";
+import "../../../../../styles/hadith-library.css";
+import "../../../../../styles/hadith-reader.css";
 
 /**
  * One book of a collection: Collection, then Book, then its chapters, then
@@ -14,9 +15,6 @@ import "../../../../../styles/kitab-page.css";
  * chapter list and every fallback link work with JavaScript off. A chapter
  * is a native disclosure; src/lib/kitab-page.ts reads its narrations from
  * the static corpus when it is opened, 25 at a time.
- *
- * The rail follows the book in the DOM, so a phone shows the book first; wide
- * screens place it in the left column by grid placement.
  */
 export function getStaticPaths() {
   return STRUCTURES.flatMap((structure) => {
@@ -41,6 +39,9 @@ const next = structure.kitabs[index + 1];
 const isFlat = structure.shape === "flat";
 const heading = isFlat ? `${book.title_en}: chapters` : `${toPlainText(title)} · ${book.title_en}`;
 const position = isFlat ? "" : `${noun.one} ${kitab.n} of ${structure.kitabs.length}`;
+const pad = (n: number, width = 3) => String(n).padStart(width, "0");
+const plural = (n: number, one: string) => `${n.toLocaleString()} ${n === 1 ? one : `${one}s`}`;
+const compiler = compilerFor(slug);
 ---
 
 <BaseLayout
@@ -55,155 +56,120 @@ const position = isFlat ? "" : `${noun.one} ${kitab.n} of ${structure.kitabs.len
     { name: isFlat ? "Chapters" : toPlainText(title), url: kitabUrl(kitab.n) },
   ]}
 >
-  <div class="kb hc-edition" data-book-id={book.id}>
-    <div class="kb__layout">
+  <div class="hl hr-reader kb" data-book-id={book.id} data-region={compiler?.region}>
+    <div class="hl-wrap">
+      <nav class="hr-trail" aria-label="Breadcrumb">
+        <a href={`${collectionUrl}#book-${kitab.n}`} class="hr-trail__back">← {isFlat ? book.title_en : `${noun.one} index`}</a>
+        <span aria-hidden="true">/</span>
+        <a href="/hadith/">Hadith library</a>
+        <span aria-hidden="true">/</span>
+        {!isFlat && <><a href={collectionUrl}>{book.title_en}</a><span aria-hidden="true">/</span></>}
+        <span aria-current="page">{isFlat ? "Chapters" : `${noun.one} ${pad(kitab.n)}`}</span>
+      </nav>
 
-      <div class="kb-main">
-        <header class="hr-head kb-hero">
-          <div class="kb-hero__art" aria-hidden="true">
-            <img src="/images/hadith/compilation-library-1086.webp" srcset="/images/hadith/compilation-library-1086.webp 1086w, /images/hadith/compilation-library.webp 2172w" sizes="(max-width: 1024px) 100vw, 75vw" alt="" width="1086" height="362" fetchpriority="high" />
+      <header class="hr-rhead">
+        <p class="hr-rhead__overline">
+          <span>{book.title_en}</span>
+          {position && <><i aria-hidden="true">·</i><span>{noun.one} {pad(kitab.n)} of {structure.kitabs.length}</span></>}
+        </p>
+        <div class="hr-rhead__row">
+          <span class="hr-rhead__num" aria-hidden="true">{pad(kitab.n, 2)}</span>
+          <div>
+            <h1 class="hr-rhead__title" set:html={isFlat ? renderRich(book.title_en) : renderRich(title)} />
+            <p class="hr-rhead__ar" lang="ar" dir="rtl" set:html={renderArabic(isFlat ? book.title_ar : kitab.title_ar)} />
           </div>
-          <nav class="kb-crumbs" aria-label="Location in the corpus">
-            <a href="/hadith/">Corpus</a>
-            <a href={collectionUrl}>{book.title_en}</a>
-            <span aria-current="page">{isFlat ? "Chapters" : `${noun.one} ${kitab.n}`}</span>
-          </nav>
-          <div class="hr-head__titles">
-            <div class="hr-head__en">
-              <h1 class="hr-head__title" set:html={isFlat ? renderRich(book.title_en) : renderRich(title)} />
-              <p class="hr-head__meta">
-                {position && <span>{position}</span>}
-                <span>{kitab.count.toLocaleString()} narrations</span>
-                <span>{kitab.chapters.length.toLocaleString()} {kitab.chapters.length === 1 ? "chapter" : "chapters"}</span>
-              </p>
-            </div>
-            <div class="hr-head__ar" lang="ar" dir="rtl">
-              <p class="hr-head__title-ar" set:html={renderArabic(isFlat ? book.title_ar : kitab.title_ar)} />
-            </div>
-          </div>
-        </header>
-
-        <div class="hr-chapter kb-band">
-          <p class="hr-chapter__en">
-            {isFlat
-              ? `${book.title_en} has no books above its chapters. Its ${kitab.chapters.length.toLocaleString()} chapters follow the printed edition.`
-              : `${position} in ${book.title_en}, in the order of the printed edition.`}
-            {kitab.companion && (
-              <>
-                {" "}Companion in the Rijāl register:{" "}
-                <a href={`/narrators/${kitab.companion.narrator_id}/`}>{kitab.companion.name_en}</a>.
-              </>
-            )}
-            {kitab.english_basis === "corpus" && (
-              <span class="kb-band__note"> The English heading is the corpus’s own rendering.</span>
-            )}
-          </p>
-          <p class="hr-chapter__ar" lang="ar" dir="rtl">{book.title_ar}</p>
         </div>
+        <p class="hr-rhead__facts">
+          <span>{plural(kitab.count, "narration")}</span>
+          <i aria-hidden="true">·</i>
+          <span>{plural(kitab.chapters.length, "chapter")}</span>
+          {kitab.companion && (
+            <>
+              <i aria-hidden="true">·</i>
+              <span>Companion in the Rijāl register: <a href={`/narrators/${kitab.companion.narrator_id}/`}>{kitab.companion.name_en}</a></span>
+            </>
+          )}
+        </p>
+        {kitab.english_basis === "corpus" && <p class="hr-rhead__note">The English heading is the corpus’s own rendering.</p>}
+      </header>
 
-        <section class="kb-chapters" aria-labelledby="kb-chapters-title">
-          <div class="kb-chapters__head">
-            <h2 class="kb-chapters__title" id="kb-chapters-title">
-              {isFlat ? "Chapters" : `Chapters in this ${noun.one.toLowerCase()}`}
-            </h2>
-            <button type="button" class="kb-expand" data-expand-all hidden>Open all chapters</button>
+      {!isFlat && (previous || next) && (
+        <nav class="hr-pager kb-pager" aria-label={`Previous and next ${noun.many.toLowerCase()}`}>
+          {previous ? (
+            <a class="hr-pager__link" href={kitabUrl(previous.n)} rel="prev">
+              <small>← Previous {noun.one.toLowerCase()} · {pad(previous.n)}</small>
+              <strong set:html={renderRich(kitabTitle(structure, previous))} />
+            </a>
+          ) : <span aria-hidden="true"></span>}
+          {next ? (
+            <a class="hr-pager__link hr-pager__link--next" href={kitabUrl(next.n)} rel="next">
+              <small>Next {noun.one.toLowerCase()} · {pad(next.n)} →</small>
+              <strong set:html={renderRich(kitabTitle(structure, next))} />
+            </a>
+          ) : <span aria-hidden="true"></span>}
+        </nav>
+      )}
+
+      <section class="hr-reports" aria-labelledby="kb-chapters-title">
+        <div class="hr-reports__head">
+          <h2 id="kb-chapters-title">{isFlat ? "Chapters" : `Chapters in this ${noun.one.toLowerCase()}`}</h2>
+          <span>{kitab.chapters.length.toLocaleString()} in preserved order</span>
+          <button type="button" class="hr-expand kb-expand" data-expand-all hidden>Open all chapters</button>
+        </div>
+        <ol class="kb-chapter-list">
+          {kitab.chapters.map((chapter) => (
+            <li>
+              <details class="kb-chapter" id={`chapter-${chapter.n}`} data-first={chapter.first} data-last={chapter.last} data-count={chapter.count}>
+                <summary class="kb-chapter__row">
+                  <span class="kb-chapter__n">{chapter.n}</span>
+                  <span class="kb-chapter__en" set:html={renderRich(chapter.title_en || "")} />
+                  <span class="kb-chapter__ar" lang="ar" dir="rtl" set:html={renderArabic(chapter.title_ar)} />
+                  <span class="kb-chapter__count">{plural(chapter.count, "narration")}</span>
+                </summary>
+                <div class="kb-chapter__body" data-records>
+                  <p class="kb-chapter__fallback"><a href={`/hadith/${chapter.first}/`}>Open the first narration in this chapter</a></p>
+                </div>
+              </details>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {!isFlat && (previous || next) && (
+        <nav class="hr-pager hr-pager--bottom" aria-label={`Previous and next ${noun.many.toLowerCase()}, end of page`}>
+          {previous ? (
+            <a class="hr-pager__link" href={kitabUrl(previous.n)} rel="prev">
+              <small>← Previous {noun.one.toLowerCase()} · {pad(previous.n)}</small>
+              <strong set:html={renderRich(kitabTitle(structure, previous))} />
+            </a>
+          ) : <span aria-hidden="true"></span>}
+          {next ? (
+            <a class="hr-pager__link hr-pager__link--next" href={kitabUrl(next.n)} rel="next">
+              <small>Next {noun.one.toLowerCase()} · {pad(next.n)} →</small>
+              <strong set:html={renderRich(kitabTitle(structure, next))} />
+            </a>
+          ) : <span aria-hidden="true"></span>}
+        </nav>
+      )}
+
+      {!isFlat && (
+        <nav class="hr-booknav kb-nav" aria-labelledby="kb-nav-title">
+          <div class="hr-reports__head">
+            <h2 id="kb-nav-title">All {noun.many.toLowerCase()} in {book.title_en}</h2>
+            <span>{structure.kitabs.length.toLocaleString()} in the edition</span>
           </div>
-          <ol class="kb-chapter-list">
-            {kitab.chapters.map((chapter) => {
-              return (
-                <li>
-                  <details
-                    class="kb-chapter"
-                    id={`chapter-${chapter.n}`}
-                    data-first={chapter.first}
-                    data-last={chapter.last}
-                    data-count={chapter.count}
-                  >
-                    <summary class="kb-chapter__row">
-                      <span class="kb-chapter__n">{chapter.n}</span>
-                      <span class="kb-chapter__en" set:html={renderRich(chapter.title_en || "")} />
-                      <span class="kb-chapter__ar" lang="ar" dir="rtl" set:html={renderArabic(chapter.title_ar)} />
-                      <span class="kb-chapter__count">
-                        {chapter.count.toLocaleString()} {chapter.count === 1 ? "narration" : "narrations"}
-                      </span>
-                    </summary>
-                    <div class="kb-chapter__body" data-records>
-                      <p class="kb-chapter__fallback">
-                        <a href={`/hadith/${chapter.first}/`}>
-                          Open the first narration in this chapter
-                        </a>
-                      </p>
-                    </div>
-                  </details>
-                </li>
-              );
-            })}
+          <ol class="hr-booknav__list">
+            {structure.kitabs.map((item) => (
+              <li>
+                <a href={kitabUrl(item.n)} aria-current={item.n === kitab.n ? "page" : undefined}>
+                  <span class="hr-booknav__n">{pad(item.n, 2)}</span>
+                  <span class="hr-booknav__en" set:html={renderRich(kitabTitle(structure, item))} />
+                </a>
+              </li>
+            ))}
           </ol>
-        </section>
-
-        {!isFlat && (previous || next) && (
-          <nav class="kb-pager" aria-label={`Neighbouring ${noun.many.toLowerCase()}`}>
-            {previous ? (
-              <a class="kb-pager__link kb-pager__link--prev" href={kitabUrl(previous.n)} rel="prev">
-                <span class="kb-pager__dir">Previous</span>
-                <span set:html={renderRich(kitabTitle(structure, previous))} />
-              </a>
-            ) : <span />}
-            {next ? (
-              <a class="kb-pager__link kb-pager__link--next" href={kitabUrl(next.n)} rel="next">
-                <span class="kb-pager__dir">Next</span>
-                <span set:html={renderRich(kitabTitle(structure, next))} />
-              </a>
-            ) : <span />}
-          </nav>
-        )}
-      </div>
-
-      <aside class="kb-rail" aria-label={`${book.title_en}: collection and ${noun.many.toLowerCase()}`}>
-        <a class="kb-rail__back" href="/hadith/">Hadith corpus</a>
-        <section class="kb-card" aria-labelledby="kb-card-title">
-          <img class="kb-card__art" src="/images/hadith/books/manuscript.webp" alt="" width="418" height="418" />
-          <p class="kb-card__label">Collection</p>
-          <h2 class="kb-card__title" id="kb-card-title"><a href={collectionUrl}>{book.title_en}</a></h2>
-          {book.title_ar && <p class="kb-card__ar" lang="ar" dir="rtl">{book.title_ar}</p>}
-          <dl class="kb-card__stats">
-            <div><dt>Narrations</dt><dd>{book.hadith_count.toLocaleString()}</dd></div>
-            <div>
-              <dt>{isFlat ? "Chapters" : noun.many}</dt>
-              <dd>{(isFlat ? kitab.chapters.length : structure.kitabs.length).toLocaleString()}</dd>
-            </div>
-          </dl>
-          <a class="kb-card__edition" href={collectionUrl}>Read in sequence</a>
-        </section>
-
-        {!isFlat && (
-          <nav class="kb-nav" aria-labelledby="kb-nav-title">
-            <h2 class="kb-nav__title" id="kb-nav-title">{noun.many}</h2>
-            <ol class="kb-nav__list">
-              {structure.kitabs.map((item) => (
-                <li>
-                  <a href={kitabUrl(item.n)} aria-current={item.n === kitab.n ? "page" : undefined}>
-                    <span class="kb-nav__n">{item.n}</span>
-                    <span class="kb-nav__names">
-                      <span class="kb-nav__en" set:html={renderRich(kitabTitle(structure, item))} />
-                      <span class="kb-nav__ar" lang="ar" dir="rtl" set:html={renderArabic(item.title_ar)} />
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        )}
-
-        <form class="kb-search" method="get" action="/hadith/">
-          <input type="hidden" name="book" value={book.id} />
-          <label class="kb-search__label" for="kb-q">Search {book.title_en}</label>
-          <div class="kb-search__bar">
-            <input id="kb-q" class="kb-search__input" type="search" name="q" autocomplete="off" />
-            <button type="submit" class="kb-search__btn">Search</button>
-          </div>
-        </form>
-      </aside>
+        </nav>
+      )}
     </div>
   </div>
 </BaseLayout>

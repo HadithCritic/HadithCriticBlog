@@ -1,11 +1,11 @@
 # Studio article inventory
 
-Generated 2026-10-17T04:11:16.217Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
+Generated 2026-11-05T15:12:36.604Z from the checked-out source. This is a conservative syntax screen, not a proof of semantic round-trip safety. Files with imports, JSX, custom components, HTML, named slots, footnotes or custom heading IDs stay in source mode.
 
-- Articles: 85
+- Articles: 87
 - Visual-safe candidate: 0
 - Partial visual candidate: 0
-- Source-only: 85
+- Source-only: 87
 
 All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm run studio:inventory after any intentional article edit.
 
@@ -47,6 +47,7 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `origins-early-history/72-more-on-the-fabricated-baghdad-hadith-prophecy` | source-only | imports, rawHtml, customComponents | `1d97ee0b4a0e790c669959aa213c1f993ed029e36539915855373801aed9b9a3` |
 | `origins-early-history/73-green-arabia-hadith-sunnah-com-translation-change-fabrication` | source-only | imports, rawHtml, jsxExpressions, customComponents | `1d5e1b23566f2a77e0172857997b9fe7443f81ac6581c36cc4c8d0da42a866af` |
 | `origins-early-history/74-the-quranic-epistemology-of-verification` | source-only | imports, namedSlots, rawHtml, customComponents | `907cf7b70c133e8d65b72e49276e813d3d6471af7067fe6b3fe398a784f8384c` |
+| `origins-early-history/86-muhammad-before-revelation` | source-only | imports, namedSlots, rawHtml, jsxExpressions, customComponents | `305024601943b3a4a940d031200865565be751035c5c7b84edebf8740df58b00` |
 | `prophecies-eschatology/10-muhammad-did-not-split-the-moon` | source-only | imports, namedSlots, rawHtml, customComponents | `6146d3d2144b4519b63f6e1acb8170599c7b17dd61fce300d8ba79b7dd2c89a5` |
 | `prophecies-eschatology/15-the-hasanid-mahdi-a-mahdi-fabricated-by-asim-teacher-of-quran-reciter-hafs` | source-only | imports, rawHtml, jsxExpressions, customComponents, tables | `ba995f7d03ea3b1975d5529937d54a85f33c0b25564517f38e78c09feb46690c` |
 | `prophecies-eschatology/16-the-kaysanite-mahdi-the-obscure-3rd-son-of-ali` | source-only | imports, rawHtml, jsxExpressions, customComponents | `9d013d2bde1deb53da11f2914eb3df0e7a505ca43057d5d5163dd6813259e9d7` |
@@ -77,6 +78,7 @@ All SHA-256 values below are the baseline for the legacy MDX files. Re-run npm r
 | `theology-epistemology/79-the-wisdom-of-solomon-and-the-quran` | source-only | imports, namedSlots, rawHtml, footnotes, customComponents | `246e334ad1c32eef220bb6cad0bb60dba79ffdc5119d5b7e51b067fe95fdb443` |
 | `theology-epistemology/8-the-first-revelation-story-a-zubayrid-call-narrative` | source-only | imports, rawHtml, jsxExpressions, footnotes, customComponents, tables | `decfa46640cfab5ec335793594e289333ce2406cdc5be27134e6be2d9a0cdc9e` |
 | `theology-epistemology/81-the-people-of-the-canyon-in-q85-a-case-for-the-valley-of-hinnom-gehenna` | source-only | imports, namedSlots, rawHtml, footnotes, customComponents | `0756c2968dfe8d38fb077a5960bcb98decb5c12de4866a9dc7edc93e2520798c` |
+| `theology-epistemology/87-al-sabiun-converts-not-a-sect` | source-only | imports, namedSlots, rawHtml, jsxExpressions, footnotes, customComponents | `2ebf45e41ee0d9f273681c014eeca03e54c67b2b2bfcaf092756341fca4c7d7e` |
 | `transmission-narrators/11-the-hadith-of-the-drought-al-albani-foundation-refutation` | source-only | imports, namedSlots, rawHtml, jsxExpressions, customComponents | `3de03c0a23fd860f230d9b8e6322747fa52b35797ee7baeb7f6f206681a20058` |
 | `transmission-narrators/12-the-hadith-of-angels-cursing-women-who-dont-sleep-with-their-husbands` | source-only | imports, rawHtml, footnotes, customComponents, tables | `de9c58659ef269ba4c3e43ad72a021b7226d028eef83de57fdd8e24c9547a0df` |
 | `transmission-narrators/17-the-corruption-of-prayer-within-the-hadith` | source-only | imports, rawHtml, customComponents | `ecf29331d4b9becfa2eafa9f700fd92c4bfc19df8b0aaa783b43d7d54b72aa68` |

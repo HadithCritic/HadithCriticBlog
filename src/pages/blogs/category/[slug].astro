@@ -30,7 +30,6 @@ const { category, all, posts } = Astro.props;
 /* Folios are numbered across the whole archive, so a study keeps its number here. */
 const entries = toEntries(posts, all);
 const years = byYear(entries);
-const frontispiece = entries.find((entry) => entry.artwork);
 const others = CATEGORIES.map((other) => ({
   ...other,
   count: all.filter((post) => post.data.category === other.name).length
@@ -62,18 +61,9 @@ const plural = (count: number) => `${count} ${count === 1 ? 'study' : 'studies'}
   schema={schema}
   crumbs={crumbs}
 >
-  <div class="hc-page hc-plate bi-page bi-hub" data-category={category.name}>
+  <div class="hc-page bi-page bi-hub" data-category={category.name}>
     <PageHero title={category.name} titleId="hub-title" kicker="Blog" kickerHref="/blogs/" class="bi-hub-hero" measure="16ch">
       <p class="hc-hero__lede">{category.blurb}</p>
-      {frontispiece?.artwork && (
-        <figure slot="aside" class="bi-hub-plate">
-          <img src={frontispiece.artwork.srcset.split(' ')[0]} alt={frontispiece.artwork.alt} width="720" height="480" loading="eager" decoding="async" />
-          <figcaption>
-            <span>Latest illustrated study</span>
-            <a href={`/blogs/${frontispiece.post.id}/`}>{frontispiece.post.data.title}</a>
-          </figcaption>
-        </figure>
-      )}
       <Fragment slot="register">
         <span><strong>{entries.length}</strong> {entries.length === 1 ? 'study' : 'studies'} in this branch</span>
         {years.length > 0 && (
@@ -89,14 +79,14 @@ const plural = (count: number) => `${count} ${count === 1 ? 'study' : 'studies'}
           <h2 id="hub-list-title" class="sr-only">Studies in {category.name}</h2>
           {years.length > 0 ? (
             <div class="bi-years">
-              {years.map((group) => (
+              {years.map((group, groupIndex) => (
                 <section class="bi-year" aria-labelledby={`hub-year-${group.year}`}>
                   <header class="bi-year__head">
                     <h3 id={`hub-year-${group.year}`} class="bi-year__title">{group.year}</h3>
                     <span class="bi-year__count">{plural(group.entries.length)}</span>
                   </header>
                   <ol class="bi-ledger">
-                    {group.entries.map((entry) => <ArchiveEntry entry={entry} showCategory={false} />)}
+                    {group.entries.map((entry, index) => <ArchiveEntry entry={entry} showCategory={false} showNew={groupIndex === 0 && index === 0} />)}
                   </ol>
                 </section>
               ))}

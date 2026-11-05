@@ -71,45 +71,44 @@ function splitEnglish(report: string | null, matn: string | null): { chain: stri
  * itself never waits on them.
  */
 function pagerMarkup(place: 'top' | 'bottom'): string {
-  return `<nav class="edition-pager edition-pager--${place}" data-record-pager aria-label="Neighbouring narrations in this collection" hidden></nav>`;
+  return `<nav class="hr-pager hr-pager--${place} edition-pager edition-pager--${place}" data-record-pager aria-label="Neighbouring narrations in this collection" hidden></nav>`;
 }
 
 function headMarkup(detail: HadithDetail, id: number): string {
   const { hadith } = detail;
   const collection = `/hadith/collection/${escapeHtml(hadith.book_slug)}/`;
+  const number = hadith.hadith_num ? escapeHtml(hadith.hadith_num) : String(id);
   return `
-    <header class="hr-head edition-hero">
-      <div class="hr-head__art" aria-hidden="true"></div>
-      <div class="hr-head__top">
-        <a class="hr-head__back" href="${collection}"><span aria-hidden="true">←</span> ${escapeHtml(hadith.book_en)}</a>
-        ${pagerMarkup('top')}
-      </div>
-      <div class="hr-head__titles">
-        <div class="hr-head__en">
-          <h1 class="hr-head__title">
+    <nav class="hr-trail hr-head__top" aria-label="Breadcrumb">
+      <a class="hr-trail__back hr-head__back" href="${collection}"><span aria-hidden="true">←</span> ${escapeHtml(hadith.book_en)}</a>
+      <span aria-hidden="true">/</span>
+      <a href="/hadith/">Hadith library</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">${hadith.hadith_num ? `Hadith ${number}` : `Record ${id}`}</span>
+    </nav>
+    <header class="hr-head hr-rhead edition-hero">
+      <p class="hr-rhead__overline">
+        <span data-kitab-en hidden></span>
+        <span>Corpus record ${id}</span>
+      </p>
+      <div class="hr-rhead__row">
+        <span class="hr-rhead__num" aria-hidden="true">${number}</span>
+        <div>
+          <h1 class="hr-head__title hr-rhead__title">
             <a href="${collection}">${escapeHtml(hadith.book_en)}</a>${
-              hadith.hadith_num ? `<span class="hr-visually-hidden">, hadith ${escapeHtml(hadith.hadith_num)}</span>` : ''
+              hadith.hadith_num ? `<span class="hr-visually-hidden">, hadith ${number}</span>` : ''
             }
           </h1>
-          <p class="hr-head__meta">
-            <span data-kitab-en hidden></span>
-            ${hadith.hadith_num ? `<span>Hadith ${escapeHtml(hadith.hadith_num)}</span>` : ''}
-            <span>Corpus record ${id}</span>
-          </p>
+          ${hadith.book_ar ? `<p class="hr-head__title-ar hr-rhead__ar" lang="ar" dir="rtl">${escapeHtml(hadith.book_ar)}</p>` : ''}
         </div>
-        ${
-          hadith.book_ar
-            ? `<div class="hr-head__ar" lang="ar" dir="rtl">
-                 <p class="hr-head__title-ar">${escapeHtml(hadith.book_ar)}</p>
-                 <p class="hr-head__meta">
-                   <span data-kitab-ar hidden></span>
-                   ${hadith.hadith_num ? `<span>حديث ${escapeHtml(arabicDigits(hadith.hadith_num))}</span>` : ''}
-                 </p>
-               </div>`
-            : ''
-        }
       </div>
-    </header>`;
+      <p class="hr-head__meta hr-rhead__facts">
+        ${hadith.hadith_num ? `<span>Hadith ${number}</span><i aria-hidden="true">·</i>` : ''}
+        <span data-kitab-ar lang="ar" dir="rtl" hidden></span>
+        ${hadith.hadith_num ? `<span lang="ar" dir="rtl">حديث ${escapeHtml(arabicDigits(hadith.hadith_num))}</span>` : ''}
+      </p>
+    </header>
+    ${pagerMarkup('top')}`;
 }
 
 /** The chapter heading, English first; the Arabic is the source's own heading. */
@@ -200,6 +199,7 @@ function leafMarkup(detail: HadithDetail): string {
       <h2 id="report-heading" class="hr-visually-hidden">The report</h2>
       <div class="hr-leaf critical-spread">
         <div class="hr-leaf__en critical-col--en">
+          <p class="hr-leaf__label">English <span>· machine translation</span></p>
           ${
             english
               ? `${english.chain ? `<p class="hr-leaf__chain facing-prose facing-prose--en">${renderRich(english.chain)}</p><span class="hr-leaf__rule" aria-hidden="true"></span>` : ''}
@@ -209,6 +209,7 @@ function leafMarkup(detail: HadithDetail): string {
           <p class="hr-leaf__note">English rendering: machine translation, not reviewed. The Arabic is the source text.</p>
         </div>
         <div class="hr-leaf__ar critical-col--ar">
+          <p class="hr-leaf__label">Arabic <span lang="ar">· العربية</span></p>
           <div class="facing-prose facing-prose--ar" lang="ar" dir="rtl">${renderArabic(arabic)}</div>
         </div>
       </div>
@@ -456,7 +457,7 @@ function degraded(badge: string, title: string, body: string): string {
       <h1 class="hadith-degraded__title">${escapeHtml(title)}</h1>
       <p class="hadith-degraded__text">${escapeHtml(body)}</p>
       <div class="hadith-degraded__actions">
-        <a class="hc-btn" href="/hadith/">← Return to the corpus</a>
+        <a class="hl-btn hl-btn--gold" href="/hadith/">← Return to the corpus</a>
       </div>
     </div>`;
 }
@@ -529,8 +530,8 @@ async function fillPager(detail: HadithDetail): Promise<void> {
     const label = (item: { id: number; hadith_num: string | null }) =>
       item.hadith_num ? `No. ${escapeHtml(item.hadith_num)}` : `Record ${item.id}`;
     const markup = `
-      ${prev ? `<a class="edition-pager__link" href="/hadith/${prev.id}/" rel="prev"><span aria-hidden="true">←</span> <span class="edition-pager__dir">Previous</span> ${label(prev)}</a>` : '<span></span>'}
-      ${next ? `<a class="edition-pager__link edition-pager__link--next" href="/hadith/${next.id}/" rel="next"><span class="edition-pager__dir">Next</span> ${label(next)} <span aria-hidden="true">→</span></a>` : '<span></span>'}`;
+      ${prev ? `<a class="hr-pager__link edition-pager__link" href="/hadith/${prev.id}/" rel="prev"><small><span aria-hidden="true">←</span> <span class="edition-pager__dir">Previous narration</span></small><strong>${label(prev)}</strong></a>` : '<span></span>'}
+      ${next ? `<a class="hr-pager__link hr-pager__link--next edition-pager__link edition-pager__link--next" href="/hadith/${next.id}/" rel="next"><small><span class="edition-pager__dir">Next narration</span> <span aria-hidden="true">→</span></small><strong>${label(next)}</strong></a>` : '<span></span>'}`;
     for (const pager of pagers) {
       pager.innerHTML = markup;
       pager.hidden = false;

@@ -1,7 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
-import '../../styles/hadith-edition.css';
+import '../../styles/hadith-library.css';
+import '../../styles/hadith-reader.css';
 
 /**
  * Critical edition record for one narration.
@@ -14,6 +15,7 @@ import '../../styles/hadith-edition.css';
  * src/lib/hadith-record.ts reads the id from the address and fills the page
  * from the static corpus in the browser: the narration, its facing texts, its
  * isnad branches and its apparatus, and the title and canonical address.
+ * Its markup is styled by src/styles/hadith-reader.css, which is global.
  *
  * The consequences to be aware of: a crawler that does not run JavaScript sees
  * the shell rather than the narration, and an id the corpus does not hold
@@ -28,26 +30,26 @@ import '../../styles/hadith-edition.css';
   shell
   description="A primary source narration in Arabic and English from the HadithCritic corpus, with its transmission chain and critical apparatus."
 >
-  <div class="hadith-record-page hc-plate">
-  <div class="hadith-container hc-edition">
-    <div class="record-loading" data-record-loading>
-      <span class="record-spinner" aria-hidden="true"></span>
-      <p>Reading this narration from the corpus...</p>
-    </div>
-    <noscript>
-      <div class="hadith-degraded">
-        <span class="hadith-degraded__badge">JavaScript required</span>
-        <h1 class="hadith-degraded__title">Narration</h1>
-        <p class="hadith-degraded__text">
-          Narrations are read from a static SQLite corpus inside your browser,
-          which needs JavaScript. The written research on this site does not.
-        </p>
-        <div class="hadith-degraded__actions">
-          <a class="hc-btn" href="/hadith/">Return to the corpus index</a>
-        </div>
+  <div class="hl hadith-record-page">
+    <div class="hl-wrap hadith-container">
+      <div class="record-loading" data-record-loading>
+        <span class="record-spinner" aria-hidden="true"></span>
+        <p>Reading this narration from the corpus...</p>
       </div>
-    </noscript>
-  </div>
+      <noscript>
+        <div class="hadith-degraded">
+          <span class="hadith-degraded__badge">JavaScript required</span>
+          <h1 class="hadith-degraded__title">Narration</h1>
+          <p class="hadith-degraded__text">
+            Narrations are read from a static SQLite corpus inside your browser,
+            which needs JavaScript. The written research on this site does not.
+          </p>
+          <div class="hadith-degraded__actions">
+            <a class="hl-btn hl-btn--gold" href="/hadith/">Return to the corpus index</a>
+          </div>
+        </div>
+      </noscript>
+    </div>
   </div>
 </BaseLayout>
 
@@ -55,145 +57,3 @@ import '../../styles/hadith-edition.css';
   import { initHadithRecord } from '../../lib/hadith-record';
   initHadithRecord();
 </script>
-
-<style is:global>
-  /*
-   * The narration record's shell and its apparatus. Every rule is global
-   * because src/lib/hadith-record.ts builds the markup in the browser, where
-   * Astro's scope hash never reaches. The masthead, band, leaf and panels are
-   * shared with the kitab pages and live in src/styles/hadith-edition.css.
-   */
-  html { scroll-behavior: smooth; }
-
-  /* Match the compilation masthead across the full record page. */
-  body:has(.hadith-record-page),
-  .hadith-record-page,
-  :root[data-theme] .hadith-record-page.hc-plate {
-    background: var(--hc-fixed-black) !important;
-  }
-
-  .hadith-container {
-    width: min(100% - 2rem, 76rem);
-    margin: 0 auto;
-    padding: clamp(1rem, 2.5vw, 1.75rem) 0 6rem;
-  }
-
-  /* ── Shell states, before the record arrives ── */
-  .record-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: clamp(3rem, 12vh, 7rem) 1rem;
-    color: var(--hc-text-secondary);
-    font: 400 0.9rem/1.5 var(--font-ui);
-    text-align: center;
-  }
-  .record-spinner {
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 2px solid var(--hc-rule-soft);
-    border-top-color: var(--hc-gold);
-    border-radius: 50%;
-    animation: record-spin 900ms linear infinite;
-  }
-  @keyframes record-spin { to { transform: rotate(360deg); } }
-
-  .hadith-degraded {
-    max-width: 48rem;
-    margin: 4rem auto;
-    padding: clamp(2rem, 5vw, 4rem);
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: var(--radius-xs);
-    background: var(--hc-surface-1);
-    text-align: center;
-  }
-  .hadith-degraded__badge {
-    display: inline-flex;
-    margin-bottom: 1rem;
-    padding: 0.28rem 0.7rem;
-    border: 1px solid var(--hc-rule-soft);
-    border-radius: 999px;
-    color: var(--hc-gold);
-    font: 700 0.75rem/1.4 var(--font-ui);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-  }
-  .hadith-degraded__title {
-    margin: 0 0 0.85rem;
-    color: var(--hc-text-primary);
-    font: 500 clamp(1.7rem, 4vw, 2.3rem)/1.2 var(--font-display);
-  }
-  .hadith-degraded__text {
-    max-width: 54ch;
-    margin: 0 auto 1.5rem;
-    color: var(--hc-text-secondary);
-    font: 400 1rem/1.75 var(--font-body);
-  }
-  .hadith-degraded__actions { display: flex; justify-content: center; }
-
-  /* ── More on this report ── */
-  .hr-more { margin-top: clamp(1.75rem, 4vw, 2.5rem); }
-  .hr-more__title {
-    margin: 0 0 0.5rem;
-    color: var(--hc-text-primary);
-    font: 500 1.25rem/1.3 var(--font-display);
-    scroll-margin-top: calc(var(--site-header-height, 72px) + 1.5rem);
-  }
-  .hr-more__item { border-top: 1px solid var(--hc-rule-soft); }
-  .hr-more__item:last-child { border-bottom: 1px solid var(--hc-rule-soft); }
-  .hr-more__item > summary {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    min-height: 48px;
-    padding: 0.8rem 0;
-    color: var(--hc-text-primary);
-    font: 500 0.98rem/1.4 var(--font-body);
-    cursor: pointer;
-  }
-  .hr-more__item > summary span { color: var(--hc-text-tertiary); font: 500 0.8rem/1.4 var(--font-ui); }
-  .hr-more__note { margin: 0.6rem 0 1rem; color: var(--hc-text-tertiary); font: 400 0.82rem/1.6 var(--font-body); }
-  .hr-more__ar { margin: 0 0 0.5rem; color: var(--hc-text-primary); font: 400 1.25rem/2 var(--font-arabic); text-align: right; }
-  .hr-counts { margin: 0; padding: 0; list-style: none; }
-  .hr-counts li {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.5rem 0;
-    border-top: 1px dashed var(--hc-rule-soft);
-    color: var(--hc-text-secondary);
-    font: 400 0.9rem/1.5 var(--font-body);
-  }
-  .hr-counts strong { color: var(--hc-text-primary); font-weight: 600; }
-  .hr-counts__n { color: var(--hc-text-primary); font: 600 0.95rem/1.5 var(--font-ui); font-variant-numeric: tabular-nums; }
-  .hr-glosses { display: grid; gap: 0; margin: 0 0 1rem; }
-  .hr-glosses > div {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1rem;
-    padding: 0.45rem 0;
-    border-top: 1px dashed var(--hc-rule-soft);
-  }
-  .hr-glosses dd { margin: 0; color: var(--hc-text-primary); font: 400 0.95rem/1.5 var(--font-body); }
-  .hr-glosses dt { color: var(--hc-text-secondary); font: 400 1.1rem/1.6 var(--font-arabic); }
-  .hr-subjects { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
-  .hr-subjects a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 36px;
-    padding: 0.3rem 0.75rem;
-    border: 1px solid var(--hc-rule);
-    border-radius: var(--radius-xs);
-    color: var(--hc-text-secondary);
-    font: 400 0.85rem/1.4 var(--font-body);
-    text-decoration: none;
-  }
-  .hr-subjects a:hover { border-color: var(--hc-gold-dim); color: var(--hc-text-primary); }
-
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    .record-spinner { animation: none; }
-  }
-</style>

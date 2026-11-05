@@ -1,5 +1,7 @@
 /** Source availability checked on 2026-10-16. See docs/history-source-inventory.md.
- * A saved translation catalog is evidence of earlier work, not a published text.
+ * `reader` is the English reading edition under /projects/history/<slug>/, with
+ * the section and word counts of that edition, or null where the translation is
+ * not open yet.
  *
  * Sources are listed in order of their authors' deaths, which is the order the
  * page's chronology draws them in. `died` is the conventional death date in
@@ -8,6 +10,7 @@
 export const historySources = [
   {
     id: 'al-waqidi-ridda',
+    reader: { slug: 'book-of-apostasy', entries: 6, words: 58263 },
     author: 'Muḥammad ibn ʿUmar al-Wāqidī',
     title: 'The Book of Apostasy (Kitāb al-Ridda)',
     arabic: 'كتاب الردة',
@@ -20,6 +23,7 @@ export const historySources = [
   },
   {
     id: 'khalifa-ibn-khayyat',
+    reader: { slug: 'khalifa', entries: 432, words: 145565 },
     author: 'Khalīfa ibn Khayyāṭ',
     title: 'Chronicle of Khalīfa ibn Khayyāṭ (Tārīkh Khalīfa ibn Khayyāṭ)',
     arabic: 'تاريخ خليفة بن خياط',
@@ -32,6 +36,7 @@ export const historySources = [
   },
   {
     id: 'ibn-habib-munammaq',
+    reader: { slug: 'genealogies-of-quraysh', entries: 77, words: 109030 },
     author: 'Muḥammad ibn Ḥabīb al-Baghdādī',
     title: 'Genealogies of Quraysh (al-Munammaq fī akhbār Quraysh)',
     arabic: 'المنمق في أخبار قريش',
@@ -44,6 +49,7 @@ export const historySources = [
   },
   {
     id: 'ibn-habib-muhabbar',
+    reader: { slug: 'well-informed', entries: 67, words: 112148 },
     author: 'Muḥammad ibn Ḥabīb al-Baghdādī',
     title: 'The Well-Informed (al-Muḥabbar)',
     arabic: 'المحبّر',
@@ -56,6 +62,7 @@ export const historySources = [
   },
   {
     id: 'ibn-abd-al-hakam',
+    reader: { slug: 'conquests-of-egypt-and-the-maghrib', entries: 76, words: 145533 },
     author: 'ʿAbd al-Raḥmān ibn ʿAbd Allāh ibn ʿAbd al-Ḥakam',
     title: 'Conquests of Egypt and the Maghrib (Futūḥ Miṣr wa-l-Maghrib)',
     arabic: 'فتوح مصر والمغرب',
@@ -68,6 +75,7 @@ export const historySources = [
   },
   {
     id: 'ibn-qutayba-maarif',
+    reader: { slug: 'book-of-knowledge', entries: 234, words: 149300 },
     author: 'ʿAbd Allāh ibn Muslim ibn Qutayba al-Dīnawarī',
     title: 'Knowledge (al-Maʿārif)',
     arabic: 'المعارف',
@@ -80,6 +88,7 @@ export const historySources = [
   },
   {
     id: 'al-fasawi-marifa-tarikh',
+    reader: { slug: 'knowledge-and-history', entries: 180, words: 485049 },
     author: 'Yaʿqūb ibn Sufyān al-Fasawī',
     title: 'Knowledge and History (al-Maʿrifa wa-l-tārīkh)',
     arabic: 'المعرفة والتاريخ',
@@ -92,6 +101,7 @@ export const historySources = [
   },
   {
     id: 'al-baladhuri',
+    reader: { slug: 'futuh-al-buldan', entries: 102, words: 180032 },
     author: 'Al-Balādhurī',
     title: 'The Conquests of the Lands (Futūḥ al-buldān)',
     arabic: 'فتوح البلدان',
@@ -104,6 +114,7 @@ export const historySources = [
   },
   {
     id: 'al-tabari',
+    reader: null,
     author: 'Al-Ṭabarī',
     title: 'The History of al-Ṭabarī (Tārīkh al-Ṭabarī)',
     arabic: 'تاريخ الطبري',
@@ -122,4 +133,27 @@ export type HistorySource = (typeof historySources)[number];
 export function deathDate(source: HistorySource): string {
   const { ah, ce, circa } = source.died;
   return `d. ${circa ? 'c. ' : ''}${ah}/${ce}`;
+}
+
+export interface ReaderFacts {
+  href: string;
+  entries: number;
+  words: number;
+}
+
+/** The open reading edition for a source, or null while it is not published. */
+export function readerFor(source: HistorySource): ReaderFacts | null {
+  const { reader } = source;
+  return reader ? { href: `/projects/history/${reader.slug}/`, entries: reader.entries, words: reader.words } : null;
+}
+
+/** Every source whose reading edition is open, with its facts. */
+export const openReaders = historySources.flatMap((source) => {
+  const reader = readerFor(source);
+  return reader ? [{ source, reader }] : [];
+});
+
+/** "about 145,000 words". */
+export function roundedWords(words: number): string {
+  return `about ${(Math.round(words / 1000) * 1000).toLocaleString("en-US")} words`;
 }

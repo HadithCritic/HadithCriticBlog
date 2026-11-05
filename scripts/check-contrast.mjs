@@ -25,10 +25,6 @@
  *   node scripts/check-contrast.mjs --theme light   # one theme
  *   node scripts/check-contrast.mjs --all-articles  # every article too
  *   node scripts/check-contrast.mjs --route /x      # one route
- *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results # render quiz result state
- *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results --width 390
- *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-empty # all items skipped
- *   node scripts/check-contrast.mjs --route /projects/fiqh-compass/quiz/ --quiz-results-unknown # all responses unsure
  *   node scripts/check-contrast.mjs --json          # composited bg and DOM path
  *   node scripts/check-contrast.mjs --open-details  # open every <details> first, so collapsed text is measured
  *
@@ -51,20 +47,8 @@ const JSON_OUT = args.includes('--json');
    disclosures. Closed text is not painted, so without this it is never measured. */
 const OPEN_DETAILS = args.includes('--open-details');
 const ONLY = args.includes('--route') ? args[args.indexOf('--route') + 1] : null;
-const QUIZ_RESULTS = args.includes('--quiz-results');
-const QUIZ_RESULTS_EMPTY = args.includes('--quiz-results-empty');
-const QUIZ_RESULTS_UNKNOWN = args.includes('--quiz-results-unknown');
 const VIEWPORT_WIDTH = args.includes('--width') ? Number(args[args.indexOf('--width') + 1]) : 1440;
 
-const QUIZ_RESULT_MODES = [QUIZ_RESULTS, QUIZ_RESULTS_EMPTY, QUIZ_RESULTS_UNKNOWN].filter(Boolean).length;
-if (QUIZ_RESULT_MODES > 1) {
-  process.stderr.write('Choose only one quiz result mode\n');
-  process.exit(2);
-}
-if (QUIZ_RESULT_MODES && ONLY !== '/projects/fiqh-compass/quiz/') {
-  process.stderr.write('--quiz-results options require --route /projects/fiqh-compass/quiz/\n');
-  process.exit(2);
-}
 if (!Number.isInteger(VIEWPORT_WIDTH) || VIEWPORT_WIDTH < 240 || VIEWPORT_WIDTH > 3840) {
   process.stderr.write('--width must be an integer between 240 and 3840\n');
   process.exit(2);
@@ -82,14 +66,10 @@ const ROUTES = [
   '/narrators/compare?ids=484,3889',
   '/blogs',
   '/blogs/category/transmission-narrators',
-  '/academia',
   '/resources',
   '/projects',
-  '/projects/tafsir',
-  '/projects/tafsir/sura/1',
   '/projects/quran/sura/1',
   '/projects/quran/readers/nafi',
-  '/projects/fiqh-compass',
   '/youtube',
   '/brand',
   '/contact'
@@ -375,33 +355,6 @@ for (const theme of THEMES) {
         continue;
       }
       await settle(page);
-      if (QUIZ_RESULT_MODES) {
-        await page.locator('[data-compass-auto-advance]').uncheck({ force: true });
-        const questionCount = await page.locator('[data-question]').count();
-        for (let index = 0; index < questionCount; index += 1) {
-          if (QUIZ_RESULTS || QUIZ_RESULTS_UNKNOWN) {
-            const value = QUIZ_RESULTS ? '0' : 'unknown';
-            await page.locator(`[data-question-index="${index}"] input[type="radio"][value="${value}"]`).check({ force: true });
-          }
-          await page.locator('[data-compass-next]').click();
-        }
-        await page.locator('[data-compass-results]:not([hidden])').waitFor({ state: 'visible' });
-        const resultRows = await page.locator('.fc-result-row').count();
-        // Every row carries the answers behind it and the figures placed on it; a scored
-        // run also names the closest figures, each with the passages behind it.
-        const disclosures = page.locator('.fc-result-basis, .fc-evidence-disclosure, .fc-figures-axis, .fc-figure__sources, .fc-figures__more');
-        const basisCount = await page.locator('.fc-result-basis').count();
-        const evidenceDisclosureCount = await page.locator('.fc-evidence-disclosure').count();
-        const figureCards = await page.locator('.fc-figure').count();
-        const noScoreRows = await page.locator('.fc-result-meta').filter({ hasText: 'No scored answers' }).count();
-        const meters = await page.locator('.fc-meter').count();
-        const expectsNoScore = QUIZ_RESULTS_EMPTY || QUIZ_RESULTS_UNKNOWN;
-        if (resultRows !== 12 || basisCount !== 12 || (expectsNoScore && (noScoreRows !== 12 || meters !== 0 || figureCards !== 0)) || (QUIZ_RESULTS && (noScoreRows !== 0 || meters !== 12 || figureCards === 0))) {
-          throw new Error(`unexpected quiz results data state: ${resultRows} axes, ${basisCount} answer lists, ${evidenceDisclosureCount} evidence disclosures, ${figureCards} figure cards, ${noScoreRows} without scores, ${meters} meters`);
-        }
-        await disclosures.evaluateAll((elements) => elements.forEach((element) => { element.open = true; }));
-        await settle(page);
-      }
     } catch (error) {
       // Printed, and counted. A swallowed error here is how a run reports
       // "0 contrast failures" having measured nothing at all — which is the

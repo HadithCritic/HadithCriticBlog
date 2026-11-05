@@ -267,7 +267,6 @@ async function main() {
 
   for (const [page, kicker, title, accent] of [
     ['projects', 'Projects', 'Tools for reading', 'transmission.'],
-    ['academia', 'Academia', 'Treatises and', 'critical monographs.'],
     ['youtube', 'Lectures in video', 'Evidence-led forensics for', 'hadith literature.'],
     ['contact', 'Correspondence', 'Write to the', 'editorial desk.'],
     ['resources', 'Resources', 'A working', 'catalogue.']

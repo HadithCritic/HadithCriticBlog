@@ -1,7 +1,7 @@
 ---
 /**
- * An article page: one text column with its contents in the margin on wide
- * screens, the header as a title page, the body styled by
+ * An article page: one centred column with the contents as a closed list
+ * under the header, the header as a title page, the body styled by
  * src/styles/article.css, and the end matter after the last note. There is
  * deliberately no progress bar, reading-settings panel, toolbar or floating
  * control.
@@ -34,7 +34,14 @@ export async function getStaticPaths() {
     const further = sameBranch
       .filter((p) => p.id !== post.id)
       .slice(0, 3) // three, newest first: enough to continue, not a feed
-      .map((p) => ({ href: `/blogs/${p.id}/`, title: p.data.title, folio: folio(p), dateLabel: dateLabel(p.data.date) }));
+      .map((p) => ({
+        href: `/blogs/${p.id}/`,
+        title: p.data.title,
+        folio: folio(p),
+        dateLabel: dateLabel(p.data.date),
+        description: p.data.description,
+        thumb: blogArtwork[p.id]?.thumbnail ?? p.data.thumbnail ?? "/images/blog_thumbnails/tn.generic.webp"
+      }));
     const earlier = sorted[index + 1];
     const later = sorted[index - 1];
     return {
@@ -59,7 +66,7 @@ const articleImage = artwork?.src ?? post.data.thumbnail;
 const rawBody = post.body || '';
 const wordCount = rawBody.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(Boolean).length;
 const readingMinutes = Math.max(1, Math.round(wordCount / 200));
-const longDate = (date: Date) => date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const longDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 
 /* Contents: sections and subsections, once each, never the footnote label. */
 const seen = new Set<string>();
@@ -136,12 +143,6 @@ const crumbs = [
     />
 
     <div class="hc-article__grid">
-      {showContents && (
-        <aside class="hc-article__margin">
-          <ArticleContents headings={contents} placement="margin" />
-        </aside>
-      )}
-
       <article id="main-article" class="hc-article__main" aria-labelledby="article-title">
         {showContents && <ArticleContents headings={contents} placement="inline" />}
 

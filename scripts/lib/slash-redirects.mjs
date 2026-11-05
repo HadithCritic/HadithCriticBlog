@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
  * configuration changes that status.
  *
  * `_redirects` is applied before that normalization, so a rule per page
- * (`/academia /academia/ 301`) wins. A splat cannot do it: `/blogs/*
+ * (`/youtube /youtube/ 301`) wins. A splat cannot do it: `/blogs/*
  * /blogs/:splat/ 301` also matches the slashed URL and redirects it to itself.
  * Both were checked against `astro preview`, which runs the same asset
  * handling as production.

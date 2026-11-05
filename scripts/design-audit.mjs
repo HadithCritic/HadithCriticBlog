@@ -72,16 +72,20 @@ for (const file of files) {
       previous = markup;
       markup = markup.replace(/<(script|style)\b[\s\S]*?(?:<\/\1[^>]*>|$)/gi, '');
     }
+    // Content explicitly hidden from assistive technology is decorative, not
+    // reader-facing copy. Exclude it from the visible-copy audit while keeping
+    // the markup intact for rendering.
+    const readerVisible = markup.replace(/<([a-z][\w:-]*)\b(?=[^>]*\baria-hidden=["']true["'])[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
     const visibleCopy = />[^<>]*\bcopy\b[^<>]*</i;
     const visibleGlyph = />[^<>]*[\u2600-\u27bf\u2190-\u21ff\u2300-\u23ff\u25a0-\u25ff][^<>]*</;
-    const copyMatch = markup.match(visibleCopy);
-    const glyphMatch = markup.match(visibleGlyph);
+    const copyMatch = readerVisible.match(visibleCopy);
+    const glyphMatch = readerVisible.match(visibleGlyph);
     if (copyMatch) {
-      const line = markup.slice(0, copyMatch.index).split(/\r?\n/).length;
+      const line = readerVisible.slice(0, copyMatch.index).split(/\r?\n/).length;
       report(failures, file, line, 'reader-visible “Copy” label (use a clear Share action)');
     }
     if (glyphMatch) {
-      const line = markup.slice(0, glyphMatch.index).split(/\r?\n/).length;
+      const line = readerVisible.slice(0, glyphMatch.index).split(/\r?\n/).length;
       report(failures, file, line, 'reader-visible ornamental Unicode glyph (use a word label)');
     }
   }

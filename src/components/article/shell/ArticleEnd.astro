@@ -1,10 +1,11 @@
 ---
 /**
- * What follows the last note: the article's topics, further reading from its
- * own branch, then the studies on either side of it in the archive. Set as
- * text and hairlines, never cards, so the essay ends rather than gives way to
- * a feed.
+ * What follows the last note: the article's topics, three more studies from
+ * its own branch as cards, the studies on either side of it in the archive,
+ * and a closing band with the email signup.
  */
+import SubscribeForm from '../../SubscribeForm.astro';
+
 export interface Neighbour {
   href: string;
   title: string;
@@ -15,6 +16,8 @@ export interface FurtherStudy {
   title: string;
   folio: string;
   dateLabel: string;
+  description?: string;
+  thumb: string;
 }
 
 export interface Props {
@@ -35,22 +38,6 @@ const { tags = [], category, categoryHref, categoryCount, earlier, later, furthe
     <p class="hc-end__topics"><span class="hc-end__label">Topics</span> {tags.join(', ')}</p>
   )}
 
-  {further.length > 0 && (
-    <section class="hc-further" aria-labelledby="hc-further-title">
-      <h2 id="hc-further-title" class="hc-further__title">
-        More in <a href={categoryHref} data-category={category} aria-label={`${category}, all ${categoryCount} studies`}>{category}</a>
-      </h2>
-      <ol class="hc-further__list">
-        {further.map((study) => (
-          <li>
-            <a href={study.href}>{study.title}</a>
-            <span class="hc-further__date">{study.dateLabel}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )}
-
   {(earlier || later) && (
     <nav class="hc-turn" aria-label="Adjacent studies">
       {earlier
@@ -59,4 +46,28 @@ const { tags = [], category, categoryHref, categoryCount, earlier, later, furthe
       {later && <a class="hc-turn__link hc-turn__link--later" href={later.href} rel="next"><span class="hc-end__label">Later study</span><span class="hc-turn__title">{later.title}</span></a>}
     </nav>
   )}
+
+  {further.length > 0 && (
+    <section class="hc-further" aria-labelledby="hc-further-title">
+      <h2 id="hc-further-title" class="hc-further__title">
+        More in <a href={categoryHref} data-category={category} aria-label={`${category}, all ${categoryCount} studies`}>{category}</a>
+      </h2>
+      <ul class="hc-further__grid">
+        {further.map((study) => (
+          <li class="hc-further__card">
+            <img src={study.thumb} alt="" width="480" height="320" loading="lazy" decoding="async" />
+            <span class="hc-further__date">{study.dateLabel}</span>
+            <a class="hc-further__link" href={study.href}>{study.title}</a>
+            {study.description && <p class="hc-further__desc">{study.description}</p>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  <section class="hc-end__band" aria-labelledby="hc-end-band-title">
+    <h2 id="hc-end-band-title" class="hc-end__band-title">Read the next study when it is published</h2>
+    <p class="hc-end__band-lead">One email per new study, with a direct link to read it.</p>
+    <SubscribeForm variant="closing" />
+  </section>
 </footer>

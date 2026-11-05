@@ -33,9 +33,15 @@ export interface Props {
   highlightEnglish?: string[];
   /** Exact phrases to emphasize in the Arabic source text. */
   highlightArabic?: string[];
+  /** Phrases marked in the second tone, e.g. the reply to the first. */
+  highlightEnglishAlt?: string[];
+  highlightArabicAlt?: string[];
 }
 
-const { label, title, arabic, translation, english, source, reference, isnad, url, highlightEnglish = [], highlightArabic = [] } = Astro.props;
+const {
+  label, title, arabic, translation, english, source, reference, isnad, url,
+  highlightEnglish = [], highlightArabic = [], highlightEnglishAlt = [], highlightArabicAlt = [],
+} = Astro.props;
 
 const heading = title ?? label;
 const english_ = translation ?? english;
@@ -53,10 +59,10 @@ const bareArabic = body && !/class=/.test(body) && isArabicOnly(body.replace(/<[
     {(isnad || english_) && (
       <div class="hc-report__en">
         {isnad && <p class="hc-report__chain">{isnad}</p>}
-        {english_ && <p class="hc-report__matn" data-source-quoted set:html={marked(english_, highlightEnglish, (value) => value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)))} />}
+        {english_ && <p class="hc-report__matn" data-source-quoted set:html={marked(english_, highlightEnglish, (value) => value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!)), highlightEnglishAlt)} />}
       </div>
     )}
-    {arabic && <p class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={marked(arabic, highlightArabic, renderArabic)} />}
+    {arabic && <p class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={marked(arabic, highlightArabic, renderArabic, highlightArabicAlt)} />}
     {body && (bareArabic
       ? <div class="hc-report__ar" lang="ar" dir="rtl" data-source-primary set:html={body} />
       : <div class="hc-report__slot" set:html={body} />)}

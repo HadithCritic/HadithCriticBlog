@@ -96,9 +96,9 @@ test('the newsletter falls back to the deploy manifest when GitHub refuses the i
   const fetchBefore=globalThis.fetch;
   globalThis.fetch=async url=>{
     const target=String(url);
-    if(target.includes('api.github.com'))return new Response('rate limited',{status:403});
+    if(new URL(target).hostname==='api.github.com')return new Response('rate limited',{status:403});
     if(target.endsWith('/article-catalog.json'))return Response.json([{url:'/blogs/sample/1-sample/',title:'Sample',date:'2026-10-01',category:'sample'}]);
-    if(target.includes('api.resend.com'))return Response.json({data:[]});
+    if(new URL(target).hostname==='api.resend.com')return Response.json({data:[]});
     return new Response('unexpected',{status:500});
   };
   clearArticleTreeCache();

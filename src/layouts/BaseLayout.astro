@@ -2,6 +2,7 @@
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SearchDialog from '../components/SearchDialog.astro';
+import SubscribeDialog from '../components/SubscribeDialog.astro';
 import { SITE, OG, organization, website, webPage, breadcrumbs, graph, withTrailingSlash, type Crumb, type Graph } from '../lib/seo';
 import '../styles/global.css';
 import '../styles/footer.css';
@@ -80,6 +81,8 @@ const corpusOrigin = (() => {
 })();
 const researchExperience = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname) || /^\/projects\/(quran|tafsir|islamic-studies-atlas|academic-studies)(\/|$)/.test(Astro.url.pathname);
 const usesCorpus = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname);
+/* The research projects keep the faces they were designed with (global.css). */
+const projectPage = /^\/(hadith|narrators|research|academic-studies)(\/|$)/.test(Astro.url.pathname) || /^\/projects\/./.test(Astro.url.pathname);
 
 const base = Astro.site ?? new URL(Astro.url.origin);
 const canonicalUrl = withTrailingSlash(new URL(canonical ?? Astro.url.pathname, base).href);
@@ -128,7 +131,7 @@ const nodes: Graph[] = noindex
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-type={projectPage ? 'project' : undefined}>
   <head>
     <script is:inline>
       (function () {
@@ -188,8 +191,7 @@ const nodes: Graph[] = noindex
     )}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link rel="preload" href="/fonts/source-serif-4-roman.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Naskh+Arabic:wght@400..700&family=Amiri+Quran&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Public+Sans:ital,wght@0,300..700;1,400..600&family=Noto+Naskh+Arabic:wght@400..700&family=Amiri+Quran&display=swap" rel="stylesheet" />
     <slot name="head" />
   </head>
   <body class:list={[standalone && 'standalone-page']}>
@@ -206,5 +208,6 @@ const nodes: Graph[] = noindex
       {!standalone && <SiteFooter />}
     </div>
     {!standalone && <SearchDialog />}
+    {!standalone && <SubscribeDialog />}
   </body>
 </html>

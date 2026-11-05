@@ -122,7 +122,7 @@ test.describe('hadith corpus', () => {
     // The page must agree with the corpus it is serving. Hardcoding a number
     // here would pass against a stale metadata file, which is the bug this is
     // meant to catch.
-    await expect(page.locator('.hc-project-hero__figure').first()).toHaveText(
+    await expect(page.locator('[data-corpus-total="hadith"]')).toHaveText(
       m.counts.hadith.toLocaleString()
     );
     await expect(page.locator('.catalog-row')).toHaveCount(m.counts.collections);
@@ -393,6 +393,7 @@ test.describe('narrator register', () => {
     await page.goto('/narrators');
     await expect(page.locator('.reg-row').first()).toBeVisible({ timeout: CORPUS_TIMEOUT });
 
+    await page.locator('details.register-refine > summary').click();
     const chip = page.locator('[data-filter-group="century"] [data-value]').nth(1);
     test.skip((await chip.count()) === 0, 'corpus has no century facet');
     const expected = (await chip.locator('.register-tab__n').innerText()).trim();

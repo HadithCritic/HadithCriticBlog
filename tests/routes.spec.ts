@@ -5,7 +5,6 @@ const routes = [
   '/blogs',
   '/resources',
   '/projects',
-  '/academia',
   '/youtube',
   '/contact',
   '/blogs/origins-early-history/5-debunking-the-hadith-prophecy-of-bedouins-building-tall-buildings',
