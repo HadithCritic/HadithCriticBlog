@@ -371,8 +371,13 @@ function renderThumbnail() {
     ? art.thumb
     : null;
   const src = media ? `/api/media/${media[1]}` : localArt;
-  image.hidden = !src;
-  if (src) { image.src = src; image.alt = fields.heroAlt.value; }
+  const candidate = src ? new URL(src, window.location.href) : null;
+  const safeSrc = candidate && candidate.origin === window.location.origin &&
+    (candidate.protocol === 'https:' || candidate.protocol === 'http:')
+    ? candidate.href
+    : null;
+  image.hidden = !safeSrc;
+  if (safeSrc) { image.src = safeSrc; image.alt = fields.heroAlt.value; }
 }
 
 function showEditor(show) {
