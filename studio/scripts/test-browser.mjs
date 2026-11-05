@@ -42,8 +42,9 @@ function external(u,options){
 }
 globalThis.fetch=async(url,options)=>{
   const stub=external(String(url),options);if(stub)return stub;
-  if(String(url).includes('api.github.com')&&String(url).includes('/git/trees/'))return Response.json({tree:[{path:legacyPath,type:'blob',sha}]});
-  if(String(url).includes('api.github.com')&&String(url).includes('/git/blobs/'))return Response.json({encoding:'base64',content:Buffer.from(legacy).toString('base64')});
+  const target=new URL(String(url));
+  if(target.hostname==='api.github.com'&&target.pathname.startsWith('/repos/HadithCritic/HadithCriticBlog/git/trees/'))return Response.json({tree:[{path:legacyPath,type:'blob',sha}]});
+  if(target.hostname==='api.github.com'&&target.pathname.startsWith('/repos/HadithCritic/HadithCriticBlog/git/blobs/'))return Response.json({encoding:'base64',content:Buffer.from(legacy).toString('base64')});
   return realFetch(url,options);
 };
 const types={html:'text/html',js:'text/javascript',mjs:'text/javascript',css:'text/css',json:'application/json',woff2:'font/woff2',png:'image/png',webp:'image/webp'};

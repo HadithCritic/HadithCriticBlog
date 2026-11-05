@@ -47,13 +47,11 @@ export function highlightSource(
   return html + format(raw.slice(cursor));
 }
 
-const normalize = (value: string, arabic: boolean) => value
-  .normalize('NFD')
-  .replace(arabic ? /[\u064B-\u065F\u0670\u06D6-\u06ED]/g : /$^/, '')
-  .replace(arabic ? /ٱ/g : /$^/, 'ا')
-  .toLowerCase()
-  .replace(/[^\p{L}\p{N}]+/gu, ' ')
-  .trim();
+const normalize = (value: string, arabic: boolean) => {
+  let normalized = value.normalize('NFD');
+  if (arabic) normalized = normalized.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '').replace(/ٱ/g, 'ا');
+  return normalized.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+};
 
 /** Map normalized phrase matches back to the untouched display parts. A match
     marks every part from its first word to its last, so the spaces and
