@@ -13,7 +13,6 @@ const ROUTES: Array<[string, string]> = [
   ['/hadith/collection/sahih-al-bukhari/', '/og/collection/sahih-al-bukhari.jpg'],
   ['/narrators/', '/og/narrators.jpg'],
   ['/projects/quran/', '/og/quran.jpg'],
-  ['/projects/tafsir/', '/og/tafsir.jpg'],
   ['/projects/islamic-studies-atlas/', '/og/atlas.jpg'],
   ['/projects/academic-studies/', '/og/icma.jpg'],
   ['/projects/', '/og/projects.jpg'],

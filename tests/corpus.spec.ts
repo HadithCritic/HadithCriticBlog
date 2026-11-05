@@ -393,6 +393,7 @@ test.describe('narrator register', () => {
     await page.goto('/narrators');
     await expect(page.locator('.reg-row').first()).toBeVisible({ timeout: CORPUS_TIMEOUT });
 
+    await page.locator('details.register-refine > summary').click();
     const chip = page.locator('[data-filter-group="century"] [data-value]').nth(1);
     test.skip((await chip.count()) === 0, 'corpus has no century facet');
     const expected = (await chip.locator('.register-tab__n').innerText()).trim();

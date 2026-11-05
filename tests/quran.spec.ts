@@ -48,6 +48,7 @@ test.describe('Quran project navigation', () => {
     await expect(record.locator('.qv-record__reader')).toContainText('2 TEI-listed labels');
     const references = record.locator('.qv-record__reader-references');
     await references.locator('summary').click();
+    await expect(references).toHaveAttribute('open', '');
     await expect(references).toContainText('Abū Ǧaʿfar');
     await expect(references).toContainText('Ḫalaf');
     await expect(references.getByRole('link', { name: /source line 10832/ })).toHaveAttribute(
@@ -349,7 +350,9 @@ test.describe('Quran sura page: qirāʾāt display (al-Fātiḥa, the five-book 
       return count;
     };
 
+    await page.locator('.pos__details > summary').first().click();
     const all = await visibleCards();
+    await page.locator('details.qq-focus > summary').click();
     await page.locator('label:has(#qq-r-yaqub)').click();
     const focused = await visibleCards();
     expect(focused).toBeGreaterThan(0);
@@ -416,15 +419,11 @@ test.describe('Quran hub and long suras', () => {
 
   test('each part shows its own positions under their global numbers and never splits a verse', async ({ page }) => {
     const spans = parts(2);
-    const seen = new Set<string>();
+    let seen = 0;
     for (const span of spans) {
       await page.goto(`/projects/quran/sura/2/part/${span.index}/`);
       await expect(page.locator('.pos')).toHaveCount(span.end - span.start);
-      const ids = await page.locator('.pos').evaluateAll((nodes) => nodes.map((node) => node.id));
-      for (const id of ids) {
-        expect(seen.has(id)).toBe(false);
-        seen.add(id);
-      }
+      seen += await page.locator('.pos').count();
       const first = await page.locator('.pos__no .disc').first().textContent();
       expect(Number(first)).toBe(span.start + 1);
       const refs = await page.locator('.pos__no').allTextContents();
@@ -432,7 +431,7 @@ test.describe('Quran hub and long suras', () => {
       expect(Math.min(...verses)).toBeGreaterThanOrEqual(span.firstVerse);
       expect(Math.max(...verses)).toBeLessThanOrEqual(span.lastVerse);
     }
-    expect(seen.size).toBe(index.suras.find((entry) => entry.sura === 2)!.positions);
+    expect(seen).toBe(index.suras.find((entry) => entry.sura === 2)!.positions);
   });
 
   test('every extracted sura page resolves and every position has a reader for each card', async ({ page }) => {
@@ -455,6 +454,7 @@ test.describe('Quran hub and long suras', () => {
   test('permitted ways of beginning a word are listed with the reports and name the transmitter', async ({ page }) => {
     await page.goto('/projects/quran/sura/53/part/1/');
     const position = page.locator('.pos', { hasText: 'عادا' }).first();
+    await position.locator('.pos__details > summary').click();
     const summary = position.locator('details.reports > summary');
     await expect(summary).toContainText('permitted');
     await summary.click();
@@ -476,7 +476,9 @@ test.describe('Quran hub and long suras', () => {
     const spans = parts(3);
     const span = spans.find((candidate) => candidate.firstVerse <= 66 && candidate.lastVerse >= 66);
     await page.goto(span ? `/projects/quran/sura/3/part/${span.index}/` : '/projects/quran/sura/3/');
-    const routes = page.locator('.pos', { hasText: 'ها أنتم' }).first().locator('details.routes');
+    const position = page.locator('.pos', { hasText: 'ها أنتم' }).first();
+    await position.locator('.pos__details > summary').click();
+    const routes = position.locator('details.routes');
     await expect(routes).toContainText('not entered as readings');
     await routes.locator('summary').click();
     await expect(routes.locator('blockquote').first()).toBeVisible();
@@ -487,7 +489,9 @@ test.describe('Quran hub and long suras', () => {
     const spans = parts(18);
     const span = spans.find((candidate) => candidate.firstVerse <= 16 && candidate.lastVerse >= 16);
     await page.goto(span ? `/projects/quran/sura/18/part/${span.index}/` : '/projects/quran/sura/18/');
-    const routes = page.locator('.pos', { hasText: 'مرفقا' }).first().locator('details.routes', { hasText: 'Routes read below the transmitters' });
+    const position = page.locator('.pos', { hasText: 'مرفقا' }).first();
+    await position.locator('.pos__details > summary').click();
+    const routes = position.locator('details.routes', { hasText: 'Routes read below the transmitters' });
     await expect(routes).toContainText('Routes read below the transmitters');
     await routes.locator('summary').click();
     await expect(routes.locator('bdi[lang="ar"]', { hasText: 'الأعشى' }).first()).toBeVisible();

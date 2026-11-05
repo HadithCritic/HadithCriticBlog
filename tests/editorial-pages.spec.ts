@@ -2,11 +2,11 @@ import {expect,test} from '@playwright/test';
 
 test('Projects preserves every project destination and index anchor',async({page})=>{
  await page.goto('/projects/');
- const destinations=await page.locator('.pj-lead, .pj-panel, .pj-proto').evaluateAll(items=>items.map(item=>({id:item.id,href:item.querySelector('h3 a')?.getAttribute('href')})));
- expect(destinations).toHaveLength(8);
+ const destinations=await page.locator('.pj-row').evaluateAll(items=>items.map(item=>({id:item.id,href:item.querySelector('h3 a')?.getAttribute('href')})));
+ expect(destinations).toHaveLength(4);
  for(const project of destinations) {
   expect(project.href).toMatch(/^\//);
-  await expect(page.locator(`.pj-table__jump[href="#${project.id}"]`)).toHaveCount(1);
+  await expect(page.locator(`#${project.id}`)).toHaveCount(1);
  }
 });
 
@@ -25,26 +25,21 @@ test('Resources search and format filters preserve URL state and reset',async({p
  await expect(page.locator('[data-resource]:not([hidden])')).toHaveCount(total);
 });
 
-test('YouTube filtering and card selection retain the working player',async({page})=>{
- await page.route('https://www.youtube-nocookie.com/embed/**',route=>route.fulfill({body:'',contentType:'text/html'}));
+test('YouTube reel controls scroll between recent video links',async({page})=>{
  await page.goto('/youtube/');
- await page.locator('#yt-filter-tabs [data-filter="certainty"]').click();
- await expect(page.locator('.yt-card:not([hidden])').first()).toHaveAttribute('data-category','certainty');
- await page.locator('#yt-search-input').fill('no-video-998237');
- await expect(page.locator('#yt-empty')).toBeVisible();
- await page.locator('#yt-empty-reset').click();
- const first=page.locator('.yt-card').first();
- const title=await first.getAttribute('data-title'); const id=await first.getAttribute('data-video-id');
- await first.locator('.yt-card__link').click();
- await expect(page.locator('#featured-title')).toHaveText(title!);
- await expect(page.locator('#yt-embed iframe')).toHaveAttribute('src',new RegExp(id!));
+ const track=page.locator('[data-reel-track]');
+ await expect(track.locator('.yt-slide__link').first()).toHaveAttribute('target','_blank');
+ const next=page.locator('[data-reel-step="1"]');
+ await expect(next).toBeVisible();
+ await next.click();
+ await expect.poll(()=>track.evaluate(el=>el.scrollLeft)).toBeGreaterThan(0);
 });
 
 test('YouTube tiles are real links to the videos without JavaScript',async({browser})=>{
  const context=await browser.newContext({javaScriptEnabled:false});
  const page=await context.newPage();
  await page.goto('/youtube/');
- const href=await page.locator('.yt-card__link').first().getAttribute('href');
+ const href=await page.locator('.yt-slide__link').first().getAttribute('href');
  expect(href).toMatch(/^https:\/\/www\.youtube\.com\/watch\?v=/);
  await context.close();
 });
