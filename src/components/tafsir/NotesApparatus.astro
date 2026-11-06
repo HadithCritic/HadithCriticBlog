@@ -1,0 +1,65 @@
+---
+/* The editor's notes for the passages on this page, searchable, the first
+   nine shown until the reader asks for all. Each note keeps its Arabic, its
+   English and its place in the printed edition. Translator's notes follow
+   when the source has any. */
+import Icon from './Icon.astro';
+import type { TafsirNote } from '../../data/tafsir';
+import { pad } from '../../lib/tafsir-render';
+
+interface Props {
+  notes: { idx: number; note: TafsirNote }[];
+  translatorNotes: string[];
+  edition: string;
+}
+const { notes, translatorNotes, edition } = Astro.props;
+const LIMIT = 9;
+const ref = (n: TafsirNote) => [n.v && `Vol. ${n.v}`, n.p != null && `p. ${n.p}`, n.n != null && `n. ${n.n}`].filter(Boolean).join(', ');
+---
+
+<section class="tfr-notes" id="notes" aria-labelledby="notes-title" data-notes data-limit={LIMIT}>
+  <div class="tfr-notes__heading">
+    <div>
+      <div class="micro tfr-edition__label">The critical apparatus</div>
+      <h3 id="notes-title">Editor's notes</h3>
+      <p>Textual variants and annotations from {edition}, with the editor's Arabic and an English rendering.</p>
+    </div>
+    <span class="tfr-chip">{notes.length} {notes.length === 1 ? 'note' : 'notes'}</span>
+  </div>
+  {notes.length > 0 ? (
+    <div class="tfr-notes__box">
+      <div class="tfr-notes__controls">
+        <label class="tfr-notes__search">
+          <Icon name="search" size={15} />
+          <span class="sr-only">Search the editor's notes</span>
+          <input type="search" placeholder="Search notes, manuscripts, names…" autocomplete="off" data-notes-query />
+        </label>
+        <span class="tfr-notes__count" role="status" data-notes-count>Showing {Math.min(LIMIT, notes.length)} of {notes.length}</span>
+      </div>
+      <ol class="tfr-note-list">
+        {notes.map(({ idx, note }, k) => (
+          <li class="tfr-note" id={`note-${idx}`} data-note-row data-search={`${note.en} ${note.ar} ${ref(note)}`.toLocaleLowerCase()} hidden={k >= LIMIT}>
+            <span class="tfr-note__index">{pad(k + 1)}</span>
+            <div>
+              <p class="tfr-note__en">{note.en}</p>
+              {note.ar && <p class="tfr-note__ar" lang="ar" dir="rtl">{note.ar}</p>}
+              <span class="tfr-note__ref">{ref(note)}</span>
+            </div>
+          </li>
+        ))}
+      </ol>
+      <div class="tfr-notes__empty" data-notes-empty hidden>No editor's notes match your search.</div>
+      {notes.length > LIMIT && (
+        <div class="tfr-notes__bottom"><button class="tfr-button" type="button" data-notes-expand data-total={notes.length}>Show all {notes.length} notes</button></div>
+      )}
+    </div>
+  ) : (
+    <p class="tfr-disclaimer">The edition has no notes on the passages shown here.</p>
+  )}
+  {translatorNotes.length > 0 && (
+    <div class="tfr-about">
+      <h3>Translator's notes</h3>
+      <ul>{translatorNotes.map((t) => <li>{t}</li>)}</ul>
+    </div>
+  )}
+</section>

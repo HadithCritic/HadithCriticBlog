@@ -1,0 +1,98 @@
+---
+/* The verse, before its interpretation: Arabic and English in their own
+   panel, then what the commentary says about how the verse is read.
+
+   The readings status is never inferred. "Discussed" means a sentence of the
+   commentary on this verse speaks of readers, readings or recitation; the
+   sentences are quoted as they stand and linked to their place. Names are
+   listed only when they occur in those sentences. */
+import Icon from './Icon.astro';
+import type { Readings } from '../../data/tafsir';
+import { pad } from '../../lib/tafsir-render';
+
+interface Props {
+  surah: number;
+  verse: number;
+  name: string;
+  arabic: string;
+  english: string;
+  readings: Readings & { anchors: string[] };
+  commentator: string;
+  begin: string | null;
+}
+
+const { surah, verse, name, arabic, english, readings, commentator, begin } = Astro.props;
+const ref = `${surah}:${verse}`;
+const shown = readings.evidence.slice(0, 3);
+const more = readings.evidence.slice(3);
+const heading = {
+  none: 'Reading not identified in this commentary',
+  discussed: 'Readings discussed in this commentary',
+  preference: 'Readings discussed, with a stated preference',
+}[readings.status];
+const pill = { none: 'Not specified', discussed: 'Discussed', preference: 'Preference stated' }[readings.status];
+---
+
+<figure class="tfr-verse" id="reading-verse" aria-labelledby="verse-heading">
+  <div class="tfr-verse__heading">
+    <div>
+      <span class="micro tfr-verse__kicker">The Qur'anic text</span>
+      <h3 id="verse-heading">The verse, before its interpretation.</h3>
+    </div>
+    <span class="tfr-verse__number" aria-label={`Surah ${surah}, verse ${verse}`}><span>{pad(surah)}</span><i>/</i><strong>{pad(verse)}</strong></span>
+  </div>
+  <div class="tfr-verse__body">
+    <p class="tfr-verse__ar" lang="ar" dir="rtl" data-verse-ar>{arabic}</p>
+    <div class="tfr-verse__rule" role="presentation"><span aria-hidden="true">✳</span></div>
+    <p class="tfr-verse__en" lang="en" data-verse-en>{english}</p>
+    <div class="tfr-verse__attribution micro"><span>Arabic <b>Reference text</b></span><span>English <b>Rashad Khalifa translation</b></span></div>
+  </div>
+
+  <div class="tfr-reading" aria-label="What the commentary says about how the verse is read">
+    <span class="tfr-reading__glyph"><Icon name="reading" size={18} /></span>
+    <div class="tfr-reading__content">
+      <span class="micro">Qirāʾāt and textual reading</span>
+      <h4>{heading}</h4>
+      {readings.status === 'none' ? (
+        <Fragment>
+          <p>The English commentary on Q {ref} does not name a reciter or discuss a variant reading. The Arabic above is shown for reference; it is not presented as {commentator}'s adopted reading.</p>
+          <details class="tfr-explainer">
+            <summary>What does “not specified” mean? <span aria-hidden="true">⌄</span></summary>
+            <p>This status describes this commentary on this verse only. It does not mean that no other readings exist, or that {commentator} never discusses them elsewhere. A reading is attributed only when the commentary says so in words. The editor's notes on manuscript differences are a separate kind of textual evidence.</p>
+          </details>
+        </Fragment>
+      ) : (
+        <Fragment>
+          <p>These sentences of the commentary speak of how the verse is read. They are quoted as they stand; the status is an editorial reading of them, not a ruling.</p>
+          <ul class="tfr-evidence">
+            {shown.map((e, i) => (
+              <li data-preference={e.p ? '' : undefined}>“{e.text}” <a href={`#${readings.anchors[i]}`}>Go to passage</a></li>
+            ))}
+          </ul>
+          {more.length > 0 && (
+            <details class="tfr-evidence-more">
+              <summary>Show {more.length} more <span aria-hidden="true">⌄</span></summary>
+              <ul class="tfr-evidence">
+                {more.map((e, i) => (
+                  <li data-preference={e.p ? '' : undefined}>“{e.text}” <a href={`#${readings.anchors[i + 3]}`}>Go to passage</a></li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {(readings.names.length > 0 || readings.regions.length > 0) && (
+            <p class="tfr-names"><b>Named in these sentences:</b> {[...readings.names, ...readings.regions].join(', ')}</p>
+          )}
+        </Fragment>
+      )}
+    </div>
+    <span class="tfr-reading__pill" data-status={readings.status}>{pill}</span>
+  </div>
+
+  <figcaption class="tfr-verse__bottom">
+    <span>Q {ref} <span aria-hidden="true">·</span> {name}</span>
+    <div class="tfr-verse__buttons">
+      <button type="button" class="tfr-button" data-share-verse aria-label={`Share Q ${ref} in Arabic and English`}><Icon name="share" size={14} /> Share verse</button>
+      {begin && <a class="tfr-button tfr-button--solid" href={begin}>Begin commentary <Icon name="down" size={14} /></a>}
+    </div>
+  </figcaption>
+</figure>

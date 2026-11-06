@@ -5,6 +5,7 @@ import { OG } from "../lib/seo";
 import { CORPUS_META } from "../lib/corpus-config";
 import qiraatIndex from "../data/qiraat/index.json";
 import { historySources, openReaders } from "../data/history";
+import { formatCount, surahHref, surahs as tafsirSurahs, works as tafsirWorks } from "../data/tafsir";
 import "../styles/home.css";
 import "../styles/home-platform.css";
 import "../styles/projects.css";
@@ -33,6 +34,9 @@ interface Project {
   action: string;
   status: string;
 }
+
+const tafsirCovered = tafsirSurahs.filter((s) => s.works.length > 0);
+const tafsirWords = tafsirWorks.reduce((sum, w) => sum + w.words, 0);
 
 const lead: Project = {
   id: "hadith-corpus",
@@ -87,6 +91,22 @@ const databases: Project[] = [
     action: "Compare the readings",
     status: "Readings await human review",
   },
+  {
+    id: "tafsir",
+    href: "/projects/tafsir/",
+    art: "tafsir",
+    kind: "Qur'anic commentary",
+    arabic: "التفسير",
+    title: "Tafsīr",
+    desc: "Classical commentaries in English, one verse at a time: the verse in Arabic and English, then the commentator's discussion and the reports he cites, with the editor's notes beneath. Al-Ṭabarī first, more as translations are completed.",
+    figures: [`${tafsirWorks.length} ${tafsirWorks.length === 1 ? "commentary" : "commentaries"}`, `${tafsirCovered.length} of 114 surahs`, `${formatCount(tafsirWords)} words`],
+    entries: [
+      { label: "The surahs", href: "/projects/tafsir/#surahs" },
+      ...(tafsirCovered[0] ? [{ label: `Read ${tafsirCovered[0].latin}`, href: surahHref(tafsirCovered[0]) }] : []),
+    ],
+    action: "Open the commentary",
+    status: "Import in progress",
+  },
 ];
 
 const history: Project = {
@@ -109,12 +129,13 @@ const history: Project = {
 
 const projects = [...databases, history];
 const all = [lead, ...projects];
+const countWord = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"][all.length - 1] ?? String(all.length);
 ---
 
 <BaseLayout
   image={OG.projects}
   title="Projects | HadithCritic"
-  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants and History (Tārīkh)."
+  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants, al-Ṭabarī's tafsīr and History (Tārīkh)."
 >
   <div class="hc-page home pj-page">
     <PageHero
@@ -127,7 +148,7 @@ const all = [lead, ...projects];
       measure="11ch"
     >
       <p class="hc-hero__lede">
-        Research tools for the hadith, its transmitters, the Qur’an’s variant readings, early history and
+        Research tools for the hadith, its transmitters, the Qur’an’s variant readings and commentary, early history and
         modern scholarship. Every figure here is counted from the project's own data.
       </p>
       <Fragment slot="actions">
@@ -147,7 +168,7 @@ const all = [lead, ...projects];
       <div class="hc-container">
         <header class="home-head">
           <p class="home-kicker">The projects</p>
-          <h2 id="projects-title" class="home-title">Four projects,<br />one archive.</h2>
+          <h2 id="projects-title" class="home-title">{countWord} projects,<br />one archive.</h2>
           <p class="home-head__lede">
             Each runs in your browser from published data files, with no server between you and the sources.
           </p>
