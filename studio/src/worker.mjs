@@ -1,4 +1,4 @@
-import { isAllowedHost, isSameOriginMutation, verifyAccessJwt, hasRecentAuthentication } from './auth.mjs';
+import { isAllowedHost, isLocalDevRequest, isSameOriginMutation, verifyAccessJwt, hasRecentAuthentication } from './auth.mjs';
 import { parse as parseYaml } from 'yaml';
 import { serializeDocument, renderPreview } from './model.mjs';
 import { persistDraft, mutationAllowed } from './store.mjs';
@@ -221,12 +221,17 @@ export async function handleRequest(request, env) {
   if (!isAllowedHost(request, env)) return new Response('Forbidden', { status: 403, headers: responseHeaders });
   if (!isSameOriginMutation(request)) return new Response('Forbidden', { status: 403, headers: responseHeaders });
   let identity;
-  try {
-    identity = await verifyAccessJwt(request.headers.get('cf-access-jwt-assertion'), env);
-  } catch (error) {
-    // The messages are fixed strings from auth.mjs; no token or claim value is logged.
-    console.warn(`Studio refused a request: ${error.message}`);
-    return new Response('Unauthorized', { status: 401, headers: responseHeaders });
+  const localDev = isLocalDevRequest(request, env);
+  if (localDev) {
+    identity = { email: 'local@localhost', subject: 'local-developer' };
+  } else {
+    try {
+      identity = await verifyAccessJwt(request.headers.get('cf-access-jwt-assertion'), env);
+    } catch (error) {
+      // The messages are fixed strings from auth.mjs; no token or claim value is logged.
+      console.warn(`Studio refused a request: ${error.message}`);
+      return new Response('Unauthorized', { status: 401, headers: responseHeaders });
+    }
   }
 
   if (url.pathname.startsWith('/api/')) {
@@ -235,11 +240,11 @@ export async function handleRequest(request, env) {
       const dashboard = await handleDashboard(request, url, env, identity, {
         json, readJson, fetchImpl: (...args) => fetch(...args),
         articlePaths: () => articlePaths(request, env),
-        recentlyAuthenticated: () => hasRecentAuthentication(request.headers.get('cf-access-jwt-assertion')),
-        githubClient: publishingConfigured(env) ? () => githubClient(env) : null
+        recentlyAuthenticated: () => localDev || hasRecentAuthentication(request.headers.get('cf-access-jwt-assertion')),
+        githubClient: !localDev && publishingConfigured(env) ? () => githubClient(env) : null
       });
       if (dashboard) return dashboard;
-      if (url.pathname === '/api/config' && request.method === 'GET') return json({ publishing: publishingConfigured(env), branch: env.STUDIO_PUBLISH_BRANCH || null, media: !!env.STUDIO_MEDIA, newsletter: newsletterConfigured(env), analytics: analyticsConfigured(env), liveBranch: env.STUDIO_LIVE_BRANCH || 'main' });
+      if (url.pathname === '/api/config' && request.method === 'GET') return json({ publishing: !localDev && publishingConfigured(env), branch: env.STUDIO_PUBLISH_BRANCH || null, media: !!env.STUDIO_MEDIA, newsletter: newsletterConfigured(env), analytics: analyticsConfigured(env), liveBranch: env.STUDIO_LIVE_BRANCH || 'main' });
       if (url.pathname === '/api/preview' && request.method === 'POST') {
         const payload = await readJson(request);
         try { return json({ html: renderPreview(payload.document) }); } catch (error) { return json({ error: error.message },422); }
@@ -276,7 +281,7 @@ export async function handleRequest(request, env) {
           const job = await env.STUDIO_DB.prepare('SELECT id,path,version,action,status,source,expected_head,created_by FROM publication_jobs WHERE id=?').bind(url.searchParams.get('id')).first();
           return job && job.created_by === identity.subject ? json({id:job.id,path:job.path,version:job.version,action:job.action,status:job.status,source:job.source,expectedHead:job.expected_head}) : json({error:'Publication not found.'},404);
         }
-        if (!publishingConfigured(env)) return json({ error:'Publishing is disabled pending owner configuration.' },503);
+        if (localDev || !publishingConfigured(env)) return json({ error:'Publishing is disabled pending owner configuration.' },503);
         if (request.method === 'POST' && !hasRecentAuthentication(request.headers.get('cf-access-jwt-assertion'))) return json({ error:'Sign in again before a public write; publication requires authentication within 15 minutes.' },401);
         const client = await githubClient(env);
         if (url.pathname === '/api/publication/status' && request.method === 'GET') {

@@ -56,7 +56,7 @@ const EYEBROW: Record<SectionKind | 'intro', string> = {
   reports: 'Transmitted explanations',
   argument: 'Question and answer',
   language: 'Language and expression',
-  readings: 'Qirāʾāt and textual reading',
+  readings: "The commentator's explanation",
   intro: 'Surah introduction',
 };
 

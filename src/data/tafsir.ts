@@ -1,10 +1,8 @@
-/* The Tafsir project: the commentaries it carries, which surahs each has
-   imported, and the address of every verse page.
+/* The Tafsir project registry: approved coverage and verse addresses.
 
-   Each commentary has a folder, src/data/tafsir/<id>/, holding an index.json
-   of imported surahs and one surahs/NNN.json per surah, and an entry in WORKS
-   below. Adding a commentary is those two things; the pages, selectors and
-   index pick it up from here. Surah files are loaded lazily, one per page. */
+   The currently approved al-Fātiḥa reader is authored as complete HTML pages
+   under src/data/tafsir-pages/. JSON under src/data/tafsir/ remains a research
+   archive and is not rendered into the public reader until approved. */
 import suraNames from './quran-sura-names.json';
 
 /* The shape of a surah file, as scripts/build-tafsir-data.mjs writes it. Inline
@@ -107,6 +105,10 @@ const indexes = import.meta.glob<{ surahs: ImportedSurah[] }>('./tafsir/*/index.
 });
 const files = import.meta.glob<TafsirSurah>('./tafsir/*/surahs/*.json', { import: 'default' });
 
+/* Only accepted, hand-edited reader releases are publicly available. Add a
+   surah here after its verse pages have been reviewed and approved. */
+const PUBLISHED_SURAHS = new Set([1]);
+
 export type TafsirWork = (typeof WORKS)[number] & {
   imported: Map<number, ImportedSurah>;
   words: number;
@@ -114,7 +116,7 @@ export type TafsirWork = (typeof WORKS)[number] & {
 };
 
 export const works: TafsirWork[] = WORKS.map((work) => {
-  const list = indexes[`./tafsir/${work.id}/index.json`]?.surahs ?? [];
+  const list = (indexes[`./tafsir/${work.id}/index.json`]?.surahs ?? []).filter((surah) => PUBLISHED_SURAHS.has(surah.n));
   return {
     ...work,
     imported: new Map(list.map((s) => [s.n, s])),
@@ -141,9 +143,9 @@ export interface SurahListing {
   works: TafsirWork[];
 }
 
-export const surahs: SurahListing[] = (suraNames as { n: number; ar: string; latin: string; verses: number }[]).map(
-  (s) => ({ ...s, works: works.filter((w) => w.imported.has(s.n)) }),
-);
+export const surahs: SurahListing[] = (suraNames as { n: number; ar: string; latin: string; verses: number }[])
+  .filter((s) => PUBLISHED_SURAHS.has(s.n))
+  .map((s) => ({ ...s, works: works.filter((w) => w.imported.has(s.n)) }));
 
 /** How many verse pages a commentary has for a surah: one per verse once imported, else a single placeholder. */
 export const pageCount = (work: TafsirWork, surah: number) => work.imported.get(surah)?.ayahs ?? 1;

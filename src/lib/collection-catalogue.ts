@@ -5,6 +5,10 @@ import type { CollectionRecord } from './corpus-types';
  * Corpus titles, IDs and narration counts remain owned by corpus-meta.json.
  */
 export const COMPILER_DATES: Record<string, number> = {
+  'fada-il-makka': 110,
+  'sahifat-hammam-ibn-munabbih': 131,
+  'musnad-abu-hanifa': 150,
+  'musnad-abd-allah-ibn-al-mubarak': 181,
   'muwatta-malik': 179,
   'musnad-al-tayalisi': 204,
   'musannaf-abd-al-razzaq': 211,
@@ -15,6 +19,8 @@ export const COMPILER_DATES: Record<string, number> = {
   'musnad-abd-ibn-humayd': 249,
   'musnad-al-darimi': 255,
   'sahih-al-bukhari': 256,
+  'birr-al-walidayn': 256,
+  'musnad-khalifa-ibn-khayyat': 240,
   'sahih-muslim': 261,
   'sunan-ibn-majah': 273,
   'sunan-abi-dawud': 275,

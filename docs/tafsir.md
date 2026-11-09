@@ -1,5 +1,12 @@
 # Tafsir module
 
+> The verse-by-verse reader pages are authored as one complete HTML file per
+> work, surah and verse. See [Editing Tafsir verse pages](tafsir-page-editing.md).
+
+> **Published scope:** only al-Ṭabarī on al-Fātiḥa 1:1–1:7 is currently
+> exposed by the site. The historical catalog and planning notes below do not
+> indicate that other surahs or commentaries are available in the reader.
+
 `/projects/tafsir/` sets the major commentaries beside every verse. Each commentary
 is read in the qirāʾa it follows, resolved against the qirāʾāt collation in
 `src/data/qiraat/`, and quoted from one named Shamela edition.

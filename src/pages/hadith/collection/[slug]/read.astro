@@ -1,0 +1,31 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import hammam from '../../../../data/local-editions/hammam.json';
+import makka from '../../../../data/local-editions/fadail-makka.json';
+import '../../../../styles/local-edition.css';
+import '../../../../styles/local-edition-redesign.css';
+
+export function getStaticPaths() {
+  return [];
+}
+const slug = Astro.params.slug!;
+const isMakka = slug === 'fada-il-makka';
+const title = isMakka ? 'Faḍāʾil Makka' : 'Ṣaḥīfat Hammām ibn Munabbih';
+const entries = isMakka
+  ? makka.pages.map(p => ({ id: `page-${p.page_number}`, heading: `Page ${p.page_number}${p.heading ? ` · ${p.heading}` : ''}`, number: p.page_number, en: p.english, ar: p.arabic, notes: '' }))
+  : hammam.slice(3).map((r, i) => ({ id: `entry-${i+4}`, heading: r.hadith_number == null ? 'Unnumbered report' : `Narration ${r.hadith_number - 1}`, number: r.hadith_number == null ? null : r.hadith_number - 1, en: r.english, ar: r.text, notes: r.foot_note === 'None' ? '' : r.foot_note }));
+---
+<BaseLayout title={`${title} · Reader | HadithCritic`} description={`Read ${title} in Arabic and English.`} crumbs={[{name:'Home',url:'/'},{name:'Hadith corpus',url:'/hadith/'},{name:title,url:`/hadith/collection/${slug}/`},{name:'Read',url:`/hadith/collection/${slug}/read/`}]}>
+  <link slot="head" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=DM+Sans:wght@400;600&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;family=Sorts+Mill+Goudy&amp;display=swap" />
+  <main class:list={['local-edition', 'edition-reader', isMakka ? 'edition-makka' : 'edition-hammam']}>
+    <header class="reader-heading">
+      <a class="back" href={`/hadith/collection/${slug}/`}>Hadith library / About this text</a>
+      <div class="reader-heading__grid"><div><p class="kicker">Arabic & English · Source edition</p><h1>{title}</h1><p class="detail">{isMakka ? 'Browse the text by printed page, in the order of the supplied edition.' : 'The reports follow the source order. The opening material appears after the narrations.'}</p></div><div class="reader-summary"><span>In this edition</span><strong>{isMakka ? '30' : '137'}</strong><span>{isMakka ? 'printed pages' : 'numbered reports'}</span></div></div>
+    </header>
+    <details class="reader-index"><summary>Browse {isMakka ? 'pages' : 'reports'} <span>Open index</span></summary><nav class="reader-nav" aria-label={isMakka ? 'Printed pages' : 'Numbered reports'}>{isMakka ? makka.pages.map(p => <a href={`#page-${p.page_number}`}>{p.page_number}</a>) : hammam.map((r, i) => r.hadith_number != null && r.hadith_number > 1 && <a href={`#entry-${i+1}`}>{r.hadith_number - 1}</a>)}</nav></details>
+    <div class="reader-section-title"><div><p class="kicker">The text</p><h2>{isMakka ? 'Read by page' : 'The narrations'}</h2></div><span>English / Arabic</span></div>
+    {entries.map((e) => <article class="entry" id={e.id}><div class="entry-head"><div><span class="entry-index">{e.number == null ? '—' : String(e.number).padStart(2, '0')}</span><h2>{e.heading}</h2></div><a href={`#${e.id}`} aria-label={`Link to ${e.heading}`}>Link</a></div><div class="parallel"><div><div class="source-label">English translation</div><div class="text" lang="en">{e.en}</div></div><div><div class="source-label">Arabic text</div><div class="text ar" lang="ar" dir="rtl">{e.ar}</div></div></div>{e.notes && <p class="notes">{e.notes}</p>}</article>)}
+    {!isMakka && <details class="reader-index introduction"><summary>Introduction and opening transmission <span>Read introduction</span></summary><div class="intro-content">{hammam.slice(0, 3).map(r => <p>{r.english}</p>)}</div></details>}
+    {isMakka && <section class="entry"><h2>Source notes</h2><p class="notes">{makka.back_matter.colophon}</p><p class="notes">{makka.back_matter.editorial_corrections}</p></section>}
+  </main>
+</BaseLayout>

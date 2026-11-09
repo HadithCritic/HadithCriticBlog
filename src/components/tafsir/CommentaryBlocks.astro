@@ -6,6 +6,7 @@
 import Icon from './Icon.astro';
 import type { Block, Run } from '../../data/tafsir';
 import { runsHtml, runsText, verseLabel, pad } from '../../lib/tafsir-render';
+import { tafsirFigure, tafsirFigureForCommentator, tafsirRegionForName } from '../../lib/tafsir-figures';
 
 interface Props {
   unitKey: string;
@@ -18,9 +19,12 @@ interface Props {
   dropcap?: boolean;
   /** Feature the first report of a run (a section of reports). */
   feature?: boolean;
+  /** Show the region-colored illustrated scholars on the Fātiḥa pages. */
+  figureMedallions?: boolean;
 }
 
-const { unitKey, blocks, indices, commentator, initial, citeHref, dropcap = false, feature = false } = Astro.props as Props;
+const { unitKey, blocks, indices, commentator, initial, citeHref, dropcap = false, feature = false, figureMedallions = false } = Astro.props as Props;
+const commentatorFigure = figureMedallions ? tafsirFigureForCommentator(commentator) : null;
 const html = (runs: Parameters<typeof runsHtml>[0]) => runsHtml(runs, citeHref);
 const id = (i: number) => `u${unitKey}-b${i}`;
 
@@ -66,7 +70,9 @@ const runsOf = (i: number): Run[] => (blocks[i] as { x?: Run[] }).x ?? [];
       return (
         <div class="tfr-authorial" id={id(first)}>
           <div class="tfr-authorial__top">
-            <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>
+            {commentatorFigure ? (
+              <img class="tfr-scholar-avatar" src={commentatorFigure.src} alt={`Illustrative portrait for ${commentatorFigure.name}; not a verified likeness`} data-region={commentatorFigure.region} width="46" height="46" loading="lazy" decoding="async" />
+            ) : <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>}
             <div class="tfr-authorial__name">{g.lead}<small>{commentator}’s own explanation</small></div>
           </div>
           <div class="tfr-prose">
@@ -81,7 +87,9 @@ const runsOf = (i: number): Run[] => (blocks[i] as { x?: Run[] }).x ?? [];
       <Fragment>
         <div class="tfr-authorial" id={id(first)}>
           <div class="tfr-authorial__top">
-            <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>
+            {commentatorFigure ? (
+              <img class="tfr-scholar-avatar" src={commentatorFigure.src} alt={`Illustrative portrait for ${commentatorFigure.name}; not a verified likeness`} data-region={commentatorFigure.region} width="46" height="46" loading="lazy" decoding="async" />
+            ) : <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>}
             <div class="tfr-authorial__name">{g.lead}<small>{commentator}’s own explanation</small></div>
           </div>
           {firstBlock.x.length > 0 && <div class="tfr-prose"><p set:html={html(firstBlock.x)} /></div>}
@@ -97,25 +105,30 @@ const runsOf = (i: number): Run[] => (blocks[i] as { x?: Run[] }).x ?? [];
       <div class="tfr-reports">
         {g.items.map((i, n) => {
           const b = report(i);
+          const figure = figureMedallions && b.via ? tafsirFigure(b.via) : null;
+          const region = figure?.region ?? (b.via ? tafsirRegionForName(b.via) : null);
           const featured = feature && n === 0 && g.items.length > 1;
           const wide = !featured && (g.items.length === 1 || runsText(b.m).length > 520);
           return (
             <article class:list={['tfr-report', featured && 'tfr-report--feature', wide && 'tfr-report--wide']} id={id(i)}>
-              <div class="tfr-report__top">
-                <span class="tfr-report__no">{pad(n + 1)}</span>
-                <div class="tfr-report__author">
-                  <span class="micro">{b.via ? 'Transmitted via' : 'Transmitted report'}</span>
-                  <h4>{b.via ?? 'Chain not separated'}</h4>
+              <div class:list={['tfr-report__source', b.c && 'tfr-report__source--has-chain']}>
+                <div class="tfr-report__top">
+                  <span class="tfr-report__no">{pad(n + 1)}</span>
+                  {figure && <img class="tfr-scholar-avatar tfr-scholar-avatar--report" src={figure.src} alt={`Illustrative portrait for ${figure.name}; not a verified likeness`} data-region={figure.region} width="42" height="42" loading="lazy" decoding="async" />}
+                  <div class="tfr-report__author">
+                    <span class="micro">{b.via ? 'Transmitted via' : 'Transmitted report'}</span>
+                    <h4 data-region={region ?? undefined}>{b.via ?? 'Chain not separated'}</h4>
+                  </div>
+                  <Icon name="book" size={17} />
                 </div>
-                <Icon name="book" size={17} />
+                {b.c && (
+                  <div class="tfr-chain" data-region={region ?? undefined}>
+                    <span class="tfr-chain__label">Transmission wording</span>
+                    <p set:html={html(b.c)} />
+                  </div>
+                )}
               </div>
               <blockquote class="tfr-report__matn" set:html={html(b.m)} />
-              {b.c && (
-                <details class="tfr-chain">
-                  <summary>View transmission wording <Icon name="chevron" size={15} /></summary>
-                  <p set:html={html(b.c)} />
-                </details>
-              )}
             </article>
           );
         })}

@@ -1,0 +1,42 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import hammam from '../../data/local-editions/hammam.json';
+import makka from '../../data/local-editions/fadail-makka.json';
+import '../../styles/local-edition.css';
+import '../../styles/local-edition-redesign.css';
+const { title, arabic, description, slug, detail } = Astro.props;
+const isMakka = slug === 'fada-il-makka';
+const preview = isMakka ? makka.pages[1] : hammam.find((entry) => entry.hadith_number === 2)!;
+const excerpt = (isMakka ? makka.pages[1].english.split('\n\n')[1] : preview.english) ?? '';
+---
+<BaseLayout title={`${title} | HadithCritic`} description={description} crumbs={[{name:'Home',url:'/'},{name:'Hadith corpus',url:'/hadith/'},{name:title,url:`/hadith/collection/${slug}/`}]}>
+  <link slot="head" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;family=Sorts+Mill+Goudy&amp;display=swap" />
+  <main class:list={['local-edition', 'landing', isMakka ? 'edition-makka' : 'edition-hammam']}>
+    <section class="edition-hero">
+      <div class="edition-hero__inner">
+        <div class="edition-intro">
+          <a class="back" href="/hadith/">Hadith library / Source editions</a>
+          <p class="kicker">Arabic & English · Source edition</p>
+          <h1>{title}</h1>
+          <p class="arabic-title" lang="ar" dir="rtl">{arabic}</p>
+          <p class="lede">{description}</p>
+          <div class="edition-actions"><a class="read-button" href={`/hadith/collection/${slug}/read/`}>Read the text <span aria-hidden="true">↗</span></a><a class="edition-secondary" href="#about">About this edition</a></div>
+        </div>
+        <div class="edition-preview" aria-label="Excerpt from the edition">
+          <div class="preview-top"><span>Inside the text</span><span>{isMakka ? 'The letter' : 'Narration 1'}</span></div>
+          <div class="preview-body"><span class="source-label">English translation</span><p>{excerpt.length > 310 ? excerpt.slice(0, 310).trimEnd() + '…' : excerpt}</p><span class="preview-ar" lang="ar" dir="rtl">{isMakka ? makka.pages[1].arabic.slice(0, 150) : hammam.find((entry) => entry.hadith_number === 2)!.text.slice(0, 150)}…</span></div>
+          <div class="preview-bottom">Arabic & English <span>Source edition</span></div>
+        </div>
+      </div>
+    </section>
+    <section class="edition-overview" id="about">
+      <div class="edition-overview__head"><p class="kicker">The edition</p><h2>A closer reading<br />of the source.</h2><p>{detail}</p></div>
+      <div class="edition-facts">
+        <div><span>01 / Format</span><strong>{isMakka ? 'Thematic sections' : 'Numbered reports'}</strong><p>{isMakka ? 'Follow the letter and its accounts in their original sequence.' : 'Read the reports in their supplied order, with the opening transmission.'}</p></div>
+        <div><span>02 / Extent</span><strong>{isMakka ? '7 sections' : '137 numbered reports'}</strong><p>{isMakka ? 'The letter and accounts, with the opening transmission presented separately.' : 'The numbered reports, with the opening material presented separately.'}</p></div>
+        <div><span>03 / Languages</span><strong>Arabic & English</strong><p>Read the original text alongside its English translation.</p></div>
+      </div>
+      <a class="edition-end-link" href={`/hadith/collection/${slug}/read/`}>Open the reader <span aria-hidden="true">↗</span></a>
+    </section>
+  </main>
+</BaseLayout>

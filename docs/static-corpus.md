@@ -95,10 +95,10 @@ is readable as `window.__corpusVersion`.
 
 One variable, and on this deployment only one usable answer.
 
-| | `PUBLIC_CORPUS_BASE_URL` | Publish with |
-|---|---|---|
+|                          | `PUBLIC_CORPUS_BASE_URL`             | Publish with                                            |
+| ------------------------ | ------------------------------------ | ------------------------------------------------------- |
 | Separate data host on R2 | `https://data.hadithcriticblog.com/` | `npm run publish:corpus` (already `--target r2 --cors`) |
-| Dev server only | `/data/corpus/` (default) | nothing to stage; served from dist-db/builds |
+| Dev server only          | `/data/corpus/` (default)            | nothing to stage; served from dist-db/builds            |
 
 The site's own assets are **not** an option, for the reason in the next
 section: Cloudflare answers a range request with `200` and the whole file. A
@@ -148,7 +148,7 @@ chunk is warm. That has not been confirmed on the real domain. Until it is:
 
 - **R2 behind a data hostname is the safe host.** R2 is an object store with
   first-class byte serving, and range requests against it are `206` by design.
-- Deploying with the default `/data/corpus/` is safe to *try*, because the probe
+- Deploying with the default `/data/corpus/` is safe to _try_, because the probe
   turns the failure mode into a readable message rather than corruption. If
   readers see "corpus unavailable", set `PUBLIC_CORPUS_BASE_URL` to the R2
   hostname and redeploy. No code changes.
@@ -193,11 +193,11 @@ output once.
 Measured on a cold page against the current corpus, in the browser, with
 `await window.__corpusStats()`:
 
-| Workflow | Fetched | Range requests |
-|---|---|---|
-| `/hadith?q=الصلاة` (cold, FTS5 + 25 results) | 4.4 MiB | 74 |
-| `/hadith/20614` (record, chain, subjects, glosses) | 160 KiB | 37 |
-| `/narrators/5361` (Mālik: 118 statements, 80 relations) | 2.7 MiB | 117 |
+| Workflow                                                | Fetched | Range requests |
+| ------------------------------------------------------- | ------- | -------------- |
+| `/hadith?q=الصلاة` (cold, FTS5 + 25 results)            | 4.4 MiB | 74             |
+| `/hadith/20614` (record, chain, subjects, glosses)      | 160 KiB | 37             |
+| `/narrators/5361` (Mālik: 118 statements, 80 relations) | 2.7 MiB | 117            |
 
 The 1.62 GB figure is the size of the file, not of a visit. A search reads about
 0.27% of it. Versioned paths are `immutable`, so a second search on the same
@@ -213,38 +213,48 @@ stored is never recounted.
 
 ## Where the code is
 
-| Path | What |
-|---|---|
-| `src/lib/corpus-config.ts` | Which version, served from where. No chunk count. |
-| `src/lib/corpus-client.ts` | Worker lifecycle, every query, typed results. |
-| `src/lib/corpus-types.ts` | Row shapes, mirroring the schema. |
-| `src/lib/corpus-count.ts` | The bounded-count and CTE-ranking query shapes. |
-| `src/lib/hadith-search.ts` | `/hadith` search and results. |
-| `src/lib/hadith-record.ts` | `/hadith/<id>/` record. |
-| `src/lib/kitab-page.ts` | `/hadith/collection/[slug]/kitab/[n]` chapters, read when opened. |
-| `src/lib/narrator-register.ts` | `/narrators` register. |
-| `src/lib/narrator-dossier.ts` | `/narrators/<id>/` dossier. |
-| `src/lib/corpus-shell.ts` | Id, title, canonical and noindex for the two record shells. |
-| `scripts/lib/shell-rewrites.mjs` | The `_redirects` rewrites that serve those shells, and the dev equivalent. |
-| `src/lib/narrator-compare.ts` | `/narrators/compare` table. |
-| `src/data/corpus-meta.json` | Generated totals, collections, facets. Committed. |
-| `src/data/narrator-sitemap.json` | Generated sitemap id list. Committed. |
-| `tests/corpus.spec.ts` | The acceptance suite, including "no database traffic". |
+| Path                                                                | What                                                                                      |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `src/lib/corpus-config.ts`                                          | Which version, served from where. No chunk count.                                         |
+| `src/lib/corpus-client.ts`                                          | Worker lifecycle, every query, typed results.                                             |
+| `src/lib/corpus-types.ts`                                           | Row shapes, mirroring the schema.                                                         |
+| `src/lib/corpus-count.ts`                                           | The bounded-count and CTE-ranking query shapes.                                           |
+| `src/lib/hadith-search.ts`                                          | `/hadith` search and results.                                                             |
+| `src/lib/hadith-record.ts`                                          | Browser renderer for fallback `/hadith/<id>/` records.                                    |
+| `src/pages/hadith/collection/al-shama-il-al-muhammadiyah/chapter/[n].astro` | Prerenders one page per Shamā'il chapter from its HTML source. |
+| `src/pages/hadith/collection/al-shama-il-al-muhammadiyah.astro`     | Thin route and site metadata wrapper for the Shamā'il collection page.                    |
+| `src/data/hadith-pages/al-shama-il-al-muhammadiyah/collection.html` | Editable Shamā'il collection markup and styling, with links to all 56 chapter pages. |
+| `src/data/hadith-pages/al-shama-il-al-muhammadiyah/chapters/` | The 56 editable HTML pages; each contains every narration in its chapter. |
+| `src/data/hadith-pages/al-shama-il-al-muhammadiyah/chapter-index.json` | Chapter titles, narration ranges, counts, and source filenames for prerendering. |
+| `scripts/export-shamail-html.mjs` | Rebuilds the 56 chapter HTML sources from the local corpus release. |
+| `src/lib/kitab-page.ts`                                             | `/hadith/collection/[slug]/kitab/[n]` chapters, read when opened.                         |
+| `src/lib/narrator-register.ts`                                      | `/narrators` register.                                                                    |
+| `src/lib/narrator-dossier.ts`                                       | `/narrators/<id>/` dossier.                                                               |
+| `src/lib/corpus-shell.ts`                                           | Id, title, canonical and noindex for the two record shells.                               |
+| `scripts/lib/shell-rewrites.mjs`                                    | The `_redirects` rewrites that serve those shells, and the dev equivalent.                |
+| `src/lib/narrator-compare.ts`                                       | `/narrators/compare` table.                                                               |
+| `src/data/corpus-meta.json`                                         | Generated totals, collections, facets. Committed.                                         |
+| `src/data/narrator-sitemap.json`                                    | Generated sitemap id list. Committed.                                                     |
+| `tests/corpus.spec.ts`                                              | The acceptance suite, including "no database traffic".                                    |
 
 Which routes are prerendered:
 
-| Route | Rendering |
-|---|---|
-| `/hadith` | Prerendered shell; search client-side |
-| `/hadith/collection/[slug]` | Prerendered, one page per collection (33) |
-| `/narrators` | Prerendered shell; rows client-side |
-| `/narrators/compare` | Prerendered shell |
-| `/sitemap-narrators*.xml` | Prerendered from generated ids |
-| `/hadith/<id>/` | Prerendered `/hadith/shell/`, served by a `_redirects` rewrite |
-| `/narrators/<id>/` | Prerendered `/narrators/shell/`, served by a `_redirects` rewrite |
+| Route                                   | Rendering                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------ |
+| `/hadith`                               | Prerendered shell; search client-side                                    |
+| `/hadith/collection/[slug]`             | Prerendered collection pages; Shamā'il has its own HTML source and route |
+| `/hadith/collection/al-shama-il-al-muhammadiyah/chapter/[n]/` | One static page per Shamā'il chapter, containing all its narrations |
+| `/narrators`                            | Prerendered shell; rows client-side                                      |
+| `/narrators/compare`                    | Prerendered shell                                                        |
+| `/sitemap-narrators*.xml`               | Prerendered from generated ids                                           |
+| `/hadith/<id>/`                          | Prerendered `/hadith/shell/`, served by a `_redirects` rewrite           |
+| `/narrators/<id>/`                      | Prerendered `/narrators/shell/`, served by a `_redirects` rewrite        |
 
 The ids are unbounded, 276,347 and 20,950, past what Cloudflare will hold as
-assets, so each family is one shell. These used to be on-demand routes. They
+assets, so each family uses a shell. The 56 Shamā'il chapter pages are committed
+HTML sources for direct editing. Regenerate them from the local corpus with
+`npm run build:shamail:html -- --overwrite`; the public pages read the committed
+HTML and have no runtime database dependency. These used to be on-demand routes. They
 read nothing at request time, but on demand still meant a Worker invocation per
 page view, and on 2026-10-19 crawlers walking the narrator sitemap took the
 Worker past the Free plan's 100,000 daily requests (124,875 invocations).
@@ -269,10 +279,10 @@ that always skips protects nothing.
 
 So there are two suites and a committed fixture.
 
-| | Runs against | Asserts |
-|---|---|---|
-| `tests/corpus.spec.ts` | any corpus, real or fixture | behaviour, with counts read from the served `corpus-meta.json` |
-| `tests/corpus-data.spec.ts` | the real corpus only | the totals and the particular records a release is expected to carry |
+|                             | Runs against                | Asserts                                                              |
+| --------------------------- | --------------------------- | -------------------------------------------------------------------- |
+| `tests/corpus.spec.ts`      | any corpus, real or fixture | behaviour, with counts read from the served `corpus-meta.json`       |
+| `tests/corpus-data.spec.ts` | the real corpus only        | the totals and the particular records a release is expected to carry |
 
 `tests/fixtures/corpus/` is a miniature corpus cut out of the real one by
 `npm run build:corpus:fixture`: 48 narrations, 161 transmitters, 4 collections,
@@ -349,7 +359,7 @@ browser holding the old manifest and the new chunks, which is the same failure
 as above: a database that answers with missing rows rather than failing. This
 bit the test fixture while it was named `fixture`; it is now named for a hash of
 its own contents, so a rebuild publishes somewhere new. The manifest itself is
-deliberately *not* immutable, for the same reason and so a rollback can take
+deliberately _not_ immutable, for the same reason and so a rollback can take
 effect.
 
 **A check that waits for `load` measures a spinner.** Corpus pages are shells

@@ -152,6 +152,7 @@ export function initReader() {
     const countEl = notes.querySelector<HTMLElement>('[data-notes-count]');
     const empty = notes.querySelector<HTMLElement>('[data-notes-empty]');
     const expand = notes.querySelector<HTMLButtonElement>('[data-notes-expand]');
+    const details = notes.querySelector<HTMLDetailsElement>('[data-notes-details]');
     const limit = Number(notes.dataset.limit) || 9;
     let showAll = false;
     const update = () => {
@@ -180,6 +181,7 @@ export function initReader() {
     const reveal = (hash: string) => {
       const row = hash.startsWith('#note-') ? notes.querySelector<HTMLElement>(hash) : null;
       if (!row) return;
+      if (details) details.open = true;
       if (row.hidden) {
         if (query) query.value = '';
         showAll = true;

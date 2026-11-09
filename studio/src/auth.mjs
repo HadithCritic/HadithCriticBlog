@@ -75,7 +75,18 @@ export function hasRecentAuthentication(token, now = Date.now()) {
 export function isAllowedHost(request, env) {
   const allowed = env.STUDIO_ALLOWED_HOST;
   const url = new URL(request.url);
+  if (isLocalDevRequest(request, env)) return true;
   return typeof allowed === 'string' && url.protocol === 'https:' && url.host.toLowerCase() === allowed.toLowerCase() && request.headers.get('host')?.toLowerCase() === allowed.toLowerCase();
+}
+
+/** A local-only identity for Wrangler dev. Keep the flag in ignored .dev.vars only; Wrangler may rewrite a loopback URL to the configured custom hostname. */
+export function isLocalDevRequest(request, env) {
+  const url = new URL(request.url);
+  const host = request.headers.get('host')?.toLowerCase();
+  return env.STUDIO_LOCAL_DEV_AUTH === 'true'
+    && url.protocol === 'https:'
+    && (['127.0.0.1', 'localhost'].includes(url.hostname.toLowerCase()) || url.hostname.toLowerCase() === env.STUDIO_ALLOWED_HOST?.toLowerCase())
+    && host === url.host.toLowerCase();
 }
 
 export function isSameOriginMutation(request) {

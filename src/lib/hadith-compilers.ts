@@ -29,6 +29,11 @@ const TAHAWI: Compiler = { name: 'Abū Jaʿfar al-Ṭaḥāwī', origin: 'Egypt'
 const TABARANI: Compiler = { name: 'Sulaymān ibn Aḥmad al-Ṭabarānī', origin: 'Isfahan', region: 'jibal', medallion: 'tabarani' };
 
 export const COMPILERS: Record<string, Compiler> = {
+  'musnad-abu-hanifa': { name: 'Abū Ḥanīfa al-Nuʿmān ibn Thābit', origin: 'Kufa', region: 'kufa' },
+  'musnad-abd-allah-ibn-al-mubarak': { name: 'ʿAbd Allāh ibn al-Mubārak', origin: 'Merv', region: 'merv' },
+  'fada-il-makka': { name: 'Attributed to al-Ḥasan al-Baṣrī', origin: 'Basra', region: 'basra' },
+  'sahifat-hammam-ibn-munabbih': { name: 'Hammām ibn Munabbih', origin: 'Sanaa', region: 'yemen' },
+  'musnad-sad-ibn-abi-waqqas': { name: 'Aḥmad ibn Ibrāhīm al-Dawraqī', origin: 'Basra', region: 'basra', medallion: 'sad-portrait-medallion' },
   'muwatta-malik': MALIK,
   'musnad-al-tayalisi': { name: 'Abū Dāwūd al-Ṭayālisī', origin: 'Basra', region: 'basra', medallion: 'tayalisi' },
   'musannaf-abd-al-razzaq': { name: 'ʿAbd al-Razzāq al-Ṣanʿānī', origin: 'Sanaa (Yemen)', region: 'yemen', medallion: 'abd-al-razzaq-cutout' },
@@ -38,6 +43,7 @@ export const COMPILERS: Record<string, Compiler> = {
   'musnad-ahmad': { name: 'Aḥmad ibn Ḥanbal', origin: 'Baghdad', region: 'baghdad', medallion: 'ahmad-ibn-hanbal' },
   'musnad-abd-ibn-humayd': { name: 'ʿAbd ibn Ḥumayd', origin: 'Kish (Transoxiana)', region: 'bukhara', medallion: 'abd-ibn-humayd' },
   'musnad-al-darimi': { name: 'ʿAbd Allāh ibn ʿAbd al-Raḥmān al-Dārimī', origin: 'Samarqand', region: 'bukhara', medallion: 'darimi' },
+  'musnad-khalifa-ibn-khayyat': { name: 'Khalīfa ibn Khayyāṭ', origin: 'Basra', region: 'basra', medallion: 'khalifa-ibn-khayyat' },
   'sahih-al-bukhari': { name: 'Muḥammad ibn Ismāʿīl al-Bukhārī', origin: 'Bukhara', region: 'bukhara', medallion: 'bukhari' },
   'sahih-muslim': { name: 'Muslim ibn al-Ḥajjāj al-Naysābūrī', origin: 'Nishapur', region: 'nishapur', medallion: 'muslim' },
   'sunan-ibn-majah': { name: 'Ibn Mājah al-Qazwīnī', origin: 'Qazwin', region: 'jibal', medallion: 'ibn-majah' },

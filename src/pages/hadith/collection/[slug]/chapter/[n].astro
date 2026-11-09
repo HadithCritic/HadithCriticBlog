@@ -1,0 +1,59 @@
+---
+import fs from "node:fs";
+import path from "node:path";
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import { OG } from "../../../../../lib/seo";
+
+export function getStaticPaths() {
+  const editions = [
+    { slug: "musnad-sad-ibn-abi-waqqas", title: "Musnad Saʿd ibn Abī Waqqāṣ", noun: "Chapter" },
+    { slug: "birr-al-walidayn", title: "Birr al-Wālidayn of al-Bukhārī", noun: "Chapter" },
+    { slug: "musnad-khalifa-ibn-khayyat", title: "Musnad Khalīfa ibn Khayyāṭ", noun: "Section" },
+  ];
+  return editions.flatMap((edition) => {
+    const root = path.resolve(process.cwd(), "src/data/hadith-pages", edition.slug);
+    const index: Array<{ n: number; title_en: string; count: number; file: string }> =
+      JSON.parse(fs.readFileSync(path.join(root, "chapter-index.json"), "utf8"));
+    return index.map((chapter) => ({
+      params: { slug: edition.slug, n: String(chapter.n) },
+      props: { edition, chapter },
+    }));
+  });
+}
+
+const { edition, chapter } = Astro.props;
+const root = path.resolve(process.cwd(), "src/data/hadith-pages", edition.slug);
+const sourceHtml = fs.readFileSync(path.join(root, chapter.file), "utf8");
+// Move the complete font import to the outer head, preserving the semicolons
+// within the Google Fonts URL and the chapter's own CSS variables.
+const sourceStyles = sourceHtml.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+const fontImport = /@import\s+url\((['"])(https:\/\/fonts\.googleapis\.com\/[^'"]+)\1\)\s*;/i;
+const fontUrl = sourceStyles.match(fontImport)?.[2];
+const chapterStyles = sourceStyles.replace(fontImport, "");
+const pageHtml = sourceHtml
+  .replace(/<!doctype\s+html[^>]*>/i, "")
+  .replace(/<head\b[^>]*>[\s\S]*?<\/head>/i, "")
+  .replace(/<\/?html\b[^>]*>/gi, "")
+  .replace(/<\/?body\b[^>]*>/gi, "")
+  .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+  .replace(/<button\b[^>]*(?:id=["']print["']|data-print)[^>]*>[\s\S]*?<\/button>/gi, "");
+const pageUrl = `/hadith/collection/${edition.slug}/chapter/${chapter.n}/`;
+---
+
+<BaseLayout
+  title={`${edition.title}: ${edition.noun} ${chapter.n} | HadithCritic`}
+  description={`${chapter.title_en} — ${chapter.count} source entries in ${edition.noun.toLowerCase()} ${chapter.n} of ${edition.title}.`}
+  image={OG.collection(edition.slug)}
+  imageAlt={`${edition.title} | HadithCritic`}
+  crumbs={[
+    { name: "Home", url: "/" },
+    { name: "Corpus", url: "/hadith/" },
+    { name: edition.title, url: `/hadith/collection/${edition.slug}/` },
+    { name: `${edition.noun} ${chapter.n}`, url: pageUrl },
+  ]}
+>
+  {fontUrl && <link slot="head" rel="stylesheet" href={fontUrl} />}
+  {/* Apply chapter rules after the shared site stylesheet, before chapter markup is parsed. */}
+  <style is:inline set:html={chapterStyles}></style>
+  <Fragment set:html={pageHtml} />
+</BaseLayout>

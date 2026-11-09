@@ -14,11 +14,13 @@ No database server is in the request path for any public page.
 ## Stack facts that change how you work
 
 - **Astro 7 on the Cloudflare adapter.** Static by default, and the corpus is
-  now static with it. `/hadith/<id>/` and `/narrators/<id>/` are one
-  prerendered shell each (`/hadith/shell/`, `/narrators/shell/`), served for
-  every id by a 200 rewrite that `scripts/lib/shell-rewrites.mjs` appends to
-  `_redirects`, so a record page never invokes the Worker. The client reads the
-  id from the address. Only `/api/subscribe` runs on demand. Read
+  now static with it. Al-Shama'il has 56 prerendered chapter pages, each sourced
+  from an editable HTML file in
+  `src/data/hadith-pages/al-shama-il-al-muhammadiyah/chapters/`; the collection
+  landing page is `src/data/hadith-pages/al-shama-il-al-muhammadiyah/collection.html`.
+  Individual `/hadith/<id>/` addresses and `/narrators/<id>/` use one shell each,
+  served by a 200 rewrite that `scripts/lib/shell-rewrites.mjs` appends to
+  `_redirects`. Only `/api/subscribe` runs on demand. Read
   `docs/static-corpus.md` before touching anything under `/hadith` or
   `/narrators`.
 - **The corpus is on disk** at `dist-db/builds/<version>/hadith.db` (1.62 GB),

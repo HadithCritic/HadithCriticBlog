@@ -1,0 +1,47 @@
+---
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import BaseLayout from "../../../../../layouts/BaseLayout.astro";
+import { OG } from "../../../../../lib/seo";
+import chapters from "../../../../../data/hadith-pages/al-shama-il-al-muhammadiyah/chapter-index.json";
+
+export function getStaticPaths() {
+  return chapters.map((chapter) => ({ params: { n: String(chapter.n) }, props: { chapter } }));
+}
+
+const { chapter } = Astro.props;
+const pagePath = resolve(process.cwd(), "src/data/hadith-pages/al-shama-il-al-muhammadiyah", chapter.file);
+const sourceHtml = readFileSync(pagePath, "utf8");
+const sourceStyles = sourceHtml.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+const fontImport = /@import\s+url\((['"])(https:\/\/fonts\.googleapis\.com\/[^'"]+)\1\)\s*;/i;
+const fontUrl = sourceStyles.match(fontImport)?.[2];
+const chapterStyles = sourceStyles.replace(fontImport, "");
+const pageHtml = sourceHtml
+  .replace(/<!doctype\s+html[^>]*>/i, "")
+  .replace(/<head\b[^>]*>[\s\S]*?<\/head>/i, "")
+  .replace(/<\/?html\b[^>]*>/gi, "")
+  .replace(/<\/?body\b[^>]*>/gi, "")
+  // Keep the shared HadithCritic navigation from BaseLayout as the only site
+  // navbar, even if an older editable chapter file still contains its own.
+  .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
+  .replace(/<button\b[^>]*(?:id=["']print["']|data-print)[^>]*>[\s\S]*?<\/button>/gi, "");
+
+const title = `Al-Shama'il al-Muhammadiyah: Chapter ${chapter.n} | HadithCritic`;
+const description = `${chapter.title_en || `Chapter ${chapter.n}`} — all ${chapter.count} narrations in this chapter of Al-Shama'il al-Muhammadiyah.`;
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  image={OG.corpus}
+  crumbs={[
+    { name: "Home", url: "/" },
+    { name: "Hadith Corpus", url: "/hadith/" },
+    { name: "Al-Shama'il al-Muhammadiyah", url: "/hadith/collection/al-shama-il-al-muhammadiyah/" },
+    { name: `Chapter ${chapter.n}`, url: `/hadith/collection/al-shama-il-al-muhammadiyah/chapter/${chapter.n}/` },
+  ]}
+>
+  {fontUrl && <link slot="head" rel="stylesheet" href={fontUrl} />}
+  <style is:inline set:html={chapterStyles}></style>
+  <Fragment set:html={pageHtml} />
+</BaseLayout>

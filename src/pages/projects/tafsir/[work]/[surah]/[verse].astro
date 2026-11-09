@@ -1,373 +1,51 @@
 ---
-/* One verse of one commentary: /projects/tafsir/<work>/<surah>/<verse>/.
-
-   The reading edition: the surah masthead and the commentary, surah and verse
-   menus; the verse in its own panel with what the commentary says about how it
-   is read; then the commentary in sections, the editor's notes and the
-   source's attribution. The page holds one verse, so a reader loads only what
-   they read. Every surah a commentary has not imported gets one page, at verse
-   1, saying so. The structure on the page (sections, cards, highlights) comes
-   from scripts/build-tafsir-data.mjs and is editorial; the words are the
-   source's. */
+/* Only the approved al-Fātiḥa release is emitted by this route. */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import BaseLayout from '../../../../../layouts/BaseLayout.astro';
-import Icon from '../../../../../components/tafsir/Icon.astro';
-import ReaderTop from '../../../../../components/tafsir/ReaderTop.astro';
-import ReaderSettings from '../../../../../components/tafsir/ReaderSettings.astro';
-import VersePanel from '../../../../../components/tafsir/VersePanel.astro';
-import CommentaryBlocks from '../../../../../components/tafsir/CommentaryBlocks.astro';
-import NotesApparatus from '../../../../../components/tafsir/NotesApparatus.astro';
 import { OG } from '../../../../../lib/seo';
-import verses from '../../../../../data/quran-verses.json';
-import { formatCount, loadSurah, pageCount, surahs, verseHref, works, defaultWork, type Readings, type Run, type TafsirWork } from '../../../../../data/tafsir';
-import { pad, sectionLabels, verseLabel } from '../../../../../lib/tafsir-render';
+import { pageCount, surahs, verseHref, works } from '../../../../../data/tafsir';
+import { pad } from '../../../../../lib/tafsir-render';
 import '../../../../../styles/tafsir.css';
 
 export function getStaticPaths() {
-  return works.flatMap((work) =>
-    surahs.flatMap((surah) =>
-      Array.from({ length: pageCount(work, surah.n) }, (_, i) => ({
-        params: { work: work.id, surah: String(surah.n), verse: String(i + 1) },
-        props: { workId: work.id, n: surah.n, v: i + 1 },
-      })),
-    ),
-  );
+  return works
+    .filter((work) => work.id === 'tabari')
+    .flatMap((work) => surahs
+      .filter((surah) => surah.n === 1 && work.imported.has(1))
+      .flatMap((surah) => Array.from({ length: Math.min(pageCount(work, surah.n), 7) }, (_, i) => ({
+        params: { work: work.id, surah: '1', verse: String(i + 1) },
+        props: { workId: work.id, verse: i + 1 },
+      }))));
 }
 
-const { workId, n, v } = Astro.props as { workId: string; n: number; v: number };
-const work = works.find((w) => w.id === workId) as TafsirWork;
-const listing = surahs[n - 1];
-const imported = work.imported.get(n);
-const data = imported ? await loadSurah(work.id, n) : null;
-const count = pageCount(work, n);
-const quran = (verses as Record<string, { ar: string; en: string }>)[`${n}:${v}`];
-const ref = `${n}:${v}`;
-const citeHref = (s: number, a: number) => verseHref(work.imported.has(s) ? work : defaultWork, s, a);
-
-/* ── The passages on this page ─────────────────────────────────── */
-
-const ayah = data?.ayahs[v - 1] ?? null;
-const unitKeys = data ? [...new Set([...(v === 1 ? data.intro : []), ...(ayah?.u ?? [])].map(String))] : [];
-const units = unitKeys.map((key) => ({ key, unit: data!.units[key] }));
-
-let sectionNo = 0;
-const rendered = units.map(({ key, unit }) => ({
-  key,
-  unit,
-  sections: unit.sec.map((section) => {
-    sectionNo++;
-    const blocks = section.b.map((i) => unit.b[i]);
-    return { ...section, no: sectionNo, id: `section-${sectionNo}`, ...sectionLabels(section.k, blocks, work.name, unit.k === 'intro') };
-  }),
-}));
-const toc = rendered.flatMap((u) => u.sections);
-
-const readings: Readings & { anchors: string[] } = {
-  status: 'none', names: [], regions: [], evidence: [], anchors: [],
-};
-for (const { key, unit } of units) {
-  if (unit.k === 'intro') continue;
-  if (unit.rd.status === 'preference' || (unit.rd.status === 'discussed' && readings.status === 'none')) readings.status = unit.rd.status;
-  readings.names.push(...unit.rd.names.filter((x) => !readings.names.includes(x)));
-  readings.regions.push(...unit.rd.regions.filter((x) => !readings.regions.includes(x)));
-  for (const e of unit.rd.evidence) {
-    readings.evidence.push(e);
-    readings.anchors.push(`u${key}-b${e.b}`);
-  }
-}
-
-// Qur'anic citations on the page, for the reference guide.
-const cites = new Map<string, [number, number, number]>();
-const collect = (runs: Run[] | null | undefined) => {
-  for (const r of runs ?? []) {
-    if (typeof r === 'string') continue;
-    if (r[0] === 'r') cites.set(verseLabel(r[2], r[3], r[4]), [r[2], r[3], r[4]]);
-    else if (r[0] === 'h') collect(r[1]);
-  }
-};
-for (const { unit } of units) {
-  for (const b of unit.b) {
-    if ('x' in b) collect(b.x as Run[]);
-    if (b.t === 'report') collect(b.c), collect(b.m);
-    if (b.t === 'quote') cites.set(verseLabel(b.r[2], b.r[3], b.r[4]), [b.r[2], b.r[3], b.r[4]]);
-    if (b.t === 'arg') collect(b.q.x), collect(b.a.x);
-  }
-}
-
-const notes = (ayah?.nt ?? []).map((idx) => ({ idx, note: data!.notes[idx] }));
-const translatorNotes = units.flatMap(({ unit }) => unit.tn ?? []);
-const words = units.reduce((sum, { unit }) => sum + unit.w, 0);
-
-const editionLine = (() => {
-  const parts = units.filter(({ unit }) => unit.k !== 'intro').map(({ unit }) => unit.ed);
-  const en = parts.filter((e) => e.print === 'en') as { volumes: number[]; pages: number[] }[];
-  const ar = parts.filter((e) => e.print === 'ar').flatMap((e) => (e as { pages: { v: string; p: number }[] }).pages);
-  if (en.length) {
-    const vols = [...new Set(en.flatMap((e) => e.volumes))];
-    const pages = [...new Set(en.flatMap((e) => e.pages))];
-    return vols.length ? `English edition, vol. ${vols.join(', ')}${pages.length ? `, PDF p. ${pages.join(', ')}` : ''}` : '';
-  }
-  if (ar.length) {
-    const vols = [...new Set(ar.map((p) => p.v))];
-    const pages = ar.map((p) => p.p);
-    const lo = Math.min(...pages);
-    const hi = Math.max(...pages);
-    return `Arabic edition, vol. ${vols.join(', ')}, ${lo === hi ? `p. ${lo}` : `pp. ${lo}–${hi}`}`;
-  }
-  return '';
-})();
-
-const ranged = units.filter(({ unit }) => unit.k !== 'intro' && unit.s != null && unit.e != null && unit.e > unit.s);
-
-/* ── Navigation ────────────────────────────────────────────────── */
-
-const step = (surah: number, verseNo: number) => ({ href: verseHref(work, surah, verseNo), label: `${surah}:${verseNo}`, name: surahs[surah - 1].latin });
-const have = [...work.imported.keys()].sort((a, b) => a - b);
-const before = have.filter((s) => s < n).at(-1);
-const after = have.find((s) => s > n);
-const previous = imported && v > 1 ? step(n, v - 1) : before ? step(before, pageCount(work, before)) : null;
-const next = imported && v < count ? step(n, v + 1) : after ? step(after, 1) : null;
-
-const menus = {
-  works: works.map((w) => ({ value: verseHref(w, n, v), label: `${w.name} · d. ${w.died} AH`, selected: w.id === work.id })),
-  surahs: surahs.map((s) => ({ value: verseHref(work, s.n, 1), label: `${pad(s.n)} · ${s.latin}${work.imported.has(s.n) ? '' : ' (not imported)'}`, selected: s.n === n })),
-  verses: data
-    ? Array.from({ length: count }, (_, i) => ({ value: verseHref(work, n, i + 1), label: `${n}:${i + 1}`, selected: i + 1 === v }))
-    : [{ value: verseHref(work, n, 1), label: '—', selected: true }],
-};
-const elsewhere = listing.works.filter((w) => w.id !== work.id);
-const t = data?.translation;
-
-const title = data ? `${listing.latin} ${ref}, ${work.name} | Tafsir | HadithCritic` : `${listing.latin}, ${work.name} | Tafsir | HadithCritic`;
-const description = data
-  ? `${work.name}'s commentary on Qur'an ${ref} (${listing.latin}) in English: the verse in Arabic and English, the commentary with its transmitted reports, and the editor's notes.`
-  : `${listing.latin} in the Tafsir project. ${work.name}'s commentary on this surah has not been imported yet.`;
+const { workId, verse } = Astro.props as { workId: string; verse: number };
+const work = works.find((item) => item.id === workId)!;
+const surah = surahs.find((item) => item.n === 1)!;
+const pageHtml = readFileSync(
+  resolve(process.cwd(), 'src/data/tafsir-pages/tabari/001', `${pad(verse, 3)}.html`),
+  'utf8',
+);
+const title = `${surah.latin} ${pad(1)}:${pad(verse)} · ${work.name} | Tafsīr`;
+const description = `Al-Ṭabarī's commentary on Qur'an 1:${verse}, with the Arabic verse, English translation, transmitted reports and editor's notes.`;
 ---
 
 <BaseLayout
   title={title}
   description={description}
   image={OG.tafsir}
-  noindex={!data}
+  standalone={verse === 1}
   crumbs={[
     { name: 'Home', url: '/' },
     { name: 'Projects', url: '/projects/' },
-    { name: 'Tafsir', url: '/projects/tafsir/' },
-    { name: data ? `${listing.latin} ${ref}` : listing.latin, url: verseHref(work, n, v) },
+    { name: 'Tafsīr', url: '/projects/tafsir/' },
+    { name: 'al-Fātiḥa', url: verseHref(work, 1, 1) },
+    { name: `${pad(1)}:${pad(verse)}`, url: verseHref(work, 1, verse) },
   ]}
 >
-  <Fragment slot="head">
-    {previous && <link rel="prev" href={previous.href} />}
-    {next && <link rel="next" href={next.href} />}
-  </Fragment>
-
-  <div class="hc-page tfx tfr" data-reader data-highlights="on" data-focus="off">
-    <ReaderTop
-      surah={n}
-      name={listing.latin}
-      arabicName={listing.ar}
-      verses={listing.verses}
-      verse={data ? v : null}
-      commentator={work.name}
-      arabic={data ? quran?.ar ?? null : null}
-      english={data ? quran?.en ?? null : null}
-      works={menus.works}
-      surahs={menus.surahs}
-      verseOptions={menus.verses}
-    />
-
-    <div class="tfr-area">
-      <div class="tfx-wrap tfr-grid">
-        <aside class="tfr-rail" aria-label="Contents of this page">
-          <div class="micro tfr-rail__head">In this commentary</div>
-          <ol class="tfr-contents" data-contents>
-            <li><a href="#reading-verse"><span>00</span> Verse and reading</a></li>
-            {toc.map((s) => <li><a href={`#${s.id}`}><span>{pad(s.no)}</span> {s.title}</a></li>)}
-            {data && <li><a href="#notes"><span>{pad(toc.length + 1)}</span> Editor's notes</a></li>}
-            {data && <li><a href="#about"><span>{pad(toc.length + 2)}</span> About this edition</a></li>}
-          </ol>
-          <div class="tfr-tip">
-            <strong>An editorial reading edition</strong>
-            <p>Section titles, display labels and quotation styling are navigation aids; they are not part of the original commentary.</p>
-          </div>
-        </aside>
-
-        <article class="tfr-column" aria-labelledby="reading-title">
-          <div class="tfr-edition">
-            <div>
-              <div class="micro tfr-edition__label">Classical Qur'an commentary</div>
-              <h2 id="reading-title">{work.name} on {ref}</h2>
-              {data && (
-                <p class="tfr-edition__meta">
-                  <span>{formatCount(words)} words</span>
-                  <span>{notes.length} editor's notes</span>
-                  {editionLine && <span>{editionLine}</span>}
-                </p>
-              )}
-            </div>
-            <div class="tfr-edition__tools">
-              <button type="button" class="tfr-icon-button" data-share-link title="Share a link to this verse" aria-label="Share a link to this verse"><Icon name="link" /></button>
-            </div>
-          </div>
-          <p class="tfr-disclaimer">The commentary's wording is retained from the source edition. Headings, labels and visual groupings are editorial navigation aids.</p>
-
-          {data ? (
-            <Fragment>
-              {quran && (
-                <VersePanel
-                  surah={n}
-                  verse={v}
-                  name={listing.latin}
-                  arabic={quran.ar}
-                  english={quran.en}
-                  readings={readings}
-                  commentator={work.name}
-                  begin={toc.length ? `#${toc[0].id}` : null}
-                />
-              )}
-
-              {ranged.length > 0 && (
-                <p class="tfr-range">
-                  {ranged.map(({ unit }, i) => (
-                    <Fragment>
-                      {i > 0 && ' '}{work.name} treats <strong>{verseLabel(n, unit.s!, unit.e!)}</strong> together. The passage appears on the page of each of those verses
-                      {' '}(<a href={verseHref(work, n, unit.s!)}>start at {n}:{unit.s}</a>).
-                    </Fragment>
-                  ))}
-                </p>
-              )}
-
-              {!units.some(({ unit }) => unit.k !== 'intro') && (
-                <div class="tfr-empty">
-                  <h3>No passage of its own</h3>
-                  <p>
-                    {ayah?.wu
-                      ? `The edition gives ${ref} no heading of its own. Its commentary, if there is any, sits inside a neighbouring passage.`
-                      : `${work.name} has no separate commentary on ${ref} in this edition.`}
-                    {previous && <Fragment> <a href={previous.href}>Read {previous.label}</a></Fragment>}
-                    {next && <Fragment> or <a href={next.href}>{next.label}</a>.</Fragment>}
-                  </p>
-                </div>
-              )}
-
-              {rendered.map(({ key, unit, sections }, u) => (
-                <Fragment>
-                  {units.length > 1 && unit.k !== 'intro' && (rendered.length > 1) && u > 0 && (
-                    <p class="tfr-unit-head"><strong>{unit.k === 'sub_lemma' ? 'A further heading' : 'A further passage'}</strong> of {work.name}'s{unit.s ? ` on ${verseLabel(n, unit.s, unit.e ?? unit.s)}` : ''}.</p>
-                  )}
-                  {sections.map((s) => (
-                    <section class="tfr-section" id={s.id} aria-labelledby={`${s.id}-title`}>
-                      <div class="micro tfr-eyebrow">{pad(s.no)} <span aria-hidden="true">/</span> {s.eyebrow}</div>
-                      <h3 id={`${s.id}-title`}>{s.title}</h3>
-                      <CommentaryBlocks
-                        unitKey={key}
-                        blocks={unit.b}
-                        indices={s.b}
-                        commentator={work.name}
-                        initial={work.initial}
-                        citeHref={citeHref}
-                        dropcap={s.no === 1}
-                        feature={s.k === 'reports'}
-                      />
-                    </section>
-                  ))}
-                </Fragment>
-              ))}
-
-              <NotesApparatus notes={notes} translatorNotes={translatorNotes} edition={work.noteEdition} />
-
-              <section class="tfr-about" id="about" aria-labelledby="about-title">
-                <div class="tfr-about__head"><Icon name="info" size={18} /><h3 id="about-title">About this commentary</h3></div>
-                <p>
-                  {work.author} (d. {work.died} AH), <cite>{work.title}</cite>.
-                  {t?.credit ? (
-                    <Fragment>
-                      {' '}The English of this surah is from {t.credit}{t.title && <Fragment>, <cite>{t.title}</cite></Fragment>}{t.version && ` (version ${t.version})`}
-                      {t.license && `, published under the ${t.license}`}
-                      {t.url && <Fragment> (<a href={t.url} target="_blank" rel="noopener noreferrer">source edition<span class="sr-only">, opens in a new tab</span></a>)</Fragment>}.
-                      {t.copyright && ` ${t.copyright}`}
-                    </Fragment>
-                  ) : (
-                    ' The English of this surah was supplied with the collection; its source record does not name the translator.'
-                  )}
-                </p>
-                {t?.quality && <p>{t.quality}</p>}
-                {t?.modifications && <p>{t.modifications}</p>}
-                {t?.notes && t.notes.length > 0 && <ul>{t.notes.map((note) => <li>{note}</li>)}</ul>}
-                <p>
-                  The editor's notes are those of {work.noteEdition}, cited by volume, page and note number. Verse numbering
-                  follows the Kufan count; the verse translations are Rashad Khalifa's.
-                </p>
-                <p>
-                  How this page is set out: the commentary is read into blocks (the commentator's own explanation, transmitted
-                  reports with their chains, quoted verses, objections and answers, cited poetry) and grouped into sections.
-                  These divisions, their titles and the highlighted verse wording are editorial; the words are unchanged, except
-                  that a backtick standing for the letter ʿayn is set as ʿ. Qur'anic wording the translator marked with braces
-                  is highlighted; turn highlights off to see the braces.
-                </p>
-              </section>
-            </Fragment>
-          ) : (
-            <div class="tfr-empty">
-              <h3>No data imported yet</h3>
-              <p>
-                {work.name}'s commentary on {listing.latin} has not been added to the project. Surahs are imported as their translations are ready.
-                {elsewhere.length > 0 && <Fragment> It is available in {elsewhere.map((w, i) => <Fragment>{i > 0 && ', '}<a href={verseHref(w, n, 1)}>{w.name}</a></Fragment>)}.</Fragment>}
-              </p>
-              <p><a href="/projects/tafsir/#archive">See the imported surahs <span aria-hidden="true">→</span></a></p>
-            </div>
-          )}
-
-          <nav class="tfr-pager" aria-label="Previous and next verse">
-            {previous && (
-              <a class="tfr-page-link" href={previous.href} data-prev>
-                <Icon name="left" size={17} /> <span><small>Previous</small>{previous.label} · {previous.name}</span>
-              </a>
-            )}
-            {data && !next && <span class="tfr-page-end">End of the imported surahs</span>}
-            {data && next && v === count && <span class="tfr-page-end">End of surah · {count} of {count}</span>}
-            {next && (
-              <a class="tfr-page-link tfr-page-link--next" href={next.href} data-next>
-                <span><small>Next</small>{next.label} · {next.name}</span> <Icon name="right" size={17} />
-              </a>
-            )}
-          </nav>
-        </article>
-
-        <aside class="tfr-aside" aria-label="Reading tools">
-          <div class="tfr-widget">
-            <h3 class="tfr-widget__title"><Icon name="panel" size={17} /> Reader settings</h3>
-            <p>Adjust the presentation without changing the source text.</p>
-            <ReaderSettings prefix="tfr-side" />
-          </div>
-          {data && (
-            <div class="tfr-widget">
-              <h3 class="tfr-widget__title"><Icon name="layers" size={17} /> Reference guide</h3>
-              <dl class="tfr-guide">
-                <dt>Primary verse</dt>
-                <dd><a href="#reading-verse">Q {ref} · {listing.latin}</a></dd>
-                <dt>Textual reading</dt>
-                <dd><a href="#reading-verse">{readings.status === 'none' ? 'Not specified in the commentary' : readings.status === 'preference' ? 'Discussed, preference stated' : 'Discussed in the commentary'}</a></dd>
-                {cites.size > 0 && (
-                  <Fragment>
-                    <dt>Cross-references</dt>
-                    <dd>{[...cites.entries()].slice(0, 6).map(([label, [s, a]], i) => <Fragment>{i > 0 && ', '}<a href={citeHref(s, a)}>Q {label}</a></Fragment>)}</dd>
-                  </Fragment>
-                )}
-                <dt>Commentator</dt>
-                <dd>{work.name} (d. {work.died} AH)</dd>
-                {editionLine && <Fragment><dt>Edition</dt><dd>{editionLine}</dd></Fragment>}
-              </dl>
-            </div>
-          )}
-        </aside>
-      </div>
-    </div>
-    <div class="tfr-toast" role="status" aria-live="polite" data-toast></div>
-    <div class="tfr-progress" aria-hidden="true" data-progress></div>
-  </div>
+  <Fragment set:html={pageHtml} />
+  <script>
+    import { initReader } from '../../../../../lib/tafsir-reader';
+    initReader();
+  </script>
 </BaseLayout>
-
-<script>
-  import { initReader } from '../../../../../lib/tafsir-reader';
-  initReader();
-</script>

@@ -221,6 +221,7 @@ export function initHadithSearch(): void {
   const body = document.querySelector('.corpus-body') as HTMLElement | null;
   if (!form || !body || form.dataset.searchReady === 'true') return;
   form.dataset.searchReady = 'true';
+  const defaultBook = form.dataset.defaultBook || '';
 
   // Asserted rather than union-typed: the guard below is the runtime check,
   // and a hoisted function declaration does not inherit the narrowing.
@@ -246,7 +247,7 @@ export function initHadithSearch(): void {
   function applyToForm(state: SearchState) {
     if (input) input.value = state.q;
     setHidden(scopeField, state.scope === 'all' ? '' : state.scope);
-    setHidden(bookField, state.book > 0 ? String(state.book) : '');
+    setHidden(bookField, state.book > 0 ? String(state.book) : defaultBook);
     setHidden(phraseField, state.phrase ? '1' : '');
     // Disabled fields are not submitted, which is how an absent filter stays
     // absent from the next query string rather than arriving as an empty one.
@@ -424,6 +425,9 @@ export function initHadithSearch(): void {
   });
 
   const initial = readState(location.search);
-  if (hasFilter(initial)) render(initial, false);
+  if (hasFilter(initial)) {
+    if (!initial.book) initial.book = Number(form.dataset.defaultBook) || 0;
+    render(initial, false);
+  }
   else applyToForm(initial);
 }

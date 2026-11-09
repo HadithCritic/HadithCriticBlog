@@ -7,6 +7,8 @@ import { compilerFor } from "../../../lib/hadith-compilers";
 import { divisionNoun, kitabTitle, structureFor } from "../../../lib/collection-structure";
 import { renderArabic, renderRich } from "../../../lib/format-text";
 import "../../../styles/hadith-library.css";
+import "../../../styles/hadith-reader.css";
+import "../../../styles/hadith-collection-aligned.css";
 
 /**
  * Digital source edition for a single hadith compilation.
@@ -18,7 +20,7 @@ import "../../../styles/hadith-library.css";
  * read from the static corpus on each book page (src/lib/kitab-page.ts).
  */
 export function getStaticPaths() {
-  return CORPUS_META.collections.map((book) => ({
+  return CORPUS_META.collections.filter((book) => book.slug !== "al-shama-il-al-muhammadiyah").map((book) => ({
     params: { slug: book.slug },
     props: { book },
   }));
@@ -33,6 +35,7 @@ const total = book.hadith_count;
 const structure = structureFor(slug);
 const noun = structure ? divisionNoun(structure.shape) : null;
 const isFlat = structure?.shape === "flat";
+const isShamail = slug === 'al-shama-il-al-muhammadiyah';
 const chapterCount = structure?.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0) ?? 0;
 const divisions = structure && !isFlat ? structure.kitabs.length : 0;
 const largest = Math.max(1, ...(structure?.kitabs.map((kitab) => kitab.count) ?? [1]));
@@ -52,9 +55,9 @@ const kitabUrl = (n: number) => `/hadith/collection/${slug}/kitab/${n}/`;
     { name: book.title_en, url: '/hadith/collection/' + slug + '/' },
   ]}
 >
-  <div class="hl hl-collection" data-region={compiler?.region}>
+  <link slot="head" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Sorts+Mill+Goudy:ital@0;1&amp;display=swap" />
+  <div class:list={["hl", "hl-collection", isShamail && "hr-reader", isShamail && "kb"]} data-region={compiler?.region} data-book-id={isShamail ? book.id : undefined}>
     <section class="hl-khero" aria-labelledby="collection-title">
-      <img class="hl-khero__art" src="/images/hadith/library-room.webp" width="1200" height="675" alt="" fetchpriority="high" />
       <div class="hl-wrap hl-khero__inner">
         <div class="hl-khero__copy">
           <a class="hl-back" href="/hadith/"><span aria-hidden="true">←</span> Hadith library</a>
@@ -89,20 +92,41 @@ const kitabUrl = (n: number) => `/hadith/collection/${slug}/kitab/${n}/`;
     </section>
 
     <div class="hl-wrap">
-      {structure && noun && isFlat && (
+      {structure && noun && isFlat && isShamail && (
+        <section class="hr-reports" id="books" aria-labelledby="edition-books-title">
+          <div class="hr-reports__head">
+            <h2 id="edition-books-title">Chapters</h2>
+            <span>{chapterCount.toLocaleString()} in preserved order · {total.toLocaleString()} narrations</span>
+            <button type="button" class="hr-expand kb-expand" data-expand-all hidden>Open all chapters</button>
+          </div>
+          <ol class="kb-chapter-list">
+            {structure.kitabs[0].chapters.map((chapter) => (
+              <li>
+                <details class="kb-chapter" id={`chapter-${chapter.n}`} data-first={chapter.first} data-last={chapter.last} data-count={chapter.count}>
+                  <summary class="kb-chapter__row">
+                    <span class="kb-chapter__n">{chapter.n}</span>
+                    <span class="kb-chapter__en" set:html={renderRich(chapter.title_en || "")} />
+                    <span class="kb-chapter__ar" lang="ar" dir="rtl" set:html={renderArabic(chapter.title_ar)} />
+                    <span class="kb-chapter__count">{plural(chapter.count, "narration")}</span>
+                  </summary>
+                  <div class="kb-chapter__body" data-records>
+                    <p class="kb-chapter__fallback"><a href={`/hadith/${chapter.first}/`}>Open the first narration in this chapter</a></p>
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {structure && noun && isFlat && !isShamail && (
         <section class="hl-index" id="books" aria-labelledby="edition-books-title">
           <div class="hl-index__head">
             <div><p class="hl-eyebrow">One preserved sequence</p><h2 id="edition-books-title">Chapters</h2></div>
             <p>{plural(chapterCount, 'chapter')} · {total.toLocaleString()} narrations</p>
           </div>
           <ol class="hl-books edition-books__list">
-            <li>
-              <a class="hl-book" href={kitabUrl(1)}>
-                <span class="hl-book__top"><span class="hl-book__n">01</span><span class="hl-book__tag">No books above its chapters</span></span>
-                <span class="hl-book__copy"><span class="hl-book__en">All {chapterCount.toLocaleString()} chapters</span><span class="hl-book__ar" lang="ar" dir="rtl">{book.title_ar}</span></span>
-                <span class="hl-book__stub"><small>{plural(total, 'narration')}</small><span class="hl-book__arrow" aria-hidden="true">→</span></span>
-              </a>
-            </li>
+            <li><a class="hl-book" href={kitabUrl(1)}><span class="hl-book__top"><span class="hl-book__n">01</span><span class="hl-book__tag">No books above its chapters</span></span><span class="hl-book__copy"><span class="hl-book__en">All {chapterCount.toLocaleString()} chapters</span><span class="hl-book__ar" lang="ar" dir="rtl">{book.title_ar}</span></span><span class="hl-book__stub"><small>{plural(total, 'narration')}</small><span class="hl-book__arrow" aria-hidden="true">↪</span></span></a></li>
           </ol>
         </section>
       )}
@@ -186,5 +210,7 @@ const kitabUrl = (n: number) => `/hadith/collection/${slug}/kitab/${n}/`;
 
 <script>
   import { initCollectionBrowser } from '../../../lib/collection-browser';
+  import { initKitabPage } from '../../../lib/kitab-page';
   initCollectionBrowser();
+  initKitabPage();
 </script>
