@@ -29,10 +29,10 @@ const TAHAWI: Compiler = { name: 'Abū Jaʿfar al-Ṭaḥāwī', origin: 'Egypt'
 const TABARANI: Compiler = { name: 'Sulaymān ibn Aḥmad al-Ṭabarānī', origin: 'Isfahan', region: 'jibal', medallion: 'tabarani' };
 
 export const COMPILERS: Record<string, Compiler> = {
-  'musnad-abu-hanifa': { name: 'Abū Ḥanīfa al-Nuʿmān ibn Thābit', origin: 'Kufa', region: 'kufa' },
-  'musnad-abd-allah-ibn-al-mubarak': { name: 'ʿAbd Allāh ibn al-Mubārak', origin: 'Merv', region: 'merv' },
-  'fada-il-makka': { name: 'Attributed to al-Ḥasan al-Baṣrī', origin: 'Basra', region: 'basra' },
-  'sahifat-hammam-ibn-munabbih': { name: 'Hammām ibn Munabbih', origin: 'Sanaa', region: 'yemen' },
+  'musnad-abu-hanifa': { name: 'Abū Ḥanīfa al-Nuʿmān ibn Thābit', origin: 'Kufa', region: 'kufa', medallion: 'abu-hanifa' },
+  'musnad-abd-allah-ibn-al-mubarak': { name: 'ʿAbd Allāh ibn al-Mubārak', origin: 'Merv', region: 'merv', medallion: 'ibn-al-mubarak' },
+  'fada-il-makka': { name: 'Attributed to al-Ḥasan al-Baṣrī', origin: 'Basra', region: 'basra', medallion: 'hasan-al-basri' },
+  'sahifat-hammam-ibn-munabbih': { name: 'Hammām ibn Munabbih', origin: 'Sanaa', region: 'yemen', medallion: 'hammam-ibn-munabbih' },
   'musnad-sad-ibn-abi-waqqas': { name: 'Aḥmad ibn Ibrāhīm al-Dawraqī', origin: 'Basra', region: 'basra', medallion: 'sad-portrait-medallion' },
   'muwatta-malik': MALIK,
   'musnad-al-tayalisi': { name: 'Abū Dāwūd al-Ṭayālisī', origin: 'Basra', region: 'basra', medallion: 'tayalisi' },
