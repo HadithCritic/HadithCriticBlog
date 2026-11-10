@@ -28,12 +28,6 @@ interface Props {
   tags?: string[];
   /** Render page content without the shared site header, footer, and search dialog. */
   standalone?: boolean;
-  /**
-   * One page served for many addresses by a rewrite (the corpus shells). It
-   * carries no canonical link, og:url or page-level JSON-LD, all of which
-   * would name the shell; src/lib/corpus-shell.ts sets them in the browser.
-   */
-  shell?: boolean;
 }
 
 const {
@@ -50,39 +44,12 @@ const {
   modifiedTime,
   section,
   tags = [],
-  standalone = false,
-  shell = false
+  standalone = false
 } = Astro.props;
 
-/**
- * Corpus pages fetch their data from a separate origin, and nothing in the
- * document references it, so the browser only discovers it when the corpus
- * client runs. Measured on /hadith/[id], that was 1,039 ms into the page: the
- * DNS lookup, TCP handshake and TLS negotiation all happened after fonts, CSS,
- * the emblem and the search index had finished competing for the connection.
- *
- * A preconnect moves that handshake to the head, and is emitted only on the
- * routes that will actually use it so an article page does not open a
- * connection it never writes to.
- */
-// Keep `import.meta` off the start of a line: the Cloudflare adapter's
-// dependency scan treats any line beginning with `import` as an import
-// statement and strips everything up to the next quoted string, which broke
-// the scan with a parse error on `})();`.
-const env = import.meta.env;
-const corpusOrigin = (() => {
-  const raw = env.PUBLIC_CORPUS_BASE_URL || (env.PROD ? 'https://data.hadithcriticblog.com/' : null);
-  if (!raw || !/^https?:\/\//.test(raw)) return null;
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return null;
-  }
-})();
-const researchExperience = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname) || /^\/projects\/(quran|tafsir|islamic-studies-atlas|academic-studies)(\/|$)/.test(Astro.url.pathname);
-const usesCorpus = /^\/(hadith|narrators)(\/|$)/.test(Astro.url.pathname);
+const researchExperience = /^\/hadith(\/|$)/.test(Astro.url.pathname) || /^\/projects\/(tafsir|islamic-studies-atlas|academic-studies)(\/|$)/.test(Astro.url.pathname);
 /* The research projects keep the faces they were designed with (global.css). */
-const projectPage = /^\/(hadith|narrators|research|academic-studies)(\/|$)/.test(Astro.url.pathname) || /^\/projects\/./.test(Astro.url.pathname);
+const projectPage = /^\/(hadith|research|academic-studies)(\/|$)/.test(Astro.url.pathname) || /^\/projects\/./.test(Astro.url.pathname);
 
 const base = Astro.site ?? new URL(Astro.url.origin);
 const canonicalUrl = withTrailingSlash(new URL(canonical ?? Astro.url.pathname, base).href);
@@ -108,8 +75,6 @@ const suppliesOwnPage = schema.some((n) => String(n['@id'] ?? '').endsWith('#web
 
 const nodes: Graph[] = noindex
   ? []
-  : shell
-  ? [organization(), website()]
   : [
       organization(),
       website(),
@@ -149,13 +114,13 @@ const nodes: Graph[] = noindex
     <meta name="theme-color" content="#0F0F10" />
     <meta name="msapplication-TileColor" content="#0F0F10" />
     <meta name="robots" content={robotsContent} />
-    {!shell && <link rel="canonical" href={canonicalUrl} />}
+    <link rel="canonical" href={canonicalUrl} />
     <link rel="alternate" type="application/rss+xml" title="HadithCritic RSS" href="/rss.xml" />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    {!shell && <meta property="og:url" content={canonicalUrl} />}
+    <meta property="og:url" content={canonicalUrl} />
     <meta property="og:type" content={type} />
     <meta property="og:image" content={imageUrl} />
     <meta property="og:image:alt" content={imageAlt} />
@@ -183,12 +148,6 @@ const nodes: Graph[] = noindex
     <link rel="shortcut icon" href="/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    {usesCorpus && corpusOrigin && (
-      <Fragment>
-        <link rel="preconnect" href={corpusOrigin} crossorigin="anonymous" />
-        <link rel="dns-prefetch" href={corpusOrigin} />
-      </Fragment>
-    )}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Public+Sans:ital,wght@0,300..700;1,400..600&family=Noto+Naskh+Arabic:wght@400..700&family=Amiri+Quran&display=swap" rel="stylesheet" />

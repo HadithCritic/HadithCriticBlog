@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 /*
- * Build the two T2 compilation readers from their checked-in publication JSON.
- * The corpus is opened read-only only to resolve narrator-register links; the
- * public pages are complete static HTML and make no database requests.
+ * Build the T2 compilation readers from their checked-in publication JSON.
+ * The public pages are complete static HTML and make no database requests.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { openNarratorResolver } from './lib/narrator-resolver.mjs';
 import { partsMarkup } from './lib/reader-parts.mjs';
 import { renderCollection } from './lib/t2-collection-template.mjs';
 
@@ -15,7 +13,6 @@ const configs = [
   { slug: 'birr-al-walidayn', source: 'birr-al-walidayn', itemNoun: 'Chapter', expected: 45 },
   { slug: 'musnad-khalifa-ibn-khayyat', source: 'musnad-khalifa-ibn-khayyat', itemNoun: 'Section', expected: 47 },
 ];
-const resolver = openNarratorResolver();
 const esc = (value = '') => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const readableHtml = html => html
@@ -45,13 +42,11 @@ function chainMarkup(chains, collection) {
   return chains.map((chain, pathIndex) => {
     const nodes = [...chain].reverse();
     const list = nodes.map((node, index) => {
-      const id = node._narratorId ?? null;
       const name = node.en || node.ar || 'Unidentified transmitter';
       const isCompiler = index === nodes.length - 1 && /al-bukhārī|al-bukhari|khalīfa b\. khayyāṭ|khalifa b\. khayyat/i.test(name)
         && /al-bukhārī|al-bukhari|khalīfa ibn khayyāṭ|khalifa ibn khayyat/i.test(collection.title_en);
       const label = index === 0 ? '<span class="role">Earliest transmitter</span>' : isCompiler ? '<span class="role">Compiler</span>' : '';
-      const linkedName = id ? `<a href="/narrators/${id}/" data-narrator-id="${id}">${formatText(name)}</a>` : formatText(name);
-      return `<li${id ? ` data-narrator-id="${id}"` : ''}><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${linkedName}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
+      return `<li><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${formatText(name)}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
     }).join('');
     return `<div class="path"><p class="path-title">Transmission path${chains.length > 1 ? ` ${pathIndex + 1} of ${chains.length}` : ''}</p><ol class="chain">${list}</ol></div>`;
   }).join('');
@@ -78,7 +73,7 @@ function reportMarkup(record, total, source) {
       <div class="language-column column-en english" lang="en" dir="ltr"><div class="language-label">English</div>${english}</div>
       <div class="language-column column-ar arabic" lang="ar" dir="rtl"><div class="language-label"><span>العربية</span></div>${arabicText}</div>
     </div></div>
-    <div class="details-grid"><section class="panel transmission" aria-labelledby="tx-${esc(id)}"><div class="panel-header"><h3 class="panel-title" id="tx-${esc(id)}">Transmission overview</h3><span class="panel-meta">${(record.chains || []).length} ${(record.chains || []).length === 1 ? 'path' : 'paths'}</span></div>${paths}<p class="chain-register-note">Linked names open their Rijāl Register entries. Unlinked names remain as supplied in the source transcription.</p></section>
+    <div class="details-grid"><section class="panel transmission" aria-labelledby="tx-${esc(id)}"><div class="panel-header"><h3 class="panel-title" id="tx-${esc(id)}">Transmission overview</h3><span class="panel-meta">${(record.chains || []).length} ${(record.chains || []).length === 1 ? 'path' : 'paths'}</span></div>${paths}</section>
     <section class="panel references" aria-labelledby="refs-${esc(id)}"><div class="panel-header"><h3 class="panel-title" id="refs-${esc(id)}">References &amp; footnotes</h3><span class="panel-meta">No. ${esc(number)}</span></div><dl class="refrows"><div class="refrow"><dt>Compilation</dt><dd>${esc(source.compilation.title_en)}</dd></div><div class="refrow"><dt>Source number</dt><dd>${esc(number)}</dd></div><div class="refrow"><dt>Edition</dt><dd>${esc(source.compilation.edition || 'Edition details were not recorded in the supplied source.')}</dd></div><div class="refrow"><dt>Edition page</dt><dd>${esc(page)}</dd></div><div class="refrow"><dt>Source record</dt><dd>${esc(id)}</dd></div>${pageBreaks}</dl>${chainOnly}${commentary}<div class="bottom-action"><button class="copy-btn" type="button" data-copy="${esc(id)}" aria-label="Copy entry ${esc(number)}">Copy narration</button><a class="permalink" href="#hadith-${esc(id)}">Permalink &#8599;</a></div></section></div>
   </article>`;
 }
@@ -89,7 +84,6 @@ const interactionScript = `<script>
 for (const config of configs) {
   const root = path.resolve('src/data/hadith-pages', config.source);
   const source = JSON.parse(fs.readFileSync(path.join(root, 'publication-source.json'), 'utf8'));
-  resolver.linkNarratorIds(source);
   const recordsById = new Map(source.records.map(record => [String(record.id), record]));
   if (source.books.length !== config.expected) throw new Error(`${config.slug}: expected ${config.expected} chapters/sections, found ${source.books.length}.`);
   if (source.sections.length !== config.expected) throw new Error(`${config.slug}: expected ${config.expected} source sections, found ${source.sections.length}.`);
@@ -123,7 +117,7 @@ for (const config of configs) {
     const lastPage = entry.records.at(-1).page?.page;
     const pages = firstPage ? `Edition pages ${firstPage}${lastPage && lastPage !== firstPage ? `–${lastPage}` : ''}` : `${entry.count} entries`;
     const title = `Chapter ${entry.n} - ${entry.title_en} | ${source.compilation.title_en} - HadithCritic`;
-    const desc = `Read ${entry.count} source entries in ${config.itemNoun.toLowerCase()} ${entry.n} of ${source.compilation.title_en}, with Arabic and English text, linked transmitters, and references.`;
+    const desc = `Read ${entry.count} source entries in ${config.itemNoun.toLowerCase()} ${entry.n} of ${source.compilation.title_en}, with Arabic and English text, transmission paths, and references.`;
     const hero = `<section class="hero" aria-labelledby="chapter-title"><div class="hero-inner"><div class="breadcrumb"><a href="/hadith/">Corpus</a><span class="slash">/</span><a href="/hadith/collection/${config.slug}/">${esc(source.compilation.title_en)}</a><span class="slash">/</span><span>${config.itemNoun} ${String(entry.n).padStart(2,'0')}</span></div><div class="hero-grid"><div><div class="eyebrow">${esc(source.compilation.title_en)} · ${config.itemNoun} ${String(entry.n).padStart(2,'0')}</div><h1 id="chapter-title">${esc(entry.title_en)}</h1><p class="hero-desc">Read ${entry.count} entries in Arabic and English, with their transmission paths and source references.</p></div><div class="hero-right"><div class="hero-ar" lang="ar" dir="rtl">${esc(entry.title_ar)}</div><div class="hero-author">${esc(source.compilation.author?.name_en || '')}</div></div></div><div class="hero-footer"><span>${String(entry.n).padStart(2,'0')} / ${chapterCount} ${config.itemNoun.toLowerCase()}s</span><span>${entry.count} entries</span><span>${pages}</span></div></div></section>`;
     const options = entry.records.map(record => `<option value="hadith-${esc(record.id)}">Entry ${esc(record.number ?? record.id)}</option>`).join('');
     const toolbar = `<div class="toolbar-holder"><div class="toolbar"><span class="toolbar-title">${config.itemNoun} ${String(entry.n).padStart(2,'0')} · Read the entries</span><div class="toolbar-controls"><label for="jump" style="position:absolute;width:1px;height:1px;overflow:hidden">Jump to entry</label><select class="jump" id="jump"><option value="">Jump to an entry</option>${options}</select><div class="segmented" role="group" aria-label="Language display"><button type="button" data-mode-button="parallel" aria-pressed="true">Both</button><button type="button" data-mode-button="english" aria-pressed="false">English</button><button type="button" data-mode-button="arabic" aria-pressed="false">العربية</button></div></div></div></div>`;
@@ -136,9 +130,5 @@ for (const config of configs) {
   fs.writeFileSync(path.join(root, 'chapter-index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf8');
   const narrationCount = source.records.filter(record => !(config.slug === 'birr-al-walidayn' && record.id === '0u1')).length;
   fs.writeFileSync(path.join(root, 'collection.html'), `${renderCollection(config, source, index, narrationCount)}\n`, 'utf8');
-  const { audit, linkedForms: linked, totalForms } = resolver.buildAudit(source, path.basename(root) + '/publication-source.json');
-  fs.writeFileSync(path.join(root, 'narrator-link-audit.json'), `${JSON.stringify(audit, null, 2)}
-`, 'utf8');
-  console.log(`Built ${config.slug}: ${entries.length} ${config.itemNoun.toLowerCase()} pages, ${narrationCount} narrations, ${linked}/${totalForms} unique narrator forms linked.`);
+  console.log(`Built ${config.slug}: ${entries.length} ${config.itemNoun.toLowerCase()} pages, ${narrationCount} narrations.`);
 }
-resolver.close();

@@ -1,8 +1,5 @@
-import type { CollectionRecord } from './corpus-types';
-
 /** Bibliographic compiler dates, not dates of composition or manuscript witnesses.
  * Source: https://hadith.dev/books (33-book bibliography, checked 2026-10-11).
- * Corpus titles, IDs and narration counts remain owned by corpus-meta.json.
  */
 export const COMPILER_DATES: Record<string, number> = {
   'fada-il-makka': 110,
@@ -94,8 +91,8 @@ export function collectionType(slug: string): string {
   return 'Other';
 }
 
-export function chronologicalCollections(books: CollectionRecord[]): CollectionRecord[] {
-  // Sorting a copy protects the generated metadata and all corpus query consumers.
+export function chronologicalCollections<T extends { id: number; slug: string }>(books: T[]): T[] {
+  // Sorting a copy leaves the caller's list in its own order.
   return [...books].sort((a, b) =>
     (COMPILER_DATES[a.slug] ?? Infinity) - (COMPILER_DATES[b.slug] ?? Infinity)
     || Object.keys(COMPILER_DATES).indexOf(a.slug) - Object.keys(COMPILER_DATES).indexOf(b.slug)

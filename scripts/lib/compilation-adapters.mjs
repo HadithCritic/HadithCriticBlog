@@ -140,7 +140,7 @@ function marasilNotes(source, metadata) {
   return [
     { label: 'Edition', text: metadata.edition },
     { label: 'English translation', text: retranslationNote(count, 'reports') },
-    { label: 'Transmitters', text: 'Names link to the Rijāl Register using the identifiers supplied with the source. Names the source does not identify stay unlinked.' },
+    { label: 'Transmitters', text: 'Names are shown as the source gives them.' },
   ];
 }
 
@@ -157,7 +157,7 @@ function mamarNotes(source, metadata) {
         .map(text => ({ label: 'Translator note', text: text.replace(/^-\s*/, '') }))),
     { label: 'Unnumbered passages', text: `${continuations} reports are followed by short unnumbered continuations printed in the edition. Each appears beneath the report it follows.` },
     { label: 'Arabic text', text: 'The Arabic is shown as supplied, including the section sign that the source places inside many reports.' },
-    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report. A name links to the Rijāl Register only when it matches a single register entry; the source does not assert identities.' },
+    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report.' },
   ];
   return notes.filter(note => note.text);
 }
@@ -171,7 +171,7 @@ function wahbNotes(source, metadata) {
     { label: 'English translation', text: `The English is the working translation supplied with the source export. The export names no translator. The source counts ${source.structure.bilingual_count} of its ${source.structure.report_count} reports as supplied bilingual pairs. For ${missing} reports the export had no English, and the English shown was translated from the Arabic in the working edition. ${gaps} reports carry a note about a gap or a mismatch in the source. Every report here has both Arabic and English.` },
     { label: 'Corrections', text: 'Where the export ran two reports together or lost a heading or page number, the entry was separated or corrected as the printed edition shows it, and a note on the report says so.' },
     { label: 'Books and chapters', text: clean(source.books[0].source_books_note) },
-    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report. A name links to the Rijāl Register only when it matches a single register entry; the source does not assert identities.' },
+    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report.' },
   ].filter(note => note.text);
 }
 
@@ -184,7 +184,7 @@ function yusufNotes(source, metadata) {
     { label: 'English translation', text: `The English is the working translation supplied with the source export. The export names no translator, and the translation has not been checked against the Arabic here. ${source.structure.bilingual_count} of ${source.structure.report_count} reports are supplied bilingual pairs; for ${missing} the export had no English and the English shown was translated from the Arabic.` },
     { label: 'Review status', text: `Sequential manual review covers ${processing.records_manually_reviewed} of ${processing.records_total} reports. Final quality review is not closed and the edition is not certified, so the later reports have had less review than the earlier ones.` },
     { label: 'Notes on reports', text: 'A note appears beneath each report whose Arabic is incomplete, whose English is missing or does not match, or whose text only refers back to an earlier report.' },
-    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report, including references such as "his father" that the report does not explain. A name links to the Rijāl Register only when it matches a single register entry.' },
+    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report, including references such as "his father" that the report does not explain.' },
   ].filter(note => note.text);
 }
 
@@ -195,7 +195,7 @@ function shaybaniNotes(source, metadata) {
     { label: 'Coverage', text: `The supplied export contains ${structure.report_count} reports in ${structure.chapter_count} chapters, which are the first ${structure.chapter_count} of the ${structure.contents_index_chapters} chapter headings in the printed contents index. The remaining chapters are not part of the supplied source and are not shown here.` },
     { label: 'English translation', text: `The English is the working translation supplied with the source export. The export names no translator. ${structure.bilingual_count} of ${structure.report_count} reports are supplied bilingual pairs; for the remaining ${structure.report_count - structure.bilingual_count === 1 ? 'report' : 'reports'} the export had no English and the English shown was translated from the Arabic. All reports had their isnad and matn boundaries reviewed by hand, but the edition is not certified and was not collated against the printed text.` },
     { label: 'Numbering', text: 'Reports carry their printed numbers 1 to 268. One report in chapter 10 is unnumbered in the source and is labeled Unnumbered.' },
-    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report. A name links to the Rijāl Register only when it matches a single register entry.' },
+    { label: 'Transmitters', text: 'Transmitter names are shown as written in each report.' },
   ].filter(note => note.text);
 }
 

@@ -22,7 +22,7 @@ export function renderCollection(config, source, entries, total) {
   const feature = config.features || [
     {
       title: 'Follow the transmission.',
-      description: 'Explore the narrators in each supplied transmission path and open linked entries in the Rijal Register.',
+      description: 'Explore the narrators in each supplied transmission path.',
     },
     {
       title: 'Let the Arabic speak.',

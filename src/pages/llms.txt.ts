@@ -50,7 +50,7 @@ Attribution note: this material is offered openly for retrieval, quotation and c
 ${sections.join('\n')}
 ## Reference data
 
-- [Rijal Register](${SITE.url}/narrators): Searchable biographical register of ${'20,915'} classical hadith transmitters, with generation, death date, places of activity, teacher and student links, hadith counts, and the reliability verdicts of Ibn Hajar al-Asqalani and al-Dhahabi. Each transmitter has a dossier page at /narrators/{id}.
+- [Hadith Corpus](${SITE.url}/hadith): Early hadith collections in facing Arabic and English, with transmission paths and source references.
 - [Resources](${SITE.url}/resources): Primary sources, tools and reference works used across the studies.
 
 ## Optional

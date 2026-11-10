@@ -1,15 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-test('homepage presents recent studies and links its four research platforms', async ({ page }) => {
+test('homepage presents recent studies and links its research platforms', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.home-lead')).toHaveCount(1);
   await expect(page.locator('.home-rows .home-row').first()).toBeVisible();
 
   const platforms = page.locator('.home-library .library__panel');
-  await expect(platforms).toHaveCount(4);
+  await expect(platforms).toHaveCount(2);
   const hrefs = await platforms.locator('a.library__link').evaluateAll(links => links.map(link => link.getAttribute('href')));
-  expect(hrefs).toEqual(['/hadith/', '/narrators/', '/projects/quran/', '/projects/history/']);
+  expect(hrefs).toEqual(['/hadith/', '/projects/history/']);
 });
 
 test('retired Tafsir reader is absent from the projects page and redirects to the projects index', async ({ page }) => {
@@ -18,17 +18,6 @@ test('retired Tafsir reader is absent from the projects page and redirects to th
   const response = await page.request.get('/projects/tafsir/', { maxRedirects: 0 });
   expect(response.status()).toBe(301);
   expect(response.headers().location).toBe('/projects/');
-});
-
-test('Qirāʾāt landing page links extracted suras without restoring the removed reader section', async ({ page }) => {
-  await page.goto('/projects/quran/');
-  await expect(page.locator('.reader-card')).toHaveCount(0);
-  await expect(page.locator('.grid .cell')).toHaveCount(114);
-  const firstSura = page.locator('.grid .cell > a').first();
-  await expect(firstSura).toHaveAttribute('href', /^\/projects\/quran\/sura\/\d+\/$/);
-  await firstSura.click();
-  await expect(page).toHaveURL(/\/projects\/quran\/sura\/\d+\//);
-  await expect(page.locator('main h1')).toBeVisible();
 });
 
 test('homepage video activation uses the privacy-enhanced embed', async ({ page }) => {

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { normAr, normEn, openNarratorResolver } from './lib/narrator-resolver.mjs';
 import { toPlainEnglish } from './lib/plain-english.mjs';
 import { renderCollection } from './lib/t2-collection-template.mjs';
 import { writeCollectionPage } from './lib/collection-page.mjs';
@@ -71,7 +70,6 @@ const formatText = value => esc(value).replace(/\*([^*\n]*[A-Za-z][^*\n]*)\*/g, 
 const formatEn = value => formatText(toPlainEnglish(value));
 const metadataFor = (source, config) => ({ ...source[config.sourceMetaKey], ...(config.metadataOverride ?? {}) });
 const slugId = id => String(id).replace(/[:.]/g, "-");
-const MATCH_BLOCKED_STATUS = /unresolved|anonymous|unidentified|unknown|disputed|uncertain|not_fully|not_confirmed|partially|namesake/i;
 
 function narratorPairsFor(record) {
   return Array.isArray(record.narrators)
@@ -144,8 +142,7 @@ function getReaderShell(referencePath) {
   return document;
 }
 
-// Display-order (earliest transmitter first) path nodes for one record, computed once
-// so the narrator resolver and the renderer see exactly the same chain items.
+// Display-order (earliest transmitter first) path nodes for one record.
 function preparePaths(record, config) {
   const parts = config.partsFor(record);
   const narratorPairs = narratorPairsFor(record);
@@ -171,63 +168,6 @@ function preparePaths(record, config) {
     })).reverse()
     : [];
   return { paths, forms };
-}
-
-const stripArabicDiacritics = value => String(value ?? '').replace(/[ً-ٰٟۖ-ۭـ]/g, '');
-// Matching-only cleanup: honorifics, trailing "he said", parenthetical glosses. Display text is untouched.
-function matchNode(node, resolver, trustSourceIds = false) {
-  const arSource = node.normalized_name_ar || node.ar || '';
-  const ar = stripArabicDiacritics(arSource)
-    .replace(/رضي الله (?:عنه|عنها|عنهم|عنهما)|صلى الله عليه وسلم|عليه السلام|[ؓؑﷺ﵁]/g, ' ')
-    .replace(/[\s،]*قال[ت]?\s*:?\s*$/, '')
-    .replace(/[،,:]/g, ' ')
-    .replace(/\s+/g, ' ').trim();
-  const en = String(node.en || '').replace(/\s*\([^)]*\)/g, '').replace(/[ؓؑﷺ﵁]/g, '').trim();
-  const blocked = MATCH_BLOCKED_STATUS.test(node.identity_status || '') || Boolean(node.link_blocked);
-  // Some sources carry Rijal Register identifiers; honor them only where the adapter says to.
-  return trustSourceIds && node.narrator_id != null && resolver.hasNarrator(node.narrator_id) ? { en, ar, blocked, narrator_id: node.narrator_id } : { en, ar, blocked };
-}
-
-// The resolver expects each chain as written (latest narrator first) and reverses it itself.
-function linkPreparedPaths(preparedByRecord, resolver, trustSourceIds = false, conservative = false) {
-  const matchSource = { records: [] };
-  const links = [];
-  for (const [id, prepared] of preparedByRecord) {
-    const chains = [...prepared.paths.map(path => path.nodes), ...(prepared.forms.length ? [prepared.forms] : [])];
-    const matchChains = chains.map(nodes => [...nodes].reverse().map(node => ({ node, match: matchNode(node, resolver, trustSourceIds) })));
-    matchSource.records.push({ id, chains: matchChains.map(chain => chain.map(item => item.match)) });
-    links.push(...matchChains.flat());
-  }
-  resolver.linkNarratorIds(matchSource);
-  for (const { node, match } of links) {
-    if (!match._narratorId || match.blocked) continue;
-    if (conservative && !passesLinkGuard(match, match._narratorId, resolver)) continue;
-    node._narratorId = match._narratorId;
-  }
-}
-
-// Conservative linking for sources that name transmitters in short forms: the register entry must be
-// one the name itself can point to, and a bare one-word name must belong to a well-attested narrator.
-const MIN_BARE_NAME_HADITH_COUNT = 100;
-function passesLinkGuard(match, id, resolver) {
-  if (match.narrator_id != null) return true;
-  if (!resolver.narratorCandidates(match).has(id)) return false;
-  // A node whose English and Arabic forms point to different register entries is misaligned in the source.
-  const byEnglish = resolver.narratorCandidates({ en: match.en, ar: '' });
-  const byArabic = resolver.narratorCandidates({ en: '', ar: match.ar });
-  if (byEnglish.size && byArabic.size && ![...byEnglish].some(candidate => byArabic.has(candidate))) return false;
-  const name = (match.en ? normEn(match.en) : normAr(match.ar)).replace(/^(?:al|ال)\s+/, '');
-  const bare = name.split(' ').filter(Boolean).length <= 1 || /^(?:abu|umm|ibn|ابو|ام|بن)\s+\S+$/.test(name);
-  return !bare || resolver.hadithCount(id) >= MIN_BARE_NAME_HADITH_COUNT;
-}
-
-function auditSource(preparedByRecord) {
-  return {
-    records: [...preparedByRecord].map(([id, prepared]) => ({
-      id,
-      chains: [...prepared.paths.map(path => [...path.nodes].reverse()), ...(prepared.forms.length ? [[...prepared.forms].reverse()] : [])],
-    })),
-  };
 }
 
 function pageLabel(locator) {
@@ -283,14 +223,9 @@ function reportMarkup(record, group, config, total, source, prepared) {
     : '';
   const chainItem = (node, index, earliest) => {
     const en = node.en || '';
-    const narratorId = node._narratorId;
-    const enText = formatText(en);
-    const enName = narratorId
-      ? `<a href="/narrators/${esc(narratorId)}/" data-narrator-id="${esc(narratorId)}">${enText}</a>`
-      : enText;
-    const english = enName || '<span class="role">English form not separately aligned</span>';
+    const english = formatText(en) || '<span class="role">English form not separately aligned</span>';
     const label = node.role_label ? `<span class="role">${esc(node.role_label)}</span>` : earliest && index === 0 ? '<span class="role">Earliest transmitter</span>' : '';
-    return `<li${narratorId ? ` data-narrator-id="${esc(narratorId)}"` : ''}><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${english}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
+    return `<li><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${english}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
   };
   const paths = prepared.paths.map(({ chain, nodes }, index) => {
     const labels = nodes.map((node, nodeIndex) => chainItem(node, nodeIndex, true)).join('');
@@ -349,7 +284,7 @@ function reportMarkup(record, group, config, total, source, prepared) {
     <section class="panel transmission" aria-labelledby="tx-${esc(key)}">
       <div class="panel-header"><h3 class="panel-title" id="tx-${esc(key)}">Transmission overview</h3><span class="panel-meta">${panelMeta}</span></div>
       ${transmissionFallback}${paths}${narratorForms}${secondaryIsnads}${notes}${flagNote}${remarkNote}${translatorNote}
-      <p class="chain-register-note">Linked names open their Rijāl Register entries. Unlinked names remain as supplied in the source transcription.</p>
+      
     </section>
     <section class="panel references" aria-labelledby="refs-${esc(key)}">
       <div class="panel-header"><h3 class="panel-title" id="refs-${esc(key)}">References &amp; footnotes</h3><span class="panel-meta">No. ${esc(number)}</span></div>
@@ -384,7 +319,7 @@ function chapterMarkup(entry, entries, config, source, shell, preparedByRecord) 
   const noun = unitNoun.toLowerCase();
   const reportCount = entry.sections ? `${entry.sections.length} ${entry.sections.length === 1 ? 'section' : 'sections'}` : `${entry.records.length} ${entry.records.length === 1 ? 'entry' : 'entries'}`;
   const title = `${unitNoun} ${entry.number} - ${entry.title_en} | ${collection.title_en} - HadithCritic`;
-  const description = `Read ${reportCount} in ${noun} ${entry.number} of ${collection.title_en}, with Arabic and English text, linked transmitters, and references.`;
+  const description = `Read ${reportCount} in ${noun} ${entry.number} of ${collection.title_en}, with Arabic and English text, transmission paths, and references.`;
   const edition = config.editionFor(source);
   const pages = entry.records.flatMap(record => String(config.locatorFor(record).page ?? '').split('-').map(Number)).filter(Number.isFinite);
   const editionSpan = pages.length
@@ -471,7 +406,6 @@ const readerShell = getReaderShell(chapterReference);
 
 // One title per local edition, shared with the /hadith cards (src/data/reader-editions.json).
 const localTitles = new Map(JSON.parse(fs.readFileSync('src/data/reader-editions.json', 'utf8')).map(item => [item.slug, item.title_en]));
-const resolver = openNarratorResolver();
 const only = process.argv.slice(2);
 for (const config of configs.filter(item => !only.length || only.includes(item.slug))) {
   const root = path.join(sourceRoot, config.slug);
@@ -498,7 +432,6 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
   const slugs = ids.map(slugId);
   if (new Set(slugs).size !== slugs.length || slugs.some(slug => !/^[\w-]+$/.test(slug))) throw new Error(`${config.slug}: report anchors are not unique URL-safe ids.`);
   const preparedByRecord = new Map(records.map(record => [String(record.id), preparePaths(record, config)]));
-  linkPreparedPaths(preparedByRecord, resolver, Boolean(config.trustSourceNarratorIds), Boolean(config.conservativeLinking));
   fs.mkdirSync(path.join(root, 'chapters'), { recursive: true });
 
   const index = entries.map(entry => ({
@@ -535,9 +468,5 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
   fs.writeFileSync(path.join(root, 'chapter-index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf8');
   fs.writeFileSync(path.join(root, 'collection.html'), `${collectionMarkup(source, entries, config)}\n`, 'utf8');
   writeCollectionPage(config.slug, localTitles.get(config.slug) ?? metadata.title_en);
-  const { audit, linkedForms, totalForms, linkedOccurrences, totalOccurrences } = resolver.buildAudit(auditSource(preparedByRecord), `${config.slug}/publication-source.json`);
-  fs.writeFileSync(path.join(root, 'narrator-link-audit.json'), `${JSON.stringify(audit, null, 2)}
-`, 'utf8');
-  console.log(`Built ${config.slug}: ${entries.length} ${config.noun.toLowerCase()} pages, ${records.length} bilingual reports, ${linkedForms}/${totalForms} unique narrator forms and ${linkedOccurrences}/${totalOccurrences} chain items linked.`);
+  console.log(`Built ${config.slug}: ${entries.length} ${config.noun.toLowerCase()} pages, ${records.length} bilingual reports.`);
 }
-resolver.close();

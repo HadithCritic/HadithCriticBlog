@@ -27,11 +27,10 @@ function narratorMarkup(narrators, pathIndex, pathCount, record) {
   const ordered = [...narrators].reverse();
   const nodes = ordered.map((narrator, index) => {
     const name = narrator.en || narrator.normalized_name_ar || 'Unidentified transmitter';
-    const link = narrator.narrator_id ? `<a href="/narrators/${encodeURIComponent(narrator.narrator_id)}/">${esc(name)}</a>` : esc(name);
     const role = index === 0
       ? '<span class="role">Earliest transmitter</span>'
       : index === ordered.length - 1 ? '<span class="role">Compiler</span>' : '';
-    return `<li${narrator.narrator_id ? ` data-narrator-id="${esc(narrator.narrator_id)}"` : ''}><span class="chain-step">${pad(index + 1)}</span><span class="chain-en">${link}${role}</span><span class="chain-ar" lang="ar" dir="rtl">${esc(narrator.normalized_name_ar || '')}</span></li>`;
+    return `<li${narrator.narrator_id ? ` data-narrator-id="${esc(narrator.narrator_id)}"` : ''}><span class="chain-step">${pad(index + 1)}</span><span class="chain-en">${esc(name)}${role}</span><span class="chain-ar" lang="ar" dir="rtl">${esc(narrator.normalized_name_ar || '')}</span></li>`;
   }).join('');
   const title = pathCount > 1 ? `Transmission path ${pathIndex + 1} of ${pathCount}` : 'Transmission path';
   return `<div class="path"><p class="path-title">${title}</p><ol class="chain">${nodes}</ol></div>`;

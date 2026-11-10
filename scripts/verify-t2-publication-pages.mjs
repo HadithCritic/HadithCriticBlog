@@ -23,13 +23,7 @@ for (const slug of slugs) {
       const record = byId.get(id);
       if (!record || seen.has(id)) throw new Error(`${slug}: missing or duplicate source record ${id}`);
       seen.add(id);
-      if (slug === 'musnad-sad-ibn-abi-waqqas' && id === '34-1') {
-        if (find(article, node => node.tagName === 'a' && attr(node, 'href') === '/narrators/5797/')) throw new Error('Abu Awn from another transmission was incorrectly applied to entry 34');
-      }
-      for (const chain of record.chains || []) for (const person of chain) if (person.narrator_id != null) {
-        const link = find(article, node => node.tagName === 'a' && attr(node, 'href') === `/narrators/${person.narrator_id}/`);
-        if (!link) throw new Error(`${slug} ${id}: reviewed narrator ${person.narrator_id} is not linked`);
-      }
+      if (find(article, node => node.tagName === 'a' && String(attr(node, 'href') ?? '').startsWith('/narrators/'))) throw new Error(`${slug} ${id}: links to the removed narrator register`);
       if (record.preceding_source_material && !html.includes(record.preceding_source_material.title_en)) throw new Error(`${slug} ${id}: transmission preface missing`);
       for (const [lang, cls] of [['en','english'],['ar','arabic']]) {
         const column = find(article, node => hasClass(node, 'language-column') && hasClass(node, cls));
