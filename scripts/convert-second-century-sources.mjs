@@ -14,6 +14,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { PROFILES, pagesFromB } from './lib/second-century-profiles.mjs';
 
 const sourceDir = process.argv[2];
 if (!sourceDir) throw new Error('Pass the directory that holds the translated JSON files.');
@@ -188,51 +189,23 @@ function metadataFromA(j, spec) {
   };
 }
 
-// Shape B: every reading page record becomes one entry.
-function pagesFromB(j) {
-  const globalNotes = (j.translation_notes ?? []).filter(note => note.scope === 'global').map(note => note.note);
-  const bySerial = new Map((j.translation_notes ?? []).filter(note => note.serial_number).map(note => [String(note.serial_number), note.note]));
-  const isHeader = (page, index) => index < 3 && !/^\d+$/.test(String(page.page_number)) && /المؤلف|الناشر/.test(String(page.text)) && /الطبعة|عدد الأجزاء|عدد الصفحات/.test(String(page.text));
-  const reading = j.pages.filter((page, index) => !isHeader(page, index));
-  const records = reading.map((page, index) => {
-    const en = page.text_english ?? page.text_en ?? '';
-    const noteList = [];
-    for (const key of ['translation_notes', 'translator_note']) {
-      const value = page[key];
-      if (Array.isArray(value)) noteList.push(...value.filter(item => typeof item === 'string'));
-      else if (typeof value === 'string' && value) noteList.push(value);
-    }
-    if (bySerial.has(String(page.serial_number))) noteList.push(bySerial.get(String(page.serial_number)));
-    const footAr = page.foot_note && page.foot_note !== 'None' ? page.foot_note : '';
-    const footEn = page.foot_note_english && page.foot_note_english !== 'None' ? page.foot_note_english : '';
-    return {
-      id: `1.${index + 1}`,
-      source_id: String(page.serial_number),
-      display_number: String(index + 1),
-      page: /^\d+$/.test(String(page.page_number)) ? String(page.page_number) : null,
-      text_ar: page.text, text_en: en,
-      chains: [], flags: [], remarks: [],
-      footnotes: footAr || footEn ? [{ marker: null, kind: 'Source footnote', ar: footAr, en: footEn, anchored_in: null }] : [],
-      translator_notes: noteList,
-      extra_refs: [],
-    };
-  });
-  return { records, skipped: j.pages.length - reading.length, globalNotes };
-}
-
 function convertB(j, spec) {
-  const { records, skipped, globalNotes } = pagesFromB(j);
+  const profile = PROFILES[spec.slug];
+  const { groups, headerCount, dropped, globalNotes } = pagesFromB(j, profile);
   const first = j.pages.find(page => page.edition_english || page.edition_en) ?? j.pages[0];
   const edition = [first.publisher_english ?? first.publisher_en, first.edition_english ?? first.edition_en].filter(Boolean).join(', ');
   const death = j.associated_authority_death_year_ah;
+  const units = groups.reduce((sum, group) => sum + group.records.length, 0);
   const notes = [
     ...(edition ? [{ label: 'Edition', text: edition }] : []),
-    { label: 'Structure', text: `The source supplies this text as ${j.pages.length} page records, one Arabic text and one English text per page, with no division into numbered reports, no isnad and matn split, and no transmitter data. Each page record is therefore one entry here, in source order, with its printed page number when the source gives one.` },
-    ...(skipped ? [{ label: 'Catalog header', text: 'The first page records repeat the Shamela catalog header (title, author, editor, publisher). They are not reproduced as entries.' }] : []),
+    { label: 'Kind of work', text: profile.kind },
+    { label: 'Structure', text: `${profile.structure} The supplied file holds ${j.pages.length} page records${profile.segment ? `, shown here as ${units} entries` : ''}.` },
+    ...(headerCount ? [{ label: 'Catalog header', text: 'The first page record repeats the Shamela catalog header (title, author, editor, publisher). It is not reproduced as an entry.' }] : []),
+    ...(dropped ? [{ label: 'Omitted pages', text: `${dropped} page records hold only a row of dots in the source and are not reproduced.` }] : []),
     { label: 'English translation', text: j.translation_info || j.translation_note || 'The English is the supplied translation of each page. The source file names no translator.' },
     ...globalNotes.map(text => ({ label: 'Translator note', text })),
-    { label: 'Arabic text', text: 'The Arabic of each page is shown exactly as supplied. Square brackets and page markers in the Arabic are carried over from the source.' },
-    { label: 'Notes', text: 'Translator notes and footnotes attach to the page they came with and are shown beneath that entry, apart from the Arabic and English text.' },
+    { label: 'Arabic text', text: 'The Arabic is shown exactly as supplied. Where an entry opens with its printed number, the number appears in the label instead of the text. Square brackets and page markers are carried over from the source.' },
+    { label: 'Isnad and matn', text: 'Where the Arabic gives a chain before the words, the chain and the words are shown apart and the English is divided at the same point. Entries with no chain say so. The division follows a fixed rule and does not alter the text.' },
     { label: 'Transmitters', text: 'The source supplies no transmitter data, so this edition does not link transmitters to the Rijāl Register.' },
     { label: 'Dating', text: j.dating_note ? `${j.dating_note} The date shown is the death year of ${j.catalog_compiler_or_authority}, ${death} AH.` : '' },
   ].filter(note => note.text);
@@ -240,10 +213,10 @@ function convertB(j, spec) {
     compilation: {
       id: spec.slug, title_en: spec.title_en, title_ar: spec.title_ar, short_name: spec.short, shamela_book_id: j.shamela_book_id,
       author: { name_en: j.catalog_compiler_or_authority, death_ah: death },
-      edition, unit_label: 'Sections',
+      edition, unit_label: 'Sections', kind_en: profile.kind, description_en: profile.blurb, unit_noun: profile.noun,
     },
     notes,
-    groups: [{ number: 1, title_en: 'The text, page by page', title_ar: '', frames_before: [], frames_after: [], records }],
+    groups,
   };
 }
 

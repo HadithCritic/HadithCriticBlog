@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { openNarratorResolver } from './lib/narrator-resolver.mjs';
+import { partsMarkup } from './lib/reader-parts.mjs';
 import { renderCollection } from './lib/t2-collection-template.mjs';
 
 const configs = [
@@ -61,11 +62,8 @@ function reportMarkup(record, total, source) {
   const preface = material ? `<details class="panel references" style="margin:0 0 24px"><summary class="panel-title">${esc(material.title_en)} · source text before entry ${esc(record.number ?? id)}</summary><div class="english"><p class="matn">${formatText((material.text_en || '').replace(/\s*\[p\.\s*\d+\]\s*/gi, ' ').trim())}</p></div><div class="arabic" lang="ar" dir="rtl"><p class="matn">${formatText((material.text_ar || '').replace(/\s*⦗ص:\s*\d+⦘\s*/g, ' ').trim())}</p></div>${material.page_breaks?.length ? `<p>Printed page breaks: ${material.page_breaks.map(page => esc(page)).join(', ')}</p>` : ''}</details>` : '';
   const number = record.number ?? id;
   const page = record.page?.page ? `Vol. ${record.page.volume}, p. ${record.page.page}` : 'No page locator recorded';
-  const parts = (isnad, matn, fallback) => isnad || matn
-    ? `${isnad ? `<div class="isnad-label">Isnad</div><p class="isnad">${formatText(isnad)}</p>` : ''}${matn ? `<div class="matn-label">Matn</div><p class="matn">${formatText(matn)}</p>` : ''}`
-    : `<p class="matn">${formatText(fallback || '')}</p>`;
-  const english = parts(record.display_isnad_en, record.display_matn_en, record.en);
-  const arabicText = parts(record.display_isnad_ar, record.display_matn_ar, record.ar);
+  const english = partsMarkup({ isnad: record.display_isnad_en, matn: record.display_matn_en }, record.en, formatText);
+  const arabicText = partsMarkup({ isnad: record.display_isnad_ar, matn: record.display_matn_ar }, record.ar, formatText);
   const paths = chainMarkup(record.chains, source.compilation);
   const pageBreaks = record.source_page_breaks?.length
     ? `<div class="refrow"><dt>Printed page breaks</dt><dd>${record.source_page_breaks.map(page => esc(page)).join(', ')}</dd></div>` : '';

@@ -5,6 +5,7 @@ import { normAr, normEn, openNarratorResolver } from './lib/narrator-resolver.mj
 import { toPlainEnglish } from './lib/plain-english.mjs';
 import { renderCollection } from './lib/t2-collection-template.mjs';
 import { writeCollectionPage } from './lib/collection-page.mjs';
+import { resolveParts, partsMarkup } from './lib/reader-parts.mjs';
 import { additionalConfigs,secondCenturyConfigs } from './lib/compilation-adapters.mjs';
 
 const baseConfigs = [
@@ -243,14 +244,8 @@ function reportMarkup(record, group, config, total, source, prepared) {
   const key = slugId(id);
   const number = config.numberFor(record);
   const text = config.textFor(record);
-  const parts = config.partsFor(record);
-  const partMarkup = (language, value) => {
-    const format = language === 'en' ? formatEn : formatText;
-    const isnad = parts[language].isnad || '';
-    const matn = parts[language].matn || '';
-    if (!isnad && !matn) return `<p class="matn">${format(value)}</p>`;
-    return `${isnad ? `<div class="isnad-label">Isnad</div><p class="isnad">${format(isnad)}</p>` : ''}${matn ? `<div class="matn-label">Matn</div><p class="matn">${format(matn)}</p>` : ''}`;
-  };
+  const parts = record.no_split ? { en: {}, ar: {} } : resolveParts(text, config.partsFor(record));
+  const partMarkup = (language, value) => partsMarkup(parts[language], value, language === 'en' ? formatEn : formatText, record.no_isnad_reason);
   if (!text.en || !text.ar) throw new Error(`${config.slug}: report ${id} is missing one of its supplied languages.`);
   const page = pageLabel(config.locatorFor(record));
   const metadata = metadataFor(source, config);
@@ -345,7 +340,7 @@ function reportMarkup(record, group, config, total, source, prepared) {
     ...(record.extra_refs ?? []).map(item => `<div class="refrow"><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`),
   ].join('');
   return `<article class="hadith" id="hadith-${esc(key)}" aria-labelledby="label-${esc(key)}" data-hadith="${esc(key)}">
-  <div class="hadith-label"><div class="hadith-count" id="label-${esc(key)}"><span>Entry</span><strong>${esc(number)}</strong><span>/ ${total}</span></div><div class="hadith-cite">${cite}</div></div>
+  <div class="hadith-label"><div class="hadith-count" id="label-${esc(key)}"><span>${esc(record.noun || metadataFor(source, config).unit_noun || 'Entry')}</span><strong>${esc(number)}</strong><span>/ ${total}</span></div><div class="hadith-cite">${cite}</div></div>
   <div class="reading-sheet"><div class="bilingual">
     <div class="language-column column-en english" lang="en" dir="ltr"><div class="language-label">English</div>${partMarkup('en', text.en)}</div>
     <div class="language-column column-ar arabic" lang="ar" dir="rtl"><div class="language-label"><span>العربية</span></div>${partMarkup('ar', text.ar)}</div>
@@ -439,20 +434,34 @@ function collectionMarkup(source, entries, config) {
       edition: config.editionFor(source),
     },
   };
-  const collectionConfig = {
-    slug: config.slug,
-    itemNoun: config.noun,
-    authority: Boolean(config.authority),
-    date: String(config.death),
-    editionNotes: notes.filter(note => note.text),
-  };
-  const items = entries.map(entry => ({
+  const unitNoun = metadata.unit_noun;
+  const flat = entries.filter(entry => entry.records.length);
+  const listEntries = Boolean(unitNoun) && flat.length === 1;
+  const excerpt = value => String(value ?? '').replace(/[\u200c\u200f\s]+/g, ' ').trim().slice(0, 64);
+  const urlBase = `/hadith/collection/${config.slug}/chapter/${flat[0]?.number}/`;
+  const entryItems = listEntries ? flat[0].records.map((record, index) => ({
+    n: index + 1,
+    href: `${urlBase}#hadith-${slugId(record.id)}`,
+    title_en: `${record.noun || unitNoun} ${config.numberFor(record)}`,
+    title_ar: excerpt(record.text_ar),
+    count: 1,
+    meta: record.page ? `p. ${record.page}` : '',
+  })) : null;
+  const items = entryItems ?? entries.map(entry => ({
     n: entry.number,
     title_en: entry.title_en,
     title_ar: entry.title_ar,
     count: entry.sections ? entry.sections.length : entry.records.length,
     ...(entry.sections ? { countNoun: entry.sections.length === 1 ? 'section' : 'sections' } : {}),
   }));
+  const collectionConfig = {
+    slug: config.slug,
+    itemNoun: listEntries ? unitNoun : config.noun,
+    heroDescription: metadata.description_en || undefined,
+    authority: Boolean(config.authority),
+    date: String(config.death),
+    editionNotes: notes.filter(note => note.text),
+  };
   return renderCollection(collectionConfig, collectionSource, items, count);
 }
 
@@ -507,12 +516,12 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
     const html = chapterMarkup(entry, entries, config, source, readerShell, preparedByRecord);
     for (const record of entry.records) {
       const text = config.textFor(record);
-      const parts = config.partsFor(record);
+      const parts = record.no_split ? { en: {}, ar: {} } : resolveParts(text, config.partsFor(record));
       for (const language of ['en', 'ar']) {
         const { isnad, matn } = parts[language];
         const format = language === 'en' ? formatEn : formatText;
         const expected = isnad || matn
-          ? [isnad, matn].filter(Boolean).map(value => format(value))
+          ? [isnad, matn].filter(Boolean).map(value => format(value.trim()))
           : [format(text[language])];
         for (const value of expected) {
           if (!html.includes(value)) {

@@ -33,7 +33,7 @@ export function renderCollection(config, source, entries, total) {
     label: 'Source',
     text: source.compilation.edition || 'Edition details were not recorded in the supplied source.',
   }];
-  const rows = entries.map(item => `<a data-filter-row data-search="${esc([item.title_en, item.title_ar, item.n].join(' '))}" href="${esc(item.href || `${url}chapter/${item.n}/`)}" class="chapter-row"><span class="chapter-num">${String(item.n).padStart(2, '0')}</span><span class="chapter-name"><strong>${esc(item.title_en)}</strong><small lang="ar" dir="rtl">${esc(item.title_ar)}</small></span><span class="chapter-count">${item.count} ${item.countNoun || (item.count === 1 ? recordNoun : recordPlural)}</span><span aria-hidden="true" class="arrow">↗</span></a>`).join('');
+  const rows = entries.map(item => `<a data-filter-row data-search="${esc([item.title_en, item.title_ar, item.n].join(' '))}" href="${esc(item.href || `${url}chapter/${item.n}/`)}" class="chapter-row"><span class="chapter-num">${String(item.n).padStart(2, '0')}</span><span class="chapter-name"><strong>${esc(item.title_en)}</strong><small lang="ar" dir="rtl">${esc(item.title_ar)}</small></span><span class="chapter-count">${item.meta !== undefined ? esc(item.meta) : `${item.count} ${item.countNoun || (item.count === 1 ? recordNoun : recordPlural)}`}</span><span aria-hidden="true" class="arrow">↗</span></a>`).join('');
   const heroDescription = config.heroDescription
     || `Explore the collection in its original ${noun} order, with Arabic and English narrations, identifiable transmitters, and source references.`;
   const indexDescription = config.indexDescription
