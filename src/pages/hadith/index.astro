@@ -2,11 +2,16 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { OG } from '../../lib/seo';
 import { CORPUS_META } from '../../lib/corpus-config';
-import { chronologicalCollections, COMPILER_DATES, collectionType } from '../../lib/collection-catalogue';
+import { centuryHeading, centuryOf, chronologicalCollections, COMPILER_DATES, collectionType } from '../../lib/collection-catalogue';
+import { narrationCount, unitSummary } from '../../lib/collection-units';
+import localEditionList from '../../data/reader-editions.json';
 import { compilerFor, SIX_BOOKS } from '../../lib/hadith-compilers';
 import { divisionNoun, structureFor } from '../../lib/collection-structure';
 import '../../styles/corpus-results.css';
 import '../../styles/hadith-library.css';
+import '../../styles/home.css';
+import '../../styles/home-hero.css';
+import '../../styles/hadith-hero.css';
 
 /**
  * Hadith corpus: a hero with one search field, then the library of collections.
@@ -26,88 +31,168 @@ import '../../styles/hadith-library.css';
 
 const visibleBook = CORPUS_META.collections.find((book) => book.slug === 'al-shama-il-al-muhammadiyah');
 if (!visibleBook) throw new Error('Al-Shama\'il al-Muhammadiyah is missing from the corpus metadata.');
-// These local editions stay outside searchable corpus metadata; /hadith
-// search still reflects only the corpus release.
-const birrPreview = {
-  id: -1,
-  slug: 'birr-al-walidayn',
-  title_en: 'Birr al-Wālidayn of al-Bukhārī',
-  title_ar: 'بر الوالدين للبخاري',
-  hadith_count: 78 // 76 numbered reports and two unnumbered reports; excludes the opening isnad.
-};
-const khalifaPreview = {
-  id: -2,
-  slug: 'musnad-khalifa-ibn-khayyat',
-  title_en: 'Musnad Khalīfa ibn Khayyāṭ',
-  title_ar: 'مسند خليفة بن خياط',
-  hadith_count: 77
-};
-const sadPreview = {
-  id: -3,
-  slug: 'musnad-sad-ibn-abi-waqqas',
-  title_en: 'Musnad Saʿd ibn Abī Waqqāṣ',
-  title_ar: 'مسند سعد بن أبي وقاص',
-  hadith_count: 134
-};
+// The local reader editions stay outside the searchable corpus metadata; /hadith search still reflects only
+// the corpus release. Titles come from src/data/reader-editions.json and counts from each edition's chapter index.
+interface Edition { id: number; slug: string; title_en: string; title_ar: string; hadith_count: number }
+const FIXED_COUNTS: Record<string, number> = { 'sahifat-hammam-ibn-munabbih': 137, 'fada-il-makka': 7 };
+const localEditions: Edition[] = localEditionList.map((edition, index) => {
+  const count = narrationCount(edition.slug) ?? FIXED_COUNTS[edition.slug];
+  if (count == null) throw new Error(`No narration count for ${edition.slug}.`);
+  return { id: -(index + 1), ...edition, hadith_count: count };
+});
+// Editions with their own card art; the other reader editions share the library-room image.
+const ownArt = new Set(['birr-al-walidayn', 'musnad-khalifa-ibn-khayyat', 'musnad-sad-ibn-abi-waqqas']);
 const collectionBannerOverrides: Record<string, { src: string; position: string }> = {
+  'al-athar-abu-yusuf': {
+    src: '/images/hadith/compilations/al-athar-abu-yusuf-banner.webp',
+    position: '72% 50%'
+  },
+  'jami-mamar-ibn-rashid': {
+    src: '/images/hadith/compilations/jami-mamar-ibn-rashid-banner.webp',
+    position: '72% 50%'
+  },
+  'al-jami-ibn-wahb': {
+    src: '/images/hadith/compilations/al-jami-ibn-wahb-banner.webp',
+    position: '72% 50%'
+  },
+  'al-athar-al-shaybani': {
+    src: '/images/hadith/compilations/al-athar-al-shaybani-banner.webp',
+    position: '72% 50%'
+  },
   'sahifat-hammam-ibn-munabbih': {
-    src: '/images/hadith/compilations/sahifat-hammam-collection-banner.png',
+    src: '/images/hadith/compilations/sahifat-hammam-ibn-munabbih-banner.png',
     position: '70% 50%'
   },
   'musnad-abu-hanifa': {
-    src: '/images/hadith/compilations/musnad-abu-hanifa-collection-banner.png',
+    src: '/images/hadith/compilations/musnad-abu-hanifa-banner.png',
     position: '70% 50%'
   },
   'fada-il-makka': {
-    src: '/images/hadith/compilations/fadail-makka-collection-banner.png',
+    src: '/images/hadith/compilations/fada-il-makka-banner.png',
     position: '72% 50%'
   },
   'musnad-abd-allah-ibn-al-mubarak': {
-    src: '/images/hadith/compilations/musnad-ibn-al-mubarak-collection-banner.png',
+    src: '/images/hadith/compilations/musnad-abd-allah-ibn-al-mubarak-banner.png',
     position: '70% 50%'
   },
   'birr-al-walidayn': {
-    src: '/images/hadith/compilations/birr-al-walidayn-collection-banner.png',
+    src: '/images/hadith/compilations/birr-al-walidayn-banner.png',
     position: '70% 42%'
   },
   'musnad-khalifa-ibn-khayyat': {
-    src: '/images/hadith/compilations/musnad-khalifa-collection-banner.png',
+    src: '/images/hadith/compilations/musnad-khalifa-ibn-khayyat-banner.png',
     position: '75% 44%'
+  },
+  'kitab-al-qadar-ibn-wahb': {
+    src: '/images/hadith/compilations/kitab-al-qadar-ibn-wahb-banner.webp',
+    position: '72% 50%'
+  },
+  'al-dua-ibn-fudayl': {
+    src: '/images/hadith/compilations/al-dua-ibn-fudayl-banner.webp',
+    position: '72% 50%'
+  },
+  'mashyakhat-ibn-tahman': {
+    src: '/images/hadith/compilations/mashyakhat-ibn-tahman-banner.webp',
+    position: '72% 50%'
+  },
+  'hadith-sufyan-al-thawri': {
+    src: '/images/hadith/compilations/hadith-sufyan-al-thawri-banner.webp',
+    position: '72% 50%'
+  },
+  'ahadith-al-sari-an-al-thawri': {
+    src: '/images/hadith/compilations/ahadith-al-sari-an-al-thawri-banner.webp',
+    position: '72% 50%'
+  },
+  'muwatta-ibn-wahb-muharaba': {
+    src: '/images/hadith/compilations/muwatta-ibn-wahb-muharaba-banner.webp',
+    position: '72% 50%'
+  },
+  'muwatta-ibn-wahb-qada-buyu': {
+    src: '/images/hadith/compilations/muwatta-ibn-wahb-qada-buyu-banner.webp',
+    position: '72% 50%'
+  },
+  'ahadith-muntakhaba-maghazi-musa-ibn-uqba': {
+    src: '/images/hadith/compilations/ahadith-muntakhaba-maghazi-musa-ibn-uqba-banner.webp',
+    position: '72% 50%'
+  },
+  'nuskhat-waki-an-al-amash': {
+    src: '/images/hadith/compilations/nuskhat-waki-an-al-amash-banner.webp',
+    position: '72% 50%'
+  },
+  'juz-sufyan-ibn-uyayna': {
+    src: '/images/hadith/compilations/juz-sufyan-ibn-uyayna-banner.webp',
+    position: '72% 50%'
+  },
+  'hadith-mujaa-ibn-al-zubayr': {
+    src: '/images/hadith/compilations/hadith-mujaa-ibn-al-zubayr-banner.webp',
+    position: '72% 50%'
+  },
+  'kitab-al-hajj-al-majishun': {
+    src: '/images/hadith/compilations/kitab-al-hajj-al-majishun-banner.webp',
+    position: '72% 50%'
+  },
+  'nuskhat-al-zubayr-ibn-adi': {
+    src: '/images/hadith/compilations/nuskhat-al-zubayr-ibn-adi-banner.webp',
+    position: '72% 50%'
+  },
+  'ahadith-yazid-ibn-abi-habib': {
+    src: '/images/hadith/compilations/ahadith-yazid-ibn-abi-habib-banner.webp',
+    position: '72% 50%'
+  },
+  'nuskhat-ibrahim-ibn-sad': {
+    src: '/images/hadith/compilations/nuskhat-ibrahim-ibn-sad-banner.webp',
+    position: '72% 50%'
+  },
+  'ashara-ahadith-al-layth-ibn-sad': {
+    src: '/images/hadith/compilations/ashara-ahadith-al-layth-ibn-sad-banner.webp',
+    position: '72% 50%'
+  },
+  'majlis-fawaid-al-layth-ibn-sad': {
+    src: '/images/hadith/compilations/majlis-fawaid-al-layth-ibn-sad-banner.webp',
+    position: '72% 50%'
   }
 };
-const localEditions = [
-  { id: -6, slug: 'musnad-abu-hanifa', title_en: 'Musnad Abū Ḥanīfa', title_ar: 'مسند أبي حنيفة', hadith_count: 512 },
-  { id: -7, slug: 'musnad-abd-allah-ibn-al-mubarak', title_en: 'Musnad ʿAbd Allāh ibn al-Mubārak', title_ar: 'مسند عبد الله بن المبارك', hadith_count: 275 },
-  { id: -4, slug: 'sahifat-hammam-ibn-munabbih', title_en: 'Ṣaḥīfat Hammām ibn Munabbih', title_ar: 'صحيفة همام بن منبه', hadith_count: 137 },
-  { id: -5, slug: 'fada-il-makka', title_en: 'Faḍāʾil Makka', title_ar: 'فضائل مكة', hadith_count: 7 },
-];
-const books = chronologicalCollections([visibleBook, birrPreview, khalifaPreview, sadPreview, ...localEditions]);
+const books = chronologicalCollections([visibleBook, ...localEditions]);
 const stats = {
   narrations: visibleBook.hadith_count,
   collections: books.length
 };
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const dateKey = (slug: string) => (slug === 'birr-al-walidayn' ? 'sahih-al-bukhari' : slug);
 
-/** The chips under a card's title: its divisions, chapters and genre. */
+/**
+ * The chips under a card, in one order for every collection: its divisions (counted from the
+ * collection's own chapter index, in the collection's own word), then its genre.
+ */
 function chipsFor(slug: string): string[] {
-  const structure = structureFor(slug);
   const chips: string[] = [];
-  if (slug === 'birr-al-walidayn') chips.push('45 chapters');
-  if (slug === 'musnad-khalifa-ibn-khayyat') chips.push('47 sections');
-  if (slug === 'musnad-sad-ibn-abi-waqqas') chips.push('9 chapters');
-  if (slug === 'musnad-abu-hanifa') chips.push('33 books');
-  if (structure) {
-    const chapters = structure.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0);
-    if (structure.shape !== 'flat') {
-      const noun = divisionNoun(structure.shape);
-      chips.push(plural(structure.kitabs.length, noun.one.toLowerCase(), noun.many.toLowerCase()));
+  const units = unitSummary(slug);
+  if (units) chips.push(units.label);
+  else {
+    const structure = structureFor(slug);
+    if (structure) {
+      const chapters = structure.kitabs.reduce((sum, kitab) => sum + kitab.chapters.length, 0);
+      if (structure.shape !== 'flat') {
+        const noun = divisionNoun(structure.shape);
+        chips.push(plural(structure.kitabs.length, noun.one.toLowerCase(), noun.many.toLowerCase()));
+      }
+      if (chapters) chips.push(plural(chapters, 'chapter'));
     }
-    if (chapters) chips.push(plural(chapters, 'chapter'));
   }
   chips.push(collectionType(slug));
   return chips;
 }
+
+/** Collections grouped by the Hijri century of the compiler's death, oldest first. */
+const centuryOfBook = (slug: string) => centuryOf(COMPILER_DATES[dateKey(slug)] ?? Infinity);
+const centurySections = [...new Set(books.map((book) => centuryOfBook(book.slug)))]
+  .sort((a, b) => a - b)
+  .map((century) => {
+    const members = books.filter((book) => centuryOfBook(book.slug) === century);
+    return { century, ...centuryHeading(century), members, narrations: members.reduce((sum, book) => sum + book.hadith_count, 0) };
+  });
+const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
 ---
 
 <BaseLayout image={OG.corpus}
@@ -116,33 +201,40 @@ function chipsFor(slug: string): string[] {
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Hadith Corpus', url: '/hadith/' }]}
 >
   <div class="hl corpus-page">
-    <section class="hl-hero" aria-labelledby="corpus-title">
-      <img class="hl-hero__art" src="/images/hadith/scholars-header.webp" srcset="/images/hadith/scholars-header-960.webp 960w, /images/hadith/scholars-header.webp 1920w" sizes="(max-width: 760px) 145vw, 77vw" width="1920" height="640" alt="" fetchpriority="high" />
-      <div class="hl-wrap hl-hero__inner">
-        <div class="hl-hero__copy">
-          <p class="hl-eyebrow">HadithCritic · Hadith corpus</p>
-          <h1 id="corpus-title">Read the tradition<br /><span>from its sources.</span></h1>
-          <div class="hl-ornament" aria-hidden="true"><span></span>◇<span></span></div>
-          <p><span data-corpus-total="hadith">{stats.narrations.toLocaleString()}</span> narrations from Al-Shama'il al-Muhammadiyah, in Arabic and English. Read each report as an individual source page, with its chain linked to the <a href="/narrators/">Rijāl register</a>.</p>
-          <form class="hl-hero__search corpus-controls" id="corpus-search" role="search" method="get" action="/hadith/" data-default-book={String(visibleBook.id)}>
-            <label class="sr-only" for="corpus-q">Search the hadith corpus</label>
-            <input id="corpus-q" type="search" name="q" value="" placeholder="Search Arabic or English" autocomplete="off" spellcheck="false" />
-            <button type="submit">Search <b aria-hidden="true">⌕</b></button>
-            <!--
-              Filters arrive by URL from collection and narrator pages. The
-              search module sets these from the address and disables the empty
-              ones, so a new query keeps them and an unset filter stays absent.
-            -->
-            <input type="hidden" name="scope" value="" disabled />
-            <input type="hidden" name="book" value={String(visibleBook.id)} />
-            <input type="hidden" name="phrase" value="" disabled />
-            <input type="hidden" name="narrator" value="" disabled />
-            <input type="hidden" name="subject" value="" disabled />
-          </form>
-          <a class="hl-hero__browse" href="#collections">browse the collection <b aria-hidden="true">↓</b></a>
+    <div class="home hl-heroframe">
+    <section class="home-hero hl-landing" aria-labelledby="corpus-title">
+      <img class="home-hero__art" src="/images/hadith/hero-manuscript.webp" srcset="/images/hadith/hero-manuscript-768.webp 768w, /images/hadith/hero-manuscript.webp 1536w" sizes="100vw" width="1536" height="1024" alt="" fetchpriority="high" />
+      <div class="hc-container home-hero__copy">
+        <p class="home-kicker home-kicker--light">HadithCritic · Hadith corpus</p>
+        <h1 id="corpus-title" class="home-hero__title">Read the tradition <em>from its sources.</em></h1>
+        <form class="hl-landing__search corpus-controls" id="corpus-search" role="search" method="get" action="/hadith/" data-default-book={String(visibleBook.id)}>
+          <label class="sr-only" for="corpus-q">Search the hadith corpus</label>
+          <input id="corpus-q" type="search" name="q" value="" placeholder="Search Arabic or English" autocomplete="off" spellcheck="false" />
+          <button type="submit">Search <b aria-hidden="true">⌕</b></button>
+          <!--
+            Filters arrive by URL from collection and narrator pages. The
+            search module sets these from the address and disables the empty
+            ones, so a new query keeps them and an unset filter stays absent.
+          -->
+          <input type="hidden" name="scope" value="" disabled />
+          <input type="hidden" name="book" value={String(visibleBook.id)} />
+          <input type="hidden" name="phrase" value="" disabled />
+          <input type="hidden" name="narrator" value="" disabled />
+          <input type="hidden" name="subject" value="" disabled />
+        </form>
+        <div class="home-hero__actions">
+          <a href="#collections" class="home-btn home-btn--light">Browse the collections <span class="home-btn__arrow" aria-hidden="true">↓</span></a>
+          <a href="/narrators/" class="home-btn home-btn--glass">Rijāl register</a>
         </div>
+        <dl class="hl-landing__facts" aria-label="The corpus in numbers">
+          <div><dt>Searchable narrations</dt><dd>{stats.narrations.toLocaleString()}</dd></div>
+          <div><dt>Collections</dt><dd>{stats.collections}</dd></div>
+          <div><dt>Centuries of compilers</dt><dd>{centurySections.length}</dd></div>
+        </dl>
       </div>
+      <a class="hl-hero__browse home-hero__cue" href="#collections">browse the collection <span aria-hidden="true">↓</span></a>
     </section>
+    </div>
 
     <div class="hl-wrap corpus-body">
       <!-- Filled by the search module once a query is in play. -->
@@ -157,39 +249,51 @@ function chipsFor(slug: string): string[] {
             <p class="hl-eyebrow">The library</p>
             <h2 id="collections-heading">Collections</h2>
           </div>
-          <p>Search the available reader edition or browse the growing source catalogue.</p>
+          <p>Search the available reader edition or browse the growing source catalogue, grouped by the century of the compiler's death.</p>
         </div>
 
-        <ol class="hl-cards catalog-ledger">
-          {books.map((b, i) => {
-            const compiler = compilerFor(b.slug === 'birr-al-walidayn' ? 'sahih-al-bukhari' : b.slug);
-            const canon = SIX_BOOKS.indexOf(b.slug as typeof SIX_BOOKS[number]);
-            const year = COMPILER_DATES[b.slug === 'birr-al-walidayn' ? 'sahih-al-bukhari' : b.slug];
-            const previewOnly = false;
-            const banner = collectionBannerOverrides[b.slug];
-            const art = banner?.src ?? (previewOnly || localEditions.some(edition => edition.slug === b.slug) ? '/images/hadith/library-room.webp' : `/images/hadith/compilations/${b.slug}.webp`);
-            return (
-              <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i}>
-                <a class:list={['hl-card', 'catalog-row__link', previewOnly && 'hl-card--catalog-only']} href={previewOnly ? undefined : `/hadith/collection/${b.slug}/`} role={previewOnly ? 'group' : undefined} aria-label={previewOnly ? `${b.title_en}, reader edition in preparation` : undefined} data-region={compiler?.region} data-canon={canon >= 0 ? `The Six Books · ${ROMAN[canon]}` : undefined}>
-                  <span class="hl-card__art" style={`--collection-art: url('${art}'); --collection-art-position: ${banner?.position ?? '55% 50%'}`} aria-hidden="true"></span>
-                  {compiler?.medallion
-                    ? <span class="hl-card__portrait"><img src={`/images/hadith/medallions/${compiler.medallion}.webp`} width="224" height="224" loading="lazy" decoding="async" alt={`Engraved medallion for ${compiler.name}; not a likeness`} /></span>
-                    : <span class="hl-card__portrait hl-card__portrait--empty" aria-hidden="true">{b.slug === 'musnad-sad-ibn-abi-waqqas' ? 'س' : '◇'}</span>}
-                  <span class="hl-card__content">
-                    <span class="hl-card__kicker">{year ? `d. ${year} AH` : 'Companion collection'}{compiler && ` · ${compiler.origin}`}</span>
-                    <span class="hl-card__title"><strong class="catalog-row__en">{b.title_en}</strong>{b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}</span>
-                    {compiler && <span class="hl-card__compiler">{compiler.name}</span>}
-                    <span class="hl-card__chips">{chipsFor(b.slug).map((chip) => <span class="hl-chip">{chip}</span>)}</span>
-                  </span>
-                  <span class="hl-card__aside">
-                    <span class="hl-card__stat catalog-row__count"><b>{b.hadith_count.toLocaleString()}</b><small>{b.slug === 'fada-il-makka' ? 'sections' : 'narrations'}</small></span>
-                    <span class="hl-card__open">{previewOnly ? 'Reader edition in preparation' : <>Open edition <b aria-hidden="true">↗</b></>}</span>
-                  </span>
-                </a>
-              </li>
-            );
-          })}
-        </ol>
+        <nav class="hl-century-nav" aria-label="Centuries">
+          {centurySections.map((section) => <a href={`#century-${section.century}`}>{section.name} <small>{section.members.length}</small></a>)}
+        </nav>
+
+        {centurySections.map((section) => (
+          <section class="hl-century" id={`century-${section.century}`} aria-labelledby={`century-${section.century}-heading`} data-century={section.century}>
+            <div class="hl-century__head">
+              <h3 id={`century-${section.century}-heading`}>{section.name} <span>({section.range})</span></h3>
+              <p>{plural(section.members.length, 'collection')} · {section.narrations.toLocaleString()} narrations</p>
+            </div>
+            <ol class="hl-cards catalog-ledger">
+              {section.members.map((b) => {
+                const i = books.indexOf(b);
+                const compiler = compilerFor(dateKey(b.slug));
+                const canon = SIX_BOOKS.indexOf(b.slug as typeof SIX_BOOKS[number]);
+                const year = COMPILER_DATES[dateKey(b.slug)];
+                const banner = collectionBannerOverrides[b.slug];
+                const art = banner?.src ?? (localEditions.some(edition => edition.slug === b.slug) && !ownArt.has(b.slug) ? '/images/hadith/library-room.webp' : `/images/hadith/compilations/${b.slug}.webp`);
+                return (
+                  <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i}>
+                    <a class:list={['hl-card', 'catalog-row__link']} href={`/hadith/collection/${b.slug}/`} data-region={compiler?.region} data-canon={canon >= 0 ? `The Six Books · ${ROMAN[canon]}` : undefined}>
+                      <span class="hl-card__art" style={`--collection-art: url('${art}'); --collection-art-position: ${banner?.position ?? '55% 50%'}`} aria-hidden="true"></span>
+                      {compiler?.medallion
+                        ? <span class="hl-card__portrait"><img src={`/images/hadith/medallions/${compiler.medallion}-medallion.webp`} width="224" height="224" loading="lazy" decoding="async" alt={`Engraved medallion for ${compiler.name}; not a likeness`} /></span>
+                        : <span class="hl-card__portrait hl-card__portrait--empty" aria-hidden="true">{b.slug === 'musnad-sad-ibn-abi-waqqas' ? 'س' : '◇'}</span>}
+                      <span class="hl-card__content">
+                        <span class="hl-card__kicker">{year ? `d. ${year} AH` : 'Companion collection'}{compiler && ` · ${compiler.origin}`}</span>
+                        <span class="hl-card__title"><strong class="catalog-row__en">{b.title_en}</strong>{b.title_ar && <span class="catalog-row__ar" lang="ar" dir="rtl">{b.title_ar}</span>}</span>
+                        {compiler && <span class="hl-card__compiler">{compiler.name}{compiler.via && <small class="hl-card__via"> · {compiler.via}</small>}</span>}
+                        <span class="hl-card__chips">{chipsFor(b.slug).map((chip) => <span class="hl-chip">{chip}</span>)}</span>
+                      </span>
+                      <span class="hl-card__aside">
+                        <span class="hl-card__stat catalog-row__count"><b>{b.hadith_count.toLocaleString()}</b><small>{b.slug === 'fada-il-makka' ? 'sections' : 'narrations'}</small></span>
+                        <span class="hl-card__open">Open edition <b aria-hidden="true">↗</b></span>
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+        ))}
       </section>
 
       <!--

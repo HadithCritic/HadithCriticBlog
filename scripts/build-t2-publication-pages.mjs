@@ -6,7 +6,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { openNarratorResolver } from './lib/narrator-resolver.mjs';
 import { renderCollection } from './lib/t2-collection-template.mjs';
 
 const configs = [
@@ -14,92 +14,8 @@ const configs = [
   { slug: 'birr-al-walidayn', source: 'birr-al-walidayn', itemNoun: 'Chapter', expected: 45 },
   { slug: 'musnad-khalifa-ibn-khayyat', source: 'musnad-khalifa-ibn-khayyat', itemNoun: 'Section', expected: 47 },
 ];
-const version = JSON.parse(fs.readFileSync('src/data/corpus-meta.json', 'utf8')).corpusVersion;
-const dbPath = path.resolve('dist-db/builds', version, 'hadith.db');
-if (!fs.existsSync(dbPath)) throw new Error(`Read-only corpus build not found: ${dbPath}`);
-const db = new DatabaseSync(dbPath, { readOnly: true });
+const resolver = openNarratorResolver();
 const esc = (value = '') => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const normAr = (value = '') => String(value).normalize('NFKD')
-  .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '')
-  .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
-  .replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ')
-  .trim().replace(/\s+/g, ' ');
-const normEn = (value = '') => String(value).normalize('NFKD')
-  .replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  .replace(/\bb\.?\s*/g, ' ibn ').replace(/[^a-z0-9]+/g, ' ')
-  .trim().replace(/\s+/g, ' ');
-const toSetMap = (rows, key, id) => {
-  const map = new Map();
-  for (const row of rows) {
-    const k = key(row);
-    if (!k) continue;
-    const set = map.get(k) ?? new Set();
-    set.add(row[id]);
-    map.set(k, set);
-  }
-  return map;
-};
-const aliasMap = toSetMap(db.prepare('SELECT narrator_id,surface_norm FROM narrator_alias').all(), row => normAr(row.surface_norm), 'narrator_id');
-const narratorRows = db.prepare('SELECT id,name_en,name_ar FROM narrator').all();
-const narratorIds = new Set(narratorRows.map(row => row.id));
-const arNameMap = toSetMap(narratorRows, row => normAr(row.name_ar), 'id');
-const enNameMap = toSetMap(narratorRows, row => normEn(row.name_en), 'id');
-function narratorCandidates(node) {
-  if (node.narrator_id != null) {
-    const id = Number(node.narrator_id);
-    if (!Number.isInteger(id) || !narratorIds.has(id)) throw new Error(`Unknown narrator ID ${node.narrator_id}`);
-    return new Set([id]);
-  }
-  const ar = normAr(node.ar);
-  const arIds = new Set([...(aliasMap.get(ar) ?? []), ...(arNameMap.get(ar) ?? [])]);
-  const enIds = enNameMap.get(normEn(node.en)) ?? new Set();
-  if (arIds.size && enIds.size) {
-    const shared = [...arIds].filter(id => enIds.has(id));
-    if (shared.length) return new Set(shared);
-    if (arIds.size === 1) return arIds;
-    if (enIds.size === 1) return enIds;
-    return new Set([...arIds, ...enIds]);
-  }
-  return arIds.size ? arIds : enIds;
-}
-const adjacent = new Set(db.prepare(`SELECT DISTINCT a.narrator_id AS a,b.narrator_id AS b
-  FROM hadith_chain a JOIN hadith_chain b
-  ON a.hadith_id=b.hadith_id AND a.path_idx=b.path_idx AND b.pos=a.pos+1
-  WHERE a.narrator_id IS NOT NULL AND b.narrator_id IS NOT NULL`).all()
-  .map(row => `${row.a}:${row.b}`));
-const hasAdjacent = (a, b) => adjacent.has(`${a}:${b}`);
-function resolveNarratorChains(source) {
-  const occurrences = new Map();
-  for (const record of source.records) for (const chain of record.chains ?? []) {
-    // The source stores chains from the compiler-facing narrator back toward
-    // the Companion. Rijal transmission paths in the corpus run the other way.
-    const nodes = [...chain].reverse();
-    const domains = nodes.map(narratorCandidates);
-    for (let pass = 0; pass < nodes.length; pass += 1) {
-      let changed = false;
-      for (let i = 0; i < domains.length - 1; i += 1) {
-        const left = domains[i], right = domains[i + 1];
-        if (!left.size || !right.size) continue;
-        const links = [...left].some(a => [...right].some(b => hasAdjacent(a, b)));
-        if (!links) continue;
-        const nextLeft = new Set([...left].filter(a => [...right].some(b => hasAdjacent(a, b))));
-        const nextRight = new Set([...right].filter(b => [...left].some(a => hasAdjacent(a, b))));
-        if (nextLeft.size !== left.size) { domains[i] = nextLeft; changed = true; }
-        if (nextRight.size !== right.size) { domains[i + 1] = nextRight; changed = true; }
-      }
-      if (!changed) break;
-    }
-    for (let i = 0; i < nodes.length; i += 1) {
-      if (nodes[i].narrator_id_scope === 'occurrence') continue;
-      if (domains[i].size !== 1) continue;
-      const key = `${nodes[i].en || ''}\u0000${nodes[i].ar || ''}`;
-      const set = occurrences.get(key) ?? new Set();
-      set.add([...domains[i]][0]);
-      occurrences.set(key, set);
-    }
-  }
-  return occurrences;
-}
 
 const readableHtml = html => html
   .replace(/>\s*(<(?:nav|header|p|div|section|h[1-6]|dl|dt|dd|ol|ul|li|details|summary)\b)/g, '>\n$1')
@@ -175,27 +91,7 @@ const interactionScript = `<script>
 for (const config of configs) {
   const root = path.resolve('src/data/hadith-pages', config.source);
   const source = JSON.parse(fs.readFileSync(path.join(root, 'publication-source.json'), 'utf8'));
-  const contextualLinks = resolveNarratorChains(source);
-  for (const record of source.records) for (const chain of record.chains ?? []) for (const node of chain) {
-    const key = `${node.en || ''}\u0000${node.ar || ''}`;
-    const candidates = narratorCandidates(node);
-    const contextual = contextualLinks.get(key);
-    if (candidates.size === 1) node._narratorId = [...candidates][0];
-    else if (contextual?.size === 1) node._narratorId = [...contextual][0];
-  }
-  const confirmedByForm = new Map();
-  for (const record of source.records) for (const chain of record.chains ?? []) for (const node of chain) {
-    if (!node._narratorId || node.narrator_id_scope === 'occurrence') continue;
-    const key = `${node.en || ''}\u0000${node.ar || ''}`;
-    const ids = confirmedByForm.get(key) ?? new Set();
-    ids.add(node._narratorId);
-    confirmedByForm.set(key, ids);
-  }
-  for (const record of source.records) for (const chain of record.chains ?? []) for (const node of chain) {
-    const key = `${node.en || ''}\u0000${node.ar || ''}`;
-    const ids = confirmedByForm.get(key);
-    if (!node._narratorId && ids?.size === 1) node._narratorId = [...ids][0];
-  }
+  resolver.linkNarratorIds(source);
   const recordsById = new Map(source.records.map(record => [String(record.id), record]));
   if (source.books.length !== config.expected) throw new Error(`${config.slug}: expected ${config.expected} chapters/sections, found ${source.books.length}.`);
   if (source.sections.length !== config.expected) throw new Error(`${config.slug}: expected ${config.expected} source sections, found ${source.sections.length}.`);
@@ -242,23 +138,9 @@ for (const config of configs) {
   fs.writeFileSync(path.join(root, 'chapter-index.json'), `${JSON.stringify(index, null, 2)}\n`, 'utf8');
   const narrationCount = source.records.filter(record => !(config.slug === 'birr-al-walidayn' && record.id === '0u1')).length;
   fs.writeFileSync(path.join(root, 'collection.html'), `${renderCollection(config, source, index, narrationCount)}\n`, 'utf8');
-  const uniqueForms = new Map();
-  const unresolvedOccurrences = [];
-  const linkedFormKeys = new Set();
-  const unresolvedFormKeys = new Set();
-  for (const record of source.records) for (const chain of record.chains ?? []) for (const [position, node] of chain.entries()) {
-    const key = `${node.en || ''}\u0000${node.ar || ''}`;
-    if (!uniqueForms.has(key)) uniqueForms.set(key, { en: node.en || '', ar: node.ar || '', narrator_id: node._narratorId ?? null });
-    if (node._narratorId) linkedFormKeys.add(key);
-    else {
-      unresolvedFormKeys.add(key);
-      unresolvedOccurrences.push({ record_id: record.id, name_en: node.en || '', name_ar: node.ar || '', previous: chain[position - 1]?.en || null, next: chain[position + 1]?.en || null });
-    }
-  }
-  const linked = linkedFormKeys.size;
-  const unresolvedForms = [...unresolvedFormKeys].map(key => ({ ...uniqueForms.get(key), narrator_id: null }));
-  const partialForms = [...unresolvedFormKeys].filter(key => linkedFormKeys.has(key)).map(key => uniqueForms.get(key));
-  fs.writeFileSync(path.join(root, 'narrator-link-audit.json'), `${JSON.stringify({ source: path.basename(root) + '/publication-source.json', corpus_version: version, unique_source_forms: uniqueForms.size, linked_forms: linked, partially_linked_forms: partialForms, unresolved_forms: unresolvedForms, unresolved_occurrences: unresolvedOccurrences }, null, 2)}\n`, 'utf8');
-  console.log(`Built ${config.slug}: ${entries.length} ${config.itemNoun.toLowerCase()} pages, ${narrationCount} narrations, ${linked}/${uniqueForms.size} unique narrator forms linked.`);
+  const { audit, linkedForms: linked, totalForms } = resolver.buildAudit(source, path.basename(root) + '/publication-source.json');
+  fs.writeFileSync(path.join(root, 'narrator-link-audit.json'), `${JSON.stringify(audit, null, 2)}
+`, 'utf8');
+  console.log(`Built ${config.slug}: ${entries.length} ${config.itemNoun.toLowerCase()} pages, ${narrationCount} narrations, ${linked}/${totalForms} unique narrator forms linked.`);
 }
-db.close();
+resolver.close();

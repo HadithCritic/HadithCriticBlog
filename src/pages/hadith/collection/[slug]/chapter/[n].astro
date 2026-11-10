@@ -9,10 +9,35 @@ export function getStaticPaths() {
     { slug: "musnad-sad-ibn-abi-waqqas", title: "Musnad Saʿd ibn Abī Waqqāṣ", noun: "Chapter" },
     { slug: "birr-al-walidayn", title: "Birr al-Wālidayn of al-Bukhārī", noun: "Chapter" },
     { slug: "musnad-khalifa-ibn-khayyat", title: "Musnad Khalīfa ibn Khayyāṭ", noun: "Section" },
+    { slug: "musnad-abu-hanifa", title: "Musnad Abū Ḥanīfa", noun: "Book" },
+    { slug: "musnad-abd-allah-ibn-al-mubarak", title: "Musnad ʿAbd Allāh ibn al-Mubārak", noun: "Chapter" },
+    { slug: "jami-mamar-ibn-rashid", title: "Jāmiʿ Maʿmar ibn Rāshid", noun: "Chapter" },
+    { slug: "al-marasil-abi-dawud", title: "Al-Marāsīl of Abū Dāwūd", noun: "Chapter" },
+    { slug: "al-jami-ibn-wahb", title: "Al-Jāmiʿ fī al-Ḥadīth of Ibn Wahb", noun: "Chapter" },
+    { slug: "al-muntaqa-ibn-al-jarud", title: "Al-Muntaqā min al-Sunan al-Musnada", noun: "Chapter" },
+    { slug: "al-athar-abu-yusuf", title: "Kitāb al-Āthār of Abū Yūsuf", noun: "Chapter" },
+    { slug: "al-athar-al-shaybani", title: "Kitāb al-Āthār of al-Shaybānī", noun: "Chapter" },
+    { slug: "kitab-al-qadar-ibn-wahb", title: "Kitāb al-Qadar of Ibn Wahb", noun: "Part" },
+    { slug: "al-dua-ibn-fudayl", title: "Al-Duʿāʾ of Ibn Fuḍayl", noun: "Section" },
+    { slug: "mashyakhat-ibn-tahman", title: "Mashyakhat Ibn Ṭahmān", noun: "Section" },
+    { slug: "hadith-sufyan-al-thawri", title: "Ḥadīth Sufyān al-Thawrī (printed edition)", noun: "Section" },
+    { slug: "ahadith-al-sari-an-al-thawri", title: "Aḥādīth al-Sarī ibn Yaḥyā through al-Thawrī (manuscript text)", noun: "Section" },
+    { slug: "muwatta-ibn-wahb-muharaba", title: "Muwaṭṭaʾ Ibn Wahb: Book of Armed Robbery", noun: "Chapter" },
+    { slug: "muwatta-ibn-wahb-qada-buyu", title: "Muwaṭṭaʾ Ibn Wahb: Judicial Decisions on Sales", noun: "Chapter" },
+    { slug: "ahadith-muntakhaba-maghazi-musa-ibn-uqba", title: "Selected Traditions from the Maghāzī of Mūsā ibn ʿUqba", noun: "Section" },
+    { slug: "nuskhat-waki-an-al-amash", title: "Wakīʿ’s Copy from al-Aʿmash", noun: "Section" },
+    { slug: "juz-sufyan-ibn-uyayna", title: "Ḥadīth Fascicle of Sufyān ibn ʿUyayna", noun: "Section" },
+    { slug: "hadith-mujaa-ibn-al-zubayr", title: "Ḥadīth of Mujāʿa ibn al-Zubayr", noun: "Section" },
+    { slug: "kitab-al-hajj-al-majishun", title: "Book of Pilgrimage of al-Mājishūn", noun: "Section" },
+    { slug: "nuskhat-al-zubayr-ibn-adi", title: "Copy of al-Zubayr ibn ʿAdī", noun: "Section" },
+    { slug: "ahadith-yazid-ibn-abi-habib", title: "Ḥadīths of Yazīd ibn Abī Ḥabīb", noun: "Section" },
+    { slug: "nuskhat-ibrahim-ibn-sad", title: "Copy of Ibrāhīm ibn Saʿd", noun: "Section" },
+    { slug: "ashara-ahadith-al-layth-ibn-sad", title: "Ten Selected Ḥadīths of al-Layth ibn Saʿd", noun: "Section" },
+    { slug: "majlis-fawaid-al-layth-ibn-sad", title: "A Session of Benefits of al-Layth ibn Saʿd", noun: "Section" },
   ];
   return editions.flatMap((edition) => {
     const root = path.resolve(process.cwd(), "src/data/hadith-pages", edition.slug);
-    const index: Array<{ n: number; title_en: string; count: number; file: string }> =
+    const index: Array<{ n: number; title_en: string; count: number; file: string; noun?: string; unit?: string }> =
       JSON.parse(fs.readFileSync(path.join(root, "chapter-index.json"), "utf8"));
     return index.map((chapter) => ({
       params: { slug: edition.slug, n: String(chapter.n) },
@@ -22,6 +47,7 @@ export function getStaticPaths() {
 }
 
 const { edition, chapter } = Astro.props;
+const unitNoun: string = chapter.noun ?? edition.noun;
 const root = path.resolve(process.cwd(), "src/data/hadith-pages", edition.slug);
 const sourceHtml = fs.readFileSync(path.join(root, chapter.file), "utf8");
 // Move the complete font import to the outer head, preserving the semicolons
@@ -41,15 +67,15 @@ const pageUrl = `/hadith/collection/${edition.slug}/chapter/${chapter.n}/`;
 ---
 
 <BaseLayout
-  title={`${edition.title}: ${edition.noun} ${chapter.n} | HadithCritic`}
-  description={`${chapter.title_en} — ${chapter.count} source entries in ${edition.noun.toLowerCase()} ${chapter.n} of ${edition.title}.`}
+  title={`${edition.title}: ${unitNoun} ${chapter.n} | HadithCritic`}
+  description={`${chapter.title_en}: ${chapter.count} ${chapter.unit === "sections" ? (chapter.count === 1 ? "section" : "sections") : chapter.count === 1 ? "source entry" : "source entries"} in ${unitNoun.toLowerCase()} ${chapter.n} of ${edition.title}.`}
   image={OG.collection(edition.slug)}
   imageAlt={`${edition.title} | HadithCritic`}
   crumbs={[
     { name: "Home", url: "/" },
     { name: "Corpus", url: "/hadith/" },
     { name: edition.title, url: `/hadith/collection/${edition.slug}/` },
-    { name: `${edition.noun} ${chapter.n}`, url: pageUrl },
+    { name: `${unitNoun} ${chapter.n}`, url: pageUrl },
   ]}
 >
   {fontUrl && <link slot="head" rel="stylesheet" href={fontUrl} />}
