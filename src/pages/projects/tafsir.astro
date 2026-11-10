@@ -5,12 +5,15 @@ import { OG } from '../../lib/seo';
 import verses from '../../data/quran-verses.json';
 import { defaultWork, formatCount, loadSurah, surahHref, surahs, verseHref, works } from '../../data/tafsir';
 import { excerptRuns, pad, runsHtml } from '../../lib/tafsir-render';
+import { editions, partCode, partHref } from '../../data/tafsir-editions';
 import '../../styles/tafsir.css';
 import '../../styles/tafsir-home.css';
 
 const quran = verses as Record<string, { ar: string; en: string }>;
 const covered = surahs.filter((s) => s.works.length > 0);
 const words = works.reduce((sum, w) => sum + w.words, 0);
+/* The bilingual early commentaries, in collection order. */
+const early = [...editions].sort((a, b) => a.collection - b.collection);
 
 /* The opening: the first surah with commentary, its last verse previewed. */
 const opening = covered[0];
@@ -26,7 +29,7 @@ const excerpt = previewBlock ? runsHtml(excerptRuns(previewBlock.x, 150), citeHr
 
 <BaseLayout
   title="Tafsīr library | HadithCritic"
-  description="Read al-Ṭabarī's commentary on the seven verses of al-Fātiḥa, with the Qur'anic text in Arabic and English, transmitted reports and editor's notes."
+  description="Read al-Ṭabarī's commentary on al-Fātiḥa, and the early commentaries of Mujāhid, Sufyān al-Thawrī and Ibn Wahb with their Arabic beside the English."
   image={OG.tafsir}
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Projects', url: '/projects/' }, { name: 'Tafsir', url: '/projects/tafsir/' }]}
 >
@@ -158,7 +161,7 @@ const excerpt = previewBlock ? runsHtml(excerptRuns(previewBlock.x, 150), citeHr
             <p class="tfh-eyebrow">03 · The available editions</p>
             <h2 class="tfh-heading" id="tfh-works-title">The commentaries.</h2>
             <p class="tfh-lede">
-              The available edition is al-Ṭabarī's commentary on al-Fātiḥa, presented one verse at a time.
+              Al-Ṭabarī's commentary on al-Fātiḥa, one verse at a time, and three earlier commentaries in full, their Arabic beside the English.
             </p>
           </div>
         </div>
@@ -195,20 +198,23 @@ const excerpt = previewBlock ? runsHtml(excerptRuns(previewBlock.x, 150), citeHr
             </div>
           </div>
         </article>
-        <article class="tfh-work tfh-work--thawri" aria-labelledby="tfh-thawri-title">
-          <div class="tfh-work__details">
-            <div class="tfh-work__meta micro"><span>Collection 003</span><span>Author · d. 161 AH</span><span>In preparation</span></div>
-            <h3 id="tfh-thawri-title">Sufyān al-Thawrī</h3>
-            <p class="tfh-work__subtitle">Tafsīr al-Thawrī</p>
-            <p class="tfh-work__ar tfh-work__ar--thawri" lang="ar" dir="rtl">تفسير الثوري</p>
-            <p class="tfh-work__text">The supplied edition identifies Sufyān ibn Saʿīd al-Thawrī as al-Kūfī (d. 161 AH) and records this commentary through Abū Jaʿfar Muḥammad ibn Abī Ḥudhayfa al-Nahdī.</p>
-            <div class="tfh-work__divider"></div>
-            <div class="tfh-work__numbers">
-              <div><strong>Tafsīr al-Thawrī</strong><small>Qur’anic commentary</small></div>
-              <div><strong>In preparation</strong><small>Reader not yet available</small></div>
+        {early.map((e) => (
+          <article class={`tfh-work tfh-work--${e.id}`} aria-labelledby={`tfh-${e.id}-title`}>
+            <div class="tfh-work__details">
+              <div class="tfh-work__meta micro"><span>Collection {pad(e.collection, 3)}</span><span>Author · d. {e.died} AH</span><span>Arabic &amp; English</span></div>
+              <h3 id={`tfh-${e.id}-title`}>{e.name}</h3>
+              <p class="tfh-work__subtitle">{e.title}</p>
+              <p class={`tfh-work__ar tfh-work__ar--early tfh-work__ar--${e.id}`} lang="ar" dir="rtl">{e.arabic}</p>
+              <p class="tfh-work__text">{e.blurb}</p>
+              <div class="tfh-work__divider"></div>
+              <div class="tfh-work__numbers">
+                <div><strong>{e.parts.length}</strong><small>{e.grouping === 'chapter' ? 'Chapter pages' : 'Surahs'} to read</small></div>
+                <div><strong>{formatCount(e.enWords)}</strong><small>Words in English</small></div>
+              </div>
+              <a class="tfh-button tfh-button--gold" href={partHref(e, e.parts[0])}>Read {e.name} <span aria-hidden="true">↗</span></a>
             </div>
-          </div>
-        </article>
+          </article>
+        ))}
       </div>
     </section>
 
@@ -218,7 +224,7 @@ const excerpt = previewBlock ? runsHtml(excerptRuns(previewBlock.x, 150), citeHr
           <div>
             <p class="tfh-eyebrow">04 · Current release</p>
             <h2 class="tfh-heading" id="tfh-archive-title">Available to read.</h2>
-            <p class="tfh-lede">The approved reader currently contains al-Ṭabarī on al-Fātiḥa.</p>
+            <p class="tfh-lede">Al-Ṭabarī on al-Fātiḥa, every surah that the editions of Mujāhid and al-Thawrī contain, and Ibn Wahb chapter by chapter.</p>
           </div>
         </div>
         <ol class="tfh-grid">
@@ -232,6 +238,25 @@ const excerpt = previewBlock ? runsHtml(excerptRuns(previewBlock.x, 150), citeHr
             </li>
           ))}
         </ol>
+        {early.map((e) => (
+          <section class="tfh-parts" aria-labelledby={`tfh-parts-${e.id}`}>
+            <div class="tfh-parts__head">
+              <h3 id={`tfh-parts-${e.id}`}>{e.name} <span>{e.title}</span></h3>
+              <span class="micro">{e.parts.length} {e.grouping === 'chapter' ? 'chapter pages in 3 parts' : 'surahs'}</span>
+            </div>
+            <ol class="tfh-parts__list">
+              {e.parts.map((part) => (
+                <li>
+                  <a href={partHref(e, part)} aria-label={part.surah ? `Read ${e.name} on ${part.title}` : `Read ${e.title}: ${part.title}, volume ${part.volume}`}>
+                    <span class="tfh-parts__n">{part.surah ? pad(part.surah, 3) : partCode(part)}</span>
+                    <span class="tfh-parts__name">{part.title}</span>
+                    {part.ar && <span class="tfh-parts__ar" lang="ar" dir="rtl">{part.ar}</span>}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ))}
       </div>
     </section>
 

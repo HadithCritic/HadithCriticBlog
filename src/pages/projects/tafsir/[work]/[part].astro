@@ -1,0 +1,140 @@
+---
+/* Bilingual reader pages for the early commentaries (Mujāhid, al-Thawrī,
+   Ibn Wahb): one page per surah, or per volume for Ibn Wahb. The page body is
+   the editable HTML in src/data/tafsir-pages/<work>/<part>.html; the shell
+   below matches the al-Ṭabarī al-Fātiḥa pages and uses the same stylesheet
+   and reader controls. */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { OG } from '../../../../lib/seo';
+import { editionById, editions, partCode, partHref, partLabel, type EditionPart } from '../../../../data/tafsir-editions';
+import { formatCount } from '../../../../data/tafsir';
+import '../../../../styles/tafsir.css';
+import '../../../../styles/tafsir-edition.css';
+
+export function getStaticPaths() {
+  return editions.flatMap((edition) =>
+    edition.parts.map((part, index) => ({ params: { work: edition.id, part: part.slug }, props: { workId: edition.id, index } })),
+  );
+}
+
+const { workId, index } = Astro.props as { workId: string; index: number };
+const edition = editionById(workId)!;
+const part = edition.parts[index];
+const prev: EditionPart | undefined = edition.parts[index - 1];
+const next: EditionPart | undefined = edition.parts[index + 1];
+const body = readFileSync(resolve(process.cwd(), 'src/data/tafsir-pages', edition.id, `${part.slug}.html`), 'utf8');
+const readerCss = readFileSync(resolve(process.cwd(), 'src/data/tafsir-pages/tabari/reader.css'), 'utf8');
+
+const isSurah = Boolean(part.surah);
+const countLabel = `${formatCount(part.entries)} ${part.entries === 1 ? 'report' : 'reports'}`;
+const firstNo = (s: string | null) => s?.split(':')[0].trim() ?? null;
+const reportRange = edition.numbered && part.firstReport && part.lastReport && part.firstReport !== part.lastReport
+  ? `Nos. ${firstNo(part.firstReport)} to ${firstNo(part.lastReport)}`
+  : null;
+const crumbLabel = partCode(part);
+const pageTitle = isSurah ? `${part.title} · ${edition.name} | Tafsīr` : `${part.title} · ${edition.name}, vol. ${part.volume} | Tafsīr`;
+const description = isSurah
+  ? `${edition.name}'s commentary on Sūrat ${part.title} (Qur'an ${part.surah}), with the Arabic of the edition beside its English translation.`
+  : `${edition.title} by ${edition.name}: ${part.title}, volume ${part.volume}, with the Arabic of the edition beside its English translation.`;
+const nextLabel = (p: EditionPart) => (p.surah ? `${p.title} · ${p.surah}` : `${p.title} · vol. ${p.volume}`);
+const longTitle = part.title.length > 34;
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={description}
+  image={OG.tafsir}
+  standalone
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Projects', url: '/projects/' },
+    { name: 'Tafsīr', url: '/projects/tafsir/' },
+    { name: edition.name, url: partHref(edition, edition.parts[0]) },
+    { name: crumbLabel, url: partHref(edition, part) },
+  ]}
+>
+  <style is:inline set:html={readerCss}></style>
+  <div class="hc-page tfx tfr tfe" data-reader="" data-highlights="on">
+    <header class="masthead"><div class="wrap"><a class="brand" href="/"><img alt="" class="brand__mark" src="/images/brand/geometric-emblem-96.webp" width="25" height="25" />HadithCritic</a><nav aria-label="Main navigation" class="nav"><a href="/projects/tafsir/">Tafsīr library</a><a href="/projects/">Projects</a><button aria-label="Toggle light and dark theme" class="theme-btn" id="themeToggle" title="Change appearance" type="button">◐</button></nav></div></header>
+
+    <section class="opening"><div class="wrap"><div class="opening__aside">
+      <span class="opening__eyebrow overline">The Qur’an · Tafsīr</span>
+      <h1 class:list={[longTitle && 'tfe-title--long']}>{part.title}</h1>
+      <p class="opening__subtitle">{edition.title}</p>
+      <div class="opening__meta"><span>{partLabel(part)}</span><span>{countLabel}</span>{reportRange && <span>{reportRange}</span>}<span>Arabic &amp; English</span></div>
+      <div class="scholar">
+        {edition.portrait && (
+          <span aria-label={`Illustrative portrait of ${edition.name}; not a verified likeness`} class="portrait-slot" data-region={edition.region} role="img"><img alt="" aria-hidden="true" decoding="async" loading="lazy" src={`/images/tafsir/figures/${edition.portrait}.webp`} /></span>
+        )}
+        <div class="scholar__copy"><strong>{edition.author}</strong><span>Commentary · d. {edition.died} AH</span></div>
+      </div>
+    </div></div></section>
+
+    <div class="reader-toolbar"><div class="wrap">
+      <nav aria-label="Breadcrumb" class="crumb"><a href="/projects/tafsir/">Tafsīr</a><span>/</span><span>{edition.name}</span><span>/</span><strong>{crumbLabel}</strong></nav>
+      {part.jumps.length > 0 && (
+        <label class="jump-control"><span>Jump to</span><select aria-label={part.verses ? 'Jump to a verse' : 'Jump to a report'} id="chapterJump">
+          <option value="">{part.verses ? 'Choose a verse' : 'Choose a report'}</option>
+          {part.jumps.map((j) => <option value={j.id}>{j.label}</option>)}
+          <option value="edition">About the edition</option>
+        </select></label>
+      )}
+      <div class="toolbar-actions">
+        <span>Text size</span>
+        <div class="size-control"><button aria-label="Decrease reading size" id="sizeMinus" type="button">−</button><output id="sizeValue">19</output><button aria-label="Increase reading size" id="sizePlus" type="button">+</button></div>
+        <label class="control-toggle"><input checked id="arabicToggle" type="checkbox" />Show Arabic</label>
+        <label class="control-toggle"><input checked id="highlightToggle" type="checkbox" />Highlight citations</label>
+      </div>
+    </div></div>
+
+    <div class="wrap reader"><section class="article" data-highlights="true" data-arabic="on" id="commentary">
+      <div aria-label={isSurah ? `Sūrah ${part.surah}` : part.title} class="verse-panel verse-panel--reading tfe-panel" id="verse">
+        <div class="verse-panel__top"><span>{isSurah ? 'The surah' : part.headed ? 'The chapter' : 'Before the first heading'}</span><span>{isSurah ? `Q ${part.surah}` : `Vol. ${part.volume}`}</span></div>
+        <div class="verse-panel__body">
+          {isSurah ? (
+            <Fragment>
+              <div class="verse-panel__arabic arabic" dir="rtl" lang="ar">سورة {part.ar}</div>
+              <div class="verse-panel__translation">Sūrat {part.title}{part.verseCount ? `, ${part.verseCount} verses` : ''}</div>
+            </Fragment>
+          ) : (
+            <Fragment>
+              <div class="verse-panel__arabic arabic tfe-panel__chapter" dir="rtl" lang="ar">{part.ar ?? edition.arabic}</div>
+              <div class="verse-panel__translation">{part.headed ? part.title : part.chapters === 1 ? 'This part of the manuscript has no chapter headings' : 'Reports before the part’s first chapter heading'}</div>
+            </Fragment>
+          )}
+        </div>
+        <div class="verse-panel__bottom">
+          <span>{countLabel} · {part.firstPage === part.lastPage ? part.firstPage : `${part.firstPage} to ${part.lastPage}`}</span>
+          {isSurah && part.sourceHeading && <span class="tfe-panel__heading" lang="ar" dir="rtl">{part.sourceHeading}</span>}
+        </div>
+      </div>
+
+      <Fragment set:html={body} />
+
+      <section class="edition" id="edition">
+        <span class="section-label">Source details</span>
+        <h2>About the edition</h2>
+        {edition.about.map((p) => <p set:html={p} />)}
+        <p>The English translation came with the source files, which do not name its translator or say how it was made or reviewed.</p>
+        <p><a href={`https://shamela.ws/book/${edition.shamelaId}`} rel="noopener">The Arabic on Shamela</a></p>
+      </section>
+
+      <nav aria-label={isSurah ? 'Adjacent surahs' : 'Adjacent chapters'} class="verse-pagination">
+        {prev && <a class="next next--prev" data-prev="" href={partHref(edition, prev)}><span><small>{isSurah ? 'Previous surah' : 'Previous chapter'}</small><span class="next__label">{nextLabel(prev)}</span></span><span class="next__arrow">↖</span></a>}
+        {next && <a class="next next--next" data-next="" href={partHref(edition, next)}><span><small>Continue reading</small><span class="next__label">{nextLabel(next)}</span></span><span class="next__arrow">↗</span></a>}
+      </nav>
+    </section></div>
+
+    <footer class="footer"><div class="wrap"><span>HadithCritic · Qur’anic commentary</span><span><a href="/projects/tafsir/">Tafsīr library</a> &nbsp;·&nbsp; <a href="/">Home</a></span></div></footer>
+  </div>
+  <script>
+    import { initReader } from '../../../../lib/tafsir-reader';
+    import { initFatihaReader } from '../../../../lib/tafsir-fatiha-reader';
+    import { initEditionReader } from '../../../../lib/tafsir-edition-reader';
+    initFatihaReader();
+    initReader();
+    initEditionReader();
+  </script>
+</BaseLayout>

@@ -26,6 +26,8 @@ const pageHtml = readFileSync(
   resolve(process.cwd(), 'src/data/tafsir-pages/tabari/001', `${pad(verse, 3)}.html`),
   'utf8',
 );
+/* One stylesheet for every verse page, set where each page's own copy used to sit. */
+const readerCss = readFileSync(resolve(process.cwd(), 'src/data/tafsir-pages/tabari/reader.css'), 'utf8');
 const title = `${surah.latin} ${pad(1)}:${pad(verse)} · ${work.name} | Tafsīr`;
 const description = `Al-Ṭabarī's commentary on Qur'an 1:${verse}, with the Arabic verse, English translation, transmitted reports and editor's notes.`;
 ---
@@ -34,7 +36,7 @@ const description = `Al-Ṭabarī's commentary on Qur'an 1:${verse}, with the Ar
   title={title}
   description={description}
   image={OG.tafsir}
-  standalone={verse === 1}
+  standalone
   crumbs={[
     { name: 'Home', url: '/' },
     { name: 'Projects', url: '/projects/' },
@@ -43,9 +45,12 @@ const description = `Al-Ṭabarī's commentary on Qur'an 1:${verse}, with the Ar
     { name: `${pad(1)}:${pad(verse)}`, url: verseHref(work, 1, verse) },
   ]}
 >
+  <style is:inline set:html={readerCss}></style>
   <Fragment set:html={pageHtml} />
   <script>
     import { initReader } from '../../../../../lib/tafsir-reader';
+    import { initFatihaReader } from '../../../../../lib/tafsir-fatiha-reader';
+    initFatihaReader();
     initReader();
   </script>
 </BaseLayout>
