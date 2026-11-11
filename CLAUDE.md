@@ -30,6 +30,26 @@ projects. Its hadith collections are static pages built from editable HTML in
   existing explicit heap limit. Vite loads research JSON through `JSON.parse`
   with named exports disabled to avoid building large data-module ASTs. Keep
   JSON imports as default imports.
+- **Tafsir library (`/projects/tafsir/`) has four commentaries, read one
+  verse at a time.** Every work has a surah page listing its verses
+  (`[work]/[surah]/index.astro`) and a page per verse
+  (`[work]/[surah]/[verse].astro`), all under the site's standard header.
+  Mujāhid, al-Thawrī and al-Zamakhsharī are editable HTML, one file per surah,
+  in `src/data/tafsir-pages/<id>/`, registered in
+  `src/data/tafsir-editions.ts`; `src/lib/tafsir-edition-html.ts` files each
+  `<section class="chapter" data-verses="…">` under its verses, and chapters
+  without a verse go to the surah's `general` page. Al-Ṭabarī's al-Fātiḥa is
+  hand-edited HTML in `src/data/tafsir-pages/tabari/001/`; his other surahs are
+  rendered from `src/data/tafsir/tabari/surahs/NNN.json` by
+  `src/lib/tafsir-verse-html.ts`. Those JSON files are read with
+  `readFileSync` at build time, not imported. `src/data/tafsir-library.ts`
+  gives the front page all 114 surahs per work. The scripts that write this
+  data (`build-tafsir-data.mjs`, `build-tafsir-edition-pages.mjs`,
+  `restyle-tafsir-editions.mjs`, `build-tafsir-zamakhshari.mjs`,
+  `build-tafsir-coverage.mjs`) read source folders outside the repo; their
+  header comments say which. Rerun `build-tafsir-coverage.mjs` after any of
+  the others so the front page's progress bars stay true. Ibn Wahb's Tafsīr
+  was removed on 2026-11-11.
 - Markdown/MDX GFM is declared once on `markdown.processor` in
   `astro.config.mjs`. Do not also pass `remarkPlugins` to the `mdx()`
   integration; that arrangement is deprecated and was already removed.

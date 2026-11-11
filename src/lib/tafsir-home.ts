@@ -1,75 +1,76 @@
-/* The Tafsir front page's surah index: search by name, Arabic or number,
-   filter by whether commentary is imported, and show the first sixteen until
-   the reader asks for all. Without script every card is shown except those
-   past the first sixteen, and "/" is not bound. */
+/* The Tafsir front page's contents: one tab per commentary and a filter for
+   the list on show. Without script the controls stay hidden and every list is
+   printed in full, one after another. A link to #contents-<id> opens that
+   commentary's tab. */
 
-const fold = (s: string) =>
+const HASH_PREFIX = '#contents-';
+
+const fold = (s: string): string =>
   s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase().replace(/[ʿ‘’ʼʾ'`]/g, '').replace(/[\s-]/g, '');
 
-export function initArchive() {
-  const root = document.querySelector<HTMLElement>('[data-archive]');
+export function initContents(): void {
+  const root = document.querySelector<HTMLElement>('[data-contents]');
   if (!root) return;
-  const items = [...root.querySelectorAll<HTMLElement>('[data-surah-item]')];
-  const search = root.querySelector<HTMLInputElement>('[data-archive-search]');
-  const clear = root.querySelector<HTMLButtonElement>('[data-archive-clear]');
-  const count = root.querySelector<HTMLElement>('[data-archive-count]');
-  const empty = root.querySelector<HTMLElement>('[data-archive-empty]');
-  const more = root.querySelector<HTMLButtonElement>('[data-archive-more]');
-  const moreWrap = root.querySelector<HTMLElement>('[data-archive-more-wrap]');
-  const filters = [...root.querySelectorAll<HTMLButtonElement>('[data-filter]')];
-  const initial = Number(root.dataset.initial) || 16;
-  let active = 'all';
-  let expanded = false;
+  const tabs = [...root.querySelectorAll<HTMLButtonElement>('[data-contents-tab]')];
+  const panels = [...root.querySelectorAll<HTMLElement>('[data-contents-panel]')];
+  const controls = root.querySelector<HTMLElement>('[data-contents-controls]');
+  const search = root.querySelector<HTMLInputElement>('[data-contents-search]');
+  if (!tabs.length || !panels.length || !controls) return;
 
-  const refresh = () => {
+  let active = tabs[0].dataset.contentsTab ?? '';
+
+  const filter = (): void => {
     const query = fold(search?.value.trim() ?? '');
-    const matching = items.filter((item) => {
-      if (active !== 'all' && item.dataset.status !== active) return false;
-      if (!query) return true;
-      return fold(item.dataset.name ?? '').includes(query) || fold(item.dataset.ar ?? '').includes(query) || (item.dataset.n ?? '') === query || (item.dataset.n ?? '').startsWith(query);
+    const panel = panels.find((p) => p.dataset.contentsPanel === active);
+    if (!panel) return;
+    const items = [...panel.querySelectorAll<HTMLElement>('[data-contents-item]')];
+    let shown = 0;
+    items.forEach((item) => {
+      const match = !query || fold(item.dataset.search ?? '').includes(query);
+      item.hidden = !match;
+      if (match) shown++;
     });
-    const limited = active === 'all' && !query && !expanded;
-    const shown = new Set(limited ? matching.slice(0, initial) : matching);
-    items.forEach((item) => (item.hidden = !shown.has(item)));
-    if (count) count.textContent = `Showing ${shown.size} of ${matching.length} surahs${query ? ' matching your search' : ''}`;
-    if (empty) empty.hidden = matching.length > 0;
-    const offer = active === 'all' && !query && matching.length > initial;
-    if (moreWrap) moreWrap.hidden = !offer;
-    if (more) {
-      more.innerHTML = expanded ? 'Show fewer surahs <span aria-hidden="true">↑</span>' : `View all ${matching.length} surahs <span aria-hidden="true">↓</span>`;
-      more.setAttribute('aria-expanded', String(expanded));
-    }
-    if (clear) clear.hidden = !search?.value;
+    panel.querySelectorAll<HTMLElement>('[data-contents-group]').forEach((group) => {
+      group.hidden = !group.querySelector('[data-contents-item]:not([hidden])');
+    });
+    const count = panel.querySelector<HTMLElement>('[data-contents-count]');
+    if (count) count.textContent = query ? `${shown} of ${items.length} shown` : (count.dataset.total ?? '');
+    const empty = panel.querySelector<HTMLElement>('[data-contents-empty]');
+    if (empty) empty.hidden = shown > 0;
   };
 
-  filters.forEach((button) =>
-    button.addEventListener('click', () => {
-      active = button.dataset.filter ?? 'all';
-      filters.forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
-      refresh();
-    }),
-  );
-  search?.addEventListener('input', refresh);
-  clear?.addEventListener('click', () => {
-    if (search) search.value = '';
-    search?.focus();
-    refresh();
-  });
-  more?.addEventListener('click', () => {
-    expanded = !expanded;
-    refresh();
-    if (!expanded) root.scrollIntoView({ block: 'start' });
-  });
-  window.addEventListener('keydown', (event) => {
-    const target = event.target as HTMLElement;
-    if (event.key === '/' && !target.closest('input, textarea, select, [contenteditable]')) {
+  const select = (id: string): void => {
+    if (!tabs.some((tab) => tab.dataset.contentsTab === id)) return;
+    active = id;
+    tabs.forEach((tab) => {
+      const on = tab.dataset.contentsTab === id;
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+    });
+    panels.forEach((panel) => (panel.hidden = panel.dataset.contentsPanel !== id));
+    filter();
+  };
+
+  const fromHash = (): void => {
+    if (location.hash.startsWith(HASH_PREFIX)) select(location.hash.slice(HASH_PREFIX.length));
+  };
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => select(tab.dataset.contentsTab ?? ''));
+    tab.addEventListener('keydown', (event) => {
+      const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      if (!step) return;
       event.preventDefault();
-      search?.focus();
-    } else if (event.key === 'Escape' && target === search) {
-      search.value = '';
-      search.blur();
-      refresh();
-    }
+      const next = tabs[(index + step + tabs.length) % tabs.length];
+      select(next.dataset.contentsTab ?? '');
+      next.focus();
+    });
   });
-  refresh();
+  search?.addEventListener('input', filter);
+  window.addEventListener('hashchange', fromHash);
+
+  controls.hidden = false;
+  root.dataset.ready = 'true';
+  select(active);
+  fromHash();
 }

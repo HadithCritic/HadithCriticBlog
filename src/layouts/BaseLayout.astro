@@ -28,6 +28,9 @@ interface Props {
   tags?: string[];
   /** Render page content without the shared site header, footer, and search dialog. */
   standalone?: boolean;
+  /** Leave the page out of the Pagefind site search. The Tafsīr verse pages set
+      it: there are over twelve thousand of them, more than the indexer can hold. */
+  unsearchable?: boolean;
 }
 
 const {
@@ -44,7 +47,8 @@ const {
   modifiedTime,
   section,
   tags = [],
-  standalone = false
+  standalone = false,
+  unsearchable = false
 } = Astro.props;
 
 const researchExperience = /^\/hadith(\/|$)/.test(Astro.url.pathname) || /^\/projects\/(tafsir|islamic-studies-atlas|academic-studies)(\/|$)/.test(Astro.url.pathname);
@@ -163,7 +167,7 @@ const nodes: Graph[] = noindex
           matches against the chrome rather than the writing. The only page
           outside this layout is the token-gated admin route, which is noindex
           and should not be searchable. */}
-      <main id="main-content" class:list={[researchExperience && 'rp-experience']} tabindex="-1" data-pagefind-body><slot /></main>
+      <main id="main-content" class:list={[researchExperience && 'rp-experience']} tabindex="-1" data-pagefind-body={unsearchable ? undefined : ''}><slot /></main>
       {!standalone && <SiteFooter />}
     </div>
     {!standalone && <SearchDialog />}

@@ -19,6 +19,8 @@ export interface Compiler {
   region: CompilerRegion;
   /** Person stem; the file is /images/hadith/medallions/<stem>-medallion.webp, when one exists. */
   medallion?: string;
+  /** The transmitter or recension the collection comes through, shown after the name. */
+  via?: string;
 }
 
 const MALIK: Compiler = { name: 'Mālik ibn Anas', origin: 'Medina', region: 'medina', medallion: 'malik' };

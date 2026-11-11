@@ -1,23 +1,21 @@
-/* The early commentaries published as bilingual reader pages: Tafsīr Mujāhid,
-   Tafsīr al-Thawrī and Ibn Wahb's Tafsīr from al-Jāmiʿ.
+/* The commentaries published as bilingual reader pages: Tafsīr Mujāhid,
+   Tafsīr al-Thawrī and al-Zamakhsharī's al-Kashshāf.
 
-   Each work's page bodies and index live in src/data/tafsir-pages/<id>/,
-   written by scripts/build-tafsir-edition-pages.mjs from the organized tafsir
-   library (one passage per source row, Arabic and English together). The
-   route is src/pages/projects/tafsir/[work]/[part].astro. */
+   Each work's page bodies and index live in src/data/tafsir-pages/<id>/, one
+   HTML file per surah. The two early commentaries are written by
+   scripts/build-tafsir-edition-pages.mjs from the organized tafsir library
+   (one passage per source row, Arabic and English together) and laid out by
+   scripts/restyle-tafsir-editions.mjs; al-Kashshāf is written by
+   scripts/build-tafsir-zamakhshari.mjs. A surah is read one verse at a time:
+   src/lib/tafsir-edition-html.ts files its chapters under their verses, and
+   the routes are src/pages/projects/tafsir/[work]/[surah]/. */
 import mujahid from './tafsir-pages/mujahid/index.json';
 import thawri from './tafsir-pages/thawri/index.json';
-import ibnWahb from './tafsir-pages/ibn-wahb/index.json';
+import zamakhshari from './tafsir-pages/zamakhshari/index.json';
 
 export interface EditionPart {
   slug: string;
-  surah?: number;
-  /** Ibn Wahb: the manuscript's part (juzʾ) and the chapter page's place in it. */
-  volume?: number;
-  chapter?: number;
-  chapters?: number;
-  /** Ibn Wahb: whether the chapter opens with a heading in the source. */
-  headed?: boolean;
+  surah: number;
   title: string;
   ar: string | null;
   verseCount?: number;
@@ -31,15 +29,29 @@ export interface EditionPart {
   lastReport: string | null;
   verses: number;
   jumps: { id: string; label: string }[];
+  /** al-Kashshāf: whether the whole surah is translated, and what is missing if not. */
+  status?: string;
+  coverageNote?: string | null;
+  /** al-Kashshāf: the printed pages the surah has in Arabic. */
+  sourcePages?: number;
+  /** al-Kashshāf: the passages the surah is divided into, and its questions and answers. */
+  passages?: number;
+  exchanges?: number;
 }
 
 interface EditionIndex {
   id: string;
-  /** Whether the edition prints report numbers (al-Thawrī, Ibn Wahb). */
+  /** Whether the edition prints report numbers (al-Thawrī). */
   numbered: boolean;
-  grouping: 'surah' | 'chapter';
+  grouping: 'surah';
   edition: { source_url: string };
   parts: EditionPart[];
+  /** A page body is made of reports, or of printed pages (al-Kashshāf). */
+  unit?: string;
+  /** al-Kashshāf: how much Arabic the edition has, and how much of it is in English. */
+  sourceTotals?: { surahs: number; pages: number };
+  translated?: { surahs: number; pages: number };
+  untranslated?: number[];
 }
 
 interface EditionText {
@@ -54,6 +66,10 @@ interface EditionText {
   blurb: string;
   /** Paragraphs for "About the edition" on every page of the work. */
   about: string[];
+  /** The name on the breadcrumb and the labels: "Mujāhid", "al-Thawrī". */
+  short: string;
+  /** The line under the author's name at the top of a page. */
+  attribution: string;
   /** A portrait in /images/tafsir/figures/, if there is one. */
   portrait?: string;
   region?: string;
@@ -71,10 +87,12 @@ const TEXT: EditionText[] = [
     blurb:
       'The Successor Mujāhid ibn Jabr of Mecca (d. 104 AH). His explanations of the Qur’an, transmitted through Ādam ibn Abī Iyās and arranged surah by surah.',
     about: [
-      'Abū al-Ḥajjāj Mujāhid ibn Jabr al-Makkī al-Qurashī al-Makhzūmī (d. 104 AH), <cite>Tafsīr Mujāhid</cite>, edited by Muḥammad ʿAbd al-Salām Abū al-Nīl (Dār al-Fikr al-Islāmī al-Ḥadītha, Egypt; first edition, 1410 AH / 1989 CE). The text is Shamela book 12810, whose pagination follows the printed edition.',
-      'Each card is one record of the edition, usually one report, with the Arabic beside its English translation, in the edition’s order. The edition does not number the reports, so the cards are counted within each surah. The surah headings are the edition’s own. The edition has no section for Sūrat al-Kāfirūn (109).',
-      'Verse labels are the editor’s printed citations, such as [البقرة: 14], and are not inferred from the wording. Qur’anic wording set in braces in the Arabic is highlighted; the braces are the edition’s.',
+      'The work is traditionally attributed to Abū al-Ḥajjāj Mujāhid ibn Jabr al-Makkī al-Qurashī al-Makhzūmī (d. 104 AH). The attribution names the figure the surviving commentary is associated with; it does not show that he compiled the recension in its present form, and not every report in it is transmitted from him.',
+      'Arabic edition: <cite>Tafsīr Mujāhid</cite>, edited by Muḥammad ʿAbd al-Salām Abū al-Nīl (Dār al-Fikr al-Islāmī al-Ḥadītha, Egypt; first edition, 1410 AH / 1989 CE). The text is Shamela book 12810, whose pagination follows the printed edition. The edition does not number the reports, so they are counted within each surah, and it has no section for Sūrat al-Kāfirūn (109).',
+      'Verse references are the editor’s printed citations, such as [البقرة: 14], and are not inferred from the wording; Qur’anic wording the edition sets in braces is highlighted.',
     ],
+    short: 'Mujāhid',
+    attribution: 'Tafsīr attributed to Mujāhid',
     portrait: 'mujahid',
     region: 'mecca',
     shamelaId: 12810,
@@ -90,58 +108,46 @@ const TEXT: EditionText[] = [
       'The supplied edition identifies Sufyān ibn Saʿīd al-Thawrī as al-Kūfī (d. 161 AH) and records this commentary through Abū Jaʿfar Muḥammad ibn Abī Ḥudhayfa al-Nahdī.',
     about: [
       'Abū ʿAbd Allāh Sufyān ibn Saʿīd ibn Masrūq al-Thawrī al-Kūfī (d. 161 AH), <cite>Tafsīr al-Thawrī</cite>, transmitted from him by Abū Jaʿfar Muḥammad ibn Abī Ḥudhayfa al-Nahdī (Dār al-Kutub al-ʿIlmiyya, Beirut; first edition, 1403 AH / 1983 CE). The text is Shamela book 2229, whose pagination follows the printed edition.',
-      'Each card is one numbered report, with the Arabic beside its English translation, in the order the edition prints them. That order is the manuscript’s: the editor numbered its 911 reports as he found them, and notes that the manuscript sometimes explains a later verse before an earlier one. Each card is labeled with the numbering as the Arabic prints it; where the English prints a different number, both are given. A report that runs on to the next printed page stays one card, with the page break marked. Surahs follow the 49 headings the edition prints, from al-Baqara to al-Ṭūr. The editor’s introduction and conclusion are not shown here.',
+      'Each report is shown with the Arabic beside its English translation, in the order the edition prints them. That order is the manuscript’s: the editor numbered its 911 reports as he found them, and notes that the manuscript sometimes explains a later verse before an earlier one. Each report is labeled with the numbering as the Arabic prints it; where the English prints a different number, both are given. A report that runs on to the next printed page stays whole, with the page break marked ⦗p. N⦘. Surahs follow the 49 headings the edition prints, from al-Baqara to al-Ṭūr. The editor’s introduction and conclusion are not shown here.',
       'Verse labels come from the edition’s own markers, (الآية N), read against the surah heading above them. Square brackets in the English mark wording the source Arabic leaves unclear.',
     ],
+    short: 'al-Thawrī',
+    attribution: 'Commentary transmitted by Abū Ḥudhayfa al-Nahdī',
     shamelaId: 2229,
   },
   {
-    id: 'ibn-wahb',
-    name: 'Ibn Wahb',
-    author: 'Abū Muḥammad ʿAbd Allāh ibn Wahb ibn Muslim al-Miṣrī al-Qurashī',
-    died: 197,
-    title: 'Tafsīr al-Qurʾān min al-Jāmiʿ',
-    arabic: 'تفسير القرآن من الجامع لابن وهب',
+    id: 'zamakhshari',
+    name: 'al-Zamakhsharī',
+    author: 'Abū al-Qāsim Maḥmūd ibn ʿUmar ibn Aḥmad al-Zamakhsharī',
+    died: 538,
+    title: 'al-Kashshāf',
+    arabic: 'الكشاف عن حقائق غوامض التنزيل',
     blurb:
-      'The Egyptian traditionist ʿAbd Allāh ibn Wahb (d. 197 AH). Qur’anic reports from his Jāmiʿ in the transmission of Saḥnūn, edited by Miklos Muranyi in three volumes.',
+      'Maḥmūd ibn ʿUmar al-Zamakhsharī of Khwārazm (d. 538 AH). A commentary known for its close attention to Qur’anic language and expression, read here verse by verse with his questions and answers set apart.',
     about: [
-      'Abū Muḥammad ʿAbd Allāh ibn Wahb ibn Muslim al-Miṣrī al-Qurashī (d. 197 AH), <cite>Tafsīr al-Qurʾān min al-Jāmiʿ</cite>, in the transmission of Saḥnūn ibn Saʿīd, edited by Miklos Muranyi (Dār al-Gharb al-Islāmī; first edition, 2003 CE; three volumes). The text is Shamela book 37361, whose pagination follows the printed edition.',
-      'The work is not arranged by surah, so it is read here by Ibn Wahb’s own chapter headings, within the three parts (ajzāʾ) of the manuscript, each of which opens with its own title page. Reports before a part’s first heading, and the whole of the second part, which has no headings, have pages of their own. Each card is one numbered report, with the Arabic beside its English translation, in the edition’s order. The editor’s page breaks appear in the English as ⦗p. N⦘.',
-      'The edition prints no verse references, so none are added. Square brackets in the English mark lacunae and wording the source Arabic leaves unclear.',
+      'Abū al-Qāsim Maḥmūd ibn ʿUmar ibn Aḥmad al-Zamakhsharī (d. 538 AH), <cite>al-Kashshāf ʿan ḥaqāʾiq ghawāmiḍ al-tanzīl wa-ʿuyūn al-aqāwīl fī wujūh al-taʾwīl</cite>, edited by Muṣṭafā Ḥusayn Aḥmad (Dār al-Rayyān li-l-Turāth, Cairo, and Dār al-Kitāb al-ʿArabī, Beirut). The text is Shamela book 23627. Shamela’s record gives the date of printing as 1362 AH / 1947 CE and marks it as needing to be checked.',
+      'The text is arranged by passage. A passage opens where the edition prints a verse heading, such as [سورة الإخلاص (112) : الآيات 1 الى 4], and runs to the next, so a passage that covers several verses appears on each of their pages. Within it the Arabic faces its English page by page, each row labeled with its printed page, and the editor’s notes for those pages sit under the passage; their markers in the text are set as «1».',
+      'Al-Zamakhsharī’s objections and replies (“If you ask … I say …”) are set as question and answer where a page has the same number of them in both languages. Nothing in the text marks where a reply stops, so an answer runs to the next question or to the end of its printed page.',
+      'The translation renders Allāh as God and sets honorifics as symbols (ﷺ, ؓ, ؒ).',
     ],
-    shamelaId: 37361,
+    short: 'al-Zamakhsharī',
+    attribution: 'Commentary',
+    shamelaId: 23627,
   },
 ];
 
 const INDEXES: Record<string, EditionIndex> = {
   mujahid: mujahid as EditionIndex,
   thawri: thawri as EditionIndex,
-  'ibn-wahb': ibnWahb as EditionIndex,
+  zamakhshari: zamakhshari as EditionIndex,
 };
 
-export type Edition = EditionIndex & EditionText & { enWords: number; collection: number };
-
-/* Collection numbers continue the front page's sequence (al-Ṭabarī 001,
-   al-Zamakhsharī 002). */
-const COLLECTION: Record<string, number> = { thawri: 3, mujahid: 4, 'ibn-wahb': 5 };
+export type Edition = EditionIndex & EditionText & { enWords: number };
 
 export const editions: Edition[] = TEXT.map((text) => {
   const index = INDEXES[text.id];
   /* The display text wins over the index's raw title and author records. */
-  return {
-    ...index,
-    ...text,
-    enWords: index.parts.reduce((sum, p) => sum + p.enWords, 0),
-    collection: COLLECTION[text.id],
-  };
+  return { ...index, ...text, enWords: index.parts.reduce((sum, p) => sum + p.enWords, 0) };
 });
 
-export const editionById = (id: string) => editions.find((e) => e.id === id);
-
-export const partHref = (edition: Edition, part: EditionPart) => `/projects/tafsir/${edition.id}/${part.slug}/`;
-
-/** "Sūrah 02" or "Vol. 3". */
-export const partLabel = (part: EditionPart) => (part.surah ? `Sūrah ${String(part.surah).padStart(2, '0')}` : `Vol. ${part.volume}`);
-
-/** "2" for a surah; "3.5" for Ibn Wahb's fifth chapter page in part 3. */
-export const partCode = (part: EditionPart) => (part.surah ? String(part.surah) : `${part.volume}.${part.chapter}`);
+export const editionById = (id: string): Edition | undefined => editions.find((e) => e.id === id);

@@ -6,7 +6,7 @@ test.describe('Homepage mobile layout', () => {
   test('platform library stays usable without horizontal page overflow', async ({ page }) => {
     await page.goto('/');
     const panels = page.locator('.home-library .library__panel');
-    await expect(panels).toHaveCount(4);
+    await expect(panels).toHaveCount(2);
     for (const panel of await panels.all()) {
       await expect(panel.locator('a.library__link')).toBeVisible();
       const bounds = await panel.boundingBox();

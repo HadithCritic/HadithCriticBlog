@@ -1,11 +1,10 @@
 /* Controls for the hand-authored al-Ṭabarī reader pages
    (src/data/tafsir-pages/tabari/<surah>/<verse>.html). One script for every
-   verse, so the pages behave alike: theme toggle, text size, citation
+   verse, so the pages behave alike: text size, citation
    highlights, the editor's notes, the verse copy button and the section menu.
    Without script the page still reads in full; the notes list simply shows
    every note. */
 
-const THEME_KEY = 'hc-tafsir-theme';
 const NOTES_SHOWN = 9;
 
 export function initFatihaReader() {
@@ -13,22 +12,6 @@ export function initFatihaReader() {
   if (!page) return;
   const root = document.documentElement;
   const article = page.querySelector<HTMLElement>('.article');
-
-  /* Theme */
-  try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === 'light' || saved === 'dark') root.dataset.theme = saved;
-  } catch {
-    /* Storage is unavailable; the site theme stays. */
-  }
-  page.querySelector('#themeToggle')?.addEventListener('click', () => {
-    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    try {
-      localStorage.setItem(THEME_KEY, root.dataset.theme);
-    } catch {
-      /* The choice still applies to this page. */
-    }
-  });
 
   /* Text size */
   let size = 19;

@@ -1,8 +1,12 @@
-/* The Tafsir project registry: approved coverage and verse addresses.
+/* The Tafsir project registry for the verse-by-verse commentaries: what is
+   imported, and the address of each verse.
 
-   The currently approved al-Fātiḥa reader is authored as complete HTML pages
-   under src/data/tafsir-pages/. JSON under src/data/tafsir/ remains a research
-   archive and is not rendered into the public reader until approved. */
+   Al-Ṭabarī on al-Fātiḥa is authored as complete, hand-edited HTML pages under
+   src/data/tafsir-pages/tabari/001/. Every other surah is rendered from the
+   imported JSON under src/data/tafsir/tabari/surahs/ by
+   src/lib/tafsir-verse-html.ts. */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import suraNames from './quran-sura-names.json';
 
 /* The shape of a surah file, as scripts/build-tafsir-data.mjs writes it. Inline
@@ -103,11 +107,8 @@ const indexes = import.meta.glob<{ surahs: ImportedSurah[] }>('./tafsir/*/index.
   eager: true,
   import: 'default',
 });
-const files = import.meta.glob<TafsirSurah>('./tafsir/*/surahs/*.json', { import: 'default' });
-
-/* Only accepted, hand-edited reader releases are publicly available. Add a
-   surah here after its verse pages have been reviewed and approved. */
-const PUBLISHED_SURAHS = new Set([1]);
+/* Surahs whose verse pages are hand-edited HTML rather than rendered from the data. */
+export const HAND_EDITED_SURAHS = new Set([1]);
 
 export type TafsirWork = (typeof WORKS)[number] & {
   imported: Map<number, ImportedSurah>;
@@ -116,7 +117,7 @@ export type TafsirWork = (typeof WORKS)[number] & {
 };
 
 export const works: TafsirWork[] = WORKS.map((work) => {
-  const list = (indexes[`./tafsir/${work.id}/index.json`]?.surahs ?? []).filter((surah) => PUBLISHED_SURAHS.has(surah.n));
+  const list = [...(indexes[`./tafsir/${work.id}/index.json`]?.surahs ?? [])].sort((a, b) => a.n - b.n);
   return {
     ...work,
     imported: new Map(list.map((s) => [s.n, s])),
@@ -127,9 +128,23 @@ export const works: TafsirWork[] = WORKS.map((work) => {
 
 export const defaultWork = works[0];
 
+/* Surah files are read from disk at build time, one at a time: the largest is
+   over 5 MB, and keeping them out of the module graph keeps the build's memory
+   flat. The last one read is kept, since a surah's verse pages build in a run. */
+let lastLoaded: { key: string; surah: TafsirSurah | null } | null = null;
+
 export async function loadSurah(workId: string, n: number): Promise<TafsirSurah | null> {
-  const load = files[`./tafsir/${workId}/surahs/${String(n).padStart(3, '0')}.json`];
-  return load ? await load() : null;
+  const key = `${workId}/${n}`;
+  if (lastLoaded?.key === key) return lastLoaded.surah;
+  let surah: TafsirSurah | null = null;
+  try {
+    const file = resolve(process.cwd(), 'src/data/tafsir', workId, 'surahs', `${String(n).padStart(3, '0')}.json`);
+    surah = JSON.parse(readFileSync(file, 'utf8')) as TafsirSurah;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  lastLoaded = { key, surah };
+  return surah;
 }
 
 /* ── Surahs and addresses ─────────────────────────────────────── */
@@ -144,8 +159,8 @@ export interface SurahListing {
 }
 
 export const surahs: SurahListing[] = (suraNames as { n: number; ar: string; latin: string; verses: number }[])
-  .filter((s) => PUBLISHED_SURAHS.has(s.n))
-  .map((s) => ({ ...s, works: works.filter((w) => w.imported.has(s.n)) }));
+  .map((s) => ({ ...s, works: works.filter((w) => w.imported.has(s.n)) }))
+  .filter((s) => s.works.length > 0);
 
 /** How many verse pages a commentary has for a surah: one per verse once imported, else a single placeholder. */
 export const pageCount = (work: TafsirWork, surah: number) => work.imported.get(surah)?.ayahs ?? 1;
@@ -158,5 +173,8 @@ export function verseHref(work: TafsirWork, surah: number, verse = 1) {
 
 /** Where a surah opens: its first verse in the first commentary that has it. */
 export const surahHref = (surah: SurahListing) => verseHref(surah.works[0] ?? defaultWork, surah.n, 1);
+
+/** A commentary's page for a whole surah: its verses, and how much each has. */
+export const surahIndexHref = (work: TafsirWork, surah: number) => `/projects/tafsir/${work.id}/${surah}/`;
 
 export const formatCount = (value: number) => value.toLocaleString('en-US');

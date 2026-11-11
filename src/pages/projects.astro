@@ -4,7 +4,8 @@ import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
 import { LIBRARY_COLLECTIONS, LIBRARY_NARRATIONS } from "../lib/hadith-library";
 import { historySources, openReaders } from "../data/history";
-import { formatCount, surahHref, surahs as tafsirSurahs, works as tafsirWorks } from "../data/tafsir";
+import { formatCount } from "../data/tafsir";
+import { libraryWorks, surahEntries, versePageHref } from "../data/tafsir-library";
 import "../styles/home.css";
 import "../styles/home-platform.css";
 import "../styles/projects.css";
@@ -32,8 +33,9 @@ interface Project {
   status: string;
 }
 
-const tafsirCovered = tafsirSurahs.filter((s) => s.works.length > 0);
-const tafsirWords = tafsirWorks.reduce((sum, w) => sum + w.words, 0);
+const tafsirSurahs = libraryWorks.map((w) => surahEntries(w.id).filter((s) => s.state === "available"));
+const tafsirCovered = new Set(tafsirSurahs.flat().map((s) => s.n)).size;
+const tafsirWords = tafsirSurahs.flat().reduce((sum, s) => sum + s.words, 0);
 
 const lead: Project = {
   id: "hadith-corpus",
@@ -60,10 +62,10 @@ const databases: Project[] = [
     kind: "Qur'anic commentary",
     arabic: "التفسير",
     title: "Tafsīr",
-    desc: "Read al-Ṭabarī on al-Fātiḥa one verse at a time, with the Qur’anic text, his commentary, transmitted reports and editor’s notes together on the page.",
-    figures: [`${tafsirWorks.length} commentary`, `${tafsirCovered.length} approved surah`, `${formatCount(tafsirWords)} words`],
+    desc: "Read Mujāhid, al-Thawrī, al-Zamakhsharī and al-Ṭabarī one verse at a time, with the Qur’anic text, the commentary, transmitted reports and editor’s notes together on the page.",
+    figures: [`${libraryWorks.length} commentaries`, `${tafsirCovered} surahs`, `${formatCount(tafsirWords)} words`],
     entries: [
-      ...(tafsirCovered[0] ? [{ label: `Read al-Fātiḥa`, href: surahHref(tafsirCovered[0]) }] : []),
+      { label: "Read al-Fātiḥa", href: versePageHref("tabari", 1, 1) },
     ],
     action: "Open the commentary",
     status: "Available to read",
