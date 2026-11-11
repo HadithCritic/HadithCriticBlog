@@ -1,0 +1,92 @@
+---
+/* The reader's masthead and toolbar: the surah title over a dark field with
+   the verse beside it, and the commentary, surah and verse menus with the
+   reading actions. Used by every verse page, imported or not. */
+import Icon from './Icon.astro';
+import ReaderSettings from './ReaderSettings.astro';
+import { pad } from '../../lib/tafsir-render';
+
+interface Option {
+  value: string;
+  label: string;
+  selected: boolean;
+}
+interface Props {
+  surah: number;
+  name: string;
+  arabicName: string;
+  verses: number;
+  verse: number | null;
+  commentator: string;
+  arabic: string | null;
+  english: string | null;
+  works: Option[];
+  surahs: Option[];
+  verseOptions: Option[];
+}
+const { surah, name, arabicName, verses, verse, commentator, arabic, english, works, surahs, verseOptions } = Astro.props;
+---
+
+<section class="tfr-hero tfx-dark-top" aria-label="Surah introduction">
+  <div class="tfx-wrap tfr-hero__inner">
+    <div>
+      <nav class="tfr-crumbs" aria-label="Breadcrumb">
+        <a href="/projects/">Projects</a><span aria-hidden="true">/</span><a href="/projects/tafsir/">Tafsir</a><span aria-hidden="true">/</span><span>{name}</span>
+      </nav>
+      <p class="micro tfr-hero__index">The commentary collection <span>/ {pad(surah, 3)}</span></p>
+      <h1 class="tfr-hero__title">{name}</h1>
+      <p class="tfr-hero__arabic" lang="ar" dir="rtl">سورة {arabicName}</p>
+      <p class="tfr-hero__lede">
+        {commentator}'s commentary on Surah {surah}, one verse at a time: the verse in Arabic and English, the commentator's discussion, the reports he cites, and the editor's apparatus.
+      </p>
+      <p class="tfr-hero__stats">
+        <span><b>{pad(surah)}</b> Surah</span>
+        <span><b>{pad(verses)}</b> Verses</span>
+        {verse && <span><b>{pad(verse)} / {pad(verses)}</b> Current verse</span>}
+      </p>
+    </div>
+    {arabic && english && verse && (
+      <div class="tfr-presentation">
+        <div class="tfr-presentation__panel">
+          <div class="tfr-presentation__head"><span class="micro">Qur'an {surah}:{verse}</span><span class="micro">The verse under study</span></div>
+          <p class="tfr-presentation__ar" lang="ar" dir="rtl">{arabic}</p>
+          <div class="tfr-presentation__rule" role="presentation"></div>
+          <p class="tfr-presentation__en">{english}</p>
+          <div class="tfr-presentation__foot">
+            <span class="micro">{name} <span aria-hidden="true">·</span> verse {verse}</span>
+            <button class="tfr-small-button" type="button" data-share-verse><Icon name="share" size={14} /> Share verse</button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+</section>
+
+<div class="tfx-wrap tfr-toolbar-wrap">
+  <div class="tfr-toolbar" role="navigation" aria-label="Choose a commentary, surah and verse" data-tafsir-tools>
+    <div class="tfr-field">
+      <label for="tfr-work">Commentary</label>
+      <select id="tfr-work">{works.map((o) => <option value={o.value} selected={o.selected}>{o.label}</option>)}</select>
+    </div>
+    <div class="tfr-field">
+      <label for="tfr-surah">Surah</label>
+      <select id="tfr-surah">{surahs.map((o) => <option value={o.value} selected={o.selected}>{o.label}</option>)}</select>
+    </div>
+    <div class="tfr-field">
+      <label for="tfr-verse">Verse</label>
+      <select id="tfr-verse" disabled={verseOptions.length < 2}>{verseOptions.map((o) => <option value={o.value} selected={o.selected}>{o.label}</option>)}</select>
+    </div>
+    <div class="tfr-toolbar__actions">
+      <details class="tfr-prefs">
+        <summary class="tfr-action"><Icon name="panel" size={15} /> Text settings</summary>
+        <div class="tfr-prefs__popover">
+          <strong>Reading preferences</strong>
+          <ReaderSettings prefix="tfr-pop" />
+        </div>
+      </details>
+      <button class="tfr-action" type="button" data-focus-toggle aria-pressed="true"><Icon name="focus" size={15} /> <span data-focus-label>Exit focus</span></button>
+      <button class="tfr-action" type="button" data-print><Icon name="print" size={15} /> Print</button>
+    </div>
+    <noscript><a class="tfr-action" href="/projects/tafsir/#archive">All surahs</a></noscript>
+  </div>
+</div>

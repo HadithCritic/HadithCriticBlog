@@ -1,7 +1,6 @@
 /**
- * Everything the cards print, read from committed sources so the cards build
- * without the 1.6 GB corpus or a local database. Each figure is the same one
- * the matching page prints from the same file.
+ * Everything the cards print, read from committed sources. Each figure is the
+ * same one the matching page prints from the same file.
  */
 
 import fs from 'node:fs';
@@ -10,18 +9,13 @@ import path from 'node:path';
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 
 export function loadData() {
-  const meta = readJson('src/data/corpus-meta.json');
-  const qiraatIndex = readJson('src/data/qiraat/index.json');
-  const sura1 = readJson('src/data/qiraat/sura-001.json');
   const suraNames = readJson('src/data/quran-sura-names.json');
   const graph = readJson('src/data/research-graph.json');
   const verses = readJson('src/data/quran-verses.json');
 
   return {
-    meta,
+    library: loadLibrary(),
     articles: loadArticles(),
-    readers: loadReaders(sura1),
-    qiraat: { surasWithData: qiraatIndex.suras_with_data, rules: qiraatIndex.rules?.rules ?? 0 },
     tafsir: { suras: suraNames.length, verses: suraNames.reduce((sum, s) => sum + s.verses, 0), opening: verses['1:1'] },
     atlas: loadAtlas(graph),
     icma: loadIcma()
@@ -64,16 +58,24 @@ function loadArticles() {
     .sort((a, b) => b.date - a.date);
 }
 
-/** The ten readers in the hub's order, with the swatch hues from qiraat.css. */
-function loadReaders(sura1) {
-  const css = fs.readFileSync('src/styles/qiraat.css', 'utf8');
-  const hue = (id) => {
-    const m = css.match(new RegExp(`\\.q-${id} \\{ --d-bg: (#[0-9a-f]{6}); --d-ink: #[0-9a-f]{6}; --s-bg: (#[0-9a-f]{6})`));
-    return m ? { deep: m[1], light: m[2] } : { deep: '#555', light: '#999' };
+/**
+ * The /hadith library, counted the way src/lib/hadith-library.ts and
+ * src/lib/collection-units.ts count it: each collection's chapter index, less
+ * "sections" entries, with the same fixed figures for the editions without one.
+ */
+function loadLibrary() {
+  const NARRATION_COUNTS = { 'birr-al-walidayn': 78 };
+  const FIXED_COUNTS = { 'sahifat-hammam-ibn-munabbih': 137, 'fada-il-makka': 7 };
+  const shamail = { slug: 'al-shama-il-al-muhammadiyah', title_en: "Al-Shama'il al-Muhammadiyah", title_ar: 'الشمائل المحمدية' };
+  const count = (slug) => {
+    if (NARRATION_COUNTS[slug]) return NARRATION_COUNTS[slug];
+    const index = path.join('src/data/hadith-pages', slug, 'chapter-index.json');
+    if (!fs.existsSync(index)) return FIXED_COUNTS[slug];
+    return readJson(index).filter((entry) => entry.unit !== 'sections').reduce((sum, entry) => sum + entry.count, 0);
   };
-  const order = ['nafi', 'ibn_kathir', 'abu_amr', 'ibn_amir', 'asim', 'hamza', 'kisai', 'abu_jafar', 'yaqub', 'khalaf_ashir'];
-  const byId = new Map(sura1.qaris.map((q) => [q.id, q]));
-  return order.map((id) => ({ id, name: byId.get(id).display, arabic: byId.get(id).name_ar, ...hue(id) }));
+  const collections = [shamail, ...readJson('src/data/reader-editions.json')]
+    .map((edition) => ({ ...edition, hadith_count: count(edition.slug) }));
+  return { collections, narrations: collections.reduce((sum, book) => sum + book.hadith_count, 0) };
 }
 
 function loadAtlas(graph) {

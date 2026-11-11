@@ -5,9 +5,8 @@
  * built from the same parts as the page it previews: the page's own engraving
  * masked into the dark ground, the Cormorant title, the ornament rule, the
  * site's double frame with gilt corners, and the page's signature instrument
- * drawn from the same data (the corpus catalogue card, the register's
- * century chart, the readers' hues, the opening verse, the atlas decades, the
- * ICMA family mix). A pasted link should be recognisable as this site, and as
+ * drawn from the same data (the library catalogue card, the opening verse,
+ * the atlas decades, the ICMA family mix). A pasted link should be recognisable as this site, and as
  * which part of it, before anyone reads a word.
  *
  * Why build time rather than on demand: runtime rasterisation (satori plus
@@ -22,7 +21,7 @@
  * Feeds fetch these on every paste; at quality 86 they are ~150 KB.
  *
  * Regenerate with `npm run build:og`. Output is committed. Inputs are all
- * committed files (see scripts/og/data.mjs), so no corpus build is needed.
+ * committed files (see scripts/og/data.mjs).
  */
 
 import fs from 'node:fs';
@@ -37,19 +36,11 @@ import {
 const OUT = 'public/og';
 const n = (value) => Number(value).toLocaleString('en-US');
 
-/** Matches the slug already used by /narrators?generation= links. */
-export const generationSlug = (g) =>
-  String(g || '')
-    .toLowerCase()
-    .replace(/\(.*?\)/g, ' ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'unclassified';
-
 const categorySlug = (name) => name.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // ------------------------------------------------------------- signatures
 
-/** Corpus: the parchment catalogue card from the /hadith/ masthead. */
+/** Library: the parchment catalogue card from the /hadith/ masthead. */
 function catalogueCard({ head, headRight, lead, figure, rows }) {
   return div({ padding: '7px', background: C.parchment, width: '372px' }, [
     div({ flexDirection: 'column', width: '100%', padding: '18px 22px 16px', border: '1px solid rgba(26,23,21,0.28)', background: C.parchment }, [
@@ -75,46 +66,6 @@ const plate = (width, caption, children) =>
     label(caption, { color: C.ash, size: 13, spacing: '0.12em' }),
     div({ flexDirection: 'column', marginTop: '14px' }, children)
   ]);
-
-/** Register: transmitters by century of death. */
-function centuryChart(centuries) {
-  const max = Math.max(...centuries.map((c) => c.n));
-  return plate(400, 'Transmitters by century of death, AH', [
-    div({ alignItems: 'flex-end', gap: '5px', height: '130px', borderBottom: `1px solid ${C.ruleStrong}`, paddingBottom: '4px' },
-      centuries.map((c) =>
-        div({ flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', flexGrow: 1, height: '100%' }, [
-          div({ width: '100%', height: `${Math.max(2, (c.n / max) * 120)}px`, backgroundImage: `linear-gradient(180deg, ${C.goldSoft}, ${C.goldDim})` })
-        ])
-      )
-    ),
-    div({ gap: '5px', marginTop: '6px' }, centuries.map((c) =>
-      text({ flexGrow: 1, flexBasis: '0px', justifyContent: 'center', fontFamily: 'Plex', fontWeight: 500, fontSize: 13, color: C.ash }, c.value)
-    )),
-    text({ fontFamily: 'Serif', fontSize: 17, color: C.muted, marginTop: '12px' },
-      `${n(centuries.reduce((s, c) => s + c.n, 0))} dated, peaking in the ${ordinal(centuries.reduce((a, b) => (b.n > a.n ? b : a)).value)} century`)
-  ]);
-}
-
-const ordinal = (k) => `${k}${k % 10 === 1 && k !== 11 ? 'st' : k % 10 === 2 && k !== 12 ? 'nd' : k % 10 === 3 && k !== 13 ? 'rd' : 'th'}`;
-
-/** Readings: the ten readers, each in his hue. */
-function readersLegend(readers) {
-  const row = (r) =>
-    div({ alignItems: 'center', gap: '10px', width: '100%', padding: '7px 0', borderBottom: `1px solid ${C.ruleSoft}` }, [
-      div({ width: '16px', height: '16px' }, [
-        div({ width: '8px', height: '16px', background: r.deep }),
-        div({ width: '8px', height: '16px', background: r.light })
-      ]),
-      text({ fontFamily: 'Serif', fontWeight: 600, fontSize: 18, color: C.parchment, flexGrow: 1 }, r.name),
-      arabic(r.arabic, { size: 19, color: C.muted })
-    ]);
-  return plate(500, 'The ten readers', [
-    div({ gap: '22px' }, [
-      div({ flexDirection: 'column', width: '217px' }, readers.slice(0, 5).map(row)),
-      div({ flexDirection: 'column', width: '217px' }, readers.slice(5).map(row))
-    ])
-  ]);
-}
 
 /** Reader: the opening verse, the unit the reader is built around. */
 const verseCard = (verse) =>
@@ -189,22 +140,6 @@ const collectionSlip = (vol, count) =>
     ])
   ]);
 
-/** Dossier: an isnad chain with this generation's link filled. */
-function chain(active, steps) {
-  return plate(420, 'Position in the chain', [
-    div({ alignItems: 'center' }, steps.flatMap((step, i) => {
-      const on = i === active;
-      const node = div({ flexDirection: 'column', alignItems: 'center', width: '64px' }, [
-        div({ width: on ? '24px' : '15px', height: on ? '24px' : '15px', borderRadius: '999px', background: on ? C.gold : C.ground, border: `2px solid ${on ? C.gold : C.goldDim}` })
-      ]);
-      return i === steps.length - 1 ? [node] : [node, div({ flexGrow: 1, height: '2px', background: C.goldDim, marginTop: '0px' })];
-    })),
-    div({ marginTop: '10px' }, steps.map((step, i) =>
-      text({ width: `${i === steps.length - 1 ? 64 : 64 + 0}px`, flexGrow: i === steps.length - 1 ? 0 : 1, fontFamily: 'Plex', fontWeight: 500, fontSize: 13, color: i === active ? C.gold : C.ash }, step)
-    ))
-  ]);
-}
-
 // ------------------------------------------------------------------ cards
 
 function card({ art, logo, kicker, title, accent, arabicTitle, size, titleWidth, factsList, signature, sigPos }) {
@@ -224,7 +159,7 @@ function card({ art, logo, kicker, title, accent, arabicTitle, size, titleWidth,
 async function main() {
   const fonts = await loadFonts();
   const data = loadData();
-  const { meta, articles } = data;
+  const { library, articles } = data;
   const logo = await pngData('public/images/brand/hc-logo-transparent-192.png', 44, 64);
   const art = (name, width = 820) => raster(`public/images/platform/${name}.webp`, width, H);
   const editorial = (name, width = 820) => raster(`public/images/editorial/${name}-hero.webp`, width, H);
@@ -244,13 +179,12 @@ async function main() {
   };
 
   const folio = (a) => String(articles.length - articles.indexOf(a)).padStart(3, '0');
-  const counts = meta.counts;
 
   // ---- site and editorial pages -----------------------------------------
   await emit(card({
     art: await art('home', 840), logo,
     kicker: 'Independent source criticism', title: 'Tracing the origins of', accent: 'early traditions.', size: 80, titleWidth: 640,
-    factsList: [`${articles.length} studies`, `${n(counts.hadith)} narrations`, `${n(counts.narrators)} transmitters`]
+    factsList: [`${articles.length} studies`, `${n(library.narrations)} narrations`]
   }), 'default.jpg');
 
   const latestArt = articles.slice(0, 3).map((a) => {
@@ -290,27 +224,13 @@ async function main() {
   // ---- research projects ------------------------------------------------
   await emit(card({
     art: await art('corpus'), logo,
-    kicker: 'Corpus attestation archive', title: 'The Hadith', accent: 'Research Corpus', arabicTitle: 'الحديث', size: 78, titleWidth: 560,
+    kicker: 'Early hadith collections', title: 'The Hadith', accent: 'Library', arabicTitle: 'الحديث', size: 78, titleWidth: 560,
     factsList: ['Facing Arabic and English', 'No authenticity grading'],
     signature: catalogueCard({
-      head: 'Catalogue card', headRight: `Build ${meta.corpusVersion.slice(0, 10)}`, lead: 'Narrations', figure: n(counts.hadith),
-      rows: [['Compilations', counts.collections], ['Named transmitters', n(counts.narrators)], ['Chain links', n(counts.chainLinks)]]
+      head: 'Catalogue card', headRight: 'Local editions', lead: 'Narrations', figure: n(library.narrations),
+      rows: [['Collections', library.collections.length]]
     })
   }), 'hadith.jpg');
-
-  await emit(card({
-    art: await art('rijal'), logo,
-    kicker: 'A critical register', title: 'Rijāl', accent: 'Register', arabicTitle: 'الرجال', size: 92, titleWidth: 520,
-    factsList: [`${n(counts.narrators)} transmitters`, `${n(counts.criticismStatements)} attributed statements`],
-    signature: centuryChart(meta.facets.centuries)
-  }), 'narrators.jpg');
-
-  await emit(card({
-    art: await art('qiraat'), logo,
-    kicker: 'A comparative reading register', title: 'The Qirāʾāt', accent: 'Variants', arabicTitle: 'القراءات', size: 84, titleWidth: 520,
-    factsList: [`${data.qiraat.surasWithData} of 114 suras`, `${data.qiraat.rules} general rules`],
-    signature: readersLegend(data.readers)
-  }), 'quran.jpg');
 
   await emit(card({
     art: await art('tafsir'), logo,
@@ -335,7 +255,7 @@ async function main() {
 
   // ---- collections ------------------------------------------------------
   const corpusArt = await art('corpus', 760);
-  const collections = [...meta.collections].sort((a, b) => b.hadith_count - a.hadith_count);
+  const collections = [...library.collections].sort((a, b) => b.hadith_count - a.hadith_count);
   for (const [i, b] of collections.entries()) {
     await emit(card({
       art: corpusArt, logo,
@@ -344,21 +264,6 @@ async function main() {
       factsList: ['Facing Arabic and English', 'No authenticity grading'],
       signature: collectionSlip(String(i + 1).padStart(2, '0'), b.hadith_count)
     }), `collection/${b.slug}.jpg`);
-  }
-
-  // ---- transmitter dossiers, one per generation --------------------------
-  const rijalArt = await art('rijal', 760);
-  const steps = ['Companion', 'Follower', 'Successor', 'Later'];
-  const generations = [...meta.facets.generations.map((g) => g.value), ''];
-  for (const g of generations) {
-    const short = g.replace(/\s*\(.*\)$/, '');
-    const active = steps.indexOf(short);
-    await emit(card({
-      art: rijalArt, logo,
-      kicker: 'Rijāl dossier', title: 'Transmitter', accent: 'Dossier', size: 86, titleWidth: 560,
-      factsList: [short && short !== 'Unclassified' ? short : 'Teachers, students, critics', 'Attributed criticism only'],
-      signature: chain(active, steps)
-    }), g ? `narrator/${generationSlug(g)}.jpg` : 'narrator/default.jpg');
   }
 
   // The manifest src/lib/seo.ts checks before pointing a collection page at a

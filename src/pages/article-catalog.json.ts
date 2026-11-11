@@ -6,10 +6,7 @@ import { getCollection } from 'astro:content';
  * /search-index.json is still loading.
  *
  * It used to be inlined into every page by SearchDialog, which put 44 KB of
- * JSON on each of the 2,400 pages and, because BaseLayout also renders the
- * on-demand /hadith/[id] and /narrators/[id] shells, bundled the whole content
- * layer (every article and the Qur'an text) into the Worker. As a prerendered
- * file it is fetched once and cached.
+ * JSON on each page. As a prerendered file it is fetched once and cached.
  */
 export const GET: APIRoute = async () => {
   const articles = await getCollection('articles', ({ data }) => !data.preview && (import.meta.env.DEV || !data.draft));

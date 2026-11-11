@@ -1,0 +1,178 @@
+---
+/* One surah of one commentary: every verse, each opening its own page of
+   commentary (./[verse].astro). Verses with nothing to read are tinted and are
+   not links. The same page serves al-Ṭabarī (imported data) and the bilingual
+   commentaries (editable HTML). */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import BaseLayout from '../../../../../layouts/BaseLayout.astro';
+import ReaderOpening from '../../../../../components/tafsir/ReaderOpening.astro';
+import VerseSwitcher from '../../../../../components/tafsir/VerseSwitcher.astro';
+import { OG } from '../../../../../lib/seo';
+import { HAND_EDITED_SURAHS, formatCount, loadSurah, works } from '../../../../../data/tafsir';
+import { editionById, editions } from '../../../../../data/tafsir-editions';
+import { libraryWork, surahEntries, surahPageHref, versePageHref } from '../../../../../data/tafsir-library';
+import { SURA_MEANINGS } from '../../../../../data/quran-sura-meanings';
+import quranVerses from '../../../../../data/quran-verses.json';
+import { GENERAL, loadEditionSurah } from '../../../../../lib/tafsir-edition-html';
+import { verseWords } from '../../../../../lib/tafsir-verse-html';
+import '../../../../../styles/tafsir.css';
+import '../../../../../styles/tafsir-edition.css';
+import '../../../../../styles/tafsir-reports.css';
+import '../../../../../styles/tafsir-verses.css';
+
+export function getStaticPaths() {
+  const tabari = works[0];
+  return [
+    ...[...tabari.imported.keys()].map((n) => ({ params: { work: tabari.id, surah: String(n) } })),
+    ...editions.flatMap((e) => e.parts.map((p) => ({ params: { work: e.id, surah: p.slug } }))),
+  ];
+}
+
+interface Row {
+  n: number;
+  ar: string;
+  en: string;
+  has: boolean;
+  /** "1,204 words", "3 reports", or why there is nothing. */
+  amount: string;
+}
+
+const workId = Astro.params.work!;
+const surahNo = Number(Astro.params.surah);
+const work = libraryWork(workId)!;
+const entries = surahEntries(workId);
+const surah = entries.find((s) => s.n === surahNo)!;
+const quran = quranVerses as Record<string, { ar: string; en: string }>;
+const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+const text = (n: number) => quran[`${surahNo}:${n}`] ?? { ar: '', en: '' };
+const numbers = Array.from({ length: surah.verses }, (_, i) => i + 1);
+
+let rows: Row[];
+let general = 0;
+let summary: string;
+let extra = '';
+const edition = editionById(workId);
+if (edition) {
+  const part = edition.parts.find((p) => p.surah === surahNo)!;
+  const data = loadEditionSurah(workId, part.slug);
+  const byWords = edition.unit === 'page';
+  const waiting = Boolean(part.status && part.status !== 'complete');
+  rows = numbers.map((n) => {
+    const chapters = data.byVerse.get(n) ?? [];
+    const amount = byWords
+      ? plural(chapters.reduce((sum, c) => sum + c.words, 0), 'word')
+      : plural(chapters.reduce((sum, c) => sum + c.reports, 0), 'report');
+    return { n, ...text(n), has: chapters.length > 0, amount: chapters.length ? amount : waiting ? 'Translation in progress' : 'No commentary' };
+  });
+  general = data.general.reduce((sum, c) => sum + c.reports, 0);
+  summary = byWords
+    ? `${formatCount(part.enWords)} words in English, in ${plural(part.passages ?? data.chapters.length, 'passage')}`
+    : `${plural(part.entries, 'report')}, ${formatCount(part.enWords)} words in English`;
+  if (waiting) extra = ' The translation of this surah is in progress.';
+} else {
+  const tabari = works[0];
+  const imported = tabari.imported.get(surahNo)!;
+  const data = await loadSurah(workId, surahNo);
+  const words = data ? verseWords(data) : [];
+  rows = numbers.map((n) => {
+    const count = words[n - 1] ?? 0;
+    const has = n <= imported.ayahs && count > 0;
+    return { n, ...text(n), has, amount: has ? plural(count, 'word') : n > imported.ayahs ? 'Translation in progress' : 'No commentary' };
+  });
+  summary = `${formatCount(imported.words)} words in English`;
+  extra = imported.notes > 0 ? ` ${formatCount(imported.notes)} of the editor’s notes are translated.` : ' The translation of the editor’s notes for this surah is in progress.';
+  if (HAND_EDITED_SURAHS.has(surahNo)) extra += ' These verse pages have been edited by hand.';
+}
+
+const withCommentary = rows.filter((r) => r.has).length;
+const whole = withCommentary === surah.verses;
+const first = rows.find((r) => r.has);
+const available = entries.filter((s) => s.state === 'available');
+const at = available.findIndex((s) => s.n === surahNo);
+const prev = available[at - 1];
+const next = available[at + 1];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const readerCss = readFileSync(resolve(process.cwd(), 'src/data/tafsir-pages/tabari/reader.css'), 'utf8');
+---
+
+<BaseLayout
+  title={`${surah.latin} · ${work.name} | Tafsīr`}
+  description={`${work.name}'s commentary on Sūrat ${surah.latin} (Qur'an ${surahNo}), verse by verse${work.bilingual ? ', with the Arabic of the edition beside its English translation' : ', in English'}.`}
+  image={OG.tafsir}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Projects', url: '/projects/' },
+    { name: 'Tafsīr', url: '/projects/tafsir/' },
+    { name: work.name, url: `/projects/tafsir/#contents-${work.id}` },
+    { name: surah.latin, url: surahPageHref(work.id, surahNo) },
+  ]}
+>
+  <style is:inline set:html={readerCss}></style>
+  <div class="hc-page tfx tfr tfe tfm tfv" data-reader="" data-highlights="on">
+    <ReaderOpening
+      work={work}
+      title={surah.latin}
+      subtitle={`${SURA_MEANINGS[surahNo - 1]} · ${work.title}`}
+      meta={[`Sūrah ${surahNo}`, whole ? `All ${surah.verses} verses` : `${withCommentary} of ${surah.verses} verses`, summary.split(',')[0]]}
+    />
+    <VerseSwitcher work={work} surah={surahNo} />
+
+    <div class="reader-toolbar"><div class="wrap">
+      <nav aria-label="Breadcrumb" class="crumb"><a href="/projects/tafsir/">Tafsīr</a><span>/</span><a href={`/projects/tafsir/#contents-${work.id}`}>{work.short}</a><span>/</span><strong>{surahNo} · {surah.latin}</strong></nav>
+      {first && <div class="toolbar-actions"><a class="tfv-start" href={versePageHref(work.id, surahNo, first.n)}>Start at verse {first.n} <span aria-hidden="true">→</span></a></div>}
+    </div></div>
+
+    <div class="wrap reader"><section class="article" id="commentary">
+      <div class="article__head"><div><span class="section-label">The verses</span><h2>Sūrat {surah.latin}</h2></div><span class="source-note">Select a verse to read<br />{work.short}’s commentary on it</span></div>
+
+      <aside class:list={['coverage', !whole && 'coverage--partial']} aria-label="What this surah has">
+        <span class="coverage__label">{whole ? 'Whole surah' : 'Part of the surah'}</span>
+        <p>{whole ? `All ${surah.verses} verses of this surah have commentary here` : `${withCommentary} of this surah’s ${surah.verses} verses have commentary here`}: {summary}.{extra}</p>
+        <span class="coverage__bar" role="img" aria-label={`${withCommentary} of ${surah.verses} verses`}><i style={`width:${(withCommentary / surah.verses) * 100}%`}></i></span>
+      </aside>
+
+      <div class="tfv-legend" aria-hidden="true">
+        <span class="tfv-key tfv-key--has">Commentary to read. Select the verse.</span>
+        {!whole && <span class="tfv-key tfv-key--none">Nothing to read for this verse</span>}
+      </div>
+
+      {general > 0 && (
+        <a class="tfv-general" href={versePageHref(work.id, surahNo, GENERAL)}>
+          <span><strong>Reports without a verse reference</strong><small>{plural(general, 'report')} the edition prints in this surah without citing a verse</small></span>
+          <span class="tfv-row__go"><b>Read <span aria-hidden="true">→</span></b></span>
+        </a>
+      )}
+
+      <ol class="tfv-list">
+        {rows.map((v) => (
+          <li>
+            {v.has ? (
+              <a class="tfv-row" href={versePageHref(work.id, surahNo, v.n)} aria-label={`Read ${work.name} on ${surah.latin} ${surahNo}:${v.n}`}>
+                <span class="tfv-row__n">{pad2(v.n)}</span>
+                <span class="tfv-row__text"><span class="tfv-row__en">{v.en}</span><span class="tfv-row__ar arabic" dir="rtl" lang="ar">{v.ar}</span></span>
+                <span class="tfv-row__go"><small>{v.amount}</small><b>Read <span aria-hidden="true">→</span></b></span>
+              </a>
+            ) : (
+              <div class="tfv-row tfv-row--none">
+                <span class="tfv-row__n">{pad2(v.n)}</span>
+                <span class="tfv-row__text"><span class="tfv-row__en">{v.en}</span><span class="tfv-row__ar arabic" dir="rtl" lang="ar">{v.ar}</span></span>
+                <span class="tfv-row__go">{v.amount}</span>
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      <nav aria-label="Adjacent surahs" class="verse-pagination">
+        {prev && <a class="next next--prev" data-prev="" href={prev.href}><span><small>Previous surah</small><span class="next__label">{prev.latin} · {prev.n}</span></span><span class="next__arrow">↖</span></a>}
+        {next && <a class="next next--next" data-next="" href={next.href}><span><small>Next surah</small><span class="next__label">{next.latin} · {next.n}</span></span><span class="next__arrow">↗</span></a>}
+      </nav>
+      <p class="tfv-back"><a href={`/projects/tafsir/#contents-${work.id}`}>All surahs in {work.short}</a></p>
+    </section></div>
+  </div>
+  <script>
+    import { initSwitchers } from '../../../../../lib/tafsir-switcher';
+    initSwitchers();
+  </script>
+</BaseLayout>

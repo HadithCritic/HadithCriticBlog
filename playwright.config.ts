@@ -1,18 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const appPort = Number(process.env.PLAYWRIGHT_PORT) || 4321;
-const corpusPort = Number(process.env.CORPUS_PORT) || 4322;
 
 export default defineConfig({
   testDir: './tests',
 
-  /**
-   * Corpus pages are shells until SQLite has been fetched over range requests,
-   * so their assertions wait up to 45s. A per-test ceiling of 30s silently
-   * capped those waits: an `expect(...).toBeVisible({ timeout: 45_000 })` can
-   * never fire if the test it is in is killed at 30s, and the failure reads as
-   * a timeout rather than as whatever was actually wrong.
-   */
   timeout: 90_000,
 
   use: { baseURL: `http://127.0.0.1:${appPort}`, trace: 'retain-on-failure' },
@@ -40,19 +32,6 @@ export default defineConfig({
       reuseExistingServer: true,
       env: { PREVIEW_PORT: String(appPort) },
       timeout: 90_000
-    },
-    // The corpus, on its own origin, because `astro preview` is wrangler and
-    // Cloudflare static assets answer a range request with 200 and the whole
-    // file. The corpus cannot be read from such a host at all, so serving it
-    // here is not a workaround for the tests: it is the production arrangement,
-    // cross-origin request and CORS headers included. See
-    // scripts/build-for-e2e.mjs.
-    {
-      command: 'node scripts/corpus-file-server.mjs',
-      url: `http://127.0.0.1:${corpusPort}/health`,
-      reuseExistingServer: true,
-      env: { CORPUS_PORT: String(corpusPort) },
-      timeout: 30_000
     }
   ],
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]

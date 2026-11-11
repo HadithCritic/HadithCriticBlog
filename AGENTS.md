@@ -7,5 +7,3 @@ Preserve research content exactly. Run `npm run check`, `npm run test:design`
 and `npm run build` before finishing.
 
 `@emnapi/core` and `@emnapi/runtime` are in `dependencies` but nothing imports them. They are there so the lockfile keeps them: `@img/sharp-wasm32` needs them, and `npm install` on Windows prunes them from `package-lock.json`, after which `npm ci` on Linux CI fails with "can only install packages when your package.json and package-lock.json are in sync". Declaring them directly is what stops that recurring. Do not remove them without checking CI on Linux.
-
-Before changing corpus queries, read [docs/static-corpus.md](docs/static-corpus.md) and [DATABASE.md](DATABASE.md). The public corpus is a versioned SQLite release on R2, queried in the reader's browser. Do not add a server database to the public corpus path.

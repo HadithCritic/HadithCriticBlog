@@ -72,33 +72,15 @@ export const OG = {
   contact: '/og/contact.jpg',
   resources: '/og/resources.jpg',
   corpus: '/og/hadith.jpg',
-  register: '/og/narrators.jpg',
-  quran: '/og/quran.jpg',
+  tafsir: '/og/tafsir.jpg',
   atlas: '/og/atlas.jpg',
   icma: '/og/icma.jpg',
   category: (slug?: string | null) =>
     slug && CATEGORY_CARDS.has(slug) ? `/og/category/${slug}.jpg` : OG.blogs,
   /** Falls back to the corpus card for a collection added after the cards were generated. */
   collection: (slug?: string | null) =>
-    slug && COLLECTION_CARDS.has(slug) ? `/og/collection/${slug}.jpg` : OG.corpus,
-  narrator: (generation?: string | null) => `/og/narrator/${generationSlug(generation)}.jpg`
+    slug && COLLECTION_CARDS.has(slug) ? `/og/collection/${slug}.jpg` : OG.corpus
 } as const;
-
-/**
- * The generations that have a card. Anything else, including an empty value,
- * takes the default so a dossier never points at a missing image.
- */
-const GENERATION_CARDS = new Set(['companion', 'follower', 'successor', 'later', 'unclassified']);
-
-/** Mirrors generationSlug in scripts/build-og-images.mjs. Keep the two in step. */
-export function generationSlug(generation?: string | null): string {
-  const slug = String(generation || '')
-    .toLowerCase()
-    .replace(/\(.*?\)/g, ' ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  return GENERATION_CARDS.has(slug) ? slug : 'default';
-}
 
 export type Graph = Record<string, unknown>;
 
@@ -291,90 +273,3 @@ export function collectionPage(opts: {
     }
   };
 }
-
-/**
- * A classical hadith transmitter as a schema.org Person.
- *
- * This is the highest-value markup on the site. The rijal corpus is 20,915
- * biographical entries that exist nowhere else in queryable form, and an answer
- * engine asked "who was X and was he considered reliable" can only use them if
- * it can tell the page is about a person and which person that is. Names,
- * dates, places and the reliability verdict are all disambiguation signals.
- */
-export function person(opts: {
-  url: string;
-  nameEn: string;
-  nameAr?: string;
-  fullName?: string;
-  kunya?: string;
-  description: string;
-  deathYearCE?: string;
-  deathPlace?: string;
-  places?: string[];
-  generation?: string;
-  id: number;
-}): Graph {
-  const alternates = [opts.nameAr, opts.fullName, opts.kunya].filter(
-    (n): n is string => Boolean(n) && n !== opts.nameEn
-  );
-
-  return {
-    '@type': 'Person',
-    '@id': `${opts.url}#person`,
-    name: opts.nameEn || opts.nameAr,
-    ...(alternates.length ? { alternateName: alternates } : {}),
-    description: opts.description,
-    url: opts.url,
-    mainEntityOfPage: { '@id': `${opts.url}#webpage` },
-    identifier: String(opts.id),
-    hasOccupation: {
-      '@type': 'Occupation',
-      name: 'Hadith transmitter'
-    },
-    knowsAbout: 'Hadith transmission',
-    // Hijri dates do not map onto ISO 8601, so only the Gregorian equivalent is
-    // emitted. Omitting is better than emitting a date an engine will misread.
-    ...(opts.deathYearCE && /^\d{1,4}$/.test(opts.deathYearCE)
-      ? { deathDate: opts.deathYearCE.padStart(4, '0') }
-      : {}),
-    ...(opts.deathPlace ? { deathPlace: { '@type': 'Place', name: opts.deathPlace } } : {}),
-    ...(opts.places?.length
-      ? { homeLocation: opts.places.map((p) => ({ '@type': 'Place', name: p })) }
-      : {}),
-    ...(opts.generation ? { disambiguatingDescription: opts.generation } : {})
-  };
-}
-
-/** WebPage node whose subject is a single entity, linked via mainEntity. */
-export function entityPage(opts: {
-  url: string;
-  title: string;
-  description: string;
-  entityId: string;
-}): Graph {
-  return {
-    '@type': ['WebPage', 'ProfilePage'],
-    '@id': `${opts.url}#webpage`,
-    url: opts.url,
-    name: opts.title,
-    description: opts.description,
-    isPartOf: { '@id': ID.site },
-    inLanguage: SITE.lang,
-    breadcrumb: { '@id': `${opts.url}#breadcrumb` },
-    mainEntity: { '@id': opts.entityId },
-    about: { '@id': opts.entityId }
-  };
-}
-
-// --- rijal sitemap ---------------------------------------------------------
-
-export const NARRATOR_SITEMAP_PAGE_SIZE = 10000;
-
-/**
- * Which narrators are worth submitting to a search engine.
- *
- * Substance means at least one recorded critical statement or at least one
- * attributed hadith. Placeholder entries for unidentified transmitters are
- * excluded outright.
- */
-export const narratorSitemapWhere = 'unnamed = 0 AND (statement_count > 0 OR hadith_count > 0)';

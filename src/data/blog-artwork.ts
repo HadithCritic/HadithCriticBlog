@@ -1,6 +1,8 @@
 // Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
-export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; }
-export const blogArtwork: Record<string, BlogArtwork> = {
+export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; fullFrame?: boolean; }
+import { generatedBlogArtwork } from './blog-artwork-generated';
+
+const editorialBlogArtwork: Record<string, BlogArtwork> = {
   "prophecies-eschatology/86-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
     "src": "/images/blog-editorial/87-kufa-empty-faith.webp",
     "srcset": "/images/blog-editorial/87-kufa-empty-faith-720.webp 720w, /images/blog-editorial/87-kufa-empty-faith.webp 1536w",
@@ -690,4 +692,10 @@ export const blogArtwork: Record<string, BlogArtwork> = {
     "width": 1536,
     "height": 1024
   }
+};
+
+/* Generated per-article covers override the earlier engraving assignments. */
+export const blogArtwork: Record<string, BlogArtwork> = {
+  ...editorialBlogArtwork,
+  ...generatedBlogArtwork
 };

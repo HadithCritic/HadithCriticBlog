@@ -3,7 +3,7 @@ import {expect,test} from '@playwright/test';
 test('Projects preserves every project destination and index anchor',async({page})=>{
  await page.goto('/projects/');
  const destinations=await page.locator('.pj-row').evaluateAll(items=>items.map(item=>({id:item.id,href:item.querySelector('h3 a')?.getAttribute('href')})));
- expect(destinations).toHaveLength(4);
+ expect(destinations).toHaveLength(3);
  for(const project of destinations) {
   expect(project.href).toMatch(/^\//);
   await expect(page.locator(`#${project.id}`)).toHaveCount(1);

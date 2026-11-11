@@ -1,0 +1,328 @@
+---
+/* The Tafsir library's front page: the four commentaries, each with how much
+   of its Arabic is in English, then every surah of the Qur'an for each of
+   them, tinted by how much commentary it has. */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { OG } from '../../lib/seo';
+import verses from '../../data/quran-verses.json';
+import coverageData from '../../data/tafsir-coverage.json';
+import { defaultWork, formatCount, loadSurah, surahs, verseHref, works, type Run } from '../../data/tafsir';
+import { pad, runsHtml, runsText } from '../../lib/tafsir-render';
+import { editions } from '../../data/tafsir-editions';
+import { libraryWorks, surahEntries, type SurahEntry } from '../../data/tafsir-library';
+import '../../styles/tafsir.css';
+import '../../styles/tafsir-home.css';
+
+interface Coverage {
+  unit: string;
+  arabic: number;
+  english: number;
+  surahs?: { arabic: number; english: number };
+  notes?: { arabic: number; english: number };
+}
+
+interface HomeWork {
+  id: string;
+  name: string;
+  title: string;
+  arabic: string;
+  died: number;
+  blurb: string;
+  /** What there is to read: "113 surahs · 1,204 verses". */
+  scope: string;
+  /** Surahs with commentary. */
+  available: number;
+  /** Verses with a page of commentary. */
+  verses: number;
+  words: number;
+  href: string;
+  entries: SurahEntry[];
+  /** A line under the list: what the commentary does not have. */
+  missing?: string;
+  progress: { percent: number; detail: string; extra?: string };
+}
+
+const NUMBER_WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
+const LEVELS = [1, 2, 3, 4];
+const quran = verses as Record<string, { ar: string; en: string }>;
+const coverageOf = coverageData as Record<string, Coverage>;
+const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
+
+function progressOf(id: string): HomeWork['progress'] {
+  const c = coverageOf[id];
+  const detail = `${formatCount(c.english)} of ${formatCount(c.arabic)} ${c.unit}s${c.surahs ? ` · ${c.surahs.english} of ${c.surahs.arabic} surahs` : ''}`;
+  const extra = c.notes ? `Editor’s notes: ${formatCount(c.notes.english)} of ${formatCount(c.notes.arabic)} translated; translation in progress.` : undefined;
+  /* Rounded down, so a bar reads 100% only when nothing is left. */
+  return { percent: Math.floor((c.english / c.arabic) * 100), detail, extra };
+}
+
+/* The opening: al-Ṭabarī on the first verse, previewed. */
+const opening = surahs[0];
+const openingWork = defaultWork;
+const openingData = opening ? await loadSurah(openingWork.id, opening.n) : null;
+const previewVerse = 1;
+const previewRef = opening ? `${opening.n}:${previewVerse}` : '';
+/* A sample of the commentary itself: the first paragraph of explanation under the
+   verse, past the heading that only announces it, cut at the end of a sentence. */
+const EXCERPT_MAX = 360;
+const HEADING_OPENING = /^The Discussion of/;
+const previewRuns = (openingData?.ayahs[previewVerse - 1]?.u ?? [])
+  .flatMap((k) => openingData?.units[String(k)]?.b ?? [])
+  .flatMap((b) => (b.t === 'p' ? [b.x.filter((run) => typeof run === 'string' || run[0] !== 'n')] : []))
+  .find((runs) => runsText(runs).length > 120 && !HEADING_OPENING.test(runsText(runs)));
+
+/** The opening sentences of a passage that fit in `max` characters; always at least one. */
+function openingSentences(runs: Run[], max: number): Run[] {
+  const ends = [...runsText(runs).matchAll(/[.!?]["”’)]*(?=\s|$)/g)].map((m) => m.index + m[0].length);
+  const cut = ends.filter((end) => end <= max).at(-1) ?? ends[0] ?? max;
+  const out: Run[] = [];
+  let used = 0;
+  for (const run of runs) {
+    const length = runsText([run]).length;
+    if (used + length <= cut) out.push(run);
+    else if (typeof run === 'string') out.push(run.slice(0, cut - used));
+    used += length;
+    if (used >= cut) break;
+  }
+  return out;
+}
+const excerpt = previewRuns ? runsHtml(openingSentences(previewRuns, EXCERPT_MAX), (s, a) => verseHref(defaultWork, s, a)) : '';
+
+const tabari = works[0];
+const library: HomeWork[] = libraryWorks.map((w) => {
+  const entries = surahEntries(w.id);
+  const available = entries.filter((s) => s.state === 'available');
+  const pending = entries.filter((s) => s.state === 'pending').length;
+  const none = entries.filter((s) => s.state === 'none').length;
+  const edition = editions.find((e) => e.id === w.id);
+  const verseCount = edition
+    ? edition.parts.reduce((sum, p) => sum + p.verses, 0)
+    : [...tabari.imported.values()].reduce((sum, s) => sum + s.ayahs, 0);
+  return {
+    id: w.id,
+    name: w.name,
+    title: w.title,
+    arabic: w.arabic,
+    died: w.died,
+    blurb: edition?.blurb
+      ?? `${w.author} (d. ${w.died} AH). The commentary read one verse at a time, with the earlier statements and transmitted reports the discussion brings into view. The commentary is in English; each verse is given in Arabic.`,
+    scope: `${plural(available.length, 'surah')} · ${formatCount(verseCount)} verses`,
+    available: available.length,
+    verses: verseCount,
+    words: available.reduce((sum, s) => sum + s.words, 0),
+    href: available[0]?.href ?? '#contents',
+    entries,
+    missing: pending
+      ? `Translation in progress for ${plural(pending, 'surah')}.`
+      : none
+        ? `The edition has no commentary on ${plural(none, 'surah')}.`
+        : undefined,
+    progress: progressOf(w.id),
+  };
+});
+
+const totalWords = library.reduce((sum, w) => sum + w.words, 0);
+const totalPages = library.reduce((sum, w) => sum + w.verses, 0);
+const surahCount = new Set(library.flatMap((w) => w.entries.filter((s) => s.state === 'available').map((s) => s.n))).size;
+const byDeath = [...library].sort((a, b) => a.died - b.died);
+const earliest = byDeath[0];
+const latest = byDeath.at(-1)!;
+const count = NUMBER_WORDS[library.length] ?? String(library.length);
+---
+
+<BaseLayout
+  title="Tafsīr library | HadithCritic"
+  description="Read the Qur'an commentaries of Mujāhid, Sufyān al-Thawrī, al-Zamakhsharī and al-Ṭabarī in English, one verse at a time, most with the Arabic of the edition beside it."
+  image={OG.tafsir}
+  crumbs={[{ name: 'Home', url: '/' }, { name: 'Projects', url: '/projects/' }, { name: 'Tafsir', url: '/projects/tafsir/' }]}
+>
+  <div class="hc-page tfx tfh">
+    <section class="tfh-hero tfx-dark-top" aria-labelledby="tfh-title">
+      <div class="tfx-wrap tfh-hero__grid">
+        <div>
+          <nav class="tfh-crumbs" aria-label="Breadcrumb"><a href="/projects/">Projects</a><span aria-hidden="true">/</span><strong>Tafsīr library</strong></nav>
+          <p class="tfh-eyebrow">Qur’anic commentary · {earliest.died} to {latest.died} AH</p>
+          <h1 id="tfh-title">The Tafsīr<br /><span class="tfh-title-accent">library.</span></h1>
+          <p class="tfh-hero__lede">
+            {count} commentaries, from {earliest.name} to {latest.name}, read in English one verse at a time. Most set the Arabic of the edition beside it.
+          </p>
+          <div class="tfh-hero__buttons">
+            <a class="tfh-button tfh-button--primary" href="#commentaries">Browse the commentaries <span aria-hidden="true">↓</span></a>
+            <a class="tfh-button tfh-button--outline" href="#contents">Find a surah <span aria-hidden="true">↓</span></a>
+          </div>
+        </div>
+        {opening && quran[previewRef] && (
+          <a class="tfh-preview" href={verseHref(openingWork, opening.n, previewVerse)} aria-label={`Open the reader at Qur'an ${previewRef}`}>
+            <div class="tfh-preview__paper">
+              <div class="tfh-preview__top"><span class="micro">From the library / {pad(opening.n)}:{pad(previewVerse)}</span><span class="tfh-preview__badge">{openingWork.name} · d. {openingWork.died} AH</span></div>
+              <p class="tfh-preview__ar" lang="ar" dir="rtl">{quran[previewRef].ar}</p>
+              <p class="tfh-preview__en">{quran[previewRef].en}</p>
+              {excerpt && (
+                <Fragment>
+                  <p class="tfh-preview__label micro">Commentator's explanation</p>
+                  <p class="tfh-preview__commentary">“<Fragment set:html={excerpt} />”</p>
+                </Fragment>
+              )}
+              <div class="tfh-preview__foot"><span>Full commentary · transmitted reports · editor's notes</span><strong>{opening.latin} {previewRef} <span aria-hidden="true">↗</span></strong></div>
+            </div>
+          </a>
+        )}
+      </div>
+    </section>
+
+    <div class="tfh-register">
+      <dl class="tfx-wrap tfh-register__grid">
+        <div class="tfh-register__item"><dt>Commentaries</dt><dd>{pad(library.length)}</dd></div>
+        <div class="tfh-register__item"><dt>Surahs with commentary</dt><dd>{surahCount}</dd></div>
+        <div class="tfh-register__item"><dt>Verse pages to read</dt><dd>{formatCount(totalPages)}</dd></div>
+        <div class="tfh-register__item"><dt>Words in English</dt><dd>{formatCount(totalWords)}</dd></div>
+      </dl>
+    </div>
+
+    <section class="tfh-section" id="commentaries" aria-labelledby="tfh-works-title">
+      <div class="tfx-wrap">
+        <div class="tfh-top">
+          <div>
+            <p class="tfh-eyebrow">01 · The commentaries</p>
+            <h2 class="tfh-heading" id="tfh-works-title">{count} works, verse by verse.</h2>
+            <p class="tfh-lede">Each opens surah by surah, then verse by verse. The bar on each card shows how much of the Arabic edition is in English so far; where it is short of full, the translation is in progress.</p>
+          </div>
+          <a class="tfh-link" href="#contents">Go to the contents <span aria-hidden="true">↓</span></a>
+        </div>
+        <div class="tfh-works">
+          {library.map((w) => (
+            <article class={`tfh-work tfh-work--${w.id}`} aria-labelledby={`tfh-${w.id}-title`}>
+              <div class="tfh-work__meta micro"><span>d. {w.died} AH</span><span>{w.scope}</span></div>
+              <h3 id={`tfh-${w.id}-title`}>{w.name}</h3>
+              <p class="tfh-work__title"><cite>{w.title}</cite><span lang="ar" dir="rtl">{w.arabic}</span></p>
+              <p class="tfh-work__text">{w.blurb}</p>
+              <div class="tfh-progress">
+                <div class="tfh-progress__top"><span>Translated into English</span><strong>{w.progress.percent}%</strong></div>
+                <div class="tfh-progress__bar" role="progressbar" aria-label={`${w.name}: translated into English`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={w.progress.percent}><i style={`width:${w.progress.percent}%`}></i></div>
+                <p>{w.progress.detail}{w.progress.extra && <Fragment><br />{w.progress.extra}</Fragment>}</p>
+              </div>
+              <dl class="tfh-work__numbers">
+                <div><dt>Surahs to read</dt><dd>{formatCount(w.available)}</dd></div>
+                <div><dt>Words in English</dt><dd>{formatCount(w.words)}</dd></div>
+              </dl>
+              <div class="tfh-work__actions">
+                <a class="tfh-button tfh-button--gold" href={w.href}>Read {w.name} <span aria-hidden="true">↗</span></a>
+                <a class="tfh-work__more" href={`#contents-${w.id}`}>Contents <span aria-hidden="true">↓</span></a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section class="tfh-section tfh-section--contents" id="contents" aria-labelledby="tfh-contents-title" data-contents>
+      <div class="tfx-wrap">
+        <div class="tfh-top">
+          <div>
+            <p class="tfh-eyebrow">02 · Contents</p>
+            <h2 class="tfh-heading" id="tfh-contents-title">Find a surah.</h2>
+            <p class="tfh-lede">Choose a commentary. All 114 surahs are listed for each: green where it has commentary, deeper where it has more, and red where it has none to read. A surah opens on its verses, and each verse opens its own commentary.</p>
+          </div>
+        </div>
+        <div class="tfh-contents__bar" data-contents-controls hidden>
+          <div class="tfh-tabs" role="tablist" aria-label="Commentaries">
+            {library.map((w, i) => (
+              <button type="button" role="tab" id={`tfh-tab-${w.id}`} aria-controls={`contents-${w.id}`} aria-selected={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1} data-contents-tab={w.id}>{w.name} <small>{w.available}</small></button>
+            ))}
+          </div>
+          <label class="tfh-find">
+            <span class="sr-only">Filter this list by name or number</span>
+            <input type="search" placeholder="Filter by name or number" autocomplete="off" data-contents-search />
+          </label>
+        </div>
+        {library.map((w) => (
+          <section class="tfh-parts tfh-surahs" id={`contents-${w.id}`} aria-labelledby={`tfh-parts-${w.id}`} data-contents-panel={w.id}>
+            <div class="tfh-parts__head">
+              <h3 id={`tfh-parts-${w.id}`}>{w.name} <span>{w.title}</span></h3>
+              <span class="micro" data-contents-count data-total={`${w.available} of 114 surahs`}>{w.available} of 114 surahs</span>
+            </div>
+            <p class="tfh-legend">
+              <span class="tfh-legend__scale">Less commentary {LEVELS.map((level) => <i data-level={level}></i>)} More</span>
+              {w.available < w.entries.length && <span class="tfh-legend__none"><i></i> Nothing to read</span>}
+            </p>
+            <ol class="tfh-parts__list">
+              {w.entries.map((s) => (
+                <li data-contents-item data-search={`${pad(s.n, 3)} ${s.n} ${s.latin} ${s.ar}`}>
+                  {s.href ? (
+                    <a href={s.href} data-level={s.level} aria-label={`Read ${w.name} on ${s.latin}: ${s.note}`}>
+                      <span class="tfh-parts__n">{pad(s.n, 3)}</span>
+                      <span class="tfh-parts__name">{s.latin}<small>{s.note}</small></span>
+                      <span class="tfh-parts__ar" lang="ar" dir="rtl">{s.ar}</span>
+                    </a>
+                  ) : (
+                    <div class="tfh-parts__off" data-state={s.state}>
+                      <span class="tfh-parts__n">{pad(s.n, 3)}</span>
+                      <span class="tfh-parts__name">{s.latin}<small>{s.note}</small></span>
+                      <span class="tfh-parts__ar" lang="ar" dir="rtl">{s.ar}</span>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+            <p class="tfh-parts__empty" data-contents-empty hidden>Nothing in {w.name} matches that. Clear the filter to see the whole list.</p>
+            {w.missing && <p class="tfh-parts__missing">{w.missing}</p>}
+          </section>
+        ))}
+      </div>
+    </section>
+
+    <section class="tfh-structure" id="approach" aria-labelledby="tfh-structure-title">
+      <div class="tfx-wrap">
+        <div class="tfh-top">
+          <div>
+            <p class="tfh-eyebrow">03 · How the pages read</p>
+            <h2 class="tfh-heading" id="tfh-structure-title">More than a block of text.</h2>
+            <p class="tfh-lede">The readers separate different kinds of evidence without rewriting the sources. Every distinction is a navigation aid, and the original wording is kept.</p>
+          </div>
+        </div>
+        <div class="tfh-structure__grid">
+          <article class="tfh-card">
+            <div><h3>One verse at a time.</h3><p>A surah opens on its verses. Selecting one opens that verse in Arabic and English, set apart from the commentary on it.</p></div>
+            <div class="tfh-demo">
+              <p class="tfh-demo__ar" lang="ar" dir="rtl">{quran['1:7']?.ar.split(' ').slice(0, 4).join(' ')}</p>
+              <p class="tfh-demo__en">{quran['1:7']?.en.split(';')[0]}…</p>
+            </div>
+          </article>
+          <article class="tfh-card">
+            <div><h3>Voices, distinguished.</h3><p>Each report names the authority it is transmitted from, and its chain of transmission is set apart from its wording.</p></div>
+            <div class="tfh-demo"><div class="tfh-demo__quote"><b>TRANSMISSION WORDING</b>Ādam narrated to us, he said: Warqāʾ narrated to us, from Ibn Abī Najīḥ, from Mujāhid, who said:</div></div>
+          </article>
+          <article class="tfh-card">
+            <div><h3>Arabic beside the English.</h3><p>Mujāhid, al-Thawrī and al-Zamakhsharī are printed in the edition's Arabic next to the translation. Either language can be hidden.</p></div>
+            <div class="tfh-demo tfh-demo--pair">
+              <p class="tfh-demo__en">“The falaq is the morning.”</p>
+              <p class="tfh-demo__ar" lang="ar" dir="rtl">الْفَلَقُ: الصُّبْحُ</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    {opening && (
+      <section class="tfh-closing" aria-labelledby="tfh-closing-title">
+        <div class="tfx-wrap">
+          <div class="tfh-closing__inner">
+            <div>
+              <h2 id="tfh-closing-title">See the various interpretative leaps and bounds <span>of scholars across centuries.</span></h2>
+              <p>Start with {opening.latin} in {openingWork.name}, or open any surah in the other commentaries.</p>
+            </div>
+            <div class="tfh-closing__actions">
+              <a class="tfh-button tfh-button--primary" href={verseHref(openingWork, opening.n, 1)}>Open {opening.latin} <span aria-hidden="true">↗</span></a>
+              <a class="tfh-button tfh-button--outline" href="#contents">Find a surah <span aria-hidden="true">↑</span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+  </div>
+</BaseLayout>
+
+<script>
+  import { initContents } from '../../lib/tafsir-home';
+  initContents();
+</script>

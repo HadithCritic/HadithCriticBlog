@@ -1,0 +1,189 @@
+---
+/* The blocks of one section of commentary, each in the form the reading
+   edition gives its kind. Every word comes from the block's source runs; the
+   labels around them (eyebrows, "Transmitted via", "If someone were to say")
+   are either the source's own formula or an editorial label. */
+import Icon from './Icon.astro';
+import type { Block, Run } from '../../data/tafsir';
+import { runsHtml, runsText, verseLabel, pad } from '../../lib/tafsir-render';
+import { tafsirFigure, tafsirFigureForCommentator, tafsirRegionForName } from '../../lib/tafsir-figures';
+
+interface Props {
+  unitKey: string;
+  blocks: Block[];
+  indices: number[];
+  commentator: string;
+  initial: string;
+  citeHref: (s: number, a: number) => string;
+  /** Give the first plain paragraph a drop capital. */
+  dropcap?: boolean;
+  /** Feature the first report of a run (a section of reports). */
+  feature?: boolean;
+  /** Show the region-colored illustrated scholars on the Fātiḥa pages. */
+  figureMedallions?: boolean;
+}
+
+const { unitKey, blocks, indices, commentator, initial, citeHref, dropcap = false, feature = false, figureMedallions = false } = Astro.props as Props;
+const commentatorFigure = figureMedallions ? tafsirFigureForCommentator(commentator) : null;
+const html = (runs: Parameters<typeof runsHtml>[0]) => runsHtml(runs, citeHref);
+const id = (i: number) => `u${unitKey}-b${i}`;
+
+/* Group the section: a voice paragraph takes the continuation paragraphs that
+   follow it, and consecutive reports form one stack. */
+type Group =
+  | { kind: 'voice'; lead: string; parts: number[]; card: boolean }
+  | { kind: 'reports'; items: number[] }
+  | { kind: 'single'; i: number };
+const groups: Group[] = [];
+for (let k = 0; k < indices.length; k++) {
+  const i = indices[k];
+  const b = blocks[i];
+  if (b.t === 'p' && b.v) {
+    const parts = [i];
+    while (k + 1 < indices.length) {
+      const next = blocks[indices[k + 1]];
+      if (next.t !== 'p' || !next.cont) break;
+      parts.push(indices[++k]);
+    }
+    const length = parts.reduce((n, p) => n + runsText((blocks[p] as { x?: Run[] }).x).length, 0);
+    groups.push({ kind: 'voice', lead: b.v, parts, card: length < 2600 });
+  } else if (b.t === 'report') {
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'reports' && indices[k - 1] === i - 1) last.items.push(i);
+    else groups.push({ kind: 'reports', items: [i] });
+  } else groups.push({ kind: 'single', i });
+}
+
+let dropcapUsed = !dropcap;
+const takeDropcap = () => (dropcapUsed ? false : (dropcapUsed = true));
+// Typed views of a block, kept out of the template where generics read as markup.
+const para = (i: number) => blocks[i] as Extract<Block, { t: 'p' }>;
+const report = (i: number) => blocks[i] as Extract<Block, { t: 'report' }>;
+const runsOf = (i: number): Run[] => (blocks[i] as { x?: Run[] }).x ?? [];
+---
+
+{groups.map((g) => {
+  if (g.kind === 'voice') {
+    const [first, ...rest] = g.parts;
+    const firstBlock = para(first);
+    if (g.card) {
+      return (
+        <div class="tfr-authorial" id={id(first)}>
+          <div class="tfr-authorial__top">
+            {commentatorFigure ? (
+              <img class="tfr-scholar-avatar" src={commentatorFigure.src} alt={`Illustrative portrait for ${commentatorFigure.name}; not a verified likeness`} data-region={commentatorFigure.region} width="46" height="46" loading="lazy" decoding="async" />
+            ) : <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>}
+            <div class="tfr-authorial__name">{g.lead}<small>{commentator}’s own explanation</small></div>
+          </div>
+          <div class="tfr-prose">
+            {firstBlock.x.length > 0 && <p set:html={html(firstBlock.x)} />}
+            {rest.map((p) => <p id={id(p)} set:html={html(runsOf(p))} />)}
+          </div>
+        </div>
+      );
+    }
+    // A long passage in the commentator's voice: the formula leads, a rule keeps it together.
+    return (
+      <Fragment>
+        <div class="tfr-authorial" id={id(first)}>
+          <div class="tfr-authorial__top">
+            {commentatorFigure ? (
+              <img class="tfr-scholar-avatar" src={commentatorFigure.src} alt={`Illustrative portrait for ${commentatorFigure.name}; not a verified likeness`} data-region={commentatorFigure.region} width="46" height="46" loading="lazy" decoding="async" />
+            ) : <span class="tfr-authorial__initial" aria-hidden="true">{initial}</span>}
+            <div class="tfr-authorial__name">{g.lead}<small>{commentator}’s own explanation</small></div>
+          </div>
+          {firstBlock.x.length > 0 && <div class="tfr-prose"><p set:html={html(firstBlock.x)} /></div>}
+        </div>
+        <div class="tfr-prose tfr-prose--voice">
+          {rest.map((p) => <p id={id(p)} set:html={html(runsOf(p))} />)}
+        </div>
+      </Fragment>
+    );
+  }
+  if (g.kind === 'reports') {
+    return (
+      <div class="tfr-reports">
+        {g.items.map((i, n) => {
+          const b = report(i);
+          const figure = figureMedallions && b.via ? tafsirFigure(b.via) : null;
+          const region = figure?.region ?? (b.via ? tafsirRegionForName(b.via) : null);
+          const featured = feature && n === 0 && g.items.length > 1;
+          const wide = !featured && (g.items.length === 1 || runsText(b.m).length > 520);
+          return (
+            <article class:list={['tfr-report', featured && 'tfr-report--feature', wide && 'tfr-report--wide']} id={id(i)}>
+              <div class:list={['tfr-report__source', b.c && 'tfr-report__source--has-chain']}>
+                <div class="tfr-report__top">
+                  <span class="tfr-report__no">{pad(n + 1)}</span>
+                  {figure && <img class="tfr-scholar-avatar tfr-scholar-avatar--report" src={figure.src} alt={`Illustrative portrait for ${figure.name}; not a verified likeness`} data-region={figure.region} width="42" height="42" loading="lazy" decoding="async" />}
+                  <div class="tfr-report__author">
+                    <span class="micro">{b.via ? 'Transmitted via' : 'Transmitted report'}</span>
+                    <h4 data-region={region ?? undefined}>{b.via ?? 'Chain not separated'}</h4>
+                  </div>
+                  <Icon name="book" size={17} />
+                </div>
+                {b.c && (
+                  <div class="tfr-chain" data-region={region ?? undefined}>
+                    <span class="tfr-chain__label">Transmission wording</span>
+                    <p set:html={html(b.c)} />
+                  </div>
+                )}
+              </div>
+              <blockquote class="tfr-report__matn" set:html={html(b.m)} />
+            </article>
+          );
+        })}
+      </div>
+    );
+  }
+  const i = g.i;
+  const b = blocks[i];
+  if (b.t === 'lemma') {
+    return (
+      <div class="tfr-lemma" id={id(i)}>
+        <span class="micro">{commentator}’s heading</span>
+        <p set:html={html(b.x)} />
+      </div>
+    );
+  }
+  if (b.t === 'intro') return <p class="tfr-prose tfr-intro" id={id(i)} set:html={html(b.x)} />;
+  if (b.t === 'quote') {
+    const [, text, s, a, e] = b.r;
+    return (
+      <figure class="tfr-quote" id={id(i)}>
+        <figcaption class="tfr-quote__caption"><span class="micro">Qur’anic cross-reference</span><span class="tfr-pill">Q {verseLabel(s, a, e)}</span></figcaption>
+        <blockquote set:html={html(b.x)} />
+        <div class="tfr-quote__bottom"><span>Cited in the source as {text}{b.tp}</span><a href={citeHref(s, a)}>Read {verseLabel(s, a)} <span aria-hidden="true">→</span></a></div>
+      </figure>
+    );
+  }
+  if (b.t === 'arg') {
+    return (
+      <div class="tfr-argument" id={id(i)}>
+        <div class="tfr-argument__part">
+          <div class="tfr-argument__label micro"><span aria-hidden="true">?</span> {b.q.l || 'Objection'}</div>
+          <div class="tfr-prose"><p set:html={html(b.q.x)} /></div>
+        </div>
+        <div class="tfr-argument__part tfr-argument__part--answer">
+          <div class="tfr-argument__label micro"><span aria-hidden="true">↳</span> {b.a.l || 'Answer'}</div>
+          <div class="tfr-prose"><p set:html={html(b.a.x)} /></div>
+        </div>
+      </div>
+    );
+  }
+  if (b.t === 'poem') {
+    return (
+      <div class="tfr-poem" id={id(i)}>
+        <div class="micro">Poetic evidence <span aria-hidden="true">/</span> as rendered in the source</div>
+        {b.i && <p class="tfr-poem__attribution" set:html={html(b.i)} />}
+        <blockquote>
+          {b.lines ? b.lines.map((line: Run[]) => <span set:html={html(line)} />) : <span set:html={html(b.x)} />}
+        </blockquote>
+      </div>
+    );
+  }
+  if (b.t === 'p') {
+    const cap = takeDropcap();
+    return <p class:list={['tfr-prose', cap && 'tfr-dropcap']} id={id(i)} set:html={html(b.x)} />;
+  }
+  return null;
+})}

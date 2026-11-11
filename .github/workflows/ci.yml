@@ -19,82 +19,38 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          # Matches the floor in package.json. The corpus scripts use node:sqlite
-          # without a flag and strip types from an imported .ts, both of which
-          # need 24; running CI on an older major means a script can be broken
-          # here and nobody finds out until someone cuts a corpus release.
+          # Matches the floor in package.json. The tests strip types from an
+          # imported .ts, which needs 24.
           node-version: '24'
           cache: 'npm'
-          cache-dependency-path: |
-            package-lock.json
-            studio/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
-
-      - run: npm ci --prefix studio
 
       - run: npm run lint:footnotes
 
       - run: npm run test:subscribe
 
-      # Arabic normalisation, the display formatter, and the parity check
-      # between the query-time fold and the SQL fold used to build the search
-      # index. That last one is the only thing standing between an edit to
-      # either fold and search quietly returning fewer results.
+      # Arabic normalisation and the display formatter.
       - run: npm run test:normalize
 
       # Source graph projections and edge-to-source invariants.
       - run: npm run test:research
 
-      # Quran release reachability, and corpus build reuse and retention.
-      - run: npm run test:storage
-
-      # The private editor must preserve every article, including across
-      # Windows/Linux checkouts, and reject unsafe publication requests.
-      - run: npm run studio:build
-
-      - run: npm run studio:test
-
       - run: npm run check
 
       - run: npm run test:design
 
-      # The real build, from the committed corpus metadata. This is what
-      # deploys, so it is checked on its own before anything is swapped out.
-      #
-      # PUBLIC_CORPUS_BASE_URL is not optional for a built site and the build
-      # refuses without it. Leaving it unset once deployed a site that asked
-      # its own origin for the corpus, and Cloudflare static assets answer a
-      # range request with 200 and the whole file, so every corpus page failed
-      # for every reader. Setting it here means CI builds the way the
-      # deployment does; the deployment sets the same variable in its own
-      # project settings.
-      - run: npm run build
-        env:
-          PUBLIC_CORPUS_BASE_URL: https://data.hadithcriticblog.com/
-
-      # The corpus itself is 1.62 GB and is not in git, so the e2e run serves a
-      # miniature corpus cut from it (tests/fixtures/corpus, ~2.6 MB, committed)
-      # and rebuilds the site against that corpus's own metadata. Without this
-      # the corpus suite could only skip, and the browser-side data layer would
-      # have no coverage here at all. tests/corpus-data.spec.ts, which names
-      # real narrations and real totals, skips itself against the fixture.
-      #
-      # The rebuild also points the site at the corpus file server rather than
-      # its own assets, because `astro preview` is wrangler and Cloudflare
-      # static assets answer a range request with 200 and the whole file. That
-      # is the same reason production serves the corpus from R2, so this is the
-      # deployed arrangement rather than a test-only one.
-      - run: npm run build:e2e:fixture
+      # Builds the site with draft articles included for the reader tests.
+      - run: npm run build:e2e
 
       - run: npx playwright install --with-deps chromium
 
       # tests/ holds the checks that cover what PRODUCT.md actually promises:
       # one main landmark per page, no horizontal overflow at 390px, focus
       # returned after the mobile menu closes, reduced motion leaving content
-      # visible, Pagefind returning a real article, and the corpus answering
-      # searches from static chunks without touching a database. They need the
-      # built dist/, so they run last.
+      # visible, and Pagefind returning a real article. They need the built
+      # dist/, so they run last.
       - run: npm run test:e2e
 
       - if: failure()

@@ -1,0 +1,47 @@
+---
+/* Surah and verse menus, on every Tafsīr reader page, so a reader can move to
+   any verse of the commentary from wherever they are. Choosing a verse opens
+   it; choosing a surah refills the verse menu (src/lib/tafsir-switcher.ts),
+   and without script the button opens the chosen surah's list of verses. */
+import { surahEntries, surahPageHref, type LibraryWork } from '../../data/tafsir-library';
+import { GENERAL } from '../../lib/tafsir-edition-html';
+import { expandRanges, verseIndex } from '../../lib/tafsir-verse-index';
+
+interface Props {
+  work: LibraryWork;
+  surah: number;
+  /** The verse on show, "general", or nothing on the surah's own page. */
+  verse?: number | string;
+}
+
+const { work, surah, verse } = Astro.props;
+const entries = surahEntries(work.id);
+const here = verseIndex(work.id).get(surah);
+const verses = here ? expandRanges(here.ranges) : [];
+const id = `switch-${work.id}`;
+---
+
+<form class="tfv-switch" action={surahPageHref(work.id, surah)} data-switcher data-work={work.id} data-general={GENERAL}>
+  <div class="wrap">
+    <span class="tfv-switch__label">Go to</span>
+    <label class="tfv-switch__field">
+      <span>Surah</span>
+      <select id={`${id}-surah`} data-switch-surah aria-label={`Surah in ${work.short}`}>
+        {entries.map((s) => (
+          <option value={s.n} selected={s.n === surah} disabled={s.state !== 'available'}>
+            {s.n} · {s.latin}{s.state === 'pending' ? ' (translation in progress)' : s.state === 'none' ? ' (no commentary)' : ''}
+          </option>
+        ))}
+      </select>
+    </label>
+    <label class="tfv-switch__field tfv-switch__field--verse">
+      <span>Verse</span>
+      <select id={`${id}-verse`} data-switch-verse aria-label="Verse">
+        <option value="" selected={verse === undefined}>All verses</option>
+        {here?.general && <option value={GENERAL} selected={verse === GENERAL}>Without a verse reference</option>}
+        {verses.map((v) => <option value={v} selected={v === verse}>{surah}:{v}</option>)}
+      </select>
+    </label>
+    <noscript><button class="tfv-switch__go" type="submit">Open</button></noscript>
+  </div>
+</form>

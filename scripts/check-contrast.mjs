@@ -58,18 +58,12 @@ if (!Number.isInteger(VIEWPORT_WIDTH) || VIEWPORT_WIDTH < 240 || VIEWPORT_WIDTH 
 const ROUTES = [
   '/',
   '/hadith',
-  '/hadith/collection/sahih-al-bukhari',
-  '/hadith/collection/musannaf-ibn-abi-shaybah/kitab/1',
-  '/hadith/5',
-  '/narrators',
-  '/narrators/484',
-  '/narrators/compare?ids=484,3889',
+  '/hadith/collection/al-shama-il-al-muhammadiyah',
+  '/hadith/collection/al-shama-il-al-muhammadiyah/chapter/1',
   '/blogs',
   '/blogs/category/transmission-narrators',
   '/resources',
   '/projects',
-  '/projects/quran/sura/1',
-  '/projects/quran/readers/nafi',
   '/youtube',
   '/brand',
   '/contact'
@@ -271,48 +265,6 @@ const PROBE = `(() => {
  * depending on how busy the machine was. Scrolling the whole page first, then
  * freezing transitions, makes the reading both honest and repeatable.
  */
-/**
- * Corpus pages are shells until the static SQLite corpus answers.
- *
- * `waitUntil: 'load'` fires while the page still shows a spinner, so without
- * this the checker would measure a loading state, find two colours on it, and
- * report the route clean. That is the same failure as the `--route /` path
- * mangling in CLAUDE.md: a check that passes because it never ran.
- *
- * Each selector is the first thing its renderer writes. A route that never
- * produces one is reported rather than silently skipped.
- */
-const CORPUS_CONTENT = [
-  [/^\/hadith\/\d+/, '.edition-hero, .hadith-degraded'],
-  // A book page renders its narrations only when a chapter is opened; see awaitCorpus.
-  [/^\/hadith\/collection\/[^/]+\/kitab\//, '.kb-card-record, .kb-status--error'],
-  [/^\/hadith(\?|$)/, '.catalog-row, .corpus-record-card'],
-  [/^\/narrators\/compare/, '.compare-table, .compare-empty'],
-  [/^\/narrators\/\d+/, '.rijal-hero, .rijal-degraded'],
-  [/^\/narrators(\?|$)/, '.reg-row, .register-error']
-];
-
-async function awaitCorpus(page, route) {
-  const match = CORPUS_CONTENT.find(([pattern]) => pattern.test(route));
-  if (!match) return true;
-  // A book page is prerendered with its chapters closed; open the first so its
-  // parchment cards exist to be measured.
-  if (/\/kitab\//.test(route)) {
-    await page.evaluate(() => {
-      const first = document.querySelector('details.kb-chapter');
-      if (first) first.open = true;
-    });
-  }
-  try {
-    // Generous: a cold corpus has to fetch the wasm module and walk the b-tree
-    // over the network before the first row exists.
-    await page.waitForSelector(match[1], { state: 'attached', timeout: 45000 });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function settle(page) {
   await page.evaluate(async () => {
     const step = Math.round(window.innerHeight * 0.8);
@@ -349,11 +301,6 @@ for (const theme of THEMES) {
   for (const route of routes) {
     try {
       await page.goto(BASE + route, { waitUntil: 'load', timeout: 60000 });
-      if (!(await awaitCorpus(page, route))) {
-        process.stdout.write(`  FAIL (corpus never rendered) ${route}\n`);
-        failures += 1;
-        continue;
-      }
       await settle(page);
     } catch (error) {
       // Printed, and counted. A swallowed error here is how a run reports

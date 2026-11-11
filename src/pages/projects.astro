@@ -2,9 +2,10 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
-import { CORPUS_META } from "../lib/corpus-config";
-import qiraatIndex from "../data/qiraat/index.json";
+import { LIBRARY_COLLECTIONS, LIBRARY_NARRATIONS } from "../lib/hadith-library";
 import { historySources, openReaders } from "../data/history";
+import { formatCount } from "../data/tafsir";
+import { libraryWorks, surahEntries, versePageHref } from "../data/tafsir-library";
 import "../styles/home.css";
 import "../styles/home-platform.css";
 import "../styles/projects.css";
@@ -12,8 +13,6 @@ import "../styles/projects.css";
 /* Every figure on this page is read from the data the project is built from. */
 const n = (value: number) => value.toLocaleString("en-US");
 const historyWords = openReaders.reduce((sum, item) => sum + item.reader.words, 0);
-const corpus = CORPUS_META.counts;
-const rulesCount = (qiraatIndex as { rules?: { rules?: number } }).rules?.rules ?? 0;
 
 interface Entry {
   label: string;
@@ -34,6 +33,10 @@ interface Project {
   status: string;
 }
 
+const tafsirSurahs = libraryWorks.map((w) => surahEntries(w.id).filter((s) => s.state === "available"));
+const tafsirCovered = new Set(tafsirSurahs.flat().map((s) => s.n)).size;
+const tafsirWords = tafsirSurahs.flat().reduce((sum, s) => sum + s.words, 0);
+
 const lead: Project = {
   id: "hadith-corpus",
   href: "/hadith/",
@@ -41,51 +44,31 @@ const lead: Project = {
   kind: "Textual corpus",
   arabic: "الحديث",
   title: "Hadith Corpus",
-  desc: "Narrations in facing Arabic and English, searchable across every compilation by matn, isnād or topic, with each chain linked to its transmitters in the Rijāl Register. No authenticity grade is added.",
-  figures: [`${n(corpus.hadith)} narrations`, `${corpus.collections} collections`, `${n(corpus.chainLinks)} chain links`],
+  desc: "Early hadith collections in facing Arabic and English, each with its transmission paths and source references. No authenticity grade is added.",
+  figures: [`${n(LIBRARY_NARRATIONS)} narrations`, `${LIBRARY_COLLECTIONS.length} collections`],
   entries: [
-    { label: "Search the narrations", href: "/hadith/" },
     { label: "Browse the collections", href: "/hadith/#collections-heading" },
-    { label: "Open Ṣaḥīḥ al-Bukhārī", href: "/hadith/collection/sahih-al-bukhari/" },
+    { label: "Open Al-Shama'il al-Muhammadiyah", href: "/hadith/collection/al-shama-il-al-muhammadiyah/" },
   ],
-  action: "Search the corpus",
+  action: "Open the collections",
   status: "Live",
 };
 
 const databases: Project[] = [
   {
-    id: "narrator-biographies",
-    href: "/narrators/",
-    art: "rijal",
-    kind: "Biographical register",
-    arabic: "الرجال",
-    title: "Rijāl Register",
-    desc: "Classical transmitters with dates, teachers and students, and every critic’s statement attributed to the critic who made it.",
-    figures: [`${n(corpus.narrators)} transmitters`, `${n(corpus.criticismStatements)} statements`],
+    id: "tafsir",
+    href: "/projects/tafsir/",
+    art: "tafsir",
+    kind: "Qur'anic commentary",
+    arabic: "التفسير",
+    title: "Tafsīr",
+    desc: "Read Mujāhid, al-Thawrī, al-Zamakhsharī and al-Ṭabarī one verse at a time, with the Qur’anic text, the commentary, transmitted reports and editor’s notes together on the page.",
+    figures: [`${libraryWorks.length} commentaries`, `${tafsirCovered} surahs`, `${formatCount(tafsirWords)} words`],
     entries: [
-      { label: "Browse the register", href: "/narrators/" },
-      { label: "Compare two transmitters", href: "/narrators/compare/" },
+      { label: "Read al-Fātiḥa", href: versePageHref("tabari", 1, 1) },
     ],
-    action: "Browse the register",
-    status: "Live",
-  },
-  {
-    id: "quran-textual-variants",
-    href: "/projects/quran/",
-    art: "qiraat",
-    kind: "Variant readings",
-    arabic: "القراءات",
-    title: "The Qirāʾāt Variants",
-    desc: "The ten readings set side by side, word by word, with the classical books that report each one and the page each quotation comes from.",
-    figures: ["10 readers", `${qiraatIndex.suras_with_data} of 114 suras`, `${rulesCount} general rules`],
-    entries: [
-      { label: "The ten readers", href: "/projects/quran/#readers" },
-      { label: "Sura register", href: "/projects/quran/#suras" },
-      { label: "General rules", href: "/projects/quran/rules/" },
-      { label: "Transmission", href: "/projects/quran/transmission/" },
-    ],
-    action: "Compare the readings",
-    status: "Readings await human review",
+    action: "Open the commentary",
+    status: "Available to read",
   },
 ];
 
@@ -109,12 +92,13 @@ const history: Project = {
 
 const projects = [...databases, history];
 const all = [lead, ...projects];
+const countWord = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"][all.length - 1] ?? String(all.length);
 ---
 
 <BaseLayout
   image={OG.projects}
   title="Projects | HadithCritic"
-  description="HadithCritic's research tools: a hadith corpus, a rijāl register, the qirāʾāt variants and History (Tārīkh)."
+  description="HadithCritic's research tools: a hadith corpus, al-Ṭabarī's tafsīr and History (Tārīkh)."
 >
   <div class="hc-page home pj-page">
     <PageHero
@@ -127,8 +111,7 @@ const all = [lead, ...projects];
       measure="11ch"
     >
       <p class="hc-hero__lede">
-        Research tools for the hadith, its transmitters, the Qur’an’s variant readings, early history and
-        modern scholarship. Every figure here is counted from the project's own data.
+        Research tools for the hadith, Qur’anic commentary, early history and modern scholarship. Every figure here is counted from the project's own data.
       </p>
       <Fragment slot="actions">
         <a href="#projects" class="hc-btn">See the projects</a>
@@ -136,8 +119,7 @@ const all = [lead, ...projects];
       </Fragment>
       <Fragment slot="register">
         <span><strong>{all.length}</strong> projects</span>
-        <span><strong>{n(corpus.hadith)}</strong> narrations</span>
-        <span><strong>{n(corpus.narrators)}</strong> transmitters</span>
+        <span><strong>{n(LIBRARY_NARRATIONS)}</strong> narrations</span>
       </Fragment>
     </PageHero>
 
@@ -147,7 +129,7 @@ const all = [lead, ...projects];
       <div class="hc-container">
         <header class="home-head">
           <p class="home-kicker">The projects</p>
-          <h2 id="projects-title" class="home-title">Four projects,<br />one archive.</h2>
+          <h2 id="projects-title" class="home-title">{countWord} projects,<br />one archive.</h2>
           <p class="home-head__lede">
             Each runs in your browser from published data files, with no server between you and the sources.
           </p>
