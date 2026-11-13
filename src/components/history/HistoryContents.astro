@@ -1,0 +1,136 @@
+---
+/* The contents of one history on its title page. The list follows the book's
+   own arrangement: a chronicle shows the years under each reign, a conquest
+   history its numbered reports by region, a book of lists how many entries
+   each list holds. Long chapters name the pages they are divided into. */
+import type { HistoryBook, HistoryChapter } from '../../lib/history-book';
+import { chapterHref, count, pageHref, pageMeta } from '../../lib/history-library';
+import { duration, foldText } from '../../lib/history-text';
+
+interface Props { book: HistoryBook; }
+const { book } = Astro.props;
+
+const annals = book.layout === 'annals';
+const pagesOf = (chapter: HistoryChapter) => [...new Set(chapter.pages)].map((index) => book.pages[index]);
+
+/** Every year heading in the book, first occurrence first. */
+const yearLinks = book.pages.flatMap((page) =>
+  page.headings.flatMap((heading) => (heading.level === 3 && heading.year !== undefined ? [{ year: heading.year, chapter: page.chapter, href: `${pageHref(book.slug, page)}#${heading.id}` }] : [])),
+);
+const yearIndex = Object.fromEntries([...yearLinks].reverse().map((link) => [link.year, link.href]));
+const years = Object.keys(yearIndex).map(Number);
+const reportIndex = book.pages.flatMap((page) => (page.reports ? [[page.reports[0], page.reports[1], pageHref(book.slug, page)]] : []));
+const lastReport = reportIndex.length ? Math.max(...reportIndex.map((item) => Number(item[1]))) : 0;
+
+const lead = (chapter: HistoryChapter): string => {
+  if (annals) return chapter.years ? (chapter.years[0] === chapter.years[1] ? String(chapter.years[0]) : `${chapter.years[0]}–${chapter.years[1]}`) : '';
+  return chapter.number ?? '';
+};
+const hasLead = book.chapters.some((chapter) => lead(chapter));
+
+const meta = (chapter: HistoryChapter): string => {
+  if (book.layout === 'reports' && chapter.reports) {
+    return chapter.reports[0] === chapter.reports[1] ? `report ${chapter.reports[0]}` : `reports ${chapter.reports[0]}–${chapter.reports[1]}`;
+  }
+  if (book.layout === 'roster' && chapter.entries >= 3) return count(chapter.entries, 'entry', 'entries');
+  return chapter.pages.length > 1 ? `${chapter.pages.length} pages · ${duration(chapter.minutes)}` : duration(chapter.minutes);
+};
+
+const rows = book.chapters.map((chapter, index) => {
+  const pages = pagesOf(chapter);
+  const chips = annals ? yearLinks.filter((link) => link.chapter === index || pages.some((page) => page.chapter === index && link.href.startsWith(pageHref(book.slug, page)))) : [];
+  const everyPageDated = pages.every((page) => page.years);
+  const own = pages.filter((page) => page.chapters.length === 1);
+  return {
+    chapter,
+    href: chapterHref(book, chapter),
+    lead: lead(chapter),
+    meta: meta(chapter),
+    chips: chips.length > 1 && everyPageDated ? chips : [],
+    pages: pages.length > 1 && !(chips.length > 1 && everyPageDated) ? pages : [],
+    search: foldText([chapter.title, chapter.section ?? '', ...own.flatMap((page) => [page.label, ...page.headings.map((heading) => heading.text)])].join(' ')),
+  };
+});
+
+const filterable = book.chapters.length >= 12 || book.pages.length >= 24;
+const noun = annals ? 'reign, year or name' : book.layout === 'reports' ? 'place or chapter' : book.layout === 'roster' ? 'list or name' : 'chapter or name';
+---
+
+<div class="hx-contents" data-hx-contents data-layout={book.layout}>
+  {(filterable || years.length > 1 || lastReport > 1) && (
+    <div class="hx-tools">
+      {filterable && (
+        <label class="hx-field hx-field--find">
+          <span>Find in the contents</span>
+          <input type="search" placeholder={`A ${noun}`} autocomplete="off" spellcheck="false" data-hx-filter />
+        </label>
+      )}
+      {years.length > 1 && (
+        <form class="hx-field hx-field--jump" data-hx-jump="year" data-index={JSON.stringify(yearIndex)}>
+          <label for="hx-jump-year">Go to a year</label>
+          <div>
+            <input id="hx-jump-year" type="number" inputmode="numeric" min={Math.min(...years)} max={Math.max(...years)} placeholder={`${Math.min(...years)} to ${Math.max(...years)}`} required />
+            <span aria-hidden="true">AH</span>
+            <button type="submit">Open</button>
+          </div>
+          <p class="hx-field__note" role="status" data-hx-jump-note></p>
+        </form>
+      )}
+      {lastReport > 1 && (
+        <form class="hx-field hx-field--jump" data-hx-jump="report" data-index={JSON.stringify(reportIndex)}>
+          <label for="hx-jump-report">Go to a report</label>
+          <div>
+            <input id="hx-jump-report" type="number" inputmode="numeric" min="1" max={lastReport} placeholder={`1 to ${lastReport}`} required />
+            <button type="submit">Open</button>
+          </div>
+          <p class="hx-field__note" role="status" data-hx-jump-note></p>
+        </form>
+      )}
+    </div>
+  )}
+
+  {book.parts.map((part) => (
+    <section class="hx-part" data-hx-group>
+      {(part.title || part.label) && (
+        <header class="hx-part__head" id={part.id ?? undefined}>
+          {part.label && part.title && <p>{part.label}</p>}
+          <h3>{part.title ?? part.label}</h3>
+        </header>
+      )}
+      <ol class:list={['hx-chapters', hasLead && 'has-lead']}>
+        {part.chapters.map((index) => {
+          const row = rows[index];
+          return (
+            <li class="hx-ch" data-hx-row data-search={row.search}>
+              {row.chapter.section && <p class="hx-ch__section">{row.chapter.section}</p>}
+              <a class="hx-ch__link" href={row.href}>
+                {hasLead && <span class="hx-ch__lead">{row.lead}</span>}
+                <span class="hx-ch__title" set:html={row.chapter.titleHtml} />
+                <span class="hx-ch__meta">{row.meta}</span>
+              </a>
+              {row.chips.length > 0 && (
+                <ol class="hx-years" aria-label={`Years in ${row.chapter.title}`}>
+                  {row.chips.map((chip) => <li><a href={chip.href}>{chip.year}</a></li>)}
+                </ol>
+              )}
+              {row.pages.length > 0 && (
+                <ol class="hx-pages" aria-label={`Pages of ${row.chapter.title}`}>
+                  {row.pages.map((page, order) => (
+                    <li>
+                      <a href={pageHref(book.slug, page)}>
+                        <span class="hx-pages__n">{order + 1}</span>
+                        <span class="hx-pages__t">{page.label === row.chapter.title ? 'Opening' : /^Part \d+$/.test(page.label) ? 'Continues' : page.label}</span>
+                        <span class="hx-pages__m">{pageMeta(book, page)}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  ))}
+  <p class="hx-contents__empty" data-hx-empty hidden>Nothing in the contents matches.</p>
+</div>

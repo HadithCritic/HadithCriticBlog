@@ -17,7 +17,7 @@ export interface Compiler {
   name: string;
   origin: string;
   region: CompilerRegion;
-  /** Person stem; the file is /images/hadith/medallions/<stem>-medallion.webp, when one exists. */
+  /** The compiler's file name in public/images/hadith/medallions/ (without .webp); resolved by hadith-art.ts. */
   medallion?: string;
   /** The transmitter or recension the collection comes through, shown after the name. */
   via?: string;
@@ -41,6 +41,7 @@ export const COMPILERS: Record<string, Compiler> = {
   'jami-mamar-ibn-rashid': { name: 'Maʿmar ibn Rāshid', origin: 'Sanaa (Yemen)', region: 'yemen', medallion: 'mamar-ibn-rashid' },
   'al-marasil-abi-dawud': { ...ABU_DAWUD, medallion: 'abu-dawud-marasil' },
   'al-jami-ibn-wahb': IBN_WAHB,
+  'muwatta-ibn-wahb': IBN_WAHB,
   'al-muntaqa-ibn-al-jarud': IBN_AL_JARUD,
   'al-athar-abu-yusuf': { name: 'Abū Yūsuf Yaʿqūb ibn Ibrāhīm', ...ABU_HANIFA_SCHOOL_KUFA, medallion: 'abu-yusuf' },
   'al-athar-al-shaybani': { name: 'Muḥammad ibn al-Ḥasan al-Shaybānī', ...ABU_HANIFA_SCHOOL_KUFA, medallion: 'al-shaybani' },
@@ -65,12 +66,24 @@ export const COMPILERS: Record<string, Compiler> = {
   'fada-il-makka': { name: 'Attributed to al-Ḥasan al-Baṣrī', origin: 'Basra', region: 'basra', medallion: 'hasan-al-basri' },
   'sahifat-hammam-ibn-munabbih': { name: 'Hammām ibn Munabbih', origin: 'Sanaa', region: 'yemen', medallion: 'hammam-ibn-munabbih' },
   'musnad-sad-ibn-abi-waqqas': { name: 'Aḥmad ibn Ibrāhīm al-Dawraqī', origin: 'Basra', region: 'basra', medallion: 'sad-ibn-abi-waqqas' },
+  // Shorter 3rd and 4th century works, with medallions and covers keyed by compiler and collection.
+  'kitab-al-kharaj-yahya-ibn-adam': { name: 'Yaḥyā ibn Ādam', origin: 'Kufa', region: 'kufa', medallion: 'yahya-ibn-adam' },
+  'hadith-muhammad-ibn-abd-allah-al-ansari': { name: 'Muḥammad ibn ʿAbd Allāh al-Anṣārī', origin: 'Basra', region: 'basra', medallion: 'muhammad-ibn-abd-allah-al-ansari', via: 'transmitted by Abū Muslim al-Kajjī' },
+  'kitab-al-salah-abu-nuaym': { name: 'Abū Nuʿaym al-Faḍl ibn Dukayn', origin: 'Kufa', region: 'kufa', medallion: 'abu-nuaym' },
+  'hadith-abi-al-yaman': { name: 'Abū al-Yamān al-Ḥakam ibn Nāfiʿ', origin: 'Homs (Syria)', region: 'damascus', medallion: 'abu-al-yaman' },
+  'kitab-al-iman-al-adani': { name: 'Ibn Abī ʿUmar al-ʿAdanī', origin: 'Mecca', region: 'mecca', medallion: 'ibn-abi-umar-al-adani' },
+  'qiraat-al-nabi-al-duri': { name: 'Abū ʿUmar Ḥafṣ ibn ʿUmar al-Dūrī', origin: 'Baghdad', region: 'baghdad', medallion: 'al-duri' },
+  'kitab-al-fitan-hanbal-ibn-ishaq': { name: 'Ḥanbal ibn Isḥāq', origin: 'Baghdad', region: 'baghdad', medallion: 'hanbal-ibn-ishaq' },
+  'sunan-al-athram': { name: 'Abū Bakr al-Athram', origin: 'Baghdad', region: 'baghdad', medallion: 'al-athram' },
+  'kitab-al-zuhd-abu-hatim-al-razi': { name: 'Abū Ḥātim al-Rāzī', origin: 'Rayy', region: 'jibal', medallion: 'abu-hatim-al-razi' },
+  'musnad-ibrahim-ibn-adham': { name: 'Ibn Manda', origin: 'Isfahan', region: 'jibal', medallion: 'ibn-manda', via: 'gathers the ḥadīth of Ibrāhīm ibn Adham' },
   'muwatta-malik': MALIK,
   'musnad-al-tayalisi': { name: 'Abū Dāwūd al-Ṭayālisī', origin: 'Basra', region: 'basra', medallion: 'tayalisi' },
   'musannaf-abd-al-razzaq': { name: 'ʿAbd al-Razzāq al-Ṣanʿānī', origin: 'Sanaa (Yemen)', region: 'yemen', medallion: 'abd-al-razzaq' },
   'musnad-al-humaydi': { name: 'ʿAbd Allāh ibn al-Zubayr al-Ḥumaydī', origin: 'Mecca', region: 'mecca', medallion: 'humaydi' },
   'sunan-sa-id-ibn-mansur': { name: 'Saʿīd ibn Manṣūr', origin: 'Mecca', region: 'mecca', medallion: 'said-ibn-mansur' },
   'musannaf-ibn-abi-shaybah': { name: 'Abū Bakr ibn Abī Shayba', origin: 'Kufa', region: 'kufa', medallion: 'ibn-abi-shaybah' },
+  'musnad-ibn-abi-shayba': { name: 'Abū Bakr ibn Abī Shayba', origin: 'Kufa', region: 'kufa', medallion: 'ibn-abi-shaybah' },
   'musnad-ahmad': { name: 'Aḥmad ibn Ḥanbal', origin: 'Baghdad', region: 'baghdad', medallion: 'ahmad-ibn-hanbal' },
   'musnad-abd-ibn-humayd': { name: 'ʿAbd ibn Ḥumayd', origin: 'Kish (Transoxiana)', region: 'bukhara', medallion: 'abd-ibn-humayd' },
   'musnad-al-darimi': { name: 'ʿAbd Allāh ibn ʿAbd al-Raḥmān al-Dārimī', origin: 'Samarqand', region: 'bukhara', medallion: 'darimi' },

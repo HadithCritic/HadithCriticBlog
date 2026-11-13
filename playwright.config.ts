@@ -24,10 +24,10 @@ export default defineConfig({
 
   webServer: [
     // `astro preview` backgrounds itself and returns, which Playwright reads as
-    // the server having exited. scripts/preview-foreground.mjs starts or adopts
+    // the server having exited. scripts/site/preview-foreground.mjs starts or adopts
     // it and then stays alive for the run. See the header of that file.
     {
-      command: 'node scripts/preview-foreground.mjs',
+      command: 'node scripts/site/preview-foreground.mjs',
       url: `http://127.0.0.1:${appPort}`,
       reuseExistingServer: true,
       env: { PREVIEW_PORT: String(appPort) },

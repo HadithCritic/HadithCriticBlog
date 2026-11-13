@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { indexGraph, layoutTimeline, authorLine } from '../research-graph-core.ts';
 
-const data = JSON.parse(readFileSync(new URL('../../data/research-graph.json', import.meta.url), 'utf8'));
+const data = JSON.parse(readFileSync(new URL('../../data/research/research-graph.json', import.meta.url), 'utf8'));
 const index = indexGraph(data);
 
 test('the graph passes referential validation', () => {

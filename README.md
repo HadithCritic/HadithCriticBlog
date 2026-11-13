@@ -12,7 +12,7 @@ Designed for high performance, readability, and rich interactivity, the blog ble
 
 ## Features
 
-- **Hadith collections**: early compilations in facing Arabic and English, each built from editable HTML in `src/data/hadith-pages/`, with no authenticity gradings stored or shown. Under `/hadith`.
+- **Hadith collections**: early compilations in facing Arabic and English, each built from editable HTML in `src/data/hadith/pages/`, with no authenticity gradings stored or shown. Under `/hadith`.
 - **Articles**: statically generated MDX with custom components like `IsnadDiagram`, `IsnadDilemmaVisual` and `HifzGame` embedded directly into the prose.
 - **Search**: [Pagefind](https://pagefind.app/) over the articles, client-side and built at deploy time.
 - **No client hydration**: not one `client:*` directive. Every page is HTML with hand-written vanilla `<script>` where needed.
@@ -144,7 +144,7 @@ The first visit to a route can take longer while Astro compiles it. Give the ter
 
 ## Data
 
-The site has no database. Every page is built from files in this repository: the articles in `src/content/articles/`, the hadith collections in `src/data/hadith-pages/`, and the other research data under `src/data/`. Public subscription signup adds contacts to Resend.
+The site has no database. Every page is built from files in this repository: the articles in `src/content/articles/`, the hadith collections in `src/data/hadith/pages/`, and the other research data under `src/data/`. Public subscription signup adds contacts to Resend.
 
 ---
 

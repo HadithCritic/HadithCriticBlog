@@ -1,5 +1,5 @@
 /* Reads a surah of the bilingual commentaries (Mujāhid, al-Thawrī,
-   al-Zamakhsharī) from its editable HTML in src/data/tafsir-pages/<work>/ and
+   al-Zamakhsharī) from its editable HTML in src/data/tafsir/pages/<work>/ and
    files its chapters under the verses they are about, so each verse has a page
    of its own. Build-time only.
 
@@ -56,7 +56,7 @@ let last: { key: string; surah: EditionSurah } | null = null;
 export function loadEditionSurah(workId: string, slug: string): EditionSurah {
   const key = `${workId}/${slug}`;
   if (last?.key === key) return last.surah;
-  const body = readFileSync(resolve(process.cwd(), 'src/data/tafsir-pages', workId, `${slug}.html`), 'utf8');
+  const body = readFileSync(resolve(process.cwd(), 'src/data/tafsir/pages', workId, `${slug}.html`), 'utf8');
   const chapters = body.split(CHAPTER_START).slice(1).map(parseChapter);
   const byVerse = new Map<number, EditionChapter[]>();
   const file = (verse: number, chapter: EditionChapter): void => {

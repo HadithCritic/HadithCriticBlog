@@ -1,0 +1,192 @@
+---
+/* One reading page of a history: a short chapter, a run of short chapters, or
+   one division of a long chapter (src/lib/history-book.ts decides which). The
+   contents stand to the left, the headings of this page to the right, and the
+   text keeps the classes of its fragment, set by history-reader.css. */
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import HistoryFonts from '../../../../components/history/HistoryFonts.astro';
+import HistoryRail from '../../../../components/history/HistoryRail.astro';
+import { bookHref, historyHome, loadBook, openBookSlugs, pageHref, pageName, sourceForBook } from '../../../../lib/history-library';
+import { duration } from '../../../../lib/history-text';
+import '../../../../styles/history.css';
+import '../../../../styles/history-reader.css';
+
+export async function getStaticPaths() {
+  const books = await Promise.all(openBookSlugs.map(loadBook));
+  return books.flatMap((book) => book.pages.map((page) => ({ params: { book: book.slug, page: page.slug } })));
+}
+
+const slug = Astro.params.book as string;
+const book = await loadBook(slug);
+const source = sourceForBook(slug);
+const position = book.pages.findIndex((item) => item.slug === Astro.params.page);
+const page = book.pages[position];
+if (!page) throw new Error(`No page ${Astro.params.page} in ${slug}.`);
+
+const chapter = book.chapters[page.chapter];
+const part = book.parts[chapter.part];
+const previous = book.pages[position - 1] ?? null;
+const next = book.pages[position + 1] ?? null;
+const name = pageName(book, page);
+const opening = page.index === 0;
+
+const partName = part.title ? [part.label, part.title].filter(Boolean).join(': ') : part.label;
+const kicker = [partName, chapter.section, chapter.number ? `Chapter ${chapter.number}` : null].filter(Boolean);
+const named = !/^Part \d+$/.test(page.label) && page.label !== chapter.title;
+const facts = [
+  page.of > 1 ? `Page ${page.index + 1} of ${page.of}` : null,
+  page.of > 1 && named ? page.label : null,
+  page.of === 1 && page.years && page.years[0] !== page.years[1] ? `Years ${page.years[0]} to ${page.years[1]}` : null,
+  page.reports ? (page.reports[0] === page.reports[1] ? `Report ${page.reports[0]}` : `Reports ${page.reports[0]} to ${page.reports[1]}`) : null,
+  page.folios ? (page.folios[0] === page.folios[1] ? `Source page ${page.folios[0]}` : `Source pages ${page.folios[0]} to ${page.folios[1]}`) : null,
+  `${duration(page.minutes)} to read`,
+].filter(Boolean);
+
+const outline = page.headings.filter((heading) => heading.level <= 5);
+const noteCount = (page.translationNotes.match(/<section class="tn"/g) ?? []).length;
+const title = `${name.title}${page.of > 1 ? ` (page ${page.index + 1})` : ''} | ${book.title} | HadithCritic`;
+---
+
+<BaseLayout
+  title={title}
+  description={`${name.title}, from ${book.title} by ${book.author}. ${source.description}`}
+  image={`${source.imageBase}-1600.webp`}
+  imageAlt={source.imageAlt}
+  type="article"
+  unsearchable
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Projects', url: '/projects/' },
+    { name: 'History', url: historyHome },
+    { name: book.title, url: bookHref(slug) },
+    { name: name.title, url: pageHref(slug, page) },
+  ]}
+>
+  <Fragment slot="head">
+    <HistoryFonts />
+    {previous && <link rel="prev" href={pageHref(slug, previous)} />}
+    {next && <link rel="next" href={pageHref(slug, next)} />}
+  </Fragment>
+
+  <div
+    class="hx hx-read"
+    data-hx-reader
+    data-layout={book.layout}
+    data-book={slug}
+    data-page={page.slug}
+    data-book-title={book.title}
+    data-page-title={name.title}
+  >
+    <div class="hx-bar" data-hx-bar>
+      <button class="hx-bar__menu" id="navbtn" type="button" aria-expanded="false" aria-controls="hx-rail" data-hx-nav>Contents</button>
+      <p class="hx-bar__place">
+        <a href={bookHref(slug)}>{book.title}</a>
+        <span data-hx-here>{chapter.title}</span>
+      </p>
+      <div class="hx-bar__tools">
+        {noteCount > 0 && (
+          <button type="button" aria-controls="notes-panel" aria-expanded="false" data-hx-notes>Notes <span>{noteCount}</span></button>
+        )}
+        <div class="hx-bar__size" role="group" aria-label="Text size">
+          <button type="button" aria-label="Smaller text" data-hx-size="-1">A<span aria-hidden="true">−</span></button>
+          <button type="button" aria-label="Larger text" data-hx-size="1">A<span aria-hidden="true">+</span></button>
+        </div>
+      </div>
+      <div class="hx-bar__progress" aria-hidden="true"><span data-hx-progress></span></div>
+    </div>
+
+    <div class:list={['hx-read__grid', outline.length > 1 && 'has-outline']}>
+      <HistoryRail book={book} page={page} />
+
+      <article class="hx-text" data-hx-text>
+        <header class:list={['hx-head', !opening && 'hx-head--run']}>
+          {kicker.length > 0 && <p class="hx-head__kicker">{kicker.join(' · ')}</p>}
+          <h1 set:html={chapter.titleHtml} />
+          {opening && chapter.sourceTitle && <p class="hx-head__source">{chapter.sourceTitle}</p>}
+          <p class="hx-head__facts">{facts.map((fact) => <span>{fact}</span>)}</p>
+        </header>
+
+        {outline.length > 1 && (
+          <details class="hx-outline hx-outline--inline">
+            <summary>On this page <span>{outline.length}</span></summary>
+            <ol>
+              {outline.map((heading) => (
+                <li class={`l${heading.level}`}><a href={`#${heading.id}`} set:html={heading.html} /></li>
+              ))}
+            </ol>
+          </details>
+        )}
+
+        <div class="hx-body" data-hx-body set:html={page.html} />
+
+        {page.notes && (
+          <section class="hx-notes" id="translator-notes" aria-labelledby="notes-title">
+            <h2 id="notes-title">Notes</h2>
+            <Fragment set:html={page.notes} />
+          </section>
+        )}
+
+        <nav class="hx-pager" aria-label="Pages of this book">
+          {previous ? (
+            <a class="hx-pager__link" href={pageHref(slug, previous)} rel="prev">
+              <span class="hx-pager__dir"><span aria-hidden="true">←</span> Previous</span>
+              <span class="hx-pager__title">{pageName(book, previous).title}</span>
+              {pageName(book, previous).context && <span class="hx-pager__sub">{pageName(book, previous).context}</span>}
+            </a>
+          ) : (
+            <a class="hx-pager__link" href={bookHref(slug)}>
+              <span class="hx-pager__dir"><span aria-hidden="true">←</span> Title page</span>
+              <span class="hx-pager__title">{book.title}</span>
+            </a>
+          )}
+          {next ? (
+            <a class="hx-pager__link hx-pager__link--next" href={pageHref(slug, next)} rel="next">
+              <span class="hx-pager__dir">Next <span aria-hidden="true">→</span></span>
+              <span class="hx-pager__title">{pageName(book, next).title}</span>
+              {pageName(book, next).context && <span class="hx-pager__sub">{pageName(book, next).context}</span>}
+            </a>
+          ) : (
+            <a class="hx-pager__link hx-pager__link--next" href={historyHome}>
+              <span class="hx-pager__dir">End of the book <span aria-hidden="true">→</span></span>
+              <span class="hx-pager__title">Choose another history</span>
+            </a>
+          )}
+        </nav>
+      </article>
+
+      {outline.length > 1 && (
+        <aside class="hx-outline hx-outline--rail" aria-label="On this page">
+          <p class="hx-outline__title">On this page</p>
+          <ol data-hx-outline>
+            {outline.map((heading) => (
+              <li class={`l${heading.level}`}><a href={`#${heading.id}`} set:html={heading.html} /></li>
+            ))}
+          </ol>
+        </aside>
+      )}
+    </div>
+
+    {noteCount > 0 && (
+      <aside class="hx-panel" id="notes-panel" aria-label="Translation notes" data-hx-panel>
+        <div class="hx-panel__head">
+          <p>Translation notes</p>
+          <div class="hx-panel__tabs" role="tablist">
+            <button type="button" role="tab" data-mode="here" aria-selected="true">Where you are</button>
+            <button type="button" role="tab" data-mode="all" aria-selected="false">This page</button>
+          </div>
+          <button class="hx-panel__close" type="button" aria-label="Close the notes" data-hx-notes-close></button>
+        </div>
+        <div class="hx-panel__list">
+          <Fragment set:html={page.translationNotes} />
+          <p class="hx-panel__empty" data-hx-panel-empty hidden>No notes for this part of the page.</p>
+        </div>
+      </aside>
+    )}
+    <div class="hx-pop" id="pop" role="dialog" aria-label="Note" hidden></div>
+    <div class="hx-scrim" data-hx-scrim></div>
+  </div>
+</BaseLayout>
+
+<script>
+  import '../../../../lib/history-reader.js';
+</script>

@@ -5,6 +5,7 @@ import { centuryHeading, centuryOf, chronologicalCollections, COMPILER_DATES, co
 import { narrationCount, unitSummary } from '../../lib/collection-units';
 import { LIBRARY_COLLECTIONS } from '../../lib/hadith-library';
 import { compilerFor, SIX_BOOKS } from '../../lib/hadith-compilers';
+import { coverFor, medallionFor, HADITH_PAGE_ART } from '../../lib/hadith-art';
 import '../../styles/hadith-library.css';
 import '../../styles/home.css';
 import '../../styles/home-hero.css';
@@ -13,121 +14,9 @@ import '../../styles/hadith-hero.css';
 /**
  * Hadith library: a hero, then the collections grouped by the century of the
  * compiler's death. Prerendered. Every collection is a local edition built
- * from src/data/hadith-pages/, listed by src/lib/hadith-library.ts.
+ * from src/data/hadith/pages/, listed by src/lib/hadith-library.ts.
  */
 
-// Editions with their own card art; the other reader editions share the library-room image.
-const ownArt = new Set(['al-shama-il-al-muhammadiyah', 'birr-al-walidayn', 'musnad-khalifa-ibn-khayyat', 'musnad-sad-ibn-abi-waqqas']);
-const collectionBannerOverrides: Record<string, { src: string; position: string }> = {
-  'al-athar-abu-yusuf': {
-    src: '/images/hadith/compilations/al-athar-abu-yusuf-banner.webp',
-    position: '72% 50%'
-  },
-  'jami-mamar-ibn-rashid': {
-    src: '/images/hadith/compilations/jami-mamar-ibn-rashid-banner.webp',
-    position: '72% 50%'
-  },
-  'al-jami-ibn-wahb': {
-    src: '/images/hadith/compilations/al-jami-ibn-wahb-banner.webp',
-    position: '72% 50%'
-  },
-  'al-athar-al-shaybani': {
-    src: '/images/hadith/compilations/al-athar-al-shaybani-banner.webp',
-    position: '72% 50%'
-  },
-  'sahifat-hammam-ibn-munabbih': {
-    src: '/images/hadith/compilations/sahifat-hammam-ibn-munabbih-banner.png',
-    position: '70% 50%'
-  },
-  'musnad-abu-hanifa': {
-    src: '/images/hadith/compilations/musnad-abu-hanifa-banner.png',
-    position: '70% 50%'
-  },
-  'fada-il-makka': {
-    src: '/images/hadith/compilations/fada-il-makka-banner.png',
-    position: '72% 50%'
-  },
-  'musnad-abd-allah-ibn-al-mubarak': {
-    src: '/images/hadith/compilations/musnad-abd-allah-ibn-al-mubarak-banner.png',
-    position: '70% 50%'
-  },
-  'birr-al-walidayn': {
-    src: '/images/hadith/compilations/birr-al-walidayn-banner.png',
-    position: '70% 42%'
-  },
-  'musnad-khalifa-ibn-khayyat': {
-    src: '/images/hadith/compilations/musnad-khalifa-ibn-khayyat-banner.png',
-    position: '75% 44%'
-  },
-  'kitab-al-qadar-ibn-wahb': {
-    src: '/images/hadith/compilations/kitab-al-qadar-ibn-wahb-banner.webp',
-    position: '72% 50%'
-  },
-  'al-dua-ibn-fudayl': {
-    src: '/images/hadith/compilations/al-dua-ibn-fudayl-banner.webp',
-    position: '72% 50%'
-  },
-  'mashyakhat-ibn-tahman': {
-    src: '/images/hadith/compilations/mashyakhat-ibn-tahman-banner.webp',
-    position: '72% 50%'
-  },
-  'hadith-sufyan-al-thawri': {
-    src: '/images/hadith/compilations/hadith-sufyan-al-thawri-banner.webp',
-    position: '72% 50%'
-  },
-  'ahadith-al-sari-an-al-thawri': {
-    src: '/images/hadith/compilations/ahadith-al-sari-an-al-thawri-banner.webp',
-    position: '72% 50%'
-  },
-  'muwatta-ibn-wahb-muharaba': {
-    src: '/images/hadith/compilations/muwatta-ibn-wahb-muharaba-banner.webp',
-    position: '72% 50%'
-  },
-  'muwatta-ibn-wahb-qada-buyu': {
-    src: '/images/hadith/compilations/muwatta-ibn-wahb-qada-buyu-banner.webp',
-    position: '72% 50%'
-  },
-  'ahadith-muntakhaba-maghazi-musa-ibn-uqba': {
-    src: '/images/hadith/compilations/ahadith-muntakhaba-maghazi-musa-ibn-uqba-banner.webp',
-    position: '72% 50%'
-  },
-  'nuskhat-waki-an-al-amash': {
-    src: '/images/hadith/compilations/nuskhat-waki-an-al-amash-banner.webp',
-    position: '72% 50%'
-  },
-  'juz-sufyan-ibn-uyayna': {
-    src: '/images/hadith/compilations/juz-sufyan-ibn-uyayna-banner.webp',
-    position: '72% 50%'
-  },
-  'hadith-mujaa-ibn-al-zubayr': {
-    src: '/images/hadith/compilations/hadith-mujaa-ibn-al-zubayr-banner.webp',
-    position: '72% 50%'
-  },
-  'kitab-al-hajj-al-majishun': {
-    src: '/images/hadith/compilations/kitab-al-hajj-al-majishun-banner.webp',
-    position: '72% 50%'
-  },
-  'nuskhat-al-zubayr-ibn-adi': {
-    src: '/images/hadith/compilations/nuskhat-al-zubayr-ibn-adi-banner.webp',
-    position: '72% 50%'
-  },
-  'ahadith-yazid-ibn-abi-habib': {
-    src: '/images/hadith/compilations/ahadith-yazid-ibn-abi-habib-banner.webp',
-    position: '72% 50%'
-  },
-  'nuskhat-ibrahim-ibn-sad': {
-    src: '/images/hadith/compilations/nuskhat-ibrahim-ibn-sad-banner.webp',
-    position: '72% 50%'
-  },
-  'ashara-ahadith-al-layth-ibn-sad': {
-    src: '/images/hadith/compilations/ashara-ahadith-al-layth-ibn-sad-banner.webp',
-    position: '72% 50%'
-  },
-  'majlis-fawaid-al-layth-ibn-sad': {
-    src: '/images/hadith/compilations/majlis-fawaid-al-layth-ibn-sad-banner.webp',
-    position: '72% 50%'
-  }
-};
 const books = chronologicalCollections(LIBRARY_COLLECTIONS);
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -164,7 +53,7 @@ const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
   <div class="hl corpus-page">
     <div class="home hl-heroframe">
     <section class="home-hero hl-landing" aria-labelledby="corpus-title">
-      <img class="home-hero__art" src="/images/hadith/hero-manuscript.webp" srcset="/images/hadith/hero-manuscript-768.webp 768w, /images/hadith/hero-manuscript.webp 1536w" sizes="100vw" width="1536" height="1024" alt="" fetchpriority="high" />
+      <img class="home-hero__art" src={HADITH_PAGE_ART.hero} srcset={`${HADITH_PAGE_ART.heroSmall} 768w, ${HADITH_PAGE_ART.hero} 1536w`} sizes="100vw" width="1536" height="1024" alt="" fetchpriority="high" />
       <div class="hc-container home-hero__copy">
         <p class="home-kicker home-kicker--light">HadithCritic · Hadith corpus</p>
         <h1 id="corpus-title" class="home-hero__title">Read the tradition <em>from its sources.</em></h1>
@@ -207,14 +96,14 @@ const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
                 const compiler = compilerFor(dateKey(b.slug));
                 const canon = SIX_BOOKS.indexOf(b.slug as typeof SIX_BOOKS[number]);
                 const year = COMPILER_DATES[dateKey(b.slug)];
-                const banner = collectionBannerOverrides[b.slug];
-                const art = banner?.src ?? (ownArt.has(b.slug) ? `/images/hadith/compilations/${b.slug}.webp` : '/images/hadith/library-room.webp');
+                const cover = coverFor(b.slug);
+                const medallion = medallionFor(compiler);
                 return (
                   <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i}>
                     <a class:list={['hl-card', 'catalog-row__link']} href={`/hadith/collection/${b.slug}/`} data-region={compiler?.region} data-canon={canon >= 0 ? `The Six Books · ${ROMAN[canon]}` : undefined}>
-                      <span class="hl-card__art" style={`--collection-art: url('${art}'); --collection-art-position: ${banner?.position ?? '55% 50%'}`} aria-hidden="true"></span>
-                      {compiler?.medallion
-                        ? <span class="hl-card__portrait"><img src={`/images/hadith/medallions/${compiler.medallion}-medallion.webp`} width="224" height="224" loading="lazy" decoding="async" alt={`Engraved medallion for ${compiler.name}; not a likeness`} /></span>
+                      <span class="hl-card__art" style={`--collection-art: url('${cover.src}'); --collection-art-position: ${cover.position}`} aria-hidden="true"></span>
+                      {compiler && medallion
+                        ? <span class="hl-card__portrait"><img src={medallion} width="224" height="224" loading="lazy" decoding="async" alt={`Engraved medallion for ${compiler.name}; not a likeness`} /></span>
                         : <span class="hl-card__portrait hl-card__portrait--empty" aria-hidden="true">{b.slug === 'musnad-sad-ibn-abi-waqqas' ? 'س' : '◇'}</span>}
                       <span class="hl-card__content">
                         <span class="hl-card__kicker">{year ? `d. ${year} AH` : 'Companion collection'}{compiler && ` · ${compiler.origin}`}</span>

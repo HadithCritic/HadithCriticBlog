@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { historySources, openReaders } from '../src/data/history';
+import { historySources, openReaders } from '../src/data/history/history';
 
 const route = '/projects/history/';
 const titles = historySources.map(source => source.title);
@@ -34,7 +34,7 @@ test('the archive identifies its sources and links each open reader', async ({ p
   await expect(page.locator('#al-tabari .history-source__foot')).toContainText('Not open yet');
 });
 
-test('every open history reader sits in the site layout with a working contents list', async ({ page }) => {
+test('every open history has a title page with its contents and opens on a reading page', async ({ page }) => {
   for (const reader of readers) {
     const foreign: string[] = [];
     const failed: string[] = [];
@@ -47,9 +47,16 @@ test('every open history reader sits in the site layout with a working contents 
     await expect(page.locator('.site-header .header-brand')).toBeVisible();
     await expect(page.locator('main')).toHaveCount(1);
     await expect(page.locator('#main-content h1')).toHaveCount(1);
+    expect(await page.locator('.hx-contents [data-hx-row]').count()).toBeGreaterThan(0);
+    await expect(page.locator('.hx-more a[href="/projects/history/"]')).toHaveCount(1);
+    await page.locator('[data-hx-begin]').click();
+    await expect(page).toHaveURL(new RegExp(`^.*${reader.href}[^/]+/$`));
+    await expect(page.locator('#main-content h1')).toHaveCount(1);
     await expect(page.locator('.side')).toHaveClass(/is-enhanced/);
     await expect(page.locator('.side-foot a')).toHaveAttribute('href', '/projects/history/');
-    await expect(page.locator('.bk-end a[href="/projects/history/"]')).toHaveCount(1);
+    await expect(page.locator('.side [aria-current="page"]')).toHaveCount(1);
+    await expect(page.locator('.hx-pager a')).toHaveCount(2);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(foreign, reader.href).toEqual([]);
     expect(failed, reader.href).toEqual([]);
     page.off('request', onRequest);
@@ -57,9 +64,10 @@ test('every open history reader sits in the site layout with a working contents 
   }
 });
 
-test('a reader keeps its contents drawer below the site header on a phone', async ({ page }) => {
+test('a reading page keeps its contents drawer below the site header on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(readers[0].href);
+  await page.locator('[data-hx-begin]').click();
   await page.locator('#navbtn').click();
   const side = page.locator('.side');
   await expect(side.locator('.side-close')).toBeVisible();
@@ -68,6 +76,18 @@ test('a reader keeps its contents drawer below the site header on a phone', asyn
   expect(box!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
   expect(box!.y + box!.height).toBeLessThanOrEqual(813);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('a chronicle opens on the year asked for, and a link from the one-page edition still lands', async ({ page }) => {
+  await page.goto('/projects/history/khalifa/');
+  await page.locator('#hx-jump-year').fill('64');
+  await page.locator('[data-hx-jump="year"] button').click();
+  await expect(page).toHaveURL(/\/khalifa\/chapter-8-3\/#year-64-8$/);
+  await expect(page.locator('#year-64-8')).toBeInViewport();
+  await page.goto('/projects/history/khalifa/#topic-7');
+  await expect(page).toHaveURL(/\/khalifa\/chapter-3\/#topic-7$/);
+  await page.goto('/projects/history/futuh-al-buldan/#report-500');
+  await expect(page).toHaveURL(/\/futuh-al-buldan\/chapter-40\/#report-500$/);
 });
 
 test('each record retains its source identity and description without JavaScript', async ({ browser }) => {

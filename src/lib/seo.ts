@@ -51,7 +51,7 @@ const abs = (path: string) => withTrailingSlash(new URL(path, SITE.url).href);
 /**
  * Social preview cards.
  *
- * Generated at build time by scripts/build-og-images.mjs and committed under
+ * Generated at build time by scripts/og/build-og-images.mjs and committed under
  * public/og as 1200x630 JPEGs. Each section has its own card built from the
  * page's engraving and signature instrument, so a pasted link says which part
  * of the site it is before anyone reads it. Articles keep their own

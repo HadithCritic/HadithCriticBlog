@@ -1,14 +1,61 @@
 ---
-import { deathDate, readerFor, roundedWords, type HistorySource } from '../../data/history';
+/* One work in the history library: its author's death date at the left as the
+   library's chronology, the record in the middle, its painting at the right. */
+import { deathDate, type HistorySource } from '../../data/history/history';
+import type { BookFacts } from '../../lib/history-library';
+import { bookHref, count } from '../../lib/history-library';
 
-interface Props { source: HistorySource; index: number; }
-const { source, index } = Astro.props;
+interface Props { source: HistorySource; facts: BookFacts | null; }
+const { source, facts } = Astro.props;
 const titleId = `${source.id}-title`;
-const reader = readerFor(source);
-const numeral = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][index] ?? String(index + 1);
+const href = source.reader ? bookHref(source.reader.slug) : null;
+
+/* "The Book of Apostasy (Kitāb al-Ridda)" is set as a title and its Arabic
+   name; the two halves still read as the one recorded title. */
+const split = source.title.match(/^(.*?) (\(.*\))$/);
+const english = split ? split[1] : source.title;
+const original = split ? split[2] : null;
 ---
 
 <article class="history-source" id={source.id} aria-labelledby={titleId} data-history-source>
+  <p class="history-source__date" aria-label={deathDate(source)}>
+    <span class="history-source__ah">{source.died.circa ? 'c. ' : ''}{source.died.ah}</span>
+    <span class="history-source__era">AH</span>
+    <span class="history-source__ce">{source.died.ce} CE</span>
+  </p>
+
+  <div class="history-source__copy">
+    <p class="history-source__form">{source.form}</p>
+    <h3 id={titleId}>
+      {href
+        ? <a href={href}><span>{english}</span>{original && <Fragment>{' '}<span class="history-source__original">{original}</span></Fragment>}</a>
+        : <Fragment><span>{english}</span>{original && <Fragment>{' '}<span class="history-source__original">{original}</span></Fragment>}</Fragment>}
+    </h3>
+    <p class="history-source__arabic" lang="ar" dir="rtl">{source.arabic}</p>
+    <p class="history-source__author">{source.author}</p>
+    <p class="history-source__description">{source.description}</p>
+    {href && facts ? (
+      <div class="history-source__foot">
+        <ul class="history-source__facts">
+          <li>{source.arrangement}</li>
+          <li>{count(facts.chapters, 'chapter')} · {facts.time}</li>
+        </ul>
+        <p class="history-source__actions">
+          <a class="hx-btn hx-btn--solid" href={href}>Read the book <span aria-hidden="true">→</span></a>
+          <a class="hx-btn hx-btn--quiet" data-hx-resume-book={source.reader?.slug} hidden>Continue reading</a>
+        </p>
+      </div>
+    ) : (
+      <div class="history-source__foot is-soon">
+        <ul class="history-source__facts">
+          <li>{source.arrangement}</li>
+          <li>The English translation is still in progress.</li>
+        </ul>
+        <p class="history-source__actions"><span class="history-source__soon">Not open yet</span></p>
+      </div>
+    )}
+  </div>
+
   <figure class="history-source__figure">
     <a
       href={`${source.imageBase}-1600.webp`}
@@ -19,40 +66,13 @@ const numeral = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][in
       aria-label={`Enlarge the illustration for ${source.title}`}
     >
       <img
-        src={`${source.imageBase}-1600.webp`}
+        src={`${source.imageBase}-800.webp`}
         srcset={`${source.imageBase}-800.webp 800w, ${source.imageBase}-1600.webp 1600w`}
-        sizes="(min-width: 1280px) 600px, (min-width: 1100px) 47vw, calc(100vw - 48px)"
+        sizes="(min-width: 1100px) 400px, (min-width: 760px) 34vw, calc(100vw - 2.5rem)"
         width="1600" height="900" alt={source.imageAlt}
         loading="lazy" decoding="async"
       />
-      <span class="history-source__zoom" aria-hidden="true"><span></span>Enlarge</span>
     </a>
-    <figcaption>
-      <span>{source.imageCaption}</span>
-      <span>Interpretive painting</span>
-    </figcaption>
+    <figcaption>{source.imageCaption}</figcaption>
   </figure>
-
-  <div class="history-source__copy">
-    <header class="history-source__head">
-      <p class="history-source__numeral" aria-hidden="true">{numeral}</p>
-      <div>
-        <p class="history-source__author">{source.author}<span>{deathDate(source)}</span><span>{source.form}</span></p>
-        <h3 id={titleId}>{reader ? <a href={reader.href}>{source.title}</a> : source.title}</h3>
-        <p class="history-source__arabic" lang="ar" dir="rtl">{source.arabic}</p>
-      </div>
-    </header>
-    <p class="history-source__description">{source.description}</p>
-    {reader ? (
-      <p class="history-source__foot">
-        <span>{roundedWords(reader.words)} · {reader.entries.toLocaleString("en-US")} sections</span>
-        <a class="hc-btn" href={reader.href}>Read the book <span aria-hidden="true">→</span></a>
-      </p>
-    ) : (
-      <p class="history-source__foot is-soon">
-        <span>The English translation is still in progress.</span>
-        <span class="history-source__soon">Not open yet</span>
-      </p>
-    )}
-  </div>
 </article>

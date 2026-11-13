@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-const graph = JSON.parse(readFileSync(new URL('../src/data/research-graph.json', import.meta.url), 'utf8'));
+const graph = JSON.parse(readFileSync(new URL('../src/data/research/research-graph.json', import.meta.url), 'utf8'));
 const busy = graph.works.find((work: { id: string }) => work.id === 'schacht-1950-origins-muhammadan-jurisprudence');
 const incoming = graph.edges.filter((edge: { type: string; to: string }) => edge.type === 'cites' && edge.to === busy.id);
 

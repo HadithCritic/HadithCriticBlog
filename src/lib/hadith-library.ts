@@ -1,10 +1,10 @@
-import editionList from '../data/reader-editions.json';
+import editionList from '../data/hadith/reader-editions.json';
 import { narrationCount } from './collection-units';
 
 /**
  * The collections in the /hadith library. Every one is a local edition whose
- * pages are built from the HTML in src/data/hadith-pages/. Titles come from
- * src/data/reader-editions.json (al-Shamāʾil is listed here, since the edition
+ * pages are built from the HTML in src/data/hadith/pages/. Titles come from
+ * src/data/hadith/reader-editions.json (al-Shamāʾil is listed here, since the edition
  * scripts that read that file do not cover it) and counts from each
  * collection's chapter index.
  */

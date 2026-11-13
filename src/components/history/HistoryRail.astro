@@ -1,0 +1,71 @@
+---
+/* The book's contents beside a reading page: every chapter, with the pages of
+   the chapter being read opened under it. On a narrow screen it is a drawer. */
+import type { HistoryBook, HistoryPage } from '../../lib/history-book';
+import { bookHref, chapterHref, historyHome, pageHref } from '../../lib/history-library';
+import { foldText } from '../../lib/history-text';
+
+interface Props { book: HistoryBook; page: HistoryPage; }
+const { book, page } = Astro.props;
+
+const annals = book.layout === 'annals';
+const lead = (index: number): string => {
+  const chapter = book.chapters[index];
+  if (annals) return chapter.years ? String(chapter.years[0]) : '';
+  return chapter.number ?? '';
+};
+const hasLead = book.chapters.some((_, index) => lead(index));
+const pagesOf = (index: number) => [...new Set(book.chapters[index].pages)].map((item) => book.pages[item]);
+---
+
+<aside class="hx-rail side" id="hx-rail" aria-label="Contents" data-hx-rail>
+  <div class="hx-rail__head">
+    <a class="hx-rail__book" href={bookHref(book.slug)}>
+      <span lang="ar" dir="rtl">{book.arabic}</span>
+      <strong>{book.title}</strong>
+    </a>
+    <button class="hx-rail__close side-close" type="button" aria-label="Close the contents" data-hx-nav-close></button>
+  </div>
+  <label class="hx-rail__find">
+    <span class="hx-sr">Find in the contents</span>
+    <input type="search" placeholder="Find a chapter" autocomplete="off" spellcheck="false" data-hx-filter />
+  </label>
+  <nav class="hx-rail__scroll" aria-label="Chapters" data-hx-contents>
+    {book.parts.map((part) => (
+      <div class="hx-rail__part" data-hx-group>
+        {(part.title || part.label) && <p class="hx-rail__label">{part.title ?? part.label}</p>}
+        <ol class:list={[hasLead && 'has-lead']}>
+          {part.chapters.map((index) => {
+            const chapter = book.chapters[index];
+            const here = page.chapters.includes(index);
+            const pages = here ? pagesOf(index) : [];
+            return (
+              <li class:list={[here && 'is-here']} data-hx-row data-search={foldText(chapter.title)}>
+                <a href={chapterHref(book, chapter)} aria-current={index === page.chapter && pages.length < 2 ? 'page' : undefined}>
+                  {hasLead && <span class="hx-rail__n">{lead(index)}</span>}
+                  <span set:html={chapter.titleHtml} />
+                </a>
+                {pages.length > 1 && (
+                  <ol class="hx-rail__pages">
+                    {pages.map((item, order) => (
+                      <li>
+                        <a href={pageHref(book.slug, item)} aria-current={item.slug === page.slug ? 'page' : undefined}>
+                          {item.label === chapter.title ? 'Opening' : /^Part \d+$/.test(item.label) ? `Page ${order + 1}` : item.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    ))}
+    <p class="hx-rail__empty" data-hx-empty hidden>Nothing in the contents matches.</p>
+  </nav>
+  <div class="hx-rail__foot side-foot">
+    <a href={historyHome}>All histories</a>
+    <span>Page {book.pages.indexOf(page) + 1} of {book.pages.length}</span>
+  </div>
+</aside>

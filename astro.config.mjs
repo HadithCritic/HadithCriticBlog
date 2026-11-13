@@ -7,8 +7,8 @@ import cloudflare from '@astrojs/cloudflare';
 import { unified } from '@astrojs/markdown-remark';
 import remarkGfm from 'remark-gfm';
 import { rehypeTableWrap } from './src/lib/rehype-table-wrap.mjs';
-import { devSitemapServer } from './scripts/lib/dev-sitemap-server.mjs';
-import { slashRedirects } from './scripts/lib/slash-redirects.mjs';
+import { devSitemapServer } from './scripts/site/lib/dev-sitemap-server.mjs';
+import { slashRedirects } from './scripts/site/lib/slash-redirects.mjs';
 
 const useRemoteBindings = process.env.CF_REMOTE_BINDINGS === 'true';
 

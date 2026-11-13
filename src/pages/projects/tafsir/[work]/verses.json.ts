@@ -2,7 +2,7 @@
    switcher loads them when the reader picks another surah. One static file per
    work: { "2": { "r": [[1, 5], [7, 7]], "g": true } }. */
 import type { APIRoute } from 'astro';
-import { libraryWorks } from '../../../../data/tafsir-library';
+import { libraryWorks } from '../../../../data/tafsir/tafsir-library';
 import { verseIndex } from '../../../../lib/tafsir-verse-index';
 
 export function getStaticPaths(): { params: { work: string } }[] {

@@ -3,8 +3,8 @@
    (src/components/tafsir/VerseSwitcher.astro) and the JSON it loads when the
    reader picks another surah (src/pages/projects/tafsir/[work]/verses.json.ts).
    Build-time only. */
-import { pageCount, works } from '../data/tafsir';
-import { editions } from '../data/tafsir-editions';
+import { pageCount, works } from '../data/tafsir/tafsir';
+import { editions } from '../data/tafsir/tafsir-editions';
 import { loadEditionSurah } from './tafsir-edition-html';
 
 /** Inclusive runs of verse numbers: [[1, 5], [7, 7]]. */

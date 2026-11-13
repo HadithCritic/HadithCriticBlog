@@ -8,7 +8,7 @@
  */
 interface IndexEntry { n: number; count: number; noun?: string; unit?: string }
 
-const indexes = import.meta.glob<IndexEntry[]>('../data/hadith-pages/*/chapter-index.json', { eager: true, import: 'default' });
+const indexes = import.meta.glob<IndexEntry[]>('../data/hadith/pages/*/chapter-index.json', { eager: true, import: 'default' });
 const bySlug = new Map(Object.entries(indexes).map(([file, entries]) => [file.split('/').at(-2) as string, entries]));
 
 // Editions that were built before the index carried a noun.
@@ -19,8 +19,10 @@ const LEGACY_NOUNS: Record<string, string> = {
 };
 // The Birr index also lists the opening isnad as an entry; the published narration count excludes it.
 const NARRATION_COUNTS: Record<string, number> = { 'birr-al-walidayn': 78 };
-// Editions without a chapter index state their divisions in their own reader.
-const FIXED_UNITS: Record<string, { count: number; noun: string }> = { 'fada-il-makka': { count: 7, noun: 'Section' } };
+// A redesigned single-page reader has no chapter index; its importer records its extent beside it.
+interface ReaderMeta { count: number; units: { count: number; noun: string } }
+const readers = import.meta.glob<ReaderMeta>('../data/hadith/pages/*/reader-meta.json', { eager: true, import: 'default' });
+const readerBySlug = new Map(Object.entries(readers).map(([file, meta]) => [file.split('/').at(-2) as string, meta]));
 
 const plural = (count: number, noun: string) => `${count.toLocaleString('en-US')} ${count === 1 ? noun : `${noun}s`}`;
 
@@ -29,8 +31,8 @@ export interface UnitSummary { count: number; noun: string; label: string }
 export function unitSummary(slug: string): UnitSummary | null {
   const entries = bySlug.get(slug);
   if (!entries) {
-    const fixed = FIXED_UNITS[slug];
-    return fixed ? { count: fixed.count, noun: fixed.noun.toLowerCase(), label: plural(fixed.count, fixed.noun.toLowerCase()) } : null;
+    const fixed = readerBySlug.get(slug)?.units;
+    return fixed ? { count: fixed.count, noun: fixed.noun, label: fixed.count === 1 ? 'Undivided text' : plural(fixed.count, fixed.noun) } : null;
   }
   const reading = entries.filter(entry => entry.unit !== 'sections');
   const noun = (reading[0]?.noun ?? LEGACY_NOUNS[slug] ?? 'Chapter').toLowerCase();
@@ -41,7 +43,7 @@ export function unitSummary(slug: string): UnitSummary | null {
 export function narrationCount(slug: string): number | null {
   if (NARRATION_COUNTS[slug]) return NARRATION_COUNTS[slug];
   const entries = bySlug.get(slug);
-  return entries ? entries.filter(entry => entry.unit !== 'sections').reduce((sum, entry) => sum + entry.count, 0) : null;
+  return entries ? entries.filter(entry => entry.unit !== 'sections').reduce((sum, entry) => sum + entry.count, 0) : readerBySlug.get(slug)?.count ?? null;
 }
 
 /** One title and description pattern for every reader collection page. */

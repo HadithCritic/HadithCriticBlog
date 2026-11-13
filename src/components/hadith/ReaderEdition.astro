@@ -1,0 +1,41 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { OG } from '../../lib/seo';
+
+/**
+ * A collection whose whole page is one redesigned reader: hero, index, text and notes in a single document.
+ * The reader lives in src/data/hadith/pages/<slug>/reader.html, written by
+ * scripts/hadith/import-reader-renovations.mjs, and is served under the site's own header and footer.
+ */
+interface Props { slug: string }
+const { slug } = Astro.props;
+const root = path.resolve(process.cwd(), 'src/data/hadith/pages', slug);
+const reader = fs.readFileSync(path.join(root, 'reader.html'), 'utf8');
+const meta: { title: string; description: string } = JSON.parse(fs.readFileSync(path.join(root, 'reader-meta.json'), 'utf8'));
+---
+
+<BaseLayout
+  title={`${meta.title} | HadithCritic`}
+  description={meta.description}
+  image={OG.collection(slug)}
+  imageAlt={`${meta.title} | HadithCritic`}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Corpus', url: '/hadith/' },
+    { name: meta.title, url: `/hadith/collection/${slug}/` },
+  ]}
+>
+  <link slot="head" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap" />
+  <Fragment set:html={reader} />
+</BaseLayout>
+
+<style is:global>
+  /* The readers were drawn for a page with no bar above them. Under the site's sticky header their own
+     sticky rails and toolbars start below it. */
+  #main-content .sf-shell .sf-rail { top: calc(var(--hc-header-h, 80px) + 14px); }
+  #main-content .fm-reader .rail { top: calc(var(--hc-header-h, 80px) + 22px); max-height: calc(100vh - var(--hc-header-h, 80px) - 40px); }
+  #main-content .fm-reader .tools { top: var(--hc-header-h, 80px); }
+  #main-content .sf-shell [id], #main-content .fm-reader [id] { scroll-margin-top: calc(var(--hc-header-h, 80px) + 16px); }
+</style>

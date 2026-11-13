@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { chronologicalCollections, COMPILER_DATES } from '../collection-catalogue.ts';
 
-const editions = JSON.parse(readFileSync(new URL('../../data/reader-editions.json', import.meta.url), 'utf8'));
+const editions = JSON.parse(readFileSync(new URL('../../data/hadith/reader-editions.json', import.meta.url), 'utf8'));
 const library = [{ slug: 'al-shama-il-al-muhammadiyah' }, ...editions].map((edition, index) => ({ id: index + 1, slug: edition.slug }));
 // Birr al-Walidayn is dated by al-Bukhari's death, as on the /hadith cards.
 const dateOf = (slug) => COMPILER_DATES[slug === 'birr-al-walidayn' ? 'sahih-al-bukhari' : slug];

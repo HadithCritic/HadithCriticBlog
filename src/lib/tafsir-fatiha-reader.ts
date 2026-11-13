@@ -1,5 +1,5 @@
 /* Controls for the hand-authored al-Ṭabarī reader pages
-   (src/data/tafsir-pages/tabari/<surah>/<verse>.html). One script for every
+   (src/data/tafsir/pages/tabari/<surah>/<verse>.html). One script for every
    verse, so the pages behave alike: text size, citation
    highlights, the editor's notes, the verse copy button and the section menu.
    Without script the page still reads in full; the notes list simply shows

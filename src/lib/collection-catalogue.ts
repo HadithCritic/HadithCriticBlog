@@ -9,6 +9,7 @@ export const COMPILER_DATES: Record<string, number> = {
   'al-athar-abu-yusuf': 182,
   'al-athar-al-shaybani': 189,
   'al-jami-ibn-wahb': 197,
+  'muwatta-ibn-wahb': 197,
   'musnad-abd-allah-ibn-al-mubarak': 181,
   'muwatta-malik': 179,
   'musnad-al-tayalisi': 204,
@@ -16,6 +17,7 @@ export const COMPILER_DATES: Record<string, number> = {
   'musnad-al-humaydi': 219,
   'sunan-sa-id-ibn-mansur': 227,
   'musannaf-ibn-abi-shaybah': 235,
+  'musnad-ibn-abi-shayba': 235,
   'musnad-ahmad': 241,
   'musnad-abd-ibn-humayd': 249,
   'musnad-al-darimi': 255,
@@ -36,6 +38,12 @@ export const COMPILER_DATES: Record<string, number> = {
   'muwatta-ibn-wahb-qada-buyu': 197,
   'nuskhat-waki-an-al-amash': 197,
   'juz-sufyan-ibn-uyayna': 198,
+  'kitab-al-kharaj-yahya-ibn-adam': 203,
+  'hadith-muhammad-ibn-abd-allah-al-ansari': 215,
+  'kitab-al-salah-abu-nuaym': 219,
+  'hadith-abi-al-yaman': 222,
+  'kitab-al-iman-al-adani': 243,
+  'qiraat-al-nabi-al-duri': 246,
   'musnad-sad-ibn-abi-waqqas': 246,
   'sahih-al-bukhari': 256,
   'birr-al-walidayn': 256,
@@ -45,6 +53,9 @@ export const COMPILER_DATES: Record<string, number> = {
   'sunan-abi-dawud': 275,
   'al-marasil-li-abi-dawud': 275,
   'al-marasil-abi-dawud': 275,
+  'kitab-al-fitan-hanbal-ibn-ishaq': 273,
+  'sunan-al-athram': 273,
+  'kitab-al-zuhd-abu-hatim-al-razi': 277,
   'jami-al-tirmidhi': 279,
   'al-shama-il-al-muhammadiyah': 279,
   'musnad-al-bazzar': 292,
@@ -61,6 +72,7 @@ export const COMPILER_DATES: Record<string, number> = {
   'al-mu-jam-al-awsat': 360,
   'al-mu-jam-al-saghir': 360,
   'sunan-al-daraqutni': 385,
+  'musnad-ibrahim-ibn-adham': 395,
   'al-mustadrak-ala-al-sahihayn': 405,
   'sunan-al-bayhaqi-al-kubra': 458,
   'al-ahadith-al-mukhtarah': 643,
@@ -68,13 +80,14 @@ export const COMPILER_DATES: Record<string, number> = {
 };
 
 export function collectionType(slug: string): string {
+  if (slug === 'muwatta-ibn-wahb') return 'Muwaṭṭaʾ';
   if (slug === 'al-ahadith-al-mukhtarah' || slug === 'al-mustadrak-ala-al-sahihayn') return 'Sahih';
   if (slug === 'muwatta-malik' || slug === 'al-muntaqa' || slug === 'al-muntaqa-ibn-al-jarud') return 'Sunan';
   if (slug === 'jami-mamar-ibn-rashid' || slug === 'al-jami-ibn-wahb') return 'Jāmiʿ';
   if (slug.startsWith('muwatta-ibn-wahb-')) return 'Muwaṭṭaʾ';
-  if (['al-dua-ibn-fudayl', 'kitab-al-qadar-ibn-wahb', 'kitab-al-hajj-al-majishun'].includes(slug)) return 'Kitāb';
+  if (['al-dua-ibn-fudayl', 'kitab-al-qadar-ibn-wahb', 'kitab-al-hajj-al-majishun'].includes(slug) || slug.startsWith('kitab-al-')) return 'Kitāb';
   if (slug === 'mashyakhat-ibn-tahman') return 'Mashyakha';
-  if (['hadith-sufyan-al-thawri', 'ahadith-al-sari-an-al-thawri', 'ahadith-muntakhaba-maghazi-musa-ibn-uqba', 'juz-sufyan-ibn-uyayna', 'hadith-mujaa-ibn-al-zubayr', 'ahadith-yazid-ibn-abi-habib', 'ashara-ahadith-al-layth-ibn-sad', 'majlis-fawaid-al-layth-ibn-sad'].includes(slug)) return 'Juzʾ';
+  if (['hadith-sufyan-al-thawri', 'ahadith-al-sari-an-al-thawri', 'ahadith-muntakhaba-maghazi-musa-ibn-uqba', 'juz-sufyan-ibn-uyayna', 'hadith-mujaa-ibn-al-zubayr', 'ahadith-yazid-ibn-abi-habib', 'ashara-ahadith-al-layth-ibn-sad', 'majlis-fawaid-al-layth-ibn-sad', 'hadith-muhammad-ibn-abd-allah-al-ansari', 'hadith-abi-al-yaman', 'qiraat-al-nabi-al-duri'].includes(slug)) return 'Juzʾ';
   if (slug.startsWith('nuskhat-')) return 'Nuskha';
   if (slug === 'fada-il-makka') return 'Faḍāʾil';
   if (slug === 'sahifat-hammam-ibn-munabbih') return 'Ṣaḥīfa';

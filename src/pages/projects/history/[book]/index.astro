@@ -1,0 +1,153 @@
+---
+/* The title page of one history: what the book is, how its author arranged
+   it, and its contents. The text itself is read a page at a time under
+   [book]/[page].astro; both are cut from the fragment in
+   src/data/history/readers by src/lib/history-book.ts. */
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import HistoryFonts from '../../../../components/history/HistoryFonts.astro';
+import HistoryContents from '../../../../components/history/HistoryContents.astro';
+import { deathDate } from '../../../../data/history/history';
+import { bookFacts, bookHref, count, historyHome, loadBook, openBookSlugs, pageHref, sourceForBook } from '../../../../lib/history-library';
+import '../../../../styles/history.css';
+import '../../../../styles/history-book.css';
+
+export function getStaticPaths() {
+  return openBookSlugs.map((book) => ({ params: { book } }));
+}
+
+const slug = Astro.params.book as string;
+const book = await loadBook(slug);
+const source = sourceForBook(slug);
+const facts = bookFacts(book);
+const first = book.pages[0];
+
+const position = openBookSlugs.indexOf(slug);
+const neighbors = await Promise.all(
+  [openBookSlugs[position - 1], openBookSlugs[position + 1]].map(async (other) => (other ? { book: await loadBook(other), source: sourceForBook(other) } : null)),
+);
+const [earlier, later] = neighbors;
+
+const contentsTitle: Record<typeof book.layout, string> = {
+  annals: 'The years, reign by reign',
+  reports: 'The lands, region by region',
+  roster: 'The lists',
+  entries: 'The entries',
+  narrative: 'The chapters',
+};
+const contentsNote: Record<typeof book.layout, string> = {
+  annals: 'Each reign opens on its own page. The numbers under it are its years; choose one to land on that year.',
+  reports: 'Each chapter is a place or a matter of administration, made of numbered reports.',
+  roster: 'Each heading is one list. Short lists that follow one another share a page.',
+  entries: 'Short entries that follow one another share a page; long ones are divided where the author starts a new subject.',
+  narrative: 'A long chapter is divided at the accounts the author marks inside it, or between paragraphs where he marks none.',
+};
+/* Al-Fasawī's book is annals only at its start; the rest is entries on people. */
+const mixed = book.layout === 'annals' && book.parts.length > 1;
+const tocTitle = mixed ? 'Annals, then entries' : contentsTitle[book.layout];
+const tocNote = mixed
+  ? 'The first volume opens with the annals, year by year. Entries on Companions and later transmitters follow, under the headings the edition gives them.'
+  : contentsNote[book.layout];
+---
+
+<BaseLayout
+  title={`${book.title} | History (Tārīkh) | HadithCritic`}
+  description={source.description}
+  image={`${source.imageBase}-1600.webp`}
+  imageAlt={source.imageAlt}
+  type="article"
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Projects', url: '/projects/' },
+    { name: 'History', url: historyHome },
+    { name: book.title, url: bookHref(slug) },
+  ]}
+>
+  <Fragment slot="head">
+    <HistoryFonts />
+    <link rel="preload" as="image" href={`${source.imageBase}-1600.webp`} fetchpriority="high" />
+  </Fragment>
+
+  <div class="hx hx-book" data-hx-book={slug} data-layout={book.layout}>
+    <header class="hx-title">
+      <div class="hx-wrap hx-title__grid">
+        <div class="hx-title__copy">
+          <nav class="hx-trail" aria-label="Breadcrumb">
+            <a href={historyHome}>History</a>
+            <span aria-hidden="true">/</span>
+            <span>{source.form}</span>
+          </nav>
+          <p class="hx-title__arabic" lang="ar" dir="rtl">{book.arabic}</p>
+          <h1>{book.title}</h1>
+          <p class="hx-title__translit">{book.transliteration}</p>
+          <p class="hx-title__author">{book.author} <span>{deathDate(source)}</span></p>
+          <p class="hx-title__lead">{source.description}</p>
+          <div class="hx-title__actions">
+            <a class="hx-btn hx-btn--solid" href={pageHref(slug, first)} data-hx-begin>Begin reading <span aria-hidden="true">→</span></a>
+            <a class="hx-btn" href="#contents">Contents</a>
+            <a class="hx-btn hx-btn--quiet" data-hx-resume hidden>Continue reading</a>
+          </div>
+        </div>
+        <figure class="hx-title__plate">
+          <img
+            src={`${source.imageBase}-1600.webp`}
+            srcset={`${source.imageBase}-800.webp 800w, ${source.imageBase}-1600.webp 1600w`}
+            sizes="(min-width: 1100px) 560px, calc(100vw - 2.5rem)"
+            width="1600" height="900" alt={source.imageAlt} fetchpriority="high" decoding="async"
+          />
+          <figcaption>{source.imageCaption}. An interpretive painting, not a historical source.</figcaption>
+        </figure>
+      </div>
+    </header>
+
+    <section class="hx-about" aria-labelledby="about-title">
+      <div class="hx-wrap hx-about__grid">
+        <div>
+          <h2 id="about-title" class="hx-h2">About this edition</h2>
+          <div class="hx-about__note" id="edition-note" set:html={book.editionNote} />
+        </div>
+        <dl class="hx-facts">
+          <div><dt>Arrangement</dt><dd>{source.arrangement}</dd></div>
+          <div><dt>Length</dt><dd>{count(facts.chapters, 'chapter')} in {count(facts.pages, 'reading page')}</dd></div>
+          <div><dt>Reading time</dt><dd class="hx-facts__time">{facts.time}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="hx-toc" id="contents" aria-labelledby="contents-title">
+      <div class="hx-wrap">
+        <header class="hx-toc__head">
+          <h2 id="contents-title" class="hx-h2">{tocTitle}</h2>
+          <p>{tocNote}</p>
+        </header>
+        <HistoryContents book={book} />
+      </div>
+    </section>
+
+    <section class="hx-more" aria-labelledby="more-title">
+      <div class="hx-wrap">
+        <h2 id="more-title" class="hx-h2">Other histories</h2>
+        <nav class="hx-more__grid" aria-label="Neighboring books in the library">
+          {earlier && (
+            <a class="hx-more__book" href={bookHref(earlier.book.slug)}>
+              <span class="hx-more__dir">Earlier</span>
+              <span class="hx-more__name">{earlier.book.title}</span>
+              <span class="hx-more__by">{earlier.source.author}, {deathDate(earlier.source)}</span>
+            </a>
+          )}
+          {later && (
+            <a class="hx-more__book" href={bookHref(later.book.slug)}>
+              <span class="hx-more__dir">Later</span>
+              <span class="hx-more__name">{later.book.title}</span>
+              <span class="hx-more__by">{later.source.author}, {deathDate(later.source)}</span>
+            </a>
+          )}
+        </nav>
+        <a class="hx-btn" href={historyHome}>All histories <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import '../../../../lib/history-contents.js';
+</script>

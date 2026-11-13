@@ -2,7 +2,7 @@
    editorial labels (section titles, eyebrows) the reader shows around the
    source text. Labels are derived from block types only, never from the
    commentary's meaning, so nothing here can misstate the text. */
-import type { Block, Run, SectionKind } from '../data/tafsir';
+import type { Block, Run, SectionKind } from '../data/tafsir/tafsir';
 
 const ESCAPES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ESCAPES[c]);

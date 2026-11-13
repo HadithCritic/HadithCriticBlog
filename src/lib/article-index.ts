@@ -1,5 +1,5 @@
 import type { CollectionEntry } from 'astro:content';
-import { blogArtwork, type BlogArtwork } from '../data/blog-artwork';
+import { blogArtwork, type BlogArtwork } from '../data/blog/blog-artwork';
 import { htmlText } from './html-text.mjs';
 
 /**

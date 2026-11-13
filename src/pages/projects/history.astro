@@ -1,88 +1,82 @@
 ---
+/* The history library: the early Arabic histories open to read in English, in
+   order of their authors' deaths. Each work leads to its own title page
+   (history/[book]/index.astro). */
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import HistoryFonts from '../../components/history/HistoryFonts.astro';
 import HistorySourceCard from '../../components/history/HistorySourceCard.astro';
-import { deathDate, historySources, openReaders, roundedWords } from '../../data/history';
-import '../../styles/house.css';
+import { historySources } from '../../data/history/history';
+import { bookFacts, loadBook, type BookFacts } from '../../lib/history-library';
 import '../../styles/history.css';
 
-const first = openReaders[0];
+const facts = new Map<string, BookFacts>();
+for (const source of historySources) {
+  if (source.reader) facts.set(source.id, bookFacts(await loadBook(source.reader.slug)));
+}
+const open = [...facts.values()];
+const words = open.reduce((total, item) => total + item.words, 0);
+const pages = open.reduce((total, item) => total + item.pages, 0);
+const earliest = historySources[0].died;
+const latest = historySources[historySources.length - 1].died;
 ---
 
 <BaseLayout
   title="History (Tārīkh) | HadithCritic"
-  description="The earliest Arabic histories of Islam in English, each in its own reader with the chapters beside the text."
+  description="The earliest Arabic histories of Islam in English. Each book is read a page at a time, laid out the way its author arranged it."
   image="/images/history/archive-hero-v2-1600.webp"
   imageAlt="A painted early Islamic river landscape with a provincial town, cultivated land and small groups of travellers."
   crumbs={[{ name: 'Home', url: '/' }, { name: 'Projects', url: '/projects/' }, { name: 'History', url: '/projects/history/' }]}
 >
-  <div class="hc-page hc-plate history-page">
+  <HistoryFonts slot="head" />
+  <div class="hx hx-home history-page" data-hx-home>
     <header class="history-hero" aria-labelledby="history-title">
-      <img class="history-hero__art" src="/images/history/archive-hero-v2-1600.webp" srcset="/images/history/archive-hero-v2-800.webp 800w, /images/history/archive-hero-v2-1600.webp 1600w" sizes="100vw" width="1600" height="900" alt="" fetchpriority="high" decoding="async" />
-      <div class="hc-container history-hero__inner">
+      <div class="hx-wrap history-hero__inner">
         <div class="history-hero__copy">
-          <p class="history-kicker">Historical sources in translation</p>
+          <p class="hx-label">Early histories in translation</p>
           <h1 id="history-title">History <span>(Tārīkh)</span></h1>
-          <p class="history-hero__arabic" lang="ar" dir="rtl">التاريخ</p>
-          <p class="history-hero__lead">Read the earliest Arabic histories of Islam in English, one book at a time. Each work opens in its own reader with the chapters beside the text, so a chronicle, a conquest narrative or a genealogy reads the way its author arranged it.</p>
+          <p class="history-hero__lead">The earliest Arabic histories of Islam, in English. A chronicle is read year by year, a conquest history region by region, a book of lists one list at a time: each work keeps the order its author gave it.</p>
           <nav class="history-hero__actions" aria-label="History project sections">
-            <a class="history-hero__primary" href="#sources">Browse the books <span aria-hidden="true">↗</span></a>
+            <a class="hx-btn hx-btn--solid" href="#sources">Browse the books <span aria-hidden="true">↓</span></a>
           </nav>
         </div>
-
-        {first && (
-          <aside class="history-hero__feature" aria-labelledby="history-feature-title">
-            <div class="history-hero__feature-top">
-              <span>A place to begin</span>
-              <span>{first.source.form}</span>
-            </div>
-            <h2 id="history-feature-title">{first.source.title}</h2>
-            <p class="history-hero__feature-arabic" lang="ar" dir="rtl">{first.source.arabic}</p>
-            <dl class="history-hero__feature-facts">
-              <div><dt>Compiler</dt><dd>{first.source.author}</dd></div>
-              <div><dt>Chronology</dt><dd>{deathDate(first.source)}</dd></div>
-              <div><dt>Open edition</dt><dd>{first.reader.entries.toLocaleString('en-US')} sections · {roundedWords(first.reader.words)}</dd></div>
-            </dl>
-            <a href={first.reader.href}>Read this book <span aria-hidden="true">↗</span></a>
-          </aside>
-        )}
+        <dl class="history-hero__facts">
+          <div><dt>Open to read</dt><dd>{open.length} of {historySources.length} works</dd></div>
+          <div><dt>Authors died</dt><dd>{earliest.ah} to {latest.ah} AH</dd></div>
+          <div><dt>In English</dt><dd>{(words / 1e6).toFixed(1)} million words</dd></div>
+          <div><dt>Reading pages</dt><dd>{pages.toLocaleString('en-US')}</dd></div>
+        </dl>
       </div>
-
+      <figure class="hx-wrap history-hero__plate">
+        <img src="/images/history/archive-hero-v2-1600.webp" srcset="/images/history/archive-hero-v2-800.webp 800w, /images/history/archive-hero-v2-1600.webp 1600w" sizes="(min-width: 1280px) 1200px, calc(100vw - 2.5rem)" width="1600" height="900" alt="" fetchpriority="high" decoding="async" />
+      </figure>
     </header>
 
     <section id="sources" aria-labelledby="sources-title" class="history-library">
-      <div class="hc-container">
-        <header class="hc-head history-library__head">
-          <div class="hc-head__main">
-            <p class="hc-head__kicker">The source library</p>
-            <h2 id="sources-title" class="hc-head__title">Begin with <span>the work itself</span></h2>
-            <p class="hc-head__note">Early historical works in order of their authors' deaths. Choose a book to open its reader.</p>
-          </div>
+      <div class="hx-wrap">
+        <header class="history-library__head">
+          <h2 id="sources-title" class="hx-h2">The library</h2>
+          <p>In the order their authors died. The date beside each work is its author’s death date.</p>
         </header>
         <ol class="history-shelf" aria-label="Historical works">
-          {historySources.map((source, index) => <li><HistorySourceCard source={source} index={index} /></li>)}
+          {historySources.map((source) => <li><HistorySourceCard source={source} facts={facts.get(source.id) ?? null} /></li>)}
         </ol>
         <p class="history-art-note">Interpretive illustrations evoke each work’s subjects and settings; they are not evidence for the historical claims in the texts.</p>
       </div>
     </section>
 
     <section class="history-contribute" aria-labelledby="history-closing-title">
-      <div class="hc-container">
-        <div class="hc-closing hc-parchment history-closing">
-          <figure class="hc-closing__plate" style="--plate-focus: 62% 60%">
-            <img src="/images/history/archive-hero-v2-800.webp" alt="" width="800" height="450" loading="lazy" decoding="async" />
-          </figure>
-          <div class="hc-closing__copy">
-            <h2 id="history-closing-title" class="hc-closing__title">Contribute to the archive.</h2>
-            <p class="hc-closing__lead">Editions, translations and corrections for these works are welcome, as are leads on other early histories.</p>
+      <div class="hx-wrap">
+        <div class="history-closing">
+          <div>
+            <h2 id="history-closing-title" class="hx-h2">Contribute to the archive.</h2>
+            <p>Editions, translations and corrections for these works are welcome, as are leads on other early histories.</p>
           </div>
-          <div class="hc-closing__actions">
-            <a class="hc-ink-btn history-text-link" href="/contact/?topic=History%20project#contact-form">Contribute to the archive <span aria-hidden="true">→</span></a>
-          </div>
+          <a class="hx-btn history-text-link" href="/contact/?topic=History%20project#contact-form">Contribute to the archive <span aria-hidden="true">→</span></a>
         </div>
       </div>
     </section>
 
-    <dialog class="history-viewer hc-plate" data-history-viewer aria-labelledby="history-viewer-caption">
+    <dialog class="history-viewer" data-history-viewer aria-labelledby="history-viewer-caption">
       <figure>
         <img alt="" width="1600" height="900" />
         <figcaption>
@@ -98,6 +92,8 @@ const first = openReaders[0];
 </BaseLayout>
 
 <script>
+  import '../../lib/history-contents.js';
+
   // Progressive enhancement: without script each painting is a plain link to
   // the full image. With it, the image opens in a modal dialog on the page.
   const viewer = document.querySelector<HTMLDialogElement>('[data-history-viewer]');

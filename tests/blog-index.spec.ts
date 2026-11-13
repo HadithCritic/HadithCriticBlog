@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { blogArtwork } from '../src/data/blog-artwork';
+import { blogArtwork } from '../src/data/blog/blog-artwork';
 
 test('the existing site search shortcut keeps its dialog and focus', async ({ page }) => {
   await page.goto('/blogs/');

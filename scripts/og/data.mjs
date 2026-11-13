@@ -9,9 +9,9 @@ import path from 'node:path';
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
 
 export function loadData() {
-  const suraNames = readJson('src/data/quran-sura-names.json');
-  const graph = readJson('src/data/research-graph.json');
-  const verses = readJson('src/data/quran-verses.json');
+  const suraNames = readJson('src/data/quran/quran-sura-names.json');
+  const graph = readJson('src/data/research/research-graph.json');
+  const verses = readJson('src/data/quran/quran-verses.json');
 
   return {
     library: loadLibrary(),
@@ -69,11 +69,11 @@ function loadLibrary() {
   const shamail = { slug: 'al-shama-il-al-muhammadiyah', title_en: "Al-Shama'il al-Muhammadiyah", title_ar: 'الشمائل المحمدية' };
   const count = (slug) => {
     if (NARRATION_COUNTS[slug]) return NARRATION_COUNTS[slug];
-    const index = path.join('src/data/hadith-pages', slug, 'chapter-index.json');
+    const index = path.join('src/data/hadith/pages', slug, 'chapter-index.json');
     if (!fs.existsSync(index)) return FIXED_COUNTS[slug];
     return readJson(index).filter((entry) => entry.unit !== 'sections').reduce((sum, entry) => sum + entry.count, 0);
   };
-  const collections = [shamail, ...readJson('src/data/reader-editions.json')]
+  const collections = [shamail, ...readJson('src/data/hadith/reader-editions.json')]
     .map((edition) => ({ ...edition, hadith_count: count(edition.slug) }));
   return { collections, narrations: collections.reduce((sum, book) => sum + book.hadith_count, 0) };
 }
@@ -95,12 +95,12 @@ function loadAtlas(graph) {
 
 /** Study families and counts, parsed from the two TypeScript data files. */
 function loadIcma() {
-  const familiesSrc = fs.readFileSync('src/data/icma-families.ts', 'utf8');
+  const familiesSrc = fs.readFileSync('src/data/research/icma-families.ts', 'utf8');
   const families = {};
   for (const m of familiesSrc.matchAll(/'?([a-z-]+)'?: \{ label: '([^']+)', bg: '(#[0-9a-f]{6})'/g)) {
     families[m[1]] = { label: m[2], bg: m[3], count: 0 };
   }
-  const studiesSrc = fs.readFileSync('src/data/academic-studies.ts', 'utf8');
+  const studiesSrc = fs.readFileSync('src/data/research/academic-studies.ts', 'utf8');
   const icmaSlugs = [...studiesSrc.matchAll(/"slug":\s*"([^"]+)"[\s\S]*?"category":\s*"([a-z-]+)"/g)]
     .filter((m) => m[2] === 'icma')
     .map((m) => m[1]);

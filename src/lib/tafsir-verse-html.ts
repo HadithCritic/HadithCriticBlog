@@ -1,12 +1,12 @@
 /* Renders one verse of al-Ṭabarī's commentary from the imported surah data
    (src/data/tafsir/tabari/surahs/NNN.json) into the reader's markup: the same
    chapters, report cards and question-and-answer blocks the hand-edited
-   al-Fātiḥa pages use (src/data/tafsir-pages/tabari/reader.css).
+   al-Fātiḥa pages use (src/data/tafsir/pages/tabari/reader.css).
 
    Every word comes from the block's source runs. The labels around them
    (chapter titles, "Transmission wording", "Question") are editorial and are
    derived from the block types only. */
-import type { Block, Run, TafsirNote, TafsirSurah, TafsirUnit } from '../data/tafsir';
+import type { Block, Run, TafsirNote, TafsirSurah, TafsirUnit } from '../data/tafsir/tafsir';
 import { escapeHtml, pad, runsText, sectionLabels, verseLabel } from './tafsir-render';
 
 type CiteHref = (surah: number, ayah: number) => string;

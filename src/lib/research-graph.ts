@@ -1,4 +1,4 @@
-import raw from '../data/research-graph.json';
+import raw from '../data/research/research-graph.json';
 import { indexGraph, authorLine as authorLineFor, layoutTimeline as layoutTimelineFor, type GraphData, type GraphIndex, type Work } from './research-graph-core';
 
 export * from './research-graph-core';
