@@ -1,0 +1,105 @@
+---
+/* The narrators register: Ibn Ḥajar's Taqrīb al-Tahdhīb as list pages, one
+   per letter (or part of a letter) and one for each of the book's other
+   lists. Opening a name shows the whole entry. */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import HistoryFonts from '../../components/history/HistoryFonts.astro';
+import RegisterNav from '../../components/rijal/RegisterNav.astro';
+import { groupPages, letterIndex, pageHref, totals } from '../../lib/rijal-register';
+import report from '../../data/rijal/taqrib/report.json';
+import vocab from '../../data/rijal/taqrib/vocab.json';
+import '../../styles/history.css';
+import '../../styles/rijal.css';
+
+const n = (value: number): string => value.toLocaleString('en-US');
+const letters = letterIndex();
+const groups = groupPages();
+const gradedShare = Math.round((totals.graded / totals.biographies) * 100);
+---
+
+<BaseLayout
+  title="Narrators (Rijāl) | HadithCritic"
+  description="Ibn Ḥajar's Taqrīb al-Tahdhīb in Arabic and English: the transmitters of the six hadith books, each with grade, generation, death date and the books that cite him."
+  crumbs={[{ name: 'Home', url: '/' }, { name: 'Projects', url: '/projects/' }, { name: 'Narrators', url: '/projects/rijal/' }]}
+>
+  <HistoryFonts slot="head" />
+  <div class="hx rj rj-home">
+    <header class="rj-hero" aria-labelledby="rj-title">
+      <div class="hx-wrap rj-hero__inner">
+        <div>
+          <p class="hx-label">Taqrīb al-Tahdhīb, Ibn Ḥajar (d. 852 AH)</p>
+          <h1 id="rj-title">Narrators <span>(Rijāl)</span></h1>
+          <p class="rj-hero__lead">The transmitters of the six hadith books, as Ibn Ḥajar summed each one up: a grade, a generation, a death date and the books that cite him. Choose a letter, then open a name.</p>
+        </div>
+        <dl class="rj-hero__facts">
+          <div><dt>Biographies</dt><dd>{n(totals.biographies)}</dd></div>
+          <div><dt>Cross-references</dt><dd>{n(report.aliases)}</dd></div>
+          <div><dt>With a grade</dt><dd>{gradedShare}%</dd></div>
+          <div><dt>Edition</dt><dd>ʿAwwāma, 1986</dd></div>
+        </dl>
+      </div>
+    </header>
+
+    <div class="hx-wrap">
+      <RegisterNav />
+
+      <section class="rj-contents" aria-labelledby="rj-contents-title">
+        <h2 id="rj-contents-title" class="hx-h2">Men by given name</h2>
+        <ol class="rj-ledger">
+          {letters.map(({ letter, pages, count }) => (
+            <li>
+              <a class="rj-ledger__letter" href={pageHref(pages[0].slug)}>
+                <span lang="ar" dir="rtl">{letter.ar}</span>
+                <span>{letter.en}</span>
+              </a>
+              <span class="rj-ledger__count">{n(count)} names</span>
+              <span class="rj-ledger__parts">
+                {pages.length > 1 && pages.map((page) => (
+                  <a href={pageHref(page.slug)}>
+                    Part {page.part}
+                    <span lang="ar" dir="rtl">{page.range_ar.join(' – ')}</span>
+                  </a>
+                ))}
+              </span>
+            </li>
+          ))}
+        </ol>
+
+        <h2 class="hx-h2">The book’s other lists</h2>
+        <ol class="rj-ledger rj-ledger--groups">
+          {groups.map((page) => (
+            <li>
+              <a class="rj-ledger__letter" href={pageHref(page.slug)}>
+                <span>{page.title_en}</span>
+                <span lang="ar" dir="rtl">{page.title_ar}</span>
+              </a>
+              <span class="rj-ledger__count">{n(page.count)} names</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section class="rj-guide" aria-labelledby="rj-guide-title">
+        <h2 id="rj-guide-title" class="hx-h2">Reading an entry</h2>
+        <div class="rj-guide__grid">
+          <div>
+            <h3>The twelve grades</h3>
+            <p>Ibn Ḥajar sorts every narrator into one of twelve ranks, each with its own wording. The register quotes his words and gives the rank they stand for. Where he gives a verdict in other words, the rank is read from them and the entry says so.</p>
+            <ol class="rj-ranks">
+              {vocab.ranks.map((r) => (
+                <li><span class="rj-grade" data-rank={r.rank}>{r.rank}</span> <span lang="ar" dir="rtl">{r.term_ar}</span> {r.en}</li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <h3>Generations and dates</h3>
+            <p>Each narrator belongs to one of twelve generations (ṭabaqāt), from the Companions to the teachers of the six compilers.</p>
+            <p>Ibn Ḥajar usually gives a death year without its century. His introduction supplies the rule: the first two generations died before 100, the third to the eighth after 100, the rest after 200. The register applies that rule and marks every year it completed this way.</p>
+            <h3>Two editions</h3>
+            <p>The text is Muḥammad ʿAwwāma’s edition. Words in square brackets are the readings of Abū al-Ashbāl’s edition, shown apart. The English translations are drafts and have not been checked line by line.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</BaseLayout>

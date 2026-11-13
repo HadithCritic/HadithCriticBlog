@@ -1,0 +1,110 @@
+---
+/* One list page of the narrators register: a letter (or part of one) or
+   one of the book's other lists. The list is prebuilt HTML from
+   src/data/rijal/pages/taqrib/. Each name is a <details> that opens in
+   place without script; with script it opens in the dialog below. */
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import HistoryFonts from '../../../components/history/HistoryFonts.astro';
+import RegisterNav from '../../../components/rijal/RegisterNav.astro';
+import { pageHref, pageHtml, registerPages, RIJAL_BASE, type RegisterPage } from '../../../lib/rijal-register';
+import '../../../styles/history.css';
+import '../../../styles/rijal.css';
+
+export function getStaticPaths() {
+  return registerPages.map((page, i) => ({
+    params: { page: page.slug },
+    props: { page, prev: registerPages[i - 1] ?? null, next: registerPages[i + 1] ?? null },
+  }));
+}
+
+interface Props {
+  page: RegisterPage;
+  prev: RegisterPage | null;
+  next: RegisterPage | null;
+}
+
+const { page, prev, next } = Astro.props;
+const html = pageHtml(page.slug);
+const title = page.kind === 'letter' ? `Narrators: ${page.title_en}` : page.title_en;
+const range = page.range_ar.length ? page.range_ar.join(' – ') : null;
+---
+
+<BaseLayout
+  title={`${title} | Narrators (Rijāl) | HadithCritic`}
+  description={`${page.count.toLocaleString('en-US')} narrators from Ibn Ḥajar's Taqrīb al-Tahdhīb (${page.title_en}), each with grade, generation, death date and the full entry in Arabic and English.`}
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Projects', url: '/projects/' },
+    { name: 'Narrators', url: RIJAL_BASE },
+    { name: page.title_en, url: pageHref(page.slug) },
+  ]}
+>
+  <HistoryFonts slot="head" />
+  <div class="hx rj rj-list-page">
+    <div class="hx-wrap">
+      <header class="rj-page-head">
+        <p class="hx-label"><a href={RIJAL_BASE}>Narrators (Rijāl)</a></p>
+        <h1>
+          {page.title_en}
+          <span lang="ar" dir="rtl">{page.title_ar}</span>
+        </h1>
+        <p class="rj-page-head__meta">
+          {page.count.toLocaleString('en-US')} names
+          {range && <> from <span lang="ar" dir="rtl">{range}</span></>}
+        </p>
+      </header>
+
+      <RegisterNav current={page} />
+
+      <div class="rj-tools" data-rj-tools hidden>
+        <label class="rj-tools__find">
+          <span>Find on this page</span>
+          <input type="search" data-rj-find autocomplete="off" spellcheck="false" placeholder="Name in English or Arabic, or a number" />
+        </label>
+        <label class="rj-tools__grade">
+          <span>Grade</span>
+          <select data-rj-grade>
+            <option value="">All grades</option>
+            <option value="1">Companions</option>
+            <option value="2-3">Reliable</option>
+            <option value="4-5">Truthful</option>
+            <option value="6">Acceptable</option>
+            <option value="7,9">Unestablished or unknown</option>
+            <option value="8,10-12">Weak, abandoned or accused</option>
+            <option value="0">Not graded</option>
+          </select>
+        </label>
+        <p class="rj-tools__count" data-rj-count aria-live="polite"></p>
+      </div>
+
+      <div class="rj-register" data-rj-register set:html={html} />
+
+      <nav class="rj-pager" aria-label="Neighboring pages">
+        {prev ? <a class="hx-btn" href={pageHref(prev.slug)} rel="prev"><span aria-hidden="true">←</span> {prev.title_en}</a> : <span />}
+        {next && <a class="hx-btn" href={pageHref(next.slug)} rel="next">{next.title_en} <span aria-hidden="true">→</span></a>}
+      </nav>
+    </div>
+
+    <dialog class="rj-dialog" data-rj-dialog aria-labelledby="rj-dialog-title">
+      <header class="rj-dialog__head">
+        <p class="rj-dialog__no" data-rj-dialog-no></p>
+        <h2 id="rj-dialog-title" data-rj-dialog-title></h2>
+        <p class="rj-dialog__ar" lang="ar" dir="rtl" data-rj-dialog-ar></p>
+        <div class="rj-meta" data-rj-dialog-meta></div>
+        <form method="dialog">
+          <button class="rj-dialog__close" type="submit">Close <span aria-hidden="true">✕</span></button>
+        </form>
+      </header>
+      <div class="rj-dialog__body" data-rj-dialog-body></div>
+      <footer class="rj-dialog__foot">
+        <button type="button" class="hx-btn" data-rj-step="-1"><span aria-hidden="true">←</span> Previous name</button>
+        <button type="button" class="hx-btn" data-rj-step="1">Next name <span aria-hidden="true">→</span></button>
+      </footer>
+    </dialog>
+  </div>
+</BaseLayout>
+
+<script>
+  import { initRegister } from '../../../lib/rijal-register-client';
+  initRegister();
+</script>

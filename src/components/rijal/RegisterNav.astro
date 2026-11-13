@@ -1,0 +1,33 @@
+---
+/* The letter bar of the narrators register: every letter, then the other
+   lists. A letter in several parts links to its first part. */
+import { groupPages, letterIndex, pageHref, type RegisterPage } from '../../lib/rijal-register';
+
+interface Props {
+  current?: RegisterPage | null;
+}
+
+const { current = null } = Astro.props;
+const letters = letterIndex();
+const groups = groupPages();
+const isCurrentLetter = (slug: string): boolean => current?.letter?.slug === slug;
+---
+
+<nav class="rj-nav" aria-label="Letters and lists">
+  <ol class="rj-nav__letters" lang="ar" dir="rtl">
+    {letters.map(({ letter, pages }) => (
+      <li>
+        <a
+          href={pageHref(pages[0].slug)}
+          aria-current={isCurrentLetter(letter.slug) ? 'page' : undefined}
+          title={letter.en}
+        >{letter.ar}</a>
+      </li>
+    ))}
+  </ol>
+  <ul class="rj-nav__groups">
+    {groups.map((page) => (
+      <li><a href={pageHref(page.slug)} aria-current={current?.slug === page.slug ? 'page' : undefined}>{page.title_en}</a></li>
+    ))}
+  </ul>
+</nav>
