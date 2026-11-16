@@ -1,16 +1,15 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageHero from '../../components/PageHero.astro';
-import ArchiveEntry from '../../components/ArchiveEntry.astro';
+import ArchiveCard from '../../components/ArchiveCard.astro';
 import { getCollection } from 'astro:content';
 import { OG } from '../../lib/seo';
 import { CATEGORIES } from '../../lib/categories';
-import { toEntries, byYear } from '../../lib/article-index';
+import { toEntries } from '../../lib/article-index';
 import '../../styles/blog-index.css';
 
 const posts = await getCollection('articles', ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview);
 const entries = toEntries(posts);
-const years = byYear(entries);
 
 const [lead] = entries;
 
@@ -20,7 +19,6 @@ const branches = CATEGORIES.map((category) => ({
   count: entries.filter((entry) => entry.post.data.category === category.name).length
 })).filter((branch) => branch.count > 0).sort((a, b) => b.count - a.count);
 
-const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 ---
 
 <BaseLayout
@@ -81,24 +79,32 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
       </div>
     </section>
 
-    <!-- The whole archive, by year, with search and branch filters. -->
+    <!-- The whole archive as a grid of cards, with branch filters and search. -->
     <section class="hc-band bi-archive" id="archive" aria-labelledby="bi-archive-title">
-      <div class="hc-container bi-archive__grid">
-        <aside class="bi-tools" aria-label="Search and filter the archive">
-          <div class="bi-tools__sticky">
+      <div class="hc-container">
+        <div class="bi-tools">
+          <div class="bi-archive__head">
             <h2 id="bi-archive-title" class="hc-head__title">The complete <span>archive</span></h2>
-            <p class="hc-head__note">Every study, newest first, grouped by year of publication.</p>
+            <div class="bi-toolbar__tools" data-js-only hidden>
+              <form id="archive-search-form" class="bi-search" action="/blogs/" method="get" role="search">
+                <label class="sr-only" for="archive-search-input">Search titles, topics and the full text of every study</label>
+                <div class="hc-field">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input type="search" id="archive-search-input" name="q" placeholder="Search the archive" autocomplete="off" spellcheck="false" />
+                  <button id="archive-search-clear" type="button" hidden>Clear</button>
+                </div>
+              </form>
+              <label class="bi-order">
+                <span class="sr-only">Order</span>
+                <select id="archive-order" class="hc-select">
+                  <option value="latest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
-            <form id="archive-search-form" class="bi-search" action="/blogs/" method="get" role="search" data-js-only hidden>
-              <label class="sr-only" for="archive-search-input">Search titles, topics and the full text of every study</label>
-              <div class="hc-field">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                <input type="search" id="archive-search-input" name="q" placeholder="Search the archive" autocomplete="off" spellcheck="false" />
-                <button id="archive-search-clear" type="button" hidden>Clear</button>
-              </div>
-              <p class="bi-search__note">Titles, topics and the full text of every study.</p>
-            </form>
-
+          <div class="bi-toolbar">
             <nav class="bi-filter-nav" aria-label="Filter by branch">
               <ul class="hc-filters" id="bi-filters">
                 <li>
@@ -115,47 +121,27 @@ const plural = (count: number, one: string, many = `${one}s`) => `${count} ${cou
                 ))}
               </ul>
             </nav>
+          </div>
 
-            <div class="bi-tools__row" data-js-only hidden>
-              <label class="bi-order">
-                <span>Order</span>
-                <select id="archive-order" class="hc-select">
-                  <option value="latest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                </select>
-              </label>
-              <button type="button" id="archive-reset-btn" class="bi-reset" hidden>Reset</button>
-            </div>
-
+          <div class="bi-status-row">
             <p id="archive-result-count" class="bi-status" role="status" aria-live="polite">
               <span class="bi-status-text">{entries.length} studies in the archive</span>
             </p>
-            <noscript>
-              <p class="bi-status">Each branch above opens its own index. Your browser's Find command searches this page.</p>
-            </noscript>
+            <button type="button" id="archive-reset-btn" class="bi-reset" hidden>Reset</button>
           </div>
-        </aside>
+          <noscript>
+            <p class="bi-status">Each branch above opens its own index. Your browser's Find command searches this page.</p>
+          </noscript>
+        </div>
 
-        <div class="bi-ledger-wrap">
-          <div id="ledger" class="bi-years">
-            {years.map((group) => (
-              <section class="bi-year" data-year={group.year} aria-labelledby={`bi-year-${group.year}`}>
-                <header class="bi-year__head">
-                  <h3 id={`bi-year-${group.year}`} class="bi-year__title">{group.year}</h3>
-                  <span class="bi-year__count" data-total={group.entries.length}>{plural(group.entries.length, 'study', 'studies')}</span>
-                </header>
-                <ol class="bi-ledger">
-                  {group.entries.map((entry) => <ArchiveEntry entry={entry} />)}
-                </ol>
-              </section>
-            ))}
-          </div>
+        <ol id="ledger" class="bi-grid">
+          {entries.map((entry, index) => <ArchiveCard entry={entry} eager={index < 3} />)}
+        </ol>
 
-          <div class="bi-empty" id="ledger-empty" hidden>
-            <h3>No studies found</h3>
-            <p>Nothing in the archive matches this search and branch.</p>
-            <button type="button" id="ledger-empty-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
-          </div>
+        <div class="bi-empty" id="ledger-empty" hidden>
+          <h3>No studies found</h3>
+          <p>Nothing in the archive matches this search and branch.</p>
+          <button type="button" id="ledger-empty-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
         </div>
       </div>
     </section>

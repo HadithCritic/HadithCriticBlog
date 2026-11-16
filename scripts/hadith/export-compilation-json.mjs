@@ -69,6 +69,80 @@ function fromPages(slug) {
   });
 }
 
+/*
+ * A work with editorial subject groups over its own headings (al-Muntaqā) is exported as groups of
+ * sections. The text still comes from the pages; the source references (page record, edition page,
+ * printed number label, heading wording) come from the publication source, matched by report id.
+ */
+function groupedPayload(slug, title, sections) {
+  const source = JSON.parse(fs.readFileSync(path.join(pagesRoot, slug, 'publication-source.json'), 'utf8'));
+  const babs = source.books[0].babs;
+  const records = new Map(babs.flatMap(bab => bab.records.map(record => [String(record.id).replace(/[:.]/g, '-'), record])));
+  const enrich = entry => {
+    const record = records.get(entry.id);
+    if (!record) throw new Error(`${slug}: entry ${entry.id} is on the pages but not in the publication source.`);
+    return {
+      ...entry,
+      number: String(record.source_number),
+      source_serial_number: record.source_serial_number,
+      source_page_number: String(record.page_reference),
+      source_record_type: record.source_record_type,
+      ...(record.source_numbering_label ? { source_numbering_label: record.source_numbering_label } : {}),
+      translation_status: record.translation_status,
+      ...(record.translation_source ? { translation_source: record.translation_source } : {}),
+      ...(record.related_report_number ? { related_report_number: String(record.related_report_number) } : {}),
+      ...(record.transmission_relation ? { transmission_relation: record.transmission_relation } : {}),
+    };
+  };
+  const sectioned = sections.map((section, index) => {
+    const bab = babs[index];
+    if (bab.sequence !== section.number) throw new Error(`${slug}: section ${section.number} does not match heading ${bab.sequence}.`);
+    return {
+      number: section.number, kind: section.kind, title_en: section.title_en, title_ar: section.title_ar,
+      source_heading_type: bab.heading.type,
+      source_heading_number: bab.heading.number,
+      source_heading_serial_number: bab.heading.source_serial_number,
+      source_heading_page: String(bab.heading.page),
+      source_heading_text_ar: bab.heading.text_ar,
+      source_heading_short_ar: bab.heading.short_ar,
+      heading_confidence: bab.heading.confidence,
+      hadith_number_start: bab.hadith_number_start,
+      hadith_number_end: bab.hadith_number_end,
+      entry_count: section.entries.length,
+      group: bab.group,
+      entries: section.entries.map(enrich),
+    };
+  });
+  const groups = source.navigation_groups.map(group => {
+    const own = sectioned.filter(section => section.group === group.number).map(({ group: _group, ...section }) => section);
+    return {
+      number: group.number, title_en: group.title_en, title_ar: group.title_ar,
+      navigation_group_type: group.type,
+      source_heading_basis: group.source_heading_basis,
+      source_first_section: group.first_section, source_last_section: group.last_section,
+      hadith_number_start: group.hadith_number_start, hadith_number_end: group.hadith_number_end,
+      entry_count: own.reduce((sum, section) => sum + section.entries.length, 0),
+      section_count: own.length,
+      contains_explicit_kitab_headings: group.kitab_heading_sections,
+      sections: own,
+    };
+  });
+  const meta = source.conversion_metadata;
+  return {
+    schema_version: 'hadithcritic.compilation/1.1-source-audited',
+    slug, title_en: title.title_en, title_ar: title.title_ar,
+    source: `src/data/hadith/pages/${slug}/`,
+    source_book_id: source.collection.source_book_id,
+    edition: source.collection.edition,
+    organization_explanation: meta.organization_policy,
+    numbering_explanation: meta.numbering_policy,
+    group_count: groups.length,
+    section_count: sectioned.length,
+    entry_count: sectioned.reduce((sum, section) => sum + section.entries.length, 0),
+    groups,
+  };
+}
+
 /** A single-page reader carries its entries as data; they are read back from it. */
 function fromReader(slug) {
   const html = fs.readFileSync(path.join(pagesRoot, slug, 'reader.html'), 'utf8');
@@ -119,7 +193,8 @@ for (const slug of fs.readdirSync(pagesRoot).filter(name => !only.length || only
   const entries = sections.reduce((sum, section) => sum + section.entries.length, 0);
   const missing = sections.flatMap(section => section.entries).filter(entry => !(entry.matn_ar || entry.isnad_ar) || !(entry.matn_en || entry.isnad_en)).length;
   const title = titles.get(slug) ?? { title_en: slug, title_ar: '' };
-  const payload = {
+  const grouped = hasIndex && JSON.parse(fs.readFileSync(path.join(pagesRoot, slug, 'chapter-index.json'), 'utf8')).some(chapter => chapter.group);
+  const payload = grouped ? groupedPayload(slug, title, sections) : {
     schema_version: 'hadithcritic.compilation/1.0',
     slug, title_en: title.title_en, title_ar: title.title_ar,
     source: hasIndex || SINGLE_PAGE.has(slug) ? `src/data/hadith/pages/${slug}/` : 'src/data/hadith/local-editions/',
@@ -127,7 +202,14 @@ for (const slug of fs.readdirSync(pagesRoot).filter(name => !only.length || only
     sections,
   };
   fs.writeFileSync(path.join(outRoot, `${slug}.json`), `${JSON.stringify(payload, null, 1)}\n`, 'utf8');
-  summary.push({ slug, title_en: title.title_en, title_ar: title.title_ar, sections: sections.length, entries, file: `${slug}.json` });
+  summary.push({ slug, title_en: title.title_en, title_ar: title.title_ar, ...(grouped ? { groups: payload.group_count } : {}), sections: sections.length, entries, file: `${slug}.json` });
   console.log(`${slug}: ${sections.length} sections, ${entries} entries${missing ? `, ${missing} with one language empty` : ''}`);
 }
 if (!only.length) fs.writeFileSync(path.join(outRoot, 'index.json'), `${JSON.stringify(summary, null, 1)}\n`, 'utf8');
+else {
+  // A partial run updates only its own lines of the index.
+  const indexPath = path.join(outRoot, 'index.json');
+  const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+  const fresh = new Map(summary.map(item => [item.slug, item]));
+  fs.writeFileSync(indexPath, `${JSON.stringify(index.map(item => fresh.get(item.slug) ?? item), null, 1)}\n`, 'utf8');
+}

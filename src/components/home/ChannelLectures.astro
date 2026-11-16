@@ -1,0 +1,354 @@
+---
+/* The YouTube section: the channel's own counts set large over a halftone
+   fade, then one featured lecture beside a rail of the newest. Every tile is
+   a link to YouTube; with script the featured tile plays in place and a rail
+   item plays in the featured stage (home-lectures.ts). On first view the
+   counts rise one after another (data-reveal-once). */
+import type { YoutubeFigure } from "../../lib/home-youtube";
+import { formatCount } from "../../lib/home-data-core";
+
+interface Props {
+  youtube: YoutubeFigure;
+}
+
+const { youtube } = Astro.props;
+const { featured, rail } = youtube;
+const counts = [
+  { label: "Subscribers", value: youtube.subscribers },
+  { label: "Views", value: youtube.views },
+  { label: "Videos", value: youtube.videos },
+];
+const metaOf = (video: { date: string; duration: string; views: number }) =>
+  `${video.date} · ${video.duration} · ${formatCount(video.views)} views`;
+---
+
+<div class="ytc" data-lectures>
+  <div class="ytc__counts" data-reveal-once>
+    <dl class="ytc__figures">
+      {counts.map((count, index) => (
+        <div class="ytc__figure" style={`--i: ${index}`}>
+          <dt>{count.label}</dt>
+          <dd>{formatCount(count.value)}</dd>
+        </div>
+      ))}
+    </dl>
+    <p class="ytc__asof">Channel figures as of <time datetime={youtube.asOf.iso}>{youtube.asOf.date}</time></p>
+  </div>
+
+  <div class="ytc__lectures">
+    <article class="ytc__featured" aria-labelledby="ytc-title">
+      <div class="ytc__stage" data-lecture-stage>
+        <a href={featured.href} class="yt-lite" data-video-id={featured.id} aria-label={`Play: ${featured.title}`}>
+          <img src={featured.thumb} alt="" width="1280" height="720" loading="lazy" decoding="async" />
+          <span class="yt-play" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
+          </span>
+        </a>
+      </div>
+      <div class="ytc__caption">
+        <p class="ytc__label" data-lecture-label>Featured lecture</p>
+        <h3 id="ytc-title" class="ytc__title" data-lecture-title>{featured.title}</h3>
+        <p class="ytc__meta" data-lecture-meta>{metaOf(featured)}</p>
+        <a class="ytc__open" href={featured.href} target="_blank" rel="noopener noreferrer" data-lecture-link>
+          Open on YouTube<span class="sr-only"> (opens in a new tab)</span> <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </article>
+
+    <div class="ytc__side">
+      <p class="ytc__label">Newest lectures</p>
+      <ol class="ytc__rail">
+        {rail.map((video) => (
+          <li>
+            <a
+              class="ytc__item"
+              href={video.href}
+              data-play-lecture
+              data-video-id={video.id}
+              data-title={video.title}
+              data-meta={metaOf(video)}
+            >
+              <span class="ytc__thumb">
+                <img src={video.thumbSmall} alt="" width="320" height="180" loading="lazy" decoding="async" />
+                <span class="ytc__duration">{video.duration}</span>
+              </span>
+              <span class="ytc__item-text">
+                <span class="ytc__item-title">{video.title}</span>
+                <span class="ytc__item-meta">
+                  <time datetime={video.iso}>{video.date}</time> · {formatCount(video.views)} views
+                </span>
+              </span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ── The channel's counts ───────────────────────────────────── */
+
+  .ytc__counts {
+    --ytc-step: 120ms;
+    position: relative;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+    padding: clamp(1.5rem, 4vw, 2.5rem) 0 0;
+    text-align: center;
+    isolation: isolate;
+  }
+
+  /* A halftone of gold dots that fades out toward the counts' foot. */
+  .ytc__counts::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 -1rem;
+    z-index: -1;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--hc-gold) 38%, transparent) 1.1px, transparent 1.6px);
+    background-size: 11px 11px;
+    mask-image: radial-gradient(ellipse 60% 85% at 50% 0%, #000 10%, transparent 75%);
+  }
+
+  .ytc__figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+    max-width: 880px;
+    margin: 0 auto;
+  }
+
+  .ytc__figure {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.6rem;
+  }
+
+  .ytc__figure dd {
+    margin: 0;
+    color: var(--hc-text-primary);
+    font: 600 clamp(2.2rem, 5.6vw, 4.25rem)/1 var(--font-display);
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.03em;
+  }
+
+  .ytc__figure dt {
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ytc__asof {
+    margin: 1.25rem 0 0;
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-xs)/1.4 var(--font-ui);
+  }
+
+  .ytc__counts.is-armed:not(.is-playing) .ytc__figure {
+    opacity: 0;
+  }
+
+  .ytc__counts.is-playing .ytc__figure {
+    animation: ytc-rise var(--motion-settle) var(--ease-back) backwards;
+    animation-delay: calc(var(--i) * var(--ytc-step));
+  }
+
+  @keyframes ytc-rise {
+    from {
+      opacity: 0;
+      translate: 0 18px;
+    }
+  }
+
+  /* ── Featured lecture and the rail ──────────────────────────── */
+
+  .ytc__lectures {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .ytc__featured {
+    overflow: hidden;
+    border: 1px solid var(--home-line);
+    border-radius: 16px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+  }
+
+  .ytc__stage .yt-play {
+    width: 64px;
+    height: 64px;
+  }
+
+  .ytc__caption {
+    padding: 1rem 1.25rem 1.2rem;
+  }
+
+  .ytc__label {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ytc__title {
+    margin: 0.45rem 0 0;
+    color: var(--hc-text-primary);
+    font: 600 clamp(1.2rem, 2.2vw, 1.5rem)/1.25 var(--font-display);
+  }
+
+  .ytc__meta {
+    margin: 0.4rem 0 0;
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .ytc__open {
+    display: inline-block;
+    margin-top: 0.4rem;
+    padding-block: 0.2rem;
+    color: var(--hc-text-secondary);
+    font: 500 var(--fs-sm)/1.3 var(--font-ui);
+    text-decoration: none;
+  }
+
+  .ytc__open:hover,
+  .ytc__open:focus-visible {
+    color: var(--hc-gold);
+  }
+
+  .ytc__side {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .ytc__rail {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ytc__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.5rem;
+    border: 1px solid var(--home-line);
+    border-radius: 12px;
+    background: var(--home-card);
+    color: var(--hc-text-primary);
+    text-decoration: none;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      translate var(--motion-base) var(--ease-back);
+  }
+
+  .ytc__item:hover,
+  .ytc__item:focus-visible {
+    border-color: var(--hc-gold);
+    translate: 0 -2px;
+  }
+
+  .ytc__item:focus-visible {
+    --hc-focus-offset: 2px;
+  }
+
+  .ytc__item[aria-current] {
+    border-color: var(--hc-gold);
+    background: color-mix(in srgb, var(--hc-gold) 10%, var(--home-card));
+  }
+
+  .ytc__thumb {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #252522;
+  }
+
+  .ytc__thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: scale var(--motion-settle) var(--ease-standard);
+  }
+
+  .ytc__item:hover .ytc__thumb img {
+    scale: 1.05;
+  }
+
+  .ytc__duration {
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: rgba(15, 15, 14, 0.85);
+    color: #f2ebdc;
+    font: 600 var(--fs-xs)/1.3 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .ytc__item-text {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .ytc__item-title {
+    display: -webkit-box;
+    overflow: hidden;
+    font: 600 var(--fs-sm)/1.3 var(--font-ui);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .ytc__item-meta {
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-xs)/1.3 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  @media (max-width: 900px) {
+    .ytc__lectures {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 560px) {
+    .ytc__figures {
+      gap: 0.4rem;
+    }
+
+    .ytc__figure dt {
+      letter-spacing: 0.06em;
+    }
+
+    .ytc__figure dd {
+      font-size: clamp(1.4rem, 7vw, 2.4rem);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ytc__counts.is-armed:not(.is-playing) .ytc__figure,
+    .ytc__counts.is-playing .ytc__figure {
+      opacity: 1;
+      animation: none;
+    }
+
+    .ytc__item,
+    .ytc__thumb img {
+      transition: none;
+    }
+  }
+</style>

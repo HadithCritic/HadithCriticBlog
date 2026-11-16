@@ -189,23 +189,28 @@ function initArchive(): void {
     }
   };
 
-  /* Newest first is the server order; oldest first reverses years and rows. */
+  /* Newest first is the server order; oldest first reverses it. The blog
+     index is one grid of cards; the branch hubs group rows by year. */
   const sort = (): void => {
     if (!ledger) return;
-    const oldest = order?.value === 'oldest';
-    const direction = oldest ? 1 : -1;
+    const direction = order?.value === 'oldest' ? 1 : -1;
+    const sortRows = (list: Element): void => {
+      [...list.querySelectorAll<HTMLLIElement>(':scope > .bi-row')]
+        .sort((a, b) =>
+          (Number(a.dataset.timestamp) - Number(b.dataset.timestamp)) * direction ||
+          (Number(a.dataset.folio) - Number(b.dataset.folio)) * direction
+        )
+        .forEach((row) => list.appendChild(row));
+    };
+    if (years.length === 0) {
+      sortRows(ledger);
+      return;
+    }
     [...years]
       .sort((a, b) => (Number(a.dataset.year) - Number(b.dataset.year)) * direction)
       .forEach((year) => {
         const list = year.querySelector('.bi-ledger');
-        if (list) {
-          [...list.querySelectorAll<HTMLLIElement>('.bi-row')]
-            .sort((a, b) =>
-              (Number(a.dataset.timestamp) - Number(b.dataset.timestamp)) * direction ||
-              (Number(a.dataset.folio) - Number(b.dataset.folio)) * direction
-            )
-            .forEach((row) => list.appendChild(row));
-        }
+        if (list) sortRows(list);
         ledger.appendChild(year);
       });
   };

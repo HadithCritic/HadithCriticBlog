@@ -1,0 +1,550 @@
+---
+/* How a study is built: five stations on one rail, each with a small looping
+   scene. Every scene runs on the same clock (--mp-cycle, twice the ambient
+   duration), a spark travels the rail on that clock, and each station's dot
+   lights as the spark passes. The scenes are drawn from shapes only, with no
+   SVG text, so nothing falls under the 12px floor at small sizes.
+
+   A scene's resting styles are its finished state (fragments stacked, names
+   resolved, chains drawn, wording compared, report dated). The keyframes run
+   from the start of the step to that state and back, so under reduced motion,
+   where the animations are removed, each scene shows its result. The whole
+   figure pauses off screen (data-ambient-scene, see home-motion.ts). */
+
+export interface MethodStep {
+  title: string;
+  text: string;
+  href: string;
+  link: string;
+}
+
+interface Props {
+  steps: MethodStep[];
+}
+
+const { steps } = Astro.props;
+const scenes = ["collect", "identify", "map", "compare", "date"] as const;
+if (steps.length !== scenes.length) {
+  throw new Error(`MethodPipeline draws ${scenes.length} scenes but was given ${steps.length} steps.`);
+}
+
+/* Collect: where each fragment lies before it joins the stack. */
+const fragments = [
+  { dx: -38, dy: -10, r: -14 },
+  { dx: 40, dy: -14, r: 10 },
+  { dx: -42, dy: 8, r: 8 },
+  { dx: 38, dy: 10, r: -9 },
+  { dx: 2, dy: 12, r: 5 },
+];
+/* Identify and map: node positions across the scene. */
+const narrators = [22, 60, 100, 138];
+const collectors = [20, 60, 100, 140];
+/* Compare: the words of the first version, as [x, width]. */
+const wordsA: Array<[number, number]> = [[14, 22], [40, 16], [60, 26], [90, 14], [108, 36]];
+const wordsB: Array<[number, number]> = [[14, 22], [40, 16], [90, 14], [130, 14]];
+const centuries = [12, 57.33, 102.67, 148];
+---
+
+<div class="mp" data-ambient-scene>
+  <div class="mp__rail" aria-hidden="true"><span class="mp__spark"></span></div>
+  <ol class="mp__steps">
+    {steps.map((step, index) => (
+      <li class:list={["mp__step reveal", index > 0 && `reveal--d${Math.min(index, 2)}`]} style={`--i: ${index}`}>
+        <span class="mp__dot" aria-hidden="true"></span>
+        <div class="mp__scene">
+          <svg viewBox="0 0 160 100" aria-hidden="true" focusable="false">
+            {scenes[index] === "collect" && (
+              <g>
+                {fragments.map((fragment, i) => (
+                  <g class="mp-fragment" style={`--dx: ${fragment.dx}px; --dy: ${fragment.dy}px; --r: ${fragment.r}deg; --k: ${i}`}>
+                    <rect class="mp-card" x="52" y={20 + i * 12} width="56" height="16" rx="3" />
+                    <rect class="mp-ink" x="58" y={25 + i * 12} width="30" height="2" rx="1" />
+                    <rect class="mp-ink" x="58" y={29 + i * 12} width="42" height="2" rx="1" />
+                  </g>
+                ))}
+              </g>
+            )}
+
+            {scenes[index] === "identify" && (
+              <g>
+                {narrators.slice(1).map((x, i) => (
+                  <path class="mp-link" d={`M${narrators[i] + 7} 44 H${x - 7}`} pathLength="1" style={`--k: ${i}`} />
+                ))}
+                {narrators.map((x, i) => (
+                  <g style={`--k: ${i}`}>
+                    <rect class="mp-name" x={x - 13} y="41" width="26" height="6" rx="3" />
+                    <g class="mp-node">
+                      <circle class="mp-node__ring" cx={x} cy="44" r="6.5" />
+                      <circle class="mp-node__core" cx={x} cy="44" r="2.25" />
+                    </g>
+                    <rect class="mp-label" x={x - 12} y="58" width="24" height="3" rx="1.5" />
+                    <rect class="mp-label mp-label--dim" x={x - 8} y="64" width="16" height="3" rx="1.5" />
+                  </g>
+                ))}
+              </g>
+            )}
+
+            {scenes[index] === "map" && (
+              <g>
+                {collectors.map((x, i) => (
+                  <path class="mp-chain" d={`M${x} 84 C${x} 66 80 66 80 51`} pathLength="1" style={`--k: ${i}`} />
+                ))}
+                <path class="mp-chain mp-chain--up" d="M80 37 V17" pathLength="1" />
+                <circle class="mp-source" cx="80" cy="12" r="4" />
+                <circle class="mp-common__ping" cx="80" cy="44" r="6.5" />
+                <circle class="mp-common" cx="80" cy="44" r="6.5" />
+                <circle class="mp-node__core" cx="80" cy="44" r="2.25" />
+                {collectors.map((x) => (
+                  <circle class="mp-collector" cx={x} cy="88" r="4" />
+                ))}
+              </g>
+            )}
+
+            {scenes[index] === "compare" && (
+              <g>
+                {wordsA.map(([x, width]) => (
+                  <rect class="mp-word" x={x} y="26" width={width} height="10" rx="2" />
+                ))}
+                {[25, 48, 97].map((x) => (
+                  <path class="mp-guide" d={`M${x} 40 V58`} />
+                ))}
+                {wordsB.map(([x, width]) => (
+                  <rect class="mp-word" x={x} y="62" width={width} height="10" rx="2" />
+                ))}
+                <rect class="mp-deleted" x="60" y="62" width="26" height="10" rx="2" />
+                <path class="mp-strike" d="M58 67 H88" pathLength="1" />
+                <rect class="mp-inserted" x="108" y="62" width="18" height="10" rx="2" />
+              </g>
+            )}
+
+            {scenes[index] === "date" && (
+              <g>
+                <path class="mp-axis" d="M12 72 H148" />
+                {centuries.map((x) => (
+                  <path class="mp-tick" d={`M${x} 68 V76`} />
+                ))}
+                <rect class="mp-range" x="66" y="60" width="26" height="12" rx="2" />
+                <path class="mp-stem" d="M79 38 V60" />
+                <path class="mp-marker" d="M79 28 L86 35 L79 42 L72 35 Z" />
+              </g>
+            )}
+          </svg>
+        </div>
+        <p class="mp__index">Step {index + 1}</p>
+        <h3 class="mp__title">{step.title}</h3>
+        <p class="mp__text">{step.text}</p>
+        <a class="home-link mp__link" href={step.href}>{step.link} <span aria-hidden="true">→</span></a>
+      </li>
+    ))}
+  </ol>
+</div>
+
+<style>
+  .mp {
+    --mp-cycle: calc(var(--motion-ambient) * 2);
+    --mp-delete: #e09a86;
+    --mp-insert: #b4d08a;
+    position: relative;
+  }
+
+  /* ── Rail and stations ──────────────────────────────────────── */
+
+  .mp__rail {
+    position: absolute;
+    top: 5px;
+    left: 6px;
+    right: 6px;
+    height: 1px;
+    overflow: hidden;
+    background: linear-gradient(90deg, var(--hc-rule-strong), var(--hc-rule) 85%, transparent);
+  }
+
+  .mp__spark {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 42%, var(--hc-gold) 50%, transparent 58%);
+    transform: translateX(-100%);
+    animation: mp-spark var(--mp-cycle) linear infinite;
+  }
+
+  .mp__steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .mp__step {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mp__dot {
+    width: 11px;
+    height: 11px;
+    border: 1px solid var(--hc-gold);
+    border-radius: 50%;
+    background: var(--hc-surface-0);
+    box-shadow: 0 0 0 4px var(--hc-surface-0);
+    /* Lights as the spark passes: the spark's middle crosses station i at a
+       quarter of the cycle plus a tenth per station. */
+    animation: mp-dot var(--mp-cycle) linear infinite;
+    animation-delay: calc(var(--mp-cycle) * (0.25 + var(--i) * 0.1));
+  }
+
+  .mp__scene {
+    margin-top: 1.1rem;
+    padding: 0.6rem;
+    border: 1px solid var(--home-line);
+    border-radius: 12px;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(223, 193, 125, 0.07), transparent 70%),
+      rgba(255, 255, 255, 0.02);
+    transition: border-color var(--motion-base) var(--ease-standard);
+  }
+
+  .mp__step:hover .mp__scene,
+  .mp__step:focus-within .mp__scene {
+    border-color: var(--home-line-strong);
+  }
+
+  .mp__scene svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .mp__index {
+    margin: 1.1rem 0 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .mp__title {
+    margin: 0.5rem 0 0;
+    font: 600 1.375rem/1.15 var(--font-display);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .mp__text {
+    flex: 1;
+    margin: 0.6rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.6 var(--font-body);
+  }
+
+  .mp__link {
+    margin-top: 1rem;
+  }
+
+  /* ── Shared scene parts ─────────────────────────────────────── */
+
+  .mp svg * {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .mp svg [style*="--k"] {
+    --k-delay: calc(var(--k) * 0.18s);
+  }
+
+  /* ── 1. Collect: fragments drift into one stack ─────────────── */
+
+  .mp-card {
+    fill: var(--hc-surface-1);
+    stroke: var(--hc-text-tertiary);
+    stroke-opacity: 0.7;
+    stroke-width: 1;
+  }
+
+  .mp-fragment:last-child .mp-card {
+    stroke: var(--hc-gold);
+    stroke-opacity: 1;
+  }
+
+  .mp-ink {
+    fill: var(--hc-text-tertiary);
+    opacity: 0.6;
+  }
+
+  .mp-fragment {
+    animation: mp-collect var(--mp-cycle) var(--ease-in-out-soft) infinite;
+  }
+
+  /* ── 2. Identify: name bars resolve into people ─────────────── */
+
+  .mp-name {
+    fill: var(--hc-text-tertiary);
+    opacity: 0;
+    animation: mp-name var(--mp-cycle) var(--ease-standard) infinite;
+    animation-delay: var(--k-delay);
+  }
+
+  .mp-node {
+    animation: mp-node var(--mp-cycle) var(--ease-back) infinite;
+    animation-delay: var(--k-delay);
+  }
+
+  .mp-node__ring {
+    fill: var(--hc-surface-1);
+    stroke: var(--hc-gold);
+    stroke-width: 1.5;
+  }
+
+  .mp-node__core {
+    fill: var(--hc-gold);
+  }
+
+  .mp-label {
+    fill: var(--hc-text-secondary);
+    animation: mp-label var(--mp-cycle) var(--ease-standard) infinite;
+    animation-delay: var(--k-delay);
+  }
+
+  .mp-label--dim {
+    fill: var(--hc-text-tertiary);
+    opacity: 0.7;
+  }
+
+  .mp-link {
+    fill: none;
+    stroke: var(--hc-gold);
+    stroke-opacity: 0.55;
+    stroke-width: 1;
+    stroke-dasharray: 1;
+    animation: mp-draw-late var(--mp-cycle) var(--ease-standard) infinite;
+    animation-delay: var(--k-delay);
+  }
+
+  /* ── 3. Map: chains meet in a common link ───────────────────── */
+
+  .mp-chain {
+    fill: none;
+    stroke: var(--hc-text-tertiary);
+    stroke-width: 1.25;
+    stroke-dasharray: 1;
+    animation: mp-draw var(--mp-cycle) var(--ease-in-out-soft) infinite;
+    animation-delay: var(--k-delay);
+  }
+
+  .mp-chain--up {
+    stroke: var(--hc-gold);
+    animation-name: mp-draw-late;
+  }
+
+  .mp-collector {
+    fill: var(--hc-surface-1);
+    stroke: var(--hc-text-tertiary);
+    stroke-width: 1.25;
+  }
+
+  .mp-source {
+    fill: none;
+    stroke: var(--hc-gold);
+    stroke-width: 1.25;
+    stroke-dasharray: 2 2;
+  }
+
+  .mp-common {
+    fill: var(--hc-surface-1);
+    stroke: var(--hc-gold);
+    stroke-width: 1.5;
+  }
+
+  .mp-common__ping {
+    fill: none;
+    stroke: var(--hc-gold);
+    stroke-width: 1;
+    opacity: 0;
+    animation: mp-ping var(--mp-cycle) var(--ease-standard) infinite;
+  }
+
+  /* ── 4. Compare: a word dropped, a word added ───────────────── */
+
+  .mp-word {
+    fill: var(--hc-text-tertiary);
+    opacity: 0.5;
+  }
+
+  .mp-guide {
+    stroke: var(--hc-text-tertiary);
+    stroke-opacity: 0.45;
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+  }
+
+  .mp-deleted {
+    fill: none;
+    stroke: var(--mp-delete);
+    stroke-width: 1.25;
+    stroke-dasharray: 3 2;
+    animation: mp-mark var(--mp-cycle) var(--ease-standard) infinite;
+  }
+
+  .mp-strike {
+    fill: none;
+    stroke: var(--mp-delete);
+    stroke-width: 1.5;
+    stroke-dasharray: 1;
+    animation: mp-draw var(--mp-cycle) var(--ease-standard) infinite;
+  }
+
+  .mp-inserted {
+    fill: var(--mp-insert);
+    fill-opacity: 0.85;
+    transform-origin: left center;
+    animation: mp-insert var(--mp-cycle) var(--ease-back) infinite;
+  }
+
+  /* ── 5. Date: the marker settles on the axis ────────────────── */
+
+  .mp-axis,
+  .mp-tick {
+    stroke: var(--hc-text-tertiary);
+    stroke-width: 1.25;
+  }
+
+  .mp-range {
+    fill: var(--hc-gold);
+    fill-opacity: 0.2;
+    animation: mp-range var(--mp-cycle) var(--ease-in-out-quart) infinite;
+  }
+
+  .mp-stem {
+    stroke: var(--hc-gold);
+    stroke-opacity: 0.6;
+    stroke-width: 1;
+    stroke-dasharray: 2 2;
+    animation: mp-mark var(--mp-cycle) var(--ease-standard) infinite;
+  }
+
+  .mp-marker {
+    fill: var(--hc-gold);
+    animation: mp-marker var(--mp-cycle) var(--ease-back) infinite;
+  }
+
+  /* ── Keyframes: each ends where the resting style already is ── */
+
+  @keyframes mp-spark {
+    to { transform: translateX(100%); }
+  }
+
+  @keyframes mp-dot {
+    0% { background: var(--hc-gold); box-shadow: 0 0 0 4px var(--hc-surface-0), 0 0 12px 2px rgba(223, 193, 125, 0.55); }
+    18%, 100% { background: var(--hc-surface-0); box-shadow: 0 0 0 4px var(--hc-surface-0); }
+  }
+
+  @keyframes mp-collect {
+    0%, 10% { translate: var(--dx) var(--dy); rotate: var(--r); opacity: 0.55; }
+    42%, 82% { translate: 0 0; rotate: 0deg; opacity: 1; }
+    100% { translate: var(--dx) var(--dy); rotate: var(--r); opacity: 0.55; }
+  }
+
+  @keyframes mp-name {
+    0%, 14% { opacity: 0.7; scale: 1 1; }
+    28%, 90% { opacity: 0; scale: 0.4 1; }
+    100% { opacity: 0.7; scale: 1 1; }
+  }
+
+  @keyframes mp-node {
+    0%, 18% { opacity: 0; scale: 0.3; }
+    34%, 86% { opacity: 1; scale: 1; }
+    100% { opacity: 0; scale: 0.3; }
+  }
+
+  @keyframes mp-label {
+    0%, 26% { opacity: 0; }
+    40%, 86% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes mp-draw {
+    0%, 8% { stroke-dashoffset: 1; opacity: 1; }
+    36%, 86% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  @keyframes mp-draw-late {
+    0%, 36% { stroke-dashoffset: 1; opacity: 1; }
+    54%, 86% { stroke-dashoffset: 0; opacity: 1; }
+    100% { stroke-dashoffset: 0; opacity: 0; }
+  }
+
+  @keyframes mp-ping {
+    0%, 36% { opacity: 0; scale: 1; }
+    42% { opacity: 0.9; scale: 1; }
+    66%, 100% { opacity: 0; scale: 2.6; }
+  }
+
+  @keyframes mp-mark {
+    0%, 16% { opacity: 0; }
+    28%, 86% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes mp-insert {
+    0%, 40% { opacity: 0; scale: 0 1; }
+    56%, 86% { opacity: 1; scale: 1 1; }
+    100% { opacity: 0; scale: 1 1; }
+  }
+
+  @keyframes mp-range {
+    0%, 12% { opacity: 0; scale: 3 1; }
+    34%, 86% { opacity: 1; scale: 1 1; }
+    100% { opacity: 0; scale: 1 1; }
+  }
+
+  @keyframes mp-marker {
+    0%, 28% { opacity: 0; translate: -46px -22px; }
+    50%, 86% { opacity: 1; translate: 0 0; }
+    100% { opacity: 0; translate: 0 0; }
+  }
+
+  /* ── Responsive ─────────────────────────────────────────────── */
+
+  @media (max-width: 1000px) {
+    .mp__steps {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: 2.5rem;
+    }
+
+    /* Without the rail the stations have nothing to sit on. */
+    .mp__rail,
+    .mp__dot {
+      display: none;
+    }
+
+    .mp__scene {
+      margin-top: 0;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .mp__steps {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mp__scene {
+      max-width: 340px;
+    }
+  }
+
+  /* Each scene rests on its finished state. */
+  @media (prefers-reduced-motion: reduce) {
+    .mp *,
+    .mp svg * {
+      animation: none !important;
+    }
+
+    .mp__spark {
+      display: none;
+    }
+  }
+</style>

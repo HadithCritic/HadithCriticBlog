@@ -1,6 +1,7 @@
-// Editorial artwork assignments. Research frontmatter and article URLs remain unchanged.
+// Editorial artwork assignments. Research content and article URLs remain unchanged.
 export interface BlogArtwork { src: string; srcset: string; thumbnail: string; alt: string; width: number; height: number; fullFrame?: boolean; }
 import { generatedBlogArtwork } from './blog-artwork-generated';
+import { paintingBlogArtwork } from './blog-artwork-paintings';
 
 const editorialBlogArtwork: Record<string, BlogArtwork> = {
   "prophecies-eschatology/86-when-kufa-filled-the-mosques-al-amash-and-the-empty-believers-prophecy": {
@@ -697,5 +698,6 @@ const editorialBlogArtwork: Record<string, BlogArtwork> = {
 /* Generated per-article covers override the earlier engraving assignments. */
 export const blogArtwork: Record<string, BlogArtwork> = {
   ...editorialBlogArtwork,
-  ...generatedBlogArtwork
+  ...generatedBlogArtwork,
+  ...paintingBlogArtwork
 };

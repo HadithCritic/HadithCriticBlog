@@ -1,0 +1,232 @@
+---
+/* One band of the front page: a kicker, a title, an optional lede and an
+   optional aside (a link beside the title), then the section's own content.
+
+   tone       page       the reader's theme
+              dark       fixed dark in both themes
+              panel      the page, with the content set in a fixed dark frame
+              parchment  fixed parchment in both themes
+   align      center     heading centered over the content
+              split      heading on the left, the aside on the right
+   notch      draws a rule with a small V at the top, to part two bands of
+              the same tone
+
+   A tone re-maps the site's color tokens (--hc-text-*, --hc-gold, --hc-rule*,
+   --hc-surface-*) inside the band, so anything placed in it reads correctly
+   without rules of its own. The pattern is avrea's .theme-dark. */
+interface Props {
+  id: string;
+  title: string;
+  kicker?: string;
+  lede?: string;
+  tone?: 'page' | 'dark' | 'panel' | 'parchment';
+  align?: 'center' | 'split';
+  notch?: boolean;
+  /** Skip layout and paint until near. Off for the first band under the hero. */
+  defer?: boolean;
+  class?: string;
+}
+
+const {
+  id,
+  title,
+  kicker,
+  lede,
+  tone = 'page',
+  align = 'center',
+  notch = false,
+  defer = true,
+  class: extra,
+} = Astro.props;
+const headingId = `${id}-title`;
+const hasTitleSlot = Astro.slots.has('title');
+const hasAside = Astro.slots.has('aside');
+---
+
+<section
+  id={id}
+  class:list={['hs', `hs--${tone}`, extra]}
+  aria-labelledby={headingId}
+  data-defer-paint={defer ? '' : undefined}
+>
+  <div class="hc-container hs__frame">
+    {notch && <div class="hs__notch" aria-hidden="true"></div>}
+    <header class:list={['hs__head', `hs__head--${align}`, 'reveal']}>
+      <div class="hs__heading">
+        {kicker && <p class="home-kicker">{kicker}</p>}
+        <h2 id={headingId} class="home-title">
+          {hasTitleSlot ? <slot name="title" /> : title}
+        </h2>
+        {lede && <p class="hs__lede">{lede}</p>}
+      </div>
+      {hasAside && <div class="hs__aside"><slot name="aside" /></div>}
+    </header>
+    <slot />
+  </div>
+</section>
+
+<style>
+  .hs {
+    position: relative;
+    isolation: isolate;
+    padding-block: clamp(4.25rem, 8vw, 7rem);
+    background: var(--hs-bg);
+    color: var(--hc-text-primary);
+  }
+
+  .hs__frame {
+    position: relative;
+  }
+
+  /* ── Heading ─────────────────────────────────────────────────── */
+
+  .hs__head {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: clamp(2rem, 4vw, 3rem);
+  }
+
+  .hs__head--center {
+    flex-direction: column;
+    align-items: center;
+    max-width: 760px;
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .hs__head--split {
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .hs__head--center .hs__lede {
+    margin-inline: auto;
+  }
+
+  .hs__lede {
+    max-width: 600px;
+    margin: 1rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-base)/1.65 var(--font-body);
+    text-wrap: pretty;
+  }
+
+  .hs__aside {
+    flex: none;
+  }
+
+  /* ── Notch: a rule with a small V where two bands meet ──────── */
+
+  .hs__notch {
+    position: absolute;
+    top: calc(clamp(4.25rem, 8vw, 7rem) * -1);
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--hc-rule);
+  }
+
+  .hs__notch::after {
+    content: "";
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 13px;
+    height: 13px;
+    border-right: 1px solid var(--hc-rule);
+    border-bottom: 1px solid var(--hc-rule);
+    background: var(--hs-bg);
+    translate: -50% 0;
+    rotate: 45deg;
+  }
+
+  /* ── Tones ───────────────────────────────────────────────────── */
+
+  .hs--page {
+    --hs-bg: var(--home-page);
+  }
+
+  /* Fixed dark: the values of the default theme, held in both themes. */
+  .hs--dark,
+  .hs--panel .hs__frame {
+    --hs-bg: #141413;
+    --hc-surface-0: #141413;
+    --hc-surface-1: #1d1d1b;
+    --hc-surface-2: #262623;
+    --hc-surface-3: #2f2f2b;
+    --hc-text-primary: var(--hc-fixed-parchment);
+    --hc-text-secondary: #c1bfb6;
+    --hc-text-tertiary: #a29f96;
+    --hc-gold: #dfc17d;
+    --hc-gold-bright: #e8c878;
+    --hc-gold-soft: #e2c783;
+    --hc-gold-dim: #bf9957;
+    --hc-rule: rgba(255, 255, 255, 0.12);
+    --hc-rule-soft: rgba(255, 255, 255, 0.07);
+    --hc-rule-strong: rgba(255, 255, 255, 0.24);
+    --cat-history-text: var(--hc-fixed-category-history);
+    --cat-prophecies-text: var(--hc-fixed-category-prophecies);
+    --cat-theology-text: var(--hc-fixed-category-theology);
+    --cat-philosophy-text: var(--hc-fixed-category-philosophy);
+    --home-card: #1d1d1b;
+    --home-card-hover: #262623;
+    --home-line: rgba(255, 255, 255, 0.1);
+    --home-line-strong: rgba(255, 255, 255, 0.2);
+    --home-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.6);
+    color: var(--hc-text-primary);
+  }
+
+  .hs--panel {
+    --hs-bg: var(--home-page);
+  }
+
+  .hs--panel .hs__frame {
+    padding: clamp(2rem, 5vw, 4rem) clamp(1.25rem, 4vw, 3.5rem);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background:
+      radial-gradient(ellipse at 85% 0%, rgba(216, 189, 131, 0.08), transparent 45%),
+      var(--hc-surface-0);
+    box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Fixed parchment: the values of the light theme, held in both themes.
+     Text tones are the light theme's AA-audited ramp. */
+  .hs--parchment {
+    --hs-bg: var(--hc-fixed-parchment);
+    --hc-surface-0: var(--hc-fixed-parchment);
+    --hc-surface-1: #fbf7ee;
+    --hc-surface-2: #e8e0cf;
+    --hc-surface-3: #dfd8cb;
+    --hc-text-primary: #2b2824;
+    --hc-text-secondary: #4e4842;
+    --hc-text-tertiary: #58534c;
+    --hc-gold: #6a4c18;
+    --hc-gold-bright: #63440f;
+    --hc-gold-soft: #6d4f1d;
+    --hc-gold-dim: #7a5920;
+    --hc-rule: rgba(138, 76, 39, 0.18);
+    --hc-rule-soft: rgba(138, 76, 39, 0.09);
+    --hc-rule-strong: rgba(138, 76, 39, 0.35);
+    --cat-history-text: #713e20;
+    --cat-prophecies-text: #7e3727;
+    --cat-theology-text: #39533d;
+    --cat-philosophy-text: #414c64;
+    --home-card: #fbf7ee;
+    --home-card-hover: #fffdf8;
+    --home-line: rgba(43, 40, 36, 0.12);
+    --home-line-strong: rgba(43, 40, 36, 0.22);
+    --home-shadow: 0 18px 50px -28px rgba(43, 40, 36, 0.22);
+    color: var(--hc-text-primary);
+    box-shadow:
+      inset 0 1px 0 rgba(138, 76, 39, 0.14),
+      inset 0 -1px 0 rgba(138, 76, 39, 0.14);
+  }
+
+  @media (max-width: 760px) {
+    .hs__head--split {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>

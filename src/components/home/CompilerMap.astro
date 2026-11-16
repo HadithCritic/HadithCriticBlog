@@ -1,0 +1,377 @@
+---
+/* Where the compilers worked: the coastline from Egypt to Transoxiana (the
+   frame is set in scripts/site/build-home-map.mjs), with one point per region
+   that has a collection in the corpus. A point's size follows how many
+   collections come from it. Hovering, focusing or tapping a point lifts it,
+   dims the rest and opens its callout in the far corner of the map; Escape
+   or a tap elsewhere closes it. The century switch fades the regions and compilers
+   outside the chosen century of death. Behavior is in home-compiler-map.ts;
+   without script the map and its points still show, and the switch stays
+   hidden. Names are HTML over the drawing, so they keep the 12px floor. */
+import type { CompilerMapFigure } from "../../lib/home-corpus";
+import { formatCount } from "../../lib/home-data-core";
+import { centuryHeading } from "../../lib/collection-catalogue";
+
+interface Props {
+  map: CompilerMapFigure;
+}
+
+const { map } = Astro.props;
+const dotSize = (collections: number) => Math.round(12 + 4 * Math.sqrt(collections));
+const plural = (count: number, one: string) => `${formatCount(count)} ${one}${count === 1 ? "" : "s"}`;
+const ordinal = (century: number) => centuryHeading(century).name.replace(" century AH", "");
+---
+
+<figure class="cmap" data-compiler-map aria-labelledby="cmap-title">
+  <div class="cmap__head">
+    <p id="cmap-title" class="cmap__kicker">Where the compilers worked</p>
+    <fieldset class="cmap__switch" data-cmap-switch hidden>
+      <legend class="sr-only">Show compilers who died in</legend>
+      <label><input type="radio" name="cmap-century" value="all" checked /><span>All</span></label>
+      {map.centuries.map((century) => (
+        <label><input type="radio" name="cmap-century" value={century} /><span>{ordinal(century)} c.</span></label>
+      ))}
+    </fieldset>
+  </div>
+
+  <div class="cmap__frame">
+    <div class="cmap__stage" style={`aspect-ratio: ${map.width} / ${map.height}`}>
+      <svg viewBox={`0 0 ${map.width} ${map.height}`} aria-hidden="true" focusable="false" preserveAspectRatio="none">
+        <path class="cmap__land" d={map.land} fill-rule="evenodd" />
+      </svg>
+      <ul class="cmap__points">
+        {map.regions.map((region) => (
+          <li
+            class="cmap__point"
+            data-region={region.key}
+            data-centuries={region.centuries.join(" ")}
+            style={`--x: ${region.x}%; --y: ${region.y}%; --size: ${dotSize(region.collections)}px`}
+          >
+            <button
+              type="button"
+              class="cmap__dot"
+              aria-expanded="false"
+              aria-controls={`cmap-${region.key}`}
+            >
+              <span class="sr-only">{region.name}: {plural(region.collections, "collection")}</span>
+            </button>
+            {region.label && (
+              <span class:list={["cmap__label", `cmap__label--${region.label}`]} aria-hidden="true">{region.name}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    {map.regions.map((region) => (
+      <div
+        id={`cmap-${region.key}`}
+        class:list={["cmap__callout", region.x > 50 ? "cmap__callout--start" : "cmap__callout--end"]}
+        style={`--x: ${region.x}%`}
+        hidden
+      >
+        <p class="cmap__callout-name">{region.name}{region.city !== region.name && <span> {region.city}</span>}</p>
+        <p class="cmap__callout-total">
+          {plural(region.collections, "collection")}, {plural(region.narrations, "narration")}
+        </p>
+        <ul class="cmap__compilers">
+          {region.compilers.map((compiler) => (
+            <li data-century={compiler.century}>
+              <span>{compiler.name}</span>
+              <b>{formatCount(compiler.narrations)}</b>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+
+  <figcaption class="cmap__caption">
+    {map.placed} of {map.total} collections, placed by where the compiler worked. Coastline: {map.source}.
+  </figcaption>
+</figure>
+
+<style>
+  .cmap {
+    --cmap-ink: #f2ebdc;
+    --cmap-muted: #a29f96;
+    --cmap-gold: #dfc17d;
+    --cmap-line: rgba(255, 255, 255, 0.1);
+    margin: 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    background: #171614;
+    box-shadow: 0 16px 40px rgba(40, 30, 10, 0.18);
+    color: var(--cmap-ink);
+  }
+
+  .cmap__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .cmap__kicker {
+    margin: 0;
+    color: var(--cmap-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── Century switch ─────────────────────────────────────────── */
+
+  .cmap__switch {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0;
+    padding: 3px;
+    border: 1px solid var(--cmap-line);
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .cmap__switch[hidden] {
+    display: none;
+  }
+
+  .cmap__switch label {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .cmap__switch input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .cmap__switch span {
+    display: block;
+    padding: 0.3rem 0.7rem;
+    border-radius: var(--radius-pill);
+    color: var(--cmap-muted);
+    font: 500 var(--fs-xs)/1.3 var(--font-ui);
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .cmap__switch input:checked + span {
+    background: var(--cmap-gold);
+    color: #1b1a17;
+  }
+
+  .cmap__switch input:focus-visible + span {
+    outline: 2px solid var(--cmap-gold);
+    outline-offset: 2px;
+  }
+
+  /* ── Map ────────────────────────────────────────────────────── */
+
+  .cmap__frame {
+    position: relative;
+  }
+
+  .cmap__stage {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    background: radial-gradient(ellipse at 55% 40%, #1f2a33, #141a20 75%);
+  }
+
+  .cmap__stage svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cmap__land {
+    fill: #2e2b24;
+    stroke: #4a4434;
+    stroke-width: 0.8;
+    stroke-linejoin: round;
+  }
+
+  .cmap__points {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .cmap__point {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: 0;
+    height: 0;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+
+  .cmap__dot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--size);
+    height: var(--size);
+    padding: 0;
+    border: 1.5px solid #171614;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #f0d79c, var(--cmap-gold) 55%, #b8944f);
+    box-shadow: 0 0 0 1px rgba(223, 193, 125, 0.45), 0 2px 8px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    transform: translate(-50%, -50%);
+    transition:
+      transform var(--motion-base) var(--ease-back),
+      box-shadow var(--motion-base) var(--ease-standard);
+  }
+
+  .cmap__dot:focus-visible {
+    --hc-focus-color: var(--cmap-ink);
+    --hc-focus-offset: 3px;
+  }
+
+  .cmap__label {
+    position: absolute;
+    color: var(--cmap-muted);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 1px 4px #141a20;
+  }
+
+  .cmap__label--right { left: calc(var(--size) / 2 + 6px); top: 0; transform: translateY(-50%); }
+  .cmap__label--left { right: calc(var(--size) / 2 + 6px); top: 0; transform: translateY(-50%); }
+  .cmap__label--top { left: 0; bottom: calc(var(--size) / 2 + 5px); transform: translateX(-50%); }
+  .cmap__label--bottom { left: 0; top: calc(var(--size) / 2 + 5px); transform: translateX(-50%); }
+
+  /* One region open: it lifts, the rest step back. */
+  .cmap[data-active] .cmap__point:not(.is-active) {
+    opacity: 0.32;
+  }
+
+  .cmap__point.is-active {
+    z-index: 2;
+  }
+
+  .cmap__point.is-active .cmap__dot {
+    box-shadow: 0 0 0 4px rgba(223, 193, 125, 0.25), 0 6px 16px rgba(0, 0, 0, 0.55);
+    transform: translate(-50%, -50%) scale(1.18);
+  }
+
+  .cmap__point.is-active .cmap__label {
+    color: var(--cmap-ink);
+  }
+
+  /* Outside the chosen century. */
+  .cmap__point[data-out] {
+    opacity: 0.14;
+  }
+
+  .cmap__point[data-out] .cmap__dot {
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+
+  /* ── Callout ────────────────────────────────────────────────── */
+
+  .cmap__callout {
+    position: absolute;
+    z-index: 3;
+    top: 0.6rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(223, 193, 125, 0.35);
+    border-radius: 12px;
+    background: rgba(12, 11, 10, 0.94);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+  }
+
+  /* In the corner away from the point, so it never covers it or leaves the card. */
+  .cmap__callout--start { left: 0.6rem; width: min(16rem, calc(var(--x) - 1.75rem)); }
+  .cmap__callout--end { right: 0.6rem; width: min(16rem, calc(100% - var(--x) - 1.75rem)); }
+
+  .cmap__callout-name {
+    margin: 0;
+    font: 600 1.125rem/1.2 var(--font-display);
+  }
+
+  .cmap__callout-name span {
+    color: var(--cmap-muted);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+  }
+
+  .cmap__callout-total {
+    margin: 0.3rem 0 0;
+    color: var(--cmap-gold);
+    font: 500 var(--fs-xs)/1.4 var(--font-ui);
+  }
+
+  .cmap__compilers {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.65rem 0 0;
+    padding: 0.6rem 0 0;
+    border-top: 1px solid var(--cmap-line);
+    list-style: none;
+  }
+
+  .cmap__compilers li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: #dcd8cc;
+    font: 400 var(--fs-xs)/1.35 var(--font-ui);
+    transition: opacity var(--motion-fast) var(--ease-standard);
+  }
+
+  .cmap__compilers b {
+    color: var(--cmap-muted);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cmap__compilers li[data-out] {
+    opacity: 0.35;
+  }
+
+  .cmap__caption {
+    margin-top: 0.75rem;
+    color: var(--cmap-muted);
+    font: 400 var(--fs-xs)/1.45 var(--font-ui);
+  }
+
+  /* On a phone the callout sits under the map instead of over it. */
+  @media (max-width: 640px) {
+    .cmap {
+      padding: 0.85rem 0.75rem 0.75rem;
+    }
+
+    .cmap__label {
+      display: none;
+    }
+
+    .cmap__callout,
+    .cmap__callout--start,
+    .cmap__callout--end {
+      position: static;
+      width: auto;
+      margin-top: 0.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cmap__point,
+    .cmap__dot,
+    .cmap__switch span,
+    .cmap__compilers li {
+      transition: none;
+    }
+  }
+</style>

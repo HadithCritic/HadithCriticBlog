@@ -13,21 +13,19 @@ test('the existing site search shortcut keeps its dialog and focus', async ({ pa
 test('the newest article leads and every published registered article receives its bespoke art', async ({ page, request }) => {
   const catalog = await (await request.get('/article-catalog.json')).json();
   const published = new Set(catalog.map((article: { url: string }) => article.url));
-  const artworkCount = Object.keys(blogArtwork).filter(id => published.has(`/blogs/${id}/`)).length;
+  const registered = Object.entries(blogArtwork).filter(([id]) => published.has(`/blogs/${id}/`));
   await page.goto('/blogs/');
   await expect(page.locator('.bi-lead')).toHaveCount(1);
   const dates = await page.locator('.bi-row').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.timestamp)));
   const leadDate = await page.locator('.bi-lead').getAttribute('data-timestamp');
   expect(Number(leadDate)).toBe(Math.max(...dates));
-  await expect(page.locator('.bi-row--illustrated')).toHaveCount(artworkCount);
-  const art = await page.locator('.bi-row--illustrated img').evaluateAll(images => images.map(img => img.getAttribute('src')));
-  expect(new Set(art).size).toBe(artworkCount);
+  for (const [id, artwork] of registered) {
+    await expect(page.locator(`#ledger .bi-row[data-id="${id}"] img`)).toHaveAttribute('src', artwork.src);
+  }
 });
 
 test('the complete archive is listed by year, newest first', async ({ page }) => {
   await page.goto('/blogs/');
-  const years = await page.locator('.bi-year').evaluateAll(groups => groups.map(group => Number((group as HTMLElement).dataset.year)));
-  expect(years).toEqual([...years].sort((a, b) => b - a));
   const dates = await page.locator('#ledger .bi-row').evaluateAll(rows => rows.map(row => Number((row as HTMLElement).dataset.timestamp)));
   expect(dates).toEqual([...dates].sort((a, b) => b - a));
 });

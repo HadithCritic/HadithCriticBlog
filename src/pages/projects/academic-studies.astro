@@ -1,381 +1,285 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { OG } from '../../lib/seo';
-import ResearchHero from "../../components/ResearchHero.astro";
-import { getCollection } from 'astro:content';
-import { academicStudies } from '../../data/research/academic-studies';
-import { FAMILIES, studyFamily, type IcmaFamily } from '../../data/research/icma-families';
-import { relatedMethods } from '../../data/research/related-methods';
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import PageHero from "../../components/PageHero.astro";
+import { OG } from "../../lib/seo";
+import { getCollection } from "astro:content";
+import { academicStudies } from "../../data/research/academic-studies";
+import { FAMILIES, familyText, studyFamily, type IcmaFamily } from "../../data/research/icma-families";
+import { relatedMethods } from "../../data/research/related-methods";
+import "../../styles/icma-register.css";
 
-const articles = await getCollection('articles');
-const articleUrl = new Map(articles.map((entry) => [entry.id.split('/').pop()!.replace(/\.mdx?$/, ''), `/blogs/${entry.id}/`]));
+/* The ICMA Register: one featured study, a short key to what an entry
+   records, then every study as a card that can be searched, narrowed to a
+   research family and reordered (src/lib/icma-register.ts). Each card heads
+   with a plate in its family's fixed jacket colors and the study's Arabic
+   title, so the families read apart at a glance in either theme. Further
+   reading on the method closes the page. */
+
+/* The study set out above the register. The build fails if it goes missing. */
+const FEATURED_SLUG = "78-the-scroll-and-the-sword-the-polemical-use-of-alis-authority";
+
+const articles = await getCollection("articles");
+const articleUrl = new Map(
+  articles.map((entry) => [entry.id.split("/").pop()!.replace(/\.mdx?$/, ""), `/blogs/${entry.id}/`])
+);
 
 const studies = academicStudies
-  .filter((study) => study.category === 'icma')
-  .map((study, index) => ({
-    ...study,
-    no: String(index + 1).padStart(2, '0'),
-    family: studyFamily[study.slug] ?? 'network',
-    href: articleUrl.get(study.slug) ?? `/blogs/${study.slug}/`
-  }));
+  .filter((study) => study.category === "icma")
+  .map((study, index) => {
+    const family: IcmaFamily = studyFamily[study.slug] ?? "network";
+    const text = familyText(family);
+    const { bg, ink, accent, label } = FAMILIES[family];
+    return {
+      ...study,
+      index: index + 1,
+      no: String(index + 1).padStart(2, "0"),
+      family,
+      familyLabel: label,
+      style: `--fam-bg:${bg};--fam-ink:${ink};--fam-accent:${accent};--fam-light:${text.light};--fam-dark:${text.dark}`,
+      href: articleUrl.get(study.slug) ?? `/blogs/${study.slug}/`,
+      search: [study.title, study.subtitle, study.tradition, study.commonLink, study.dating, study.abstract, study.citeKey, label]
+        .filter(Boolean)
+        .join(" ")
+    };
+  });
 
-/* Families run largest first, so the dock, the rail and the page agree on order. */
-const sections = (Object.keys(FAMILIES) as IcmaFamily[])
-  .map((id) => ({ id, ...FAMILIES[id], items: studies.filter((study) => study.family === id) }))
-  .filter((section) => section.items.length > 0)
-  .sort((a, b) => b.items.length - a.items.length);
+const featured = studies.find((study) => study.slug === FEATURED_SLUG);
+if (!featured) throw new Error(`ICMA Register: featured study "${FEATURED_SLUG}" is missing`);
 
-const treatise = academicStudies.find((study) => study.featured);
+/* Newest first, as the grid opens. */
+const register = [...studies].reverse();
 
-/* The treatise card sits on the house charcoal. */
-const HOUSE = { bg: '#17140f', ink: '#f2ebdc', accent: '#e2c38a' };
+/* Families largest first, so the filters lead with the bigger groups. */
+const families = (Object.keys(FAMILIES) as IcmaFamily[])
+  .map((id) => {
+    const text = familyText(id);
+    return {
+      id,
+      label: FAMILIES[id].label,
+      count: studies.filter((study) => study.family === id).length,
+      style: `--fam-light:${text.light};--fam-dark:${text.dark}`
+    };
+  })
+  .filter((family) => family.count > 0)
+  .sort((a, b) => b.count - a.count);
 
-const style = (jacket: { bg: string; ink: string; accent: string }) => `--j-bg:${jacket.bg};--j-ink:${jacket.ink};--j-accent:${jacket.accent}`;
+const KEY = [
+  {
+    term: "Tradition studied",
+    text: "The report under study, with every version of its wording gathered from the collections."
+  },
+  {
+    term: "Common link",
+    text: "The transmitter in whom the chains of those versions meet, and below whom they divide."
+  },
+  {
+    term: "Dated",
+    text: "When and where the wording took shape, read from the common link and the variants after it."
+  }
+];
 ---
 
-<BaseLayout image={OG.icma}
+<BaseLayout
+  image={OG.icma}
   title="The ICMA Register | HadithCritic Projects"
   description="A register of isnād-cum-matn studies, each traced to its common link and dated."
 >
-  <div class="studies-page rp-page rp-icma">
-    <ResearchHero artwork="icma" variant="icma" title="The ICMA Register" titleId="studies-title" kicker="Academic studies" arabic="الإسناد والمتن">
-      <p>Isnād-cum-matn studies that trace a tradition to its common link and date it.</p>
-      <div slot="actions">
-            <a href="#register" class="hc-btn">Browse the register</a>
-            <a href="/projects/islamic-studies-atlas/" class="hc-back-link hc-back-link--ruled">Islamic Studies Atlas <span aria-hidden="true">→</span></a>
+  <div class="hc-page ic-page">
+    <PageHero
+      title="The ICMA"
+      accent="Register."
+      titleId="ic-title"
+      kicker="Projects"
+      kickerHref="/projects/"
+      art="/images/platform/icma.webp"
+      focus="70% center"
+      measure="9ch"
+    >
+      <p class="hc-hero__lede">
+        Isnād-cum-matn studies that gather every version of a tradition, find the transmitter where
+        its chains meet, and date the wording from there.
+      </p>
+      <Fragment slot="actions">
+        <a class="hc-btn" href="#register">Browse the register</a>
+        <a class="hc-btn hc-btn--ghost" href="#key">How an entry reads</a>
+      </Fragment>
+    </PageHero>
+
+    <!-- The featured study. -->
+    <section class="hc-band ic-feature-band" aria-labelledby="ic-feature-title">
+      <div class="hc-container">
+        <article class="ic-feature ic-fam" style={featured.style}>
+          <div class={`ic-plate ic-plate--${featured.family} ic-plate--large`}>
+            <p class="ic-plate__no">No. {featured.no}</p>
+            <p class="ic-plate__ar" lang="ar" dir="rtl">{featured.arabicTitle}</p>
           </div>
-      <figure slot="signature" class="rp-families studies-hero__aside">
-        <figcaption class="rp-sig__caption">{studies.length} studies across {sections.length} research families</figcaption>
-        <div class="mix" aria-hidden="true">
-          {sections.map((section) => (
-            <span class="mix__seg" style={`--n:${section.items.length};background:${section.bg}`}></span>
-          ))}
-        </div>
-        <ul class="rp-families__list">
-          {sections.map((section) => (
+          <div class="ic-feature__copy">
+            <p class="ic-feature__label">
+              Featured study <span aria-hidden="true">·</span> <span class="ic-family">{featured.familyLabel}</span>
+            </p>
+            <h2 id="ic-feature-title" class="ic-feature__title">
+              <a href={featured.href}>{featured.title}</a>
+            </h2>
+            {featured.subtitle && <p class="ic-feature__sub">{featured.subtitle}</p>}
+            <p class="ic-feature__abstract">{featured.abstract}</p>
+            <dl class="ic-facts ic-facts--row">
+              <div><dt>Tradition studied</dt><dd>{featured.tradition}</dd></div>
+              <div><dt>Common link</dt><dd>{featured.commonLink}</dd></div>
+              <div><dt>Dated</dt><dd>{featured.dating}</dd></div>
+            </dl>
+            <a class="hc-link" href={featured.href}>Read the study <span aria-hidden="true">→</span></a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- What each entry records. -->
+    <section class="ic-key-band" id="key" aria-labelledby="ic-key-title">
+      <div class="hc-container ic-key">
+        <h2 id="ic-key-title" class="ic-key__title">How an entry reads</h2>
+        <ol class="ic-key__list">
+          {KEY.map((item, index) => (
             <li>
-              <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
-              <a href={`#${section.id}`}>{section.label}</a>
-              <span class="rp-families__n">{section.items.length}</span>
+              <span class="ic-key__n" aria-hidden="true">{index + 1}</span>
+              <span class="ic-key__term">{item.term}</span>
+              <span class="ic-key__text">{item.text}</span>
             </li>
           ))}
-        </ul>
-      </figure>
-    </ResearchHero>
-
-    <div class="hc-container dockwrap" id="register">
-      <div class="dock" role="search" data-dock hidden>
-        <label class="dock__field">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-          <input id="study-query" class="dock__input" type="search" placeholder="Search title, tradition or common link" autocomplete="off" aria-label="Search the register" />
-          <kbd class="dock__kbd" aria-hidden="true">/</kbd>
-        </label>
-        <div class="dock__chips" role="group" aria-label="Filter by research family">
-          {sections.map((section) => (
-            <button type="button" class="chip" data-family={section.id} aria-pressed="false">
-              <span class="swatch" style={`--sw:${section.bg};--sw-ring:${section.accent}`} aria-hidden="true"></span>
-              {section.label} <span class="chip__n">{section.items.length}</span>
-              <svg class="chip__x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
-            </button>
-          ))}
-        </div>
-        <span id="study-count" class="dock__count" aria-live="polite">{studies.length} of {studies.length} studies</span>
+        </ol>
       </div>
-    </div>
+    </section>
 
-    <div class="catalog hc-container">
-      <nav class="rail" aria-label="Research families">
-        <ul class="rail__list">
-          {sections.map((section) => (
-            <li><a href={`#${section.id}`} class="rail__link" data-spy={section.id}>{section.label}</a></li>
-          ))}
-        </ul>
-      </nav>
+    <!-- The register. -->
+    <section class="hc-band ic-register" id="register" aria-labelledby="ic-register-title">
+      <div class="hc-container">
+        <div class="ic-tools">
+          <div class="ic-tools__head">
+            <h2 id="ic-register-title" class="hc-head__title">The complete <span>register</span></h2>
+            <div class="ic-tools__controls" data-js-only hidden>
+              <div class="ic-search" role="search">
+                <label class="sr-only" for="ic-query">Search titles, traditions and common links</label>
+                <div class="hc-field">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                  <input id="ic-query" type="search" placeholder="Search the register" autocomplete="off" spellcheck="false" data-icma-query />
+                </div>
+              </div>
+              <label class="ic-order">
+                <span class="sr-only">Order</span>
+                <select class="hc-select" data-icma-order>
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="title">Title A to Z</option>
+                </select>
+              </label>
+            </div>
+          </div>
 
-      <div class="sections">
-        {sections.map((section) => (
-          <section id={section.id} class="sec" aria-labelledby={`heading-${section.id}`}>
-            <header class="sec__head">
-              <h2 id={`heading-${section.id}`} class="sec__title">{section.label}</h2>
-              <span class="sec__rule" aria-hidden="true"></span>
-              <span class="sec__count">{section.items.length}</span>
-            </header>
-            <ul class="list">
-              {section.items.map((study) => (
-                <li data-study data-family={study.family} data-search={`${study.title} ${study.subtitle ?? ''} ${study.tradition ?? ''} ${study.commonLink ?? ''} ${study.citeKey ?? ''}`}>
-                  <article class={`jacket jacket--${study.family}`} style={style(section)}>
-                    <p class="jacket__top">
-                      <span class="jacket__no">No. {study.no}</span>
-                      <span class="jacket__go" aria-hidden="true">→</span>
-                    </p>
-                    <h3 class="jacket__title"><a class="jacket__link" href={study.href}>{study.title}</a></h3>
-                    {study.subtitle && <p class="jacket__sub">{study.subtitle}</p>}
-                    <dl class="jacket__facts">
-                      {study.tradition && <div class="jacket__fact--lead"><dt>Tradition studied</dt><dd>{study.tradition}</dd></div>}
-                      <div><dt>Common link</dt><dd>{study.commonLink}</dd></div>
-                      <div><dt>Dated</dt><dd>{study.dating}</dd></div>
-                    </dl>
-                  </article>
+          <div class="ic-tools__bar" data-js-only hidden>
+            <ul class="hc-chips ic-chips" aria-label="Research family">
+              <li>
+                <button type="button" class="hc-chip" data-icma-family="all" data-label="all families" aria-pressed="true">
+                  All families <span class="hc-chip__n">{studies.length}</span>
+                </button>
+              </li>
+              {families.map((family) => (
+                <li>
+                  <button
+                    type="button"
+                    class="hc-chip ic-chip ic-fam"
+                    style={family.style}
+                    data-icma-family={family.id}
+                    data-label={family.label}
+                    aria-pressed="false"
+                  >
+                    <span class="ic-chip__dot" aria-hidden="true"></span>
+                    {family.label} <span class="hc-chip__n">{family.count}</span>
+                  </button>
                 </li>
               ))}
             </ul>
-          </section>
-        ))}
+          </div>
 
-        <div id="study-empty" class="empty" hidden>
-          <p>No studies match these filters.</p>
-          <button type="button" id="study-reset" class="hc-btn hc-btn--ghost">Clear search and filters</button>
+          <div class="ic-status-row">
+            <p class="ic-status" role="status" aria-live="polite" data-icma-status>{studies.length} studies</p>
+            <button type="button" class="ic-reset" data-icma-reset hidden>Clear</button>
+          </div>
+        </div>
+
+        <ol class="ic-grid" data-icma-grid>
+          {register.map((study) => (
+            <li
+              class="ic-card ic-fam"
+              style={study.style}
+              data-study
+              data-family={study.family}
+              data-no={study.index}
+              data-title={study.title}
+              data-search={study.search}
+            >
+              <article class="ic-card__inner">
+                <div class={`ic-plate ic-plate--${study.family}`}>
+                  <p class="ic-plate__no">No. {study.no}</p>
+                  <p class="ic-plate__ar" lang="ar" dir="rtl">{study.arabicTitle}</p>
+                </div>
+                <div class="ic-card__body">
+                  <p class="ic-family">{study.familyLabel}</p>
+                  <h3 class="ic-card__title"><a class="ic-card__link" href={study.href}>{study.title}</a></h3>
+                  {study.subtitle && <p class="ic-card__sub">{study.subtitle}</p>}
+                  <dl class="ic-facts">
+                    <div><dt>Tradition studied</dt><dd>{study.tradition}</dd></div>
+                    <div><dt>Common link</dt><dd>{study.commonLink}</dd></div>
+                    <div><dt>Dated</dt><dd>{study.dating}</dd></div>
+                  </dl>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ol>
+
+        <div class="ic-empty" data-icma-empty hidden>
+          <p>No study matches this search.</p>
+          <button type="button" class="hc-btn hc-btn--ghost">Clear search and filter</button>
         </div>
       </div>
-    </div>
-
-    <section class="related hc-container" aria-labelledby="related-title">
-      <header class="sec__head">
-        <h2 id="related-title" class="sec__title">Related methods</h2>
-        <span class="sec__rule" aria-hidden="true"></span>
-        <span class="sec__count">{relatedMethods.length}</span>
-      </header>
-      <ul class="methods">
-        {relatedMethods.map((item) => (
-          <li class="method">
-            <p class="method__meta">{item.label}<span aria-hidden="true"> · </span>{item.year}</p>
-            <h3 class="method__title">{item.title}</h3>
-            <p class="method__by">{item.author}</p>
-            <p class="method__text">{item.text}</p>
-          </li>
-        ))}
-      </ul>
     </section>
 
-    {treatise && (
-      <section class="published hc-container" aria-labelledby="published-title">
-        <div class="volume-card" style={style(HOUSE)}>
-          <span class="volume-card__cover" aria-hidden="true">
-            <img src={treatise.frontCover} alt="" width="700" height="1050" loading="lazy" decoding="async" />
-          </span>
-          <span class="volume-card__body">
-            <span class="volume-card__eyebrow">Published treatise · {treatise.publicationDate}</span>
-            <span id="published-title" class="volume-card__title">{treatise.title}</span>
-            <span class="volume-card__sub">{treatise.subtitle}</span>
-          </span>
-        </div>
-      </section>
-    )}
+    <!-- Further reading on the method. -->
+    <section class="hc-band ic-reading" aria-labelledby="ic-reading-title">
+      <div class="hc-container">
+        <h2 id="ic-reading-title" class="hc-head__title ic-reading__title">Further reading <span>on the method</span></h2>
+        <ul class="ic-methods">
+          {relatedMethods.map((item) => (
+            <li class="ic-method">
+              <p class="ic-method__year">{item.year}</p>
+              <div class="ic-method__body">
+                <p class="ic-method__label">{item.label}</p>
+                <h3 class="ic-method__title">{item.title}</h3>
+                <p class="ic-method__by">{item.author}</p>
+                <p class="ic-method__text">{item.text}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
   </div>
 </BaseLayout>
 
 <script>
-  const page = document.querySelector<HTMLElement>('.studies-page');
+  import { initIcmaRegister } from "../../lib/icma-register";
 
-  if (page) {
-    const dock = page.querySelector<HTMLElement>('[data-dock]');
-    const input = page.querySelector<HTMLInputElement>('#study-query');
-    const count = page.querySelector<HTMLElement>('#study-count');
-    const empty = page.querySelector<HTMLElement>('#study-empty');
-    const reset = page.querySelector<HTMLButtonElement>('#study-reset');
-    const chips = [...page.querySelectorAll<HTMLButtonElement>('.chip')];
-    const studies = [...page.querySelectorAll<HTMLElement>('[data-study]')];
-    const sections = [...page.querySelectorAll<HTMLElement>('.sections .sec')];
-    const links = [...page.querySelectorAll<HTMLAnchorElement>('.rail__link')];
-    let family = '';
-
-    /* Transliteration is folded on both sides, so "zuhri" finds al-Zuhrī and "ata" finds ʿAṭāʾ. */
-    const fold = (text: string) =>
-      text.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[ʿʾ'’‘`]/g, '').toLowerCase();
-    const haystacks = new Map(studies.map((study) => [study, fold(study.dataset.search ?? '')]));
-
-    const apply = () => {
-      const query = fold(input?.value.trim() ?? '');
-      let visible = 0;
-
-      for (const study of studies) {
-        const matches =
-          (query === '' || (haystacks.get(study) ?? '').includes(query)) && (family === '' || study.dataset.family === family);
-        study.hidden = !matches;
-        if (matches) visible += 1;
-      }
-      for (const section of sections) section.hidden = section.querySelector('[data-study]:not([hidden])') === null;
-      for (const chip of chips) chip.setAttribute('aria-pressed', String(chip.dataset.family === family));
-      if (count) count.textContent = `${visible} of ${studies.length} studies`;
-      if (empty) {
-        empty.hidden = visible > 0;
-        const message = empty.querySelector('p');
-        if (message) message.textContent = query ? `No studies match "${input?.value.trim()}".` : 'No studies match these filters.';
-      }
-
-      const url = new URL(location.href);
-      if (query) url.searchParams.set('q', query);
-      else url.searchParams.delete('q');
-      if (family) url.searchParams.set('family', family);
-      else url.searchParams.delete('family');
-      history.replaceState(null, '', url);
-    };
-
-    const params = new URLSearchParams(location.search);
-    const requested = params.get('family') ?? '';
-    if (input) input.value = params.get('q') ?? '';
-    if (chips.some((chip) => chip.dataset.family === requested)) family = requested;
-
-    input?.addEventListener('input', apply);
-    for (const chip of chips) {
-      chip.addEventListener('click', () => {
-        family = family === chip.dataset.family ? '' : (chip.dataset.family ?? '');
-        apply();
-      });
-    }
-    reset?.addEventListener('click', () => {
-      if (input) input.value = '';
-      family = '';
-      apply();
-      input?.focus();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
-      event.preventDefault();
-      input?.focus();
-    });
-    /* A jump link to a family the filter has hidden clears the filter first. */
-    window.addEventListener('hashchange', () => {
-      if (document.getElementById(location.hash.slice(1))?.hidden) reset?.click();
-    });
-
-    /* Revealed last: with JavaScript off the whole register is simply listed. */
-    if (dock) dock.hidden = false;
-    apply();
-
-    if ('IntersectionObserver' in window && sections.length) {
-      const setActive = (id: string) => {
-        for (const link of links) link.classList.toggle('is-active', link.dataset.spy === id);
-      };
-      const spy = new IntersectionObserver(
-        (observed) => {
-          const best = observed.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-          if (best) setActive(best.target.id);
-        },
-        { rootMargin: '-25% 0px -55% 0px', threshold: [0, 0.2, 0.5] }
-      );
-      for (const section of sections) spy.observe(section);
-      setActive(sections[0]?.id ?? '');
-    }
+  function init(): void {
+    const page = document.querySelector<HTMLElement>(".ic-page");
+    if (!page || page.dataset.ready === "1") return;
+    page.dataset.ready = "1";
+    initIcmaRegister(document);
   }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+  document.addEventListener("astro:page-load", init);
 </script>
-
-<style>
-  .studies-page { min-height: 100vh; background: var(--hc-surface-0); }
-  .studies-page [hidden] { display: none !important; }
-
-  .mix { display: flex; gap: 3px; margin: 0 0 1rem; }
-  .mix__seg { flex: var(--n) 1 0; height: 10px; }
-  .swatch { flex: none; width: 12px; height: 12px; border-radius: 2px; background: var(--sw); box-shadow: 0 0 0 1px var(--sw-ring); }
-
-  /* Dock: search and family filters */
-  .dockwrap { padding-top: 1.5rem; scroll-margin-top: 5rem; }
-  .dock { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 6px; border: 1px solid var(--hc-rule); border-radius: 4px; background: var(--hc-surface-2); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); }
-  .dock__field { flex: 1 1 260px; display: flex; align-items: center; gap: 0.6rem; min-height: 44px; padding: 0 0.8rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; background: var(--hc-surface-0); color: var(--hc-text-tertiary); }
-  .dock__field:focus-within { border-color: var(--hc-gold); box-shadow: 0 0 0 1px var(--hc-gold); }
-  .dock__input { --hc-focus-width: 0px; flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--hc-text-primary); font: 400 var(--fs-base) var(--font-body); }
-  .dock__input::placeholder { color: var(--hc-text-tertiary); }
-  .dock__input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin: 0 0.5rem 0 0.4rem; cursor: pointer; background: var(--hc-text-tertiary); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat; }
-  .dock__input::-webkit-search-cancel-button:hover { background: var(--hc-text-primary); }
-  .dock__kbd { padding: 0.1rem 0.45rem; border: 1px solid var(--hc-rule-soft); border-radius: 2px; font: 700 var(--fs-xs) var(--font-ui); }
-  .dock__chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-  .chip { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 36px; padding: 0 0.85rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); background: var(--hc-surface-1); color: var(--hc-text-secondary); font: 500 var(--fs-sm) var(--font-ui); cursor: pointer; transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease; }
-  .chip:hover { border-color: var(--hc-rule-strong); color: var(--hc-text-primary); }
-  .chip__n { color: var(--hc-text-tertiary); font-variant-numeric: tabular-nums; }
-  .chip__x { display: none; width: 12px; height: 12px; }
-  .chip[aria-pressed='true'] { border-color: var(--hc-gold); background: rgba(216, 177, 102, 0.12); color: var(--hc-gold-bright); }
-  .chip[aria-pressed='true'] .chip__x { display: block; }
-  .dock__count { margin-left: auto; padding: 0 0.6rem; color: var(--hc-text-tertiary); font: 500 var(--fs-sm) var(--font-ui); font-variant-numeric: tabular-nums; }
-  @media (min-width: 1001px) { .dock { position: sticky; top: 4.75rem; z-index: 20; } }
-
-  /* Register layout: family rail, then one section per family */
-  .catalog { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); padding-block: clamp(2rem, 4vw, 3rem) clamp(3rem, 6vw, 5rem); }
-  .rail { position: sticky; top: 9rem; align-self: start; }
-  .rail__list { margin: 0; padding: 0; list-style: none; border-left: 1px solid var(--hc-rule-soft); }
-  .rail__link { display: block; margin-left: -1px; padding: 0.55rem 0 0.55rem 1rem; border-left: 2px solid transparent; color: var(--hc-text-tertiary); font: 500 var(--fs-base) var(--font-ui); text-decoration: none; transition: color 0.2s ease, border-color 0.2s ease; }
-  .rail__link:hover { color: var(--hc-text-primary); }
-  .rail__link.is-active { border-left-color: var(--hc-gold); color: var(--hc-gold); }
-
-  .sections { display: grid; gap: clamp(3rem, 6vw, 4.5rem); min-width: 0; }
-  .sec { scroll-margin-top: 9rem; }
-  .sec__head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
-  .sec__title { margin: 0; font-family: var(--font-editorial); font-size: var(--fs-heading); font-weight: 600; line-height: 1.05; letter-spacing: -0.005em; color: var(--hc-text-primary); }
-  .sec__rule { flex: 1; height: 1px; background: linear-gradient(90deg, var(--hc-rule), transparent); }
-  .sec__count { min-width: 1.9rem; padding: 0.1rem 0.5rem; border: 1px solid var(--hc-rule-soft); border-radius: var(--radius-pill, 999px); color: var(--hc-text-secondary); font: 500 var(--fs-sm) var(--font-ui); text-align: center; font-variant-numeric: tabular-nums; }
-  .list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
-  .list > li { display: grid; }
-
-  /* Study jacket: a bound cover in its family's colors, one link per card */
-  .jacket { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 0.7rem; min-height: 14rem; padding: 1.05rem 1.15rem 1.1rem; overflow: hidden; border-radius: 2px; background: var(--j-bg); color: var(--j-ink); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--j-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
-  .jacket:hover, .jacket:focus-within { box-shadow: inset 0 0 0 2px var(--j-accent); }
-  .jacket::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; -webkit-mask-image: radial-gradient(120% 110% at 100% 0%, #000 6%, transparent 64%); mask-image: radial-gradient(120% 110% at 100% 0%, #000 6%, transparent 64%); }
-  .jacket--polemics::before { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 0 1px, transparent 1px 8px); }
-  .jacket--geography::before { background: linear-gradient(color-mix(in srgb, var(--j-accent) 22%, transparent) 1px, transparent 1px) 0 0 / 100% 28px, linear-gradient(90deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 1px, transparent 1px) 0 0 / 28px 100%; }
-  .jacket--chronology::before { background: repeating-linear-gradient(0deg, color-mix(in srgb, var(--j-accent) 24%, transparent) 0 1px, transparent 1px 10px); }
-  .jacket--legal::before { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--j-accent) 22%, transparent) 0 1px, transparent 1px 14px); }
-  .jacket--source-reconstruction::before { background: radial-gradient(circle, color-mix(in srgb, var(--j-accent) 40%, transparent) 1px, transparent 1.6px) 0 0 / 14px 14px; }
-  .jacket--variants::before { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--j-accent) 20%, transparent) 0 1px, transparent 1px 12px), repeating-linear-gradient(-45deg, color-mix(in srgb, var(--j-accent) 20%, transparent) 0 1px, transparent 1px 12px); }
-  .jacket--network::before { background: radial-gradient(circle, color-mix(in srgb, var(--j-accent) 34%, transparent) 2px, transparent 2.6px) 0 0 / 26px 26px; }
-
-  .jacket__top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; margin: 0; color: var(--j-accent); font: 700 var(--fs-xs)/1.3 var(--font-ui); }
-  .jacket__no { font-variant-numeric: lining-nums tabular-nums; }
-  .jacket__title { margin: 0; font: 600 var(--fs-md)/1.3 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
-  .jacket__link { color: inherit; text-decoration: none; }
-  .jacket__link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
-  .jacket__sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); font-size: var(--fs-sm); line-height: 1.5; text-wrap: pretty; }
-  .jacket__facts { display: grid; gap: 0.55rem; margin: auto 0 0; padding-top: 0.75rem; border-top: 1px solid color-mix(in srgb, var(--j-ink) 18%, transparent); }
-  .jacket__facts dt { color: var(--j-accent); font: 700 var(--fs-xs)/1.3 var(--font-ui); }
-  .jacket__facts dd { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0.1rem 0 0; font-size: var(--fs-sm); line-height: 1.4; }
-  .jacket__facts .jacket__fact--lead dd { -webkit-line-clamp: 3; font-size: var(--fs-sm); }
-  .jacket__go { font-size: var(--fs-base); letter-spacing: 0; transition: transform 0.25s var(--ease); }
-  .jacket:hover .jacket__go, .jacket:focus-within .jacket__go { transform: translateX(3px); }
-
-  .empty { padding: 2.5rem 1.5rem; border: 1px dashed var(--hc-rule); border-radius: 2px; color: var(--hc-text-secondary); text-align: center; }
-  .empty p { margin: 0 0 1rem; }
-
-  .related, .published { padding-block: 0 clamp(3rem, 6vw, 5rem); }
-
-  /* Related methods: ruled columns, no cards */
-  .methods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 clamp(1.5rem, 4vw, 3rem); margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hc-rule-soft); }
-  .method { padding: 1.1rem 0 1.2rem; border-bottom: 1px solid var(--hc-rule-soft); }
-  .method p, .method h3 { margin: 0; }
-  .method__meta { color: var(--hc-gold-dim); font: 700 var(--fs-xs)/1.3 var(--font-ui); }
-  .method__title { margin-top: 0.45rem !important; color: var(--hc-text-primary); font: 600 var(--fs-base)/1.35 var(--font-display); letter-spacing: -0.015em; text-wrap: balance; }
-  .method__by { margin-top: 0.2rem !important; color: var(--hc-text-tertiary); font-size: var(--fs-sm); }
-  .method__text { margin-top: 0.5rem !important; color: var(--hc-text-secondary); font-size: var(--fs-base); line-height: 1.6; text-wrap: pretty; }
-
-  /* Published treatise: the one book with a real cover */
-  .volume-card { position: relative; display: flex; overflow: hidden; border-radius: 2px; background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--j-accent) 16%, transparent), transparent 62%), var(--j-bg); color: var(--j-ink); text-decoration: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--j-ink) 16%, transparent); transition: box-shadow 0.2s ease; }
-  .volume-card__cover { flex: 0 0 9rem; margin: 1.1rem 0 1.1rem 1.1rem; aspect-ratio: 2 / 3; box-shadow: 6px 6px 18px rgba(0, 0, 0, 0.45); }
-  .volume-card__cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .volume-card__body { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 0.5rem; min-width: 0; padding: 1.25rem clamp(1.1rem, 3vw, 2rem); }
-  .volume-card__eyebrow { color: var(--j-accent); font: 700 var(--fs-xs)/1.3 var(--font-ui); }
-  .volume-card__title { font: 600 var(--fs-subheading)/1.25 var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
-  .volume-card__sub { color: color-mix(in srgb, var(--j-ink) 88%, var(--j-bg)); line-height: 1.5; }
-
-  @media (max-width: 1000px) {
-    .catalog { grid-template-columns: 1fr; }
-    .rail { display: none; }
-    .sec { scroll-margin-top: 5rem; }
-  }
-
-  @media (max-width: 700px) {
-    .sec__rule { display: none; }
-    .dock__count { margin-left: 0; }
-    .methods { grid-template-columns: minmax(0, 1fr); }
-    .volume-card { flex-direction: column; }
-    .volume-card__cover { flex: none; width: 7rem; margin: 1.1rem 1.1rem 0; }
-    .volume-card__body { padding-top: 1rem; }
-  }
-
-  @media (max-width: 460px) {
-    .glance { grid-template-columns: minmax(0, 1fr); row-gap: 1rem; }
-    .glance__figure + .glance__figure { padding-top: 1rem; border-top: 1px dashed rgba(26, 23, 21, 0.4); border-left: 0; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .studies-page * { transition: none !important; }
-  }
-</style>

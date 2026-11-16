@@ -3,10 +3,22 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { collectionFrontMatter } from "../../../lib/collection-units";
 import collectionHtml from "../../../data/hadith/pages/musnad-abu-hanifa/collection.html?raw";
-import "../../../styles/hadith-library.css";
-import "../../../styles/hadith-collection-aligned.css";
+import chapters from "../../../data/hadith/pages/musnad-abu-hanifa/chapter-index.json";
+import PaintedFront from "../../../components/hadith/PaintedFront.astro";
+import NarrationSpread from "../../../components/hadith/NarrationSpread.astro";
+import MusnadTransmissionMap from "../../../components/hadith/MusnadTransmissionMap.astro";
+import { MUSNAD_ABU_HANIFA_GROUPS } from "../../../data/hadith/musnad-abu-hanifa-groups";
+import { narrationFigure } from "../../../lib/home-corpus";
+import { parseCollectionHtml } from "../../../lib/collection-front";
+import { COVER_ROOT, HERO_ALT, MUSNAD_ABU_HANIFA_COVERS } from "../../../data/hadith/musnad-abu-hanifa-covers";
 
 const { title, description } = collectionFrontMatter("musnad-abu-hanifa", "Musnad Abū Ḥanīfa");
+
+/* The report set out in full under the account of the work: short, famous,
+   and with a chain that divides cleanly in both languages. */
+const SPREAD = { id: "2-1", book: 2 };
+const spreadBook = chapters.find((chapter) => chapter.n === SPREAD.book);
+if (!spreadBook) throw new Error(`Musnad Abū Ḥanīfa: no book ${SPREAD.book} for the narration spread`);
 ---
 
 <BaseLayout
@@ -20,5 +32,30 @@ const { title, description } = collectionFrontMatter("musnad-abu-hanifa", "Musna
     { name: title, url: "/hadith/collection/musnad-abu-hanifa/" },
   ]}
 >
-  <Fragment set:html={collectionHtml} />
+  <Fragment slot="head">
+    <link rel="preload" as="image" href={`${COVER_ROOT}/hero.jpg`} imagesrcset={`${COVER_ROOT}/hero-1200.jpg 1200w, ${COVER_ROOT}/hero.jpg 2400w`} imagesizes="(min-width: 1500px) 1452px, calc(100vw - 32px)" fetchpriority="high" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  </Fragment>
+  <PaintedFront
+    slug="musnad-abu-hanifa"
+    front={parseCollectionHtml("musnad-abu-hanifa", collectionHtml)}
+    chapters={chapters}
+    covers={MUSNAD_ABU_HANIFA_COVERS}
+    coverRoot={COVER_ROOT}
+    heroAlt={HERO_ALT}
+    placeAr="الكوفة"
+    viaAr="رواية الحصكفي"
+    groups={MUSNAD_ABU_HANIFA_GROUPS}
+  >
+    <NarrationSpread
+      slot="after-work"
+      narration={narrationFigure("musnad-abu-hanifa", SPREAD.id, "Musnad Abū Ḥanīfa narration")}
+      head={{ en: "Abū Ḥanīfa", ar: "أبو حنيفة", role: "The Imam" }}
+      leadEn="The Messenger of God ﷺ said:"
+      bookTitle={spreadBook.title_en.replace(/^(The )?Book/, "Book")}
+      bookHref={`/hadith/collection/musnad-abu-hanifa/chapter/${SPREAD.book}/`}
+      bookNumber={SPREAD.book}
+    />
+    <MusnadTransmissionMap slot="after-work" />
+  </PaintedFront>
 </BaseLayout>

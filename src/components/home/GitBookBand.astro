@@ -1,0 +1,152 @@
+---
+/* The GitBooks of the resources catalogue as a slow band of title tiles that
+   drifts sideways. The list is drawn twice so the loop has no seam; the second
+   copy is hidden from assistive technology and the tab order. The band stops
+   while the pointer or focus is on it, when it is off screen
+   (data-ambient-scene), and under reduced motion, where it becomes a row the
+   reader scrolls. */
+import type { BandItem } from "../../lib/home-resources";
+
+interface Props {
+  items: BandItem[];
+}
+
+const { items } = Astro.props;
+/* Seconds each tile takes to cross its own width, so a longer list keeps the same pace. */
+const SECONDS_PER_TILE = 6;
+const passes = [false, true];
+---
+
+<div class="gband" data-ambient-scene style={`--gband-duration: ${items.length * SECONDS_PER_TILE}s`}>
+  <p class="gband__kicker">{items.length} GitBooks</p>
+  <div class="gband__window">
+    <div class="gband__track">
+      {passes.map((repeat) => (
+        <ul class="gband__list" aria-hidden={repeat ? "true" : undefined} aria-label={repeat ? undefined : "GitBooks"}>
+          {items.map((item, index) => (
+            <li>
+              <a class="gband__tile" href={item.href} target="_blank" rel="noopener noreferrer" tabindex={repeat ? -1 : undefined}>
+                <span class="gband__n">{String(index + 1).padStart(2, "0")}</span>
+                <span class="gband__title">{item.title}</span>
+                <span class="gband__desc">{item.description}</span>
+                {!repeat && <span class="sr-only"> (opens in a new tab)</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .gband {
+    margin-top: 1.25rem;
+  }
+
+  .gband__kicker {
+    margin: 0 0 0.75rem;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .gband__window {
+    overflow: hidden;
+    padding: 6px 0;
+    mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  }
+
+  .gband__track {
+    display: flex;
+    width: max-content;
+    animation: gband-drift var(--gband-duration) linear infinite;
+  }
+
+  .gband:hover .gband__track,
+  .gband:focus-within .gband__track {
+    animation-play-state: paused;
+  }
+
+  @keyframes gband-drift {
+    to {
+      translate: -50% 0;
+    }
+  }
+
+  .gband__list {
+    display: flex;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0 0.75rem 0 0;
+    list-style: none;
+  }
+
+  .gband__tile {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    width: 260px;
+    height: 100%;
+    padding: 0.9rem 1rem 1rem;
+    border: 1px solid var(--home-line);
+    border-radius: 12px;
+    background: var(--home-card);
+    color: var(--hc-text-primary);
+    text-decoration: none;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      translate var(--motion-base) var(--ease-back);
+  }
+
+  .gband__tile:hover,
+  .gband__tile:focus-visible {
+    border-color: var(--hc-gold);
+    translate: 0 -3px;
+  }
+
+  .gband__tile:focus-visible {
+    --hc-focus-offset: 2px;
+  }
+
+  .gband__n {
+    color: var(--hc-text-tertiary);
+    font: 600 var(--fs-xs)/1 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .gband__title {
+    margin-top: 0.5rem;
+    font: 600 1.05rem/1.25 var(--font-display);
+  }
+
+  .gband__desc {
+    display: -webkit-box;
+    margin-top: 0.35rem;
+    overflow: hidden;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-xs)/1.45 var(--font-ui);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  /* Without motion the band is one row the reader scrolls, drawn once. */
+  @media (prefers-reduced-motion: reduce) {
+    .gband__window {
+      overflow-x: auto;
+      mask-image: none;
+    }
+
+    .gband__track {
+      animation: none;
+    }
+
+    .gband__list[aria-hidden] {
+      display: none;
+    }
+
+    .gband__tile {
+      transition: none;
+    }
+  }
+</style>

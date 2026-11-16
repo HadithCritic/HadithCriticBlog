@@ -2,18 +2,17 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
-import { LIBRARY_COLLECTIONS, LIBRARY_NARRATIONS } from "../lib/hadith-library";
+import { LIBRARY_COLLECTIONS } from "../lib/hadith-library";
 import { historySources, openReaders } from "../data/history/history";
-import { formatCount } from "../data/tafsir/tafsir";
 import { libraryWorks, surahEntries, versePageHref } from "../data/tafsir/tafsir-library";
 import { letterIndex, pageHref, totals } from "../lib/rijal-register";
-import "../styles/home.css";
-import "../styles/home-platform.css";
 import "../styles/projects.css";
 
-/* Every figure on this page is read from the data the project is built from. */
-const n = (value: number) => value.toLocaleString("en-US");
-const historyWords = openReaders.reduce((sum, item) => sum + item.reader.words, 0);
+/* The projects index: the hadith corpus as one wide card, then the other
+   projects as a row of cards, each with the engraving that heads its own
+   page so a reader recognizes it on arrival, a line on its scope, and a few
+   places to start reading. The scope lines are read from each project's
+   data. */
 
 interface Entry {
   label: string;
@@ -23,20 +22,21 @@ interface Entry {
 interface Project {
   id: string;
   href: string;
-  art?: string;
+  /** Name of the plate in /images/platform/ (2172px, with a -1086 copy). */
+  art: string;
   kind: string;
-  arabic?: string;
+  arabic: string;
   title: string;
   desc: string;
-  figures: string[];
+  scope: string;
   entries: Entry[];
   action: string;
-  status: string;
 }
 
-const tafsirSurahs = libraryWorks.map((w) => surahEntries(w.id).filter((s) => s.state === "available"));
-const tafsirCovered = new Set(tafsirSurahs.flat().map((s) => s.n)).size;
-const tafsirWords = tafsirSurahs.flat().reduce((sum, s) => sum + s.words, 0);
+const n = (value: number) => value.toLocaleString("en-US");
+const tafsirCovered = new Set(
+  libraryWorks.flatMap((work) => surahEntries(work.id).filter((surah) => surah.state === "available").map((surah) => surah.n)),
+).size;
 
 const lead: Project = {
   id: "hadith-corpus",
@@ -45,17 +45,16 @@ const lead: Project = {
   kind: "Textual corpus",
   arabic: "الحديث",
   title: "Hadith Corpus",
-  desc: "Early hadith collections in facing Arabic and English, each with its transmission paths and source references. No authenticity grade is added.",
-  figures: [`${n(LIBRARY_NARRATIONS)} narrations`, `${LIBRARY_COLLECTIONS.length} collections`],
+  desc: "Early hadith collections in facing Arabic and English, each with its transmission paths and source references. Each narration is given as its source records it, with no authenticity grade added.",
+  scope: `${LIBRARY_COLLECTIONS.length} collections in Arabic and English`,
   entries: [
     { label: "Browse the collections", href: "/hadith/#collections-heading" },
-    { label: "Open Al-Shama'il al-Muhammadiyah", href: "/hadith/collection/al-shama-il-al-muhammadiyah/" },
+    { label: "Read al-Shamāʾil al-Muḥammadiyya", href: "/hadith/collection/al-shama-il-al-muhammadiyah/" },
   ],
-  action: "Open the collections",
-  status: "Live",
+  action: "Open the corpus",
 };
 
-const databases: Project[] = [
+const projects: Project[] = [
   {
     id: "tafsir",
     href: "/projects/tafsir/",
@@ -63,13 +62,10 @@ const databases: Project[] = [
     kind: "Qur'anic commentary",
     arabic: "التفسير",
     title: "Tafsīr",
-    desc: "Read Mujāhid, al-Thawrī, al-Zamakhsharī and al-Ṭabarī one verse at a time, with the Qur’anic text, the commentary, transmitted reports and editor’s notes together on the page.",
-    figures: [`${libraryWorks.length} commentaries`, `${tafsirCovered} surahs`, `${formatCount(tafsirWords)} words`],
-    entries: [
-      { label: "Read al-Fātiḥa", href: versePageHref("tabari", 1, 1) },
-    ],
-    action: "Open the commentary",
-    status: "Available to read",
+    desc: "Mujāhid, al-Thawrī, al-Zamakhsharī and al-Ṭabarī one verse at a time, with the Qur’anic text, the commentary and its reports together on the page.",
+    scope: `${libraryWorks.length} commentaries, ${tafsirCovered} of 114 surahs`,
+    entries: [{ label: "Read al-Fātiḥa", href: versePageHref("tabari", 1, 1) }],
+    action: "Open the commentaries",
   },
   {
     id: "rijal",
@@ -78,46 +74,41 @@ const databases: Project[] = [
     kind: "Narrator register",
     arabic: "الرجال",
     title: "Narrators (Rijāl)",
-    desc: "Ibn Ḥajar’s Taqrīb al-Tahdhīb as a register: find a transmitter by letter and open his entry for the grade, generation, death date, the books that cite him and the full text in Arabic and English.",
-    figures: [`${n(totals.biographies)} narrators`, `${n(totals.graded)} graded`, "Taqrīb al-Tahdhīb"],
-    entries: [
-      { label: "Browse by letter", href: "/projects/rijal/#rj-contents-title" },
-      { label: "Open the letter Alif", href: pageHref(letterIndex()[0].pages[0].slug) },
-    ],
+    desc: "Ibn Ḥajar’s Taqrīb al-Tahdhīb as a register: each transmitter’s grade, generation, death date and the books that cite them, in Arabic and English.",
+    scope: `${n(totals.biographies)} biographies`,
+    entries: [{ label: "Begin at the letter Alif", href: pageHref(letterIndex()[0].pages[0].slug) }],
     action: "Open the register",
-    status: "Live",
+  },
+  {
+    id: "history-library",
+    href: "/projects/history/",
+    art: "history-archive-v2",
+    kind: "Historical sources",
+    arabic: "التاريخ",
+    title: "History (Tārīkh)",
+    desc: "The earliest Arabic histories of Islam in English: chronicles, conquest narratives and genealogies, each in its own reader.",
+    scope: `${openReaders.length} of ${historySources.length} books open to read`,
+    entries: [
+      { label: "Khalīfa ibn Khayyāṭ’s chronicle", href: "/projects/history/khalifa/" },
+      { label: "The Conquests of the Lands", href: "/projects/history/futuh-al-buldan/" },
+    ],
+    action: "Open the library",
   },
 ];
 
-const history: Project = {
-  id: "history-library",
-  href: "/projects/history/",
-  art: "history-archive-v2",
-  kind: "Historical source library",
-  arabic: "التاريخ",
-  title: "History (Tārīkh)",
-  desc: "The earliest Arabic histories of Islam in English: chronicles, conquest narratives and genealogies, each in its own reader with the chapters beside the text.",
-  figures: [`${openReaders.length} of ${historySources.length} books open`, `${(historyWords / 1e6).toFixed(1)}M words`, "207–310 AH"],
-  entries: [
-    { label: "The source library", href: "/projects/history/#sources" },
-    { label: "Read Khalīfa ibn Khayyāṭ’s chronicle", href: "/projects/history/khalifa/" },
-    { label: "Read the Conquests of the Lands", href: "/projects/history/futuh-al-buldan/" },
-  ],
-  action: "Open the history library",
-  status: "Live",
-};
-
-const projects = [...databases, history];
-const all = [lead, ...projects];
-const countWord = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"][all.length - 1] ?? String(all.length);
+const plate = (art: string) => ({
+  src: `/images/platform/${art}.webp`,
+  srcset: `/images/platform/${art}-1086.webp 1086w, /images/platform/${art}.webp 2172w`,
+});
+const leadPlate = plate(lead.art);
 ---
 
 <BaseLayout
   image={OG.projects}
   title="Projects | HadithCritic"
-  description="HadithCritic's research tools: a hadith corpus, al-Ṭabarī's tafsīr, a narrator register and History (Tārīkh)."
+  description="HadithCritic's research tools: a hadith corpus, four tafsīr commentaries, a narrator register and a library of early Arabic histories."
 >
-  <div class="hc-page home pj-page">
+  <div class="hc-page pj-page">
     <PageHero
       title="Research tools"
       accent="and registers."
@@ -128,79 +119,108 @@ const countWord = ["One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight
       measure="11ch"
     >
       <p class="hc-hero__lede">
-        Research tools for the hadith, Qur’anic commentary, early history and modern scholarship. Every figure here is counted from the project's own data.
+        Primary sources for the study of hadith, Qur’anic commentary and early Islamic history,
+        set out to be read and checked against the original Arabic.
       </p>
       <Fragment slot="actions">
         <a href="#projects" class="hc-btn">See the projects</a>
         <a href="#contribute" class="hc-btn hc-btn--ghost">Contribute</a>
       </Fragment>
-      <Fragment slot="register">
-        <span><strong>{all.length}</strong> projects</span>
-        <span><strong>{n(LIBRARY_NARRATIONS)}</strong> narrations</span>
-      </Fragment>
     </PageHero>
 
-    <!-- One row per project, as the homepage sets its research tools: the
-         copy beside the engraving that heads the project's own page. -->
-    <section class="home-section home-platform pj-showcase" id="projects" aria-labelledby="projects-title">
+    <section class="hc-band pj-projects" id="projects" aria-labelledby="pj-projects-title">
       <div class="hc-container">
-        <header class="home-head">
-          <p class="home-kicker">The projects</p>
-          <h2 id="projects-title" class="home-title">{countWord} projects,<br />one archive.</h2>
-          <p class="home-head__lede">
-            Each runs in your browser from published data files, with no server between you and the sources.
-          </p>
-        </header>
+        <h2 id="pj-projects-title" class="hc-head__title pj-projects__title">The <span>projects</span></h2>
 
-        <div class="showcase">
-          {all.map((project, index) => (
-            <article class:list={["showcase__row", "pj-row", index % 2 === 1 && "showcase__row--flip"]} id={project.id}>
-              <div class="showcase__copy">
-                <p class="showcase__kicker">{String(index + 1).padStart(2, "0")} / {project.kind}</p>
-                <h3><a class="pj-row__title" href={project.href}>{project.title}</a></h3>
-                {project.arabic && <p class="pj-row__ar" lang="ar" dir="rtl">{project.arabic}</p>}
-                <p>{project.desc}</p>
-                <ul class="pj-row__figures">{project.figures.map((figure) => <li>{figure}</li>)}</ul>
-                <nav class="pj-row__entries" aria-label={`Inside ${project.title}`}>
-                  <ul>{project.entries.map((entry) => <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>)}</ul>
-                </nav>
-                <a href={project.href} class="showcase__link">{project.action} <span aria-hidden="true">→</span></a>
-              </div>
-              <a class="showcase__visual pj-plate" href={project.href} tabindex="-1" aria-hidden="true">
-                <img
-                  src={`/images/platform/${project.art}.webp`}
-                  srcset={`/images/platform/${project.art}-1086.webp 1086w, /images/platform/${project.art}.webp 2172w`}
-                  sizes="(max-width: 860px) 100vw, 58vw"
-                  alt=""
-                  width="2172"
-                  height="724"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                />
-                <span class="pj-plate__status">{project.status}</span>
-              </a>
-            </article>
-          ))}
-        </div>
+        <!-- The corpus, as one wide card. -->
+        <article class="pj-lead" id={lead.id} aria-labelledby={`${lead.id}-title`}>
+          <a class="pj-lead__plate" href={lead.href} tabindex="-1" aria-hidden="true">
+            <img
+              src={leadPlate.src}
+              srcset={leadPlate.srcset}
+              sizes="(max-width: 860px) 100vw, 55vw"
+              alt=""
+              width="2172"
+              height="724"
+              loading="eager"
+              decoding="async"
+            />
+          </a>
+          <div class="pj-lead__copy">
+            <p class="pj-kind">{lead.kind}</p>
+            <h3 class="pj-title pj-title--lead" id={`${lead.id}-title`}>
+              <a href={lead.href}>{lead.title}</a>
+              <span class="pj-title__ar" lang="ar" dir="rtl">{lead.arabic}</span>
+            </h3>
+            <p class="pj-desc">{lead.desc}</p>
+            <p class="pj-scope">{lead.scope}</p>
+            <ul class="pj-entries" aria-label={`Start reading ${lead.title}`}>
+              {lead.entries.map((entry) => (
+                <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>
+              ))}
+            </ul>
+            <a class="hc-ink-btn pj-lead__action" href={lead.href}>{lead.action} <span aria-hidden="true">→</span></a>
+          </div>
+        </article>
+
+        <!-- The other projects, one card each. -->
+        <ul class="pj-grid">
+          {projects.map((project) => {
+            const art = plate(project.art);
+            return (
+              <li>
+                <article class="pj-card" id={project.id} aria-labelledby={`${project.id}-title`}>
+                  <a class="pj-card__plate" href={project.href} tabindex="-1" aria-hidden="true">
+                    <img
+                      src={art.src}
+                      srcset={art.srcset}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 420px"
+                      alt=""
+                      width="2172"
+                      height="724"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </a>
+                  <div class="pj-card__body">
+                    <p class="pj-kind">{project.kind}</p>
+                    <h3 class="pj-title" id={`${project.id}-title`}>
+                      <a href={project.href}>{project.title}</a>
+                      <span class="pj-title__ar" lang="ar" dir="rtl">{project.arabic}</span>
+                    </h3>
+                    <p class="pj-desc">{project.desc}</p>
+                    <p class="pj-scope">{project.scope}</p>
+                    <ul class="pj-entries" aria-label={`Start reading ${project.title}`}>
+                      {project.entries.map((entry) => (
+                        <li><a href={entry.href}>{entry.label} <span aria-hidden="true">→</span></a></li>
+                      ))}
+                    </ul>
+                    <a class="pj-card__action" href={project.href}>{project.action} <span aria-hidden="true">→</span></a>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </section>
 
     <section class="hc-band pj-closing" id="contribute" aria-labelledby="pj-closing-title">
       <div class="hc-container">
-        <div class="hc-closing hc-parchment">
-          <figure class="hc-closing__plate" style="--plate-focus: 70% center">
-            <img src="/images/editorial/projects-hero-1086.webp" alt="" width="1086" height="362" loading="lazy" decoding="async" />
-          </figure>
-          <div class="hc-closing__copy">
-            <h2 id="pj-closing-title" class="hc-closing__title">Contribute to the projects.</h2>
-            <p class="hc-closing__lead">
-              The projects are developed for source-level research and digital humanities. If you work in
-              Islamic manuscript studies, hadith criticism or computational philology, collaboration is welcome.
+        <div class="pj-contribute">
+          <div class="pj-contribute__copy">
+            <h2 id="pj-closing-title" class="pj-contribute__title">Contribute to the projects</h2>
+            <p class="pj-contribute__lead">
+              Corrections, editions and translations are welcome from anyone working in manuscript
+              studies, hadith criticism or computational philology. The code and the data files are
+              on GitHub.
             </p>
           </div>
-          <div class="hc-closing__actions">
+          <div class="pj-contribute__actions">
             <a href="/contact/?topic=Collaboration#contact-form" class="hc-ink-btn">Propose a collaboration <span aria-hidden="true">→</span></a>
-            <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer" class="hc-ink-btn hc-ink-btn--ghost">Source on GitHub <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+            <a href="https://github.com/HadithCritic/HadithCriticBlog" target="_blank" rel="noopener noreferrer" class="hc-ink-btn hc-ink-btn--ghost">
+              Source on GitHub <span aria-hidden="true">↗</span><span class="sr-only"> (opens in a new tab)</span>
+            </a>
           </div>
         </div>
       </div>

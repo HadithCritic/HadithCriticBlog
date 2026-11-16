@@ -227,7 +227,9 @@ function reportMarkup(record, group, config, total, source, prepared) {
     const en = node.en || '';
     const english = formatText(en) || '<span class="role">English form not separately aligned</span>';
     const label = node.role_label ? `<span class="role">${esc(node.role_label)}</span>` : earliest && index === 0 ? '<span class="role">Earliest transmitter</span>' : '';
-    return `<li><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${english}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
+    // The source's narrator id stays on the item; nothing reads it until the rijal register is rebuilt.
+    const narratorId = node.narrator_id != null && node.narrator_id !== '' ? ` data-narrator-id="${esc(node.narrator_id)}"` : '';
+    return `<li${narratorId}><span class="chain-step">${String(index + 1).padStart(2, '0')}</span><span class="chain-en">${english}${label}</span><span class="chain-ar" lang="ar" dir="rtl">${formatText(node.ar || '')}</span></li>`;
   };
   const paths = prepared.paths.map(({ chain, nodes }, index) => {
     const labels = nodes.map((node, nodeIndex) => chainItem(node, nodeIndex, true)).join('');
@@ -274,7 +276,7 @@ function reportMarkup(record, group, config, total, source, prepared) {
     `<div class="refrow"><dt>Edition</dt><dd>${esc(edition || 'Edition details were not recorded in the supplied source.')}</dd></div>`,
     `<div class="refrow"><dt>Edition page</dt><dd>${esc(page || 'No page locator recorded')}</dd></div>`,
     `<div class="refrow"><dt>Source record</dt><dd>${esc(record.source_id ?? id)}</dd></div>`,
-    ...(record.extra_refs ?? []).map(item => `<div class="refrow"><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`),
+    ...[...(record.extra_refs ?? []), ...(config.extraRefsFor?.(record) ?? [])].map(item =>`<div class="refrow"><dt>${esc(item.label)}</dt><dd>${esc(item.value)}</dd></div>`),
   ].join('');
   return `<article class="hadith" id="hadith-${esc(key)}" aria-labelledby="label-${esc(key)}" data-hadith="${esc(key)}">
   <div class="hadith-label"><div class="hadith-count" id="label-${esc(key)}"><span>${esc(record.noun || metadataFor(source, config).unit_noun || 'Entry')}</span><strong>${esc(number)}</strong><span>/ ${total}</span></div><div class="hadith-cite">${cite}</div></div>
@@ -368,7 +370,12 @@ function chapterMarkup(entry, entries, config, source, shell, preparedByRecord) 
   const editionSpan = pages.length
     ? `Edition pages ${Math.min(...pages)}${Math.max(...pages) !== Math.min(...pages) ? `–${Math.max(...pages)}` : ''}`
     : edition;
-  const hero = `<section class="hero" aria-labelledby="chapter-title"><div class="hero-inner"><div class="breadcrumb"><a href="/hadith/">Corpus</a><span class="slash">/</span><a href="${url}">${esc(collection.short_name || collection.title_en)}</a><span class="slash">/</span><span>${unitNoun} ${pad(entry.number)}</span></div><div class="hero-grid"><div><div class="eyebrow">${esc(collection.title_en)} · ${unitNoun} ${pad(entry.number)}</div><h1 id="chapter-title">${esc(entry.title_en)}</h1><p class="hero-desc">Read ${reportCount} in Arabic and English, with their transmission paths and source references.</p></div><div class="hero-right"><div class="hero-ar" lang="ar" dir="rtl">${esc(entry.title_ar)}</div><div class="hero-author">${esc(config.compiler)}</div></div></div><div class="hero-footer"><span>${pad(entry.number)} / ${entries.length} ${config.noun.toLowerCase()}s</span><span>${reportCount}</span>${editionSpan ? `<span>${esc(editionSpan)}</span>` : ''}</div></div></section>`;
+  const nav = entry.navigation;
+  const groupCrumb = nav ? `<a href="${url}#group-${nav.group.number}" title="Subject group (editorial)">${esc(nav.group.title_en)}</a><span class="slash">/</span>` : '';
+  const navSpans = nav
+    ? `<span title="The subject groups are an editorial aid, not divisions of the work">Subject group ${pad(nav.group.number)}: ${esc(nav.group.title_en)}</span><span>${esc(HEADING_TYPES[nav.headingType])} in the edition</span><span>${esc(nav.range)}</span>`
+    : '';
+  const hero = `<section class="hero" aria-labelledby="chapter-title"><div class="hero-inner"><div class="breadcrumb"><a href="/hadith/">Corpus</a><span class="slash">/</span><a href="${url}">${esc(collection.short_name || collection.title_en)}</a><span class="slash">/</span>${groupCrumb}<span>${unitNoun} ${pad(entry.number)}</span></div><div class="hero-grid"><div><div class="eyebrow">${esc(collection.title_en)} · ${unitNoun} ${pad(entry.number)}</div><h1 id="chapter-title">${esc(entry.title_en)}</h1><p class="hero-desc">Read ${reportCount} in Arabic and English, with their transmission paths and source references.</p></div><div class="hero-right"><div class="hero-ar" lang="ar" dir="rtl">${esc(entry.title_ar)}</div><div class="hero-author">${esc(config.compiler)}</div></div></div><div class="hero-footer"><span>${pad(entry.number)} / ${entries.length} ${config.noun.toLowerCase()}s</span>${navSpans}<span>${reportCount}</span>${editionSpan ? `<span>${esc(editionSpan)}</span>` : ''}</div></div></section>`;
   const toolbar = `<div class="toolbar-holder"><div class="toolbar"><span class="toolbar-title">${unitNoun} ${pad(entry.number)} · ${entry.sections ? 'Read the sections' : 'Read the entries'}</span><div class="toolbar-controls"><label for="jump" style="position:absolute;width:1px;height:1px;overflow:hidden">Jump to entry</label><select class="jump" id="jump"><option value="">Jump to an entry</option>${reportOptions}</select><div class="segmented" role="group" aria-label="Language display"><button type="button" data-mode-button="parallel" aria-pressed="true">Both</button><button type="button" data-mode-button="english" aria-pressed="false">English</button><button type="button" data-mode-button="arabic" aria-pressed="false">العربية</button></div></div></div></div>`;
   const before = (entry.frames_before ?? []).map(frameMarkup).join('');
   const after = (entry.frames_after ?? []).map(frameMarkup).join('');
@@ -388,6 +395,43 @@ function chapterMarkup(entry, entries, config, source, shell, preparedByRecord) 
     .replace('__HERO__', hero).replace('__TOOLBAR__', toolbar).replace('__MAIN__', main).replace('__SCRIPT__', script);
   if (/__(?:TITLE|DESCRIPTION|HERO|TOOLBAR|MAIN|SCRIPT)__/.test(html)) throw new Error(`${config.slug} ${config.noun.toLowerCase()} ${entry.number}: template was not fully rendered.`);
   return `${readableHtml(html)}\n`;
+}
+
+/*
+ * Editorial subject groups over the source's own headings (al-Muntaqā). Each chapter learns its group,
+ * the kind of heading the edition prints for it and the report numbers it spans. The groups must cover
+ * every chapter once, in order, with the counts and number ranges the groups declare.
+ */
+const HEADING_TYPES = { bab: 'Bāb heading', kitab: 'Kitāb heading', untitled_topic_heading: 'Heading without bāb' };
+function attachNavigation(entries, sourceGroups, navigation, config) {
+  let cursor = 0;
+  for (const group of navigation) {
+    const own = entries.slice(cursor, cursor + group.section_count);
+    if (own.length !== group.section_count || own[0]?.number !== group.first_section || own.at(-1)?.number !== group.last_section) {
+      throw new Error(`${config.slug}: subject group ${group.number} does not cover chapters ${group.first_section} to ${group.last_section}.`);
+    }
+    const count = own.reduce((sum, entry) => sum + entry.records.length, 0);
+    const first = Number(own[0].records[0].source_number ?? own[0].records[0].number);
+    const last = Number(own.at(-1).records.at(-1).source_number ?? own.at(-1).records.at(-1).number);
+    if (count !== group.entry_count || first !== group.hadith_number_start || last !== group.hadith_number_end) {
+      throw new Error(`${config.slug}: subject group ${group.number} holds ${count} reports numbered ${first} to ${last}; it declares ${group.entry_count}, ${group.hadith_number_start} to ${group.hadith_number_end}.`);
+    }
+    own.forEach(entry => {
+      const source = sourceGroups[entry.number - 1];
+      if (source.group !== group.number) throw new Error(`${config.slug}: chapter ${entry.number} is filed under group ${source.group}, not ${group.number}.`);
+      const startLabel = config.numberFor(entry.records[0]);
+      const endLabel = config.numberFor(entry.records.at(-1));
+      const type = source.heading?.type;
+      if (!HEADING_TYPES[type]) throw new Error(`${config.slug}: chapter ${entry.number} has no heading type.`);
+      entry.navigation = {
+        group,
+        headingType: type,
+        range: String(startLabel) === String(endLabel) ? `No. ${startLabel}` : `Nos. ${startLabel}–${endLabel}`,
+      };
+    });
+    cursor += own.length;
+  }
+  if (cursor !== entries.length) throw new Error(`${config.slug}: the subject groups cover ${cursor} of ${entries.length} chapters.`);
 }
 
 // A heading or a transmission note that the source prints between two reports of one undivided text.
@@ -443,8 +487,23 @@ function collectionMarkup(source, entries, config) {
     title_ar: entry.title_ar,
     count: entry.sections ? entry.sections.length : entry.records.length,
     ...(entry.sections ? { countNoun: entry.sections.length === 1 ? 'section' : 'sections' } : {}),
+    ...(entry.navigation ? {
+      group: entry.navigation.group.number,
+      groupTitle: entry.navigation.group.title_en,
+      meta: `${entry.navigation.range} · ${countText(entry.records.length, 'entry').replace(/entrys$/, 'entries')}`,
+      ...(entry.navigation.headingType === 'kitab' ? { tag: 'Kitāb heading in the edition' } : {}),
+    } : {}),
+  }));
+  const navigation = config.navigationGroupsFor?.(source) ?? [];
+  const groups = navigation.map(group => ({
+    number: group.number,
+    title_en: group.title_en,
+    title_ar: group.title_ar,
+    meta: `${group.section_count === 1 ? `Chapter ${group.first_section}` : `Chapters ${group.first_section}–${group.last_section}`} · ${group.hadith_number_start === group.hadith_number_end ? `No. ${group.hadith_number_start}` : `Nos. ${group.hadith_number_start}–${group.hadith_number_end}`} · ${countText(group.entry_count, 'entry').replace(/entrys$/, 'entries')}`,
   }));
   const collectionConfig = {
+    groups,
+    ...(groups.length ? { indexDescription: `${entries.length} chapters under the edition's own headings, gathered into ${groups.length} subject groups to help you find your way. The groups are an editorial aid and not divisions of the work.` } : {}),
     slug: config.slug,
     itemNoun: listEntries ? unitNoun : config.noun,
     heroDescription: metadata.description_en || undefined,
@@ -477,6 +536,8 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
     ...(group.kind === 'apparatus' ? { sections: group.sections, noun: 'Appendix' } : {}),
     frames_before: group.frames_before, frames_after: group.frames_after, shared_chain: group.shared_chain,
   }));
+  const navigation = config.navigationGroupsFor?.(source) ?? [];
+  if (navigation.length) attachNavigation(entries, groups, navigation, config);
   const records = entries.flatMap(entry => entry.records);
   if (metadata.id !== config.sourceId || entries.length !== config.expectedGroups || records.length !== config.expectedRecords) {
     throw new Error(`${config.slug}: expected ${config.expectedGroups} headings and ${config.expectedRecords} reports; found ${entries.length} and ${records.length}.`);
@@ -497,6 +558,12 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
     noun: entry.noun || config.noun,
     count: entry.sections ? entry.sections.length : entry.records.length,
     ...(entry.sections ? { unit: 'sections' } : {}),
+    ...(entry.navigation ? {
+      group: entry.navigation.group.number,
+      group_title_en: entry.navigation.group.title_en,
+      heading_type: entry.navigation.headingType,
+      range: entry.navigation.range,
+    } : {}),
     file: `chapters/${pad(entry.number)}.html`,
   }));
   for (const entry of entries) {

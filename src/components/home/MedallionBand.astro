@@ -1,0 +1,163 @@
+---
+/* The compiler medallions under the hero, oldest collection first, as a slow
+   band that loops. Each links to its collection. The list is printed twice so
+   the loop has no seam; the copy is inert and hidden from assistive tech.
+   It pauses on hover and focus, and off screen (data-ambient-scene, see
+   home-motion.ts). Under reduced motion it stands still as a wrapped grid. */
+import type { MedallionFigure } from "../../lib/home-data";
+
+interface Props {
+  medallions: MedallionFigure[];
+}
+
+const { medallions } = Astro.props;
+/* About three seconds per medallion keeps the speed even whatever the count. */
+const duration = `${medallions.length * 3}s`;
+---
+
+<nav class="mband" aria-labelledby="mband-title" data-ambient-scene>
+  <p id="mband-title" class="mband__title">The compilers in the hadith corpus</p>
+  <div class="mband__viewport">
+    <div class="mband__reel" style={`--mband-duration: ${duration}`}>
+      {[false, true].map((copy) => (
+        <ul class="mband__track" aria-hidden={copy ? "true" : undefined} inert={copy}>
+          {medallions.map((medallion) => (
+            <li>
+              <a class="mband__item" href={medallion.href} tabindex={copy ? -1 : undefined}>
+                <img src={medallion.src} width="128" height="128" loading="lazy" decoding="async" alt="" />
+                <span class="mband__name">{medallion.compiler}<span class="sr-only">, {medallion.title}</span></span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  </div>
+</nav>
+
+<style>
+  .mband {
+    padding: clamp(2rem, 4vw, 3rem) 0 1rem;
+  }
+
+  .mband__title {
+    margin: 0 0 1.25rem;
+    padding: 0 1rem;
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1.3 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .mband__viewport {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  }
+
+  .mband__reel {
+    display: flex;
+    width: max-content;
+    animation: mband-loop var(--mband-duration) linear infinite;
+  }
+
+  .mband:hover .mband__reel,
+  .mband:focus-within .mband__reel {
+    animation-play-state: paused;
+  }
+
+  .mband__track {
+    display: flex;
+    gap: 1.5rem;
+    margin: 0;
+    /* Trailing space equal to the gap, so the two copies join evenly. */
+    padding: 0 1.5rem 2.25rem 0;
+    list-style: none;
+  }
+
+  .mband__item {
+    position: relative;
+    display: block;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    outline-offset: 4px;
+  }
+
+  .mband__item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--hc-rule-strong);
+    border-radius: 50%;
+    filter: grayscale(0.35);
+    opacity: 0.82;
+    transition:
+      filter var(--motion-base) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-base) var(--ease-back);
+  }
+
+  .mband__item:hover img,
+  .mband__item:focus-visible img {
+    filter: none;
+    opacity: 1;
+    transform: translateY(-3px) scale(1.06);
+  }
+
+  /* The compiler's name shows under the medallion that has the pointer or focus. */
+  .mband__name {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 50%;
+    width: max-content;
+    max-width: 12rem;
+    color: var(--hc-text-secondary);
+    font: 500 var(--fs-xs)/1.3 var(--font-ui);
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -2px);
+    transition:
+      opacity var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .mband__item:hover .mband__name,
+  .mband__item:focus-visible .mband__name {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+
+  @keyframes mband-loop {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mband__viewport {
+      mask-image: none;
+    }
+
+    .mband__reel {
+      width: auto;
+      animation: none;
+    }
+
+    .mband__track {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0 1rem 2.25rem;
+    }
+
+    .mband__track[inert] {
+      display: none;
+    }
+
+    .mband__item img {
+      transition: none;
+    }
+  }
+</style>

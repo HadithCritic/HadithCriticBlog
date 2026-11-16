@@ -22,6 +22,7 @@ export function getStaticPaths() {
     { slug: "muwatta-ibn-wahb-muharaba", title: "Muwaṭṭaʾ Ibn Wahb: Book of Armed Robbery", noun: "Chapter" },
     { slug: "muwatta-ibn-wahb-qada-buyu", title: "Muwaṭṭaʾ Ibn Wahb: Judicial Decisions on Sales", noun: "Chapter" },
     { slug: "musnad-al-humaydi", title: "Musnad al-Ḥumaydī", noun: "Section" },
+    { slug: "musnad-al-shafii", title: "Musnad al-Shāfiʿī", noun: "Book" },
     { slug: "musnad-ibn-abi-shayba", title: "Musnad Ibn Abī Shayba", noun: "Section" },
     { slug: "hadith-muhammad-ibn-abd-allah-al-ansari", title: "Ḥadīth of Muḥammad ibn ʿAbd Allāh al-Anṣārī", noun: "Section" },
     { slug: "kitab-al-iman-al-adani", title: "Kitāb al-Īmān of al-ʿAdanī", noun: "Chapter" },
@@ -33,7 +34,7 @@ export function getStaticPaths() {
   ];
   return editions.flatMap((edition) => {
     const root = path.resolve(process.cwd(), "src/data/hadith/pages", edition.slug);
-    const index: Array<{ n: number; title_en: string; count: number; file: string; noun?: string; unit?: string }> =
+    const index: Array<{ n: number; title_en: string; count: number; file: string; noun?: string; unit?: string; group?: number; group_title_en?: string }> =
       JSON.parse(fs.readFileSync(path.join(root, "chapter-index.json"), "utf8"));
     return index.map((chapter) => ({
       params: { slug: edition.slug, n: String(chapter.n) },
@@ -71,6 +72,10 @@ const pageUrl = `/hadith/collection/${edition.slug}/chapter/${chapter.n}/`;
     { name: "Home", url: "/" },
     { name: "Corpus", url: "/hadith/" },
     { name: edition.title, url: `/hadith/collection/${edition.slug}/` },
+    // An editorial subject group, where the work has them (al-Muntaqā).
+    ...(chapter.group && chapter.group_title_en
+      ? [{ name: chapter.group_title_en, url: `/hadith/collection/${edition.slug}/#group-${chapter.group}` }]
+      : []),
     { name: `${unitNoun} ${chapter.n}`, url: pageUrl },
   ]}
 >

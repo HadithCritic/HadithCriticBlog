@@ -13,6 +13,7 @@ export const COMPILER_DATES: Record<string, number> = {
   'musnad-abd-allah-ibn-al-mubarak': 181,
   'muwatta-malik': 179,
   'musnad-al-tayalisi': 204,
+  'musnad-al-shafii': 204,
   'musannaf-abd-al-razzaq': 211,
   'musnad-al-humaydi': 219,
   'sunan-sa-id-ibn-mansur': 227,

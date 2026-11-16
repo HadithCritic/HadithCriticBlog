@@ -1,0 +1,172 @@
+---
+/* The book index of a painted collection front (PaintedFront.astro).
+
+   Three parts under one heading:
+   - a column chart of the entries in each book, whose columns fill the line
+     under it on hover or focus (home-detail-panel.ts) and open the book;
+   - a toolbar: the title filter, a chip per subject and a sort;
+   - the painted books themselves, as open cards rather than boxes.
+
+   The filter, chips and sort run in painted-front-filter.ts. Without script
+   every book shows, in book order, and every column still links to its book.
+   Styles are in painted-front.css under "index". */
+import type { BookGroup } from '../../data/hadith/musnad-abu-hanifa-groups';
+import { groupByBook } from '../../data/hadith/musnad-abu-hanifa-groups';
+import '../../styles/painted-book-index.css';
+
+export interface IndexBook {
+  n: number;
+  title_en: string;
+  title_ar: string;
+  count: number;
+  src: string;
+  srcFull?: string;
+  alt: string;
+  shortTitle?: string;
+  region?: string;
+  width?: number;
+  height?: number;
+}
+
+interface Props {
+  books: readonly IndexBook[];
+  groups: readonly BookGroup[];
+  chapterHref: (n: number) => string;
+  itemSingular?: string;
+  itemPlural?: string;
+}
+
+const { books, groups, chapterHref } = Astro.props;
+const itemSingular = Astro.props.itemSingular ?? 'book';
+const itemPlural = Astro.props.itemPlural ?? 'books';
+const capitalizedSingular = itemSingular.charAt(0).toUpperCase() + itemSingular.slice(1);
+const subjectOf = groupByBook(groups, books.length);
+const total = books.reduce((sum, book) => sum + book.count, 0);
+const largest = books.reduce((top, book) => (book.count > top.count ? book : top), books[0]);
+const smallBooks = books.filter((book) => book.count <= 3).length;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+/* "Book of Prayer" reads as "Prayer" under a "Book 04" line. */
+const shortTitle = (title: string) => {
+  const rest = title.replace(/^(The )?Book of (the )?/i, '');
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+};
+const entries = (count: number) => `${count} ${count === 1 ? 'entry' : 'entries'}`;
+
+const cards = books.map((book) => {
+  const subject = subjectOf.get(book.n)!;
+  return {
+    ...book,
+    num: pad(book.n),
+    short: book.shortTitle ?? shortTitle(book.title_en),
+    subject,
+    width: Math.max(book.count / largest.count, 0.02),
+    href: chapterHref(book.n)
+  };
+});
+const groupCounts = groups.map((group) => ({ ...group, size: group.books.length }));
+---
+
+<section id="pf-index" class="pf-section pf-index" aria-labelledby="pf-index-title">
+  <div class="pf-index__head reveal">
+    <div>
+      <p class="pf-eyebrow">The complete index</p>
+        <h2 id="pf-index-title" class="pf-h2">Discover a <em>{itemSingular}.</em></h2>
+      <p class="pf-lede">
+        Each {itemSingular} opens as one continuous reading page, with the Arabic and English set side by side.
+      </p>
+    </div>
+    <div class="pf-filter">
+      <label class="pf-filter__field">
+        <span class="sr-only">Filter books by English or Arabic title</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        <input type="search" placeholder="Filter by title, in English or Arabic" autocomplete="off" spellcheck="false" data-pf-filter aria-describedby="pf-count" aria-keyshortcuts="Control+K Meta+K" />
+        <kbd class="pf-kbd" aria-hidden="true">Ctrl K</kbd>
+      </label>
+      <div class="pf-filter__row">
+        <p id="pf-count" class="pf-count" aria-live="polite" data-pf-count>{books.length} shown · {books.length} total</p>
+        <div class="pf-sort" role="group" aria-label={`Sort ${itemPlural}`}>
+          <button type="button" class="pf-sort__btn" data-pf-sort="book" aria-pressed="true">{capitalizedSingular} order</button>
+          <button type="button" class="pf-sort__btn" data-pf-sort="size" aria-pressed="false">Most entries</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <figure class="pf-dist reveal reveal--d1" data-detail-panel data-reveal-once aria-labelledby="pf-dist-title">
+    <figcaption class="pf-dist__top">
+      <p id="pf-dist-title" class="pf-dist__kicker">Entries in each {itemSingular}</p>
+      <p class="pf-dist__scale" aria-hidden="true">Tallest column: {largest.count}</p>
+    </figcaption>
+    <ol class="pf-dist__cols" data-detail-area style={`--books: ${books.length}`}>
+      {cards.map((book, i) => (
+        <li class="pf-dist__col" data-pf-bar={book.n} style={`--h: ${book.count / largest.count}; --i: ${i}`}>
+          <a href={book.href} data-detail-key={`b${book.n}`} aria-label={`${capitalizedSingular} ${book.n}: ${book.short}, ${entries(book.count)}`}>
+            <span class="pf-dist__bar" aria-hidden="true"></span>
+            <span class="pf-dist__num" aria-hidden="true">{book.n}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+    <div class="pf-dist__cards">
+      <p class="pf-dist__card" data-detail="">
+        <strong>{total} entries across {books.length} {itemPlural}.</strong>
+        <span>{largest.shortTitle ?? shortTitle(largest.title_en)} holds the most ({largest.count}); {smallBooks} {itemPlural} have three or fewer.</span>
+      </p>
+      {cards.map((book) => (
+        <p class="pf-dist__card" data-detail={`b${book.n}`} hidden>
+          <strong>{capitalizedSingular} {book.num} · {book.short}</strong>
+          <span>{entries(book.count)} · {book.subject.label}</span>
+        </p>
+      ))}
+    </div>
+  </figure>
+
+  <div class="pf-toolbar reveal">
+    <div class="pf-chips" role="group" aria-label={itemPlural === 'sections' ? 'Region' : 'Subject'}>
+      <button type="button" class="pf-chip" data-pf-chip="all" aria-pressed="true">All <span>{books.length}</span></button>
+      {groupCounts.map((group) => (
+        <button type="button" class="pf-chip" data-pf-chip={group.id} aria-pressed="false">{group.label} <span>{group.size}</span></button>
+      ))}
+    </div>
+  </div>
+
+  <ul class="pf-grid" role="list" data-pf-grid>
+    {cards.map((book) => (
+      <li class="pf-card" data-region={book.region} data-pf-en={book.title_en} data-pf-ar={book.title_ar} data-pf-group={book.subject.id} data-pf-n={book.n} data-pf-size={book.count}>
+        <a class="pf-card__link" href={book.href} aria-label={`${capitalizedSingular} ${book.n}: ${book.title_en}, ${entries(book.count)}`}>
+          <span class="pf-card__frame">
+            <img
+              class="pf-card__art"
+              src={book.src}
+              srcset={book.srcFull && book.srcFull !== book.src ? `${book.src} 880w, ${book.srcFull} 1760w` : undefined}
+              sizes="(min-width: 1100px) 400px, (min-width: 720px) 46vw, calc(100vw - 32px)"
+              width={book.width ?? 880}
+              height={book.height ?? 1056}
+              alt={book.alt}
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="pf-pill" aria-hidden="true">{book.num}</span>
+            <span class="pf-card__go" aria-hidden="true">
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none"><path d="M5 11 11 5M6 5h5v5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            </span>
+          </span>
+          <span class="pf-card__body" aria-hidden="true">
+            <span class="pf-card__meta">
+              <span>{capitalizedSingular} {book.num}</span>
+              <span class="pf-card__subject">{book.subject.label}</span>
+            </span>
+            <span class="pf-card__title">{book.short}</span>
+            <span class="pf-card__arabic" lang="ar" dir="rtl">{book.title_ar}</span>
+            <span class="pf-card__share">
+              <span class="pf-card__track"><span class="pf-card__fill" style={`--w: ${book.width}`}></span></span>
+              <span class="pf-card__count">{entries(book.count)}</span>
+            </span>
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+  <p class="pf-empty" data-pf-empty hidden>No {itemPlural} match. Try another title, or choose All.</p>
+</section>

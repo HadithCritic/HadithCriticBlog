@@ -1,0 +1,785 @@
+/* Painted collection front (PaintedFront.astro).
+   A warm dark gallery: painted hero, painted book cards, an indigo band for
+   the edition notes. Every colour is a token on .pf-page, so a light theme
+   only has to redefine them. */
+
+.pf-page {
+  --pf-bg: #14110e;
+  --pf-raised: #1b1815;
+  --pf-card: #211d19;
+  --pf-ink: #e9e4dc;
+  --pf-muted: #a79f94;
+  --pf-line: rgba(233, 228, 220, 0.13);
+  --pf-gold: #d2ab62;
+  --pf-gold-hover: #e6c47f;
+  --pf-gold-light: #ecd3a0;
+  --pf-indigo: #1b2250;
+  --pf-glass: rgba(20, 17, 14, 0.42);
+  --pf-glass-strong: rgba(20, 17, 14, 0.64);
+  --pf-glass-line: rgba(233, 228, 220, 0.22);
+  --pf-stroke: #d2ab62;
+  --pf-stroke-soft: rgba(210, 171, 98, 0.55);
+  --pf-halo: rgba(210, 171, 98, 0.18);
+  --pf-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.75);
+  --pf-wrap: 1240px;
+  --pf-radius-lg: 32px;
+  --pf-radius: 24px;
+  --pf-radius-sm: 18px;
+  --pf-gutter: clamp(16px, 2.2vw, 32px);
+  --pf-display: 'Newsreader', 'Literata', Georgia, serif;
+  --pf-ui: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --pf-arabic: 'Amiri', 'Noto Naskh Arabic', serif;
+  --pf-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  background: var(--pf-bg);
+  color: var(--pf-ink);
+  font-family: var(--pf-ui);
+  padding: 0;
+  /* The front page's button reads the site tokens; this page stays dark in
+     either theme, so it hands them the page's own colors. */
+  --hc-text-primary: var(--pf-ink);
+  --hc-surface-0: var(--pf-bg);
+  overflow-x: clip;
+}
+
+.pf-page *,
+.pf-page *::before,
+.pf-page *::after {
+  box-sizing: border-box;
+}
+
+.pf-page a {
+  color: inherit;
+}
+
+.pf-page :focus-visible {
+  outline: 2px solid var(--pf-gold);
+  outline-offset: 3px;
+}
+
+.pf-page em {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.pf-page [lang='ar'] {
+  font-family: var(--pf-arabic);
+  direction: rtl;
+  line-height: 1.8;
+}
+
+/* ---- shared type and controls ------------------------------------------
+   The front page's grammar: a gold kicker led by a short rule, a heavy
+   Newsreader title with one word set apart, a muted lede. */
+
+.pf-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  color: var(--pf-gold);
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pf-eyebrow::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: currentColor;
+}
+
+.pf-h2 {
+  margin: 0;
+  font: 600 clamp(34px, 4.4vw, 54px) / 1.04 var(--pf-display);
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.pf-h2 em {
+  font-weight: 500;
+  color: var(--pf-gold-light);
+}
+
+.pf-body {
+  margin: 22px 0 0;
+  max-width: 62ch;
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--pf-ink);
+}
+
+.pf-body--muted {
+  color: var(--pf-muted);
+  font-size: 17px;
+}
+
+.pf-lede {
+  max-width: 600px;
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--pf-muted);
+  text-wrap: pretty;
+}
+
+.pf-head--center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 760px;
+  margin: 0 auto clamp(32px, 4vw, 48px);
+  text-align: center;
+}
+
+/* A band that runs the full width of the window, with its own content width. */
+.pf-band {
+  position: relative;
+  width: 100vw;
+  margin: clamp(80px, 10vw, 140px) calc(50% - 50vw) 0;
+  padding: clamp(68px, 8vw, 112px) 0;
+  background: var(--pf-bg);
+  color: var(--pf-ink);
+}
+
+.pf-wrap {
+  width: min(100% - 2 * var(--pf-gutter), var(--pf-wrap));
+  margin: 0 auto;
+}
+
+/* Parchment: the front page's light band, held in both themes. Text tones
+   are the light theme's AA ramp; strokes clear 3:1 on the card. */
+.pf-band--parchment {
+  --pf-bg: #f2ebdc;
+  --pf-card: #fbf7ee;
+  --pf-ink: #2b2824;
+  --pf-muted: #4e4842;
+  --pf-gold: #6a4c18;
+  --pf-gold-light: #6a4c18;
+  --pf-line: rgba(138, 76, 39, 0.18);
+  --pf-stroke: #8a6424;
+  --pf-stroke-soft: #a58248;
+  --pf-halo: rgba(138, 100, 36, 0.16);
+  --pf-shadow: 0 18px 50px -28px rgba(43, 40, 36, 0.28);
+  box-shadow: inset 0 1px 0 rgba(138, 76, 39, 0.14), inset 0 -1px 0 rgba(138, 76, 39, 0.14);
+}
+
+/* A hairline with a small V, where two dark sections meet. */
+.pf-notch {
+  position: relative;
+  height: 1px;
+  margin-bottom: clamp(64px, 8vw, 112px);
+  background: var(--pf-line);
+}
+
+.pf-notch::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 13px;
+  height: 13px;
+  border-right: 1px solid var(--pf-line);
+  border-bottom: 1px solid var(--pf-line);
+  background: var(--pf-bg);
+  translate: -50% 0;
+  rotate: 45deg;
+}
+
+/* Blocks rise into place as they enter the window (home-motion.ts adds
+   .home-reveal to the root only when motion is allowed). */
+.home-reveal .pf-page .reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 750ms var(--pf-ease), transform 750ms var(--pf-ease);
+}
+
+.home-reveal .pf-page .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.home-reveal .pf-page .reveal--d1 {
+  transition-delay: 80ms;
+}
+
+.pf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: 600 15px/1 var(--pf-ui);
+  text-decoration: none;
+  transition: background-color 0.25s, border-color 0.25s, color 0.25s, transform 0.25s var(--pf-ease);
+}
+
+.pf-btn--light {
+  background: var(--pf-ink);
+  color: #17130f !important;
+}
+
+.pf-btn--light:hover {
+  background: #fff;
+}
+
+.pf-btn--glass {
+  background: rgba(20, 17, 14, 0.3);
+  border-color: rgba(233, 228, 220, 0.42);
+  color: var(--pf-ink);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.pf-btn--glass:hover {
+  background: rgba(233, 228, 220, 0.12);
+  border-color: rgba(233, 228, 220, 0.7);
+}
+
+.pf-btn--gold {
+  background: var(--pf-gold);
+  color: #1a140b;
+  cursor: pointer;
+}
+
+.pf-btn--gold:hover {
+  background: var(--pf-gold-hover);
+}
+
+.pf-btn--gold:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.pf-section {
+  width: min(100% - 2 * var(--pf-gutter), var(--pf-wrap));
+  margin: 0 auto;
+  padding: clamp(80px, 10vw, 140px) 0 0;
+}
+
+/* ---- hero -------------------------------------------------------------- */
+
+.pf-hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  max-width: none;
+  min-height: min(920px, calc(100svh - 72px));
+  margin: 0 calc(50% - 50vw);
+  border-radius: 0;
+  overflow: hidden;
+  background: #120f12;
+}
+
+.pf-hero__art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 58% 60%;
+}
+
+/* Two layers: an even dim for the whole picture and a darker pool behind
+   the centred type, so every line clears 4.5:1 wherever the sky is bright. */
+.pf-hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 50% 34% at 50% 60%, rgba(12, 10, 14, 0.78), rgba(12, 10, 14, 0.5) 55%, rgba(12, 10, 14, 0) 100%),
+    radial-gradient(ellipse 42% 30% at 50% 36%, rgba(12, 10, 14, 0.4), rgba(12, 10, 14, 0) 100%),
+    linear-gradient(180deg, rgba(12, 10, 16, 0.38) 0%, rgba(12, 10, 16, 0.12) 40%, rgba(12, 10, 14, 0.25) 70%, rgba(12, 10, 14, 0.6) 100%);
+}
+
+@media (max-width: 720px) {
+  .pf-hero__scrim {
+    background:
+      radial-gradient(ellipse 90% 40% at 50% 58%, rgba(12, 10, 14, 0.7), rgba(12, 10, 14, 0) 100%),
+      linear-gradient(180deg, rgba(12, 10, 16, 0.5) 0%, rgba(12, 10, 16, 0.5) 100%);
+  }
+}
+
+.pf-hero__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(48px, 7vw, 96px) clamp(20px, 4vw, 48px) 40px;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(10, 8, 10, 0.6), 0 2px 18px rgba(10, 8, 10, 0.55);
+}
+
+.pf-hero__content .pf-btn,
+.pf-hero__content .hbtn {
+  text-shadow: none;
+}
+
+.pf-kicker--hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 26px;
+  color: var(--pf-gold-light);
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pf-kicker--hero::before,
+.pf-kicker--hero::after {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: currentColor;
+}
+
+.pf-medallion {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(210, 171, 98, 0.65);
+  box-shadow: 0 0 0 6px rgba(20, 17, 14, 0.35), 0 12px 36px rgba(0, 0, 0, 0.45);
+  margin-bottom: 22px;
+}
+
+.pf-hero__title {
+  margin: 0;
+  font: 600 clamp(46px, 7vw, 96px) / 0.98 var(--pf-display);
+  letter-spacing: -0.035em;
+  color: #fff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+}
+
+.pf-hero__title em {
+  font-weight: 500;
+  color: #ead09a;
+}
+
+.pf-hero__arabic {
+  margin: 14px 0 0;
+  font-size: clamp(28px, 3.4vw, 40px);
+  color: var(--pf-gold-light);
+}
+
+.pf-hero__byline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  margin: 14px 0 0;
+  font-size: 15px;
+  color: #e3dccf;
+}
+
+.pf-dot {
+  color: var(--pf-gold);
+}
+
+.pf-hero__lede {
+  margin: 18px 0 0;
+  max-width: 52ch;
+  font: 400 clamp(18px, 1.6vw, 21px) / 1.55 var(--pf-display);
+  color: #efe9df;
+  text-wrap: balance;
+}
+
+.pf-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+}
+
+.pf-stats {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  align-self: center;
+  margin: 0 0 clamp(20px, 3vw, 36px);
+  border-radius: 999px;
+  border: 1px solid var(--pf-glass-line);
+  background: var(--pf-glass);
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.pf-stats > div {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px clamp(18px, 2.4vw, 30px);
+}
+
+.pf-stats > div + div {
+  border-left: 1px solid var(--pf-glass-line);
+}
+
+.pf-stats dd {
+  margin: 0;
+  font: 500 clamp(22px, 2vw, 28px) / 1 var(--pf-display);
+  letter-spacing: -0.01em;
+  color: var(--pf-gold-light);
+  font-variant-numeric: lining-nums;
+}
+
+.pf-stats dt {
+  font-size: 13px;
+  color: #ded7cb;
+  white-space: nowrap;
+}
+
+/* ---- the work: open, with ruled facts beside the account -------------- */
+
+.pf-work {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(36px, 6vw, 96px);
+  align-items: end;
+}
+
+.pf-work .pf-body {
+  color: #d8d1c6;
+}
+
+.pf-facts {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-fact {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  gap: 6px 20px;
+  align-items: baseline;
+  padding: 22px 0;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-fact__label {
+  color: var(--pf-gold);
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-fact dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.pf-fact__value {
+  font: 600 clamp(24px, 2.4vw, 30px) / 1.15 var(--pf-display);
+  letter-spacing: -0.015em;
+}
+
+.pf-fact__arabic {
+  font-size: clamp(22px, 2.2vw, 27px);
+  color: var(--pf-gold);
+}
+
+.pf-fact__note {
+  font-size: 15px;
+  color: var(--pf-muted);
+}
+
+/* ---- edition: a full-width indigo band, heading beside ruled notes ---- */
+
+.pf-band--indigo {
+  --pf-line: rgba(233, 228, 220, 0.16);
+  background:
+    radial-gradient(ellipse 60% 90% at 90% 0%, rgba(90, 104, 190, 0.32), transparent 70%),
+    radial-gradient(ellipse 45% 70% at 0% 100%, rgba(210, 171, 98, 0.08), transparent 70%),
+    var(--pf-indigo);
+}
+
+.pf-edition__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(36px, 6vw, 96px);
+  align-items: start;
+}
+
+.pf-edition__head {
+  position: sticky;
+  top: 112px;
+}
+
+.pf-edition .pf-eyebrow,
+.pf-edition .pf-h2 em {
+  color: var(--pf-gold-light);
+}
+
+.pf-edition .pf-lede {
+  color: #cfd0e0;
+}
+
+.pf-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-note {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: 6px 16px;
+  padding: clamp(22px, 2.6vw, 32px) 0;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-note__num {
+  grid-row: span 2;
+  padding-top: 5px;
+  font: 600 13px/1 var(--pf-ui);
+  letter-spacing: 0.08em;
+  color: #b9bbd4;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-note__label {
+  margin: 0;
+  font: 600 22px/1.25 var(--pf-display);
+  letter-spacing: -0.01em;
+  color: #f1ede6;
+}
+
+.pf-note__text {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.65;
+  color: #dcdbe6;
+}
+
+.pf-note__text a {
+  color: var(--pf-gold-light);
+  text-underline-offset: 3px;
+}
+
+/* ---- closing band: the hero's painting, darkened, to the footer -------- */
+
+.pf-cta {
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 0;
+  padding: clamp(96px, 12vw, 168px) 0;
+  text-align: center;
+  background: #120f12;
+}
+
+.pf-cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background: var(--pf-cta-art) 50% 62% / cover no-repeat;
+}
+
+.pf-cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, var(--pf-bg) 0%, rgba(12, 10, 14, 0.7) 22%, rgba(12, 10, 14, 0.78) 78%, rgba(12, 10, 14, 0.92) 100%);
+}
+
+.pf-cta__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100% - 2 * var(--pf-gutter), 640px);
+  margin: 0 auto;
+}
+
+.pf-cta__inner .pf-h2 {
+  font-size: clamp(36px, 5vw, 60px);
+}
+
+.pf-cta__inner .pf-body {
+  color: #e6e0d6;
+}
+
+.pf-cta__form {
+  width: min(100%, 520px);
+  margin-top: 30px;
+}
+
+.pf-subscribe {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-glass-line);
+  background: var(--pf-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.pf-subscribe[hidden] {
+  display: none;
+}
+
+.pf-subscribe input[type='email'] {
+  flex: 1;
+  min-width: 0;
+  padding: 0 18px;
+  border: 0;
+  background: transparent;
+  color: var(--pf-ink);
+  font: 400 16px var(--pf-ui);
+}
+
+.pf-subscribe input[type='email']::placeholder {
+  color: #b9b1a5;
+}
+
+.pf-subscribe input[type='email']:focus {
+  outline: 2px solid var(--pf-gold);
+  outline-offset: 2px;
+}
+
+.pf-subscribe:focus-within {
+  border-color: var(--pf-gold);
+}
+
+.pf-cta__status {
+  min-height: 1.4em;
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--pf-ink);
+}
+
+.pf-cta__small {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #c9c1b5;
+}
+
+.pf-cta__small a {
+  color: var(--pf-gold-light);
+  text-underline-offset: 3px;
+}
+
+/* ---- responsive -------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .pf-work,
+  .pf-edition__layout {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .pf-edition__head {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .pf-fact {
+    grid-template-columns: 1fr;
+    padding: 18px 0;
+  }
+
+  .pf-note {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-note__num {
+    grid-row: auto;
+    padding-top: 0;
+  }
+
+  .pf-hero {
+    min-height: min(760px, calc(100svh - 64px));
+  }
+
+  .pf-hero__art {
+    object-position: 62% 60%;
+  }
+
+  .pf-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-self: stretch;
+    margin-inline: var(--pf-gutter);
+    border-radius: 18px;
+  }
+
+  .pf-stats > div {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .pf-stats dd {
+    font-size: 22px;
+  }
+
+  .pf-stats dt {
+    font-size: 12px;
+    white-space: normal;
+  }
+
+  .pf-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pf-hero__actions {
+    flex-direction: column;
+    width: 100%;
+    max-width: 340px;
+  }
+
+  .pf-hero__actions .hbtn {
+    justify-content: center;
+  }
+
+  .pf-kicker--hero {
+    gap: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  .pf-hero__byline {
+    flex-direction: column;
+  }
+
+  .pf-hero__byline .pf-dot {
+    display: none;
+  }
+
+  .pf-subscribe {
+    flex-direction: column;
+    border-radius: var(--pf-radius);
+    padding: 8px;
+  }
+
+  .pf-subscribe input[type='email'] {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-btn {
+    transition: none;
+  }
+}

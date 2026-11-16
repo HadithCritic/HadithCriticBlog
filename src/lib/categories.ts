@@ -18,13 +18,18 @@ export interface Category {
   summary: string;
   /** Entity names for schema `about`. Helps engines place the topic. */
   about: string[];
+  /** Which --cat-<tone> color tokens in global.css the category is drawn in. */
+  tone: CategoryTone;
 }
+
+export type CategoryTone = 'history' | 'philosophy' | 'theology' | 'prophecies';
 
 export const CATEGORIES: Category[] = [
   {
     name: 'Origins & Early History',
     summary: 'Early Islamic history, specific events, and broad origins.',
     slug: 'origins-early-history',
+    tone: 'history',
     blurb:
       'Source-critical studies of how the earliest Islamic reports were formed, circulated and recorded, covering the first two centuries of transmission, the emergence of written compilations, and the historical context in which prophetic traditions took shape.',
     about: ['Early Islamic history', 'Historiography', 'Oral tradition', 'Sirah literature']
@@ -33,6 +38,7 @@ export const CATEGORIES: Category[] = [
     name: 'Transmission & Narrators',
     summary: 'Isnād politics, common links, and specific narrators.',
     slug: 'transmission-narrators',
+    tone: 'philosophy',
     blurb:
       "Isnad criticism and rijal analysis: how individual transmitters were graded, where chains break down, and what isnad-cum-matn analysis reveals about the origin of specific reports. Includes case studies of named narrators and the classical science of 'ilm al-rijal itself.",
     about: ["'Ilm al-rijal", 'Isnad', 'Hadith transmission', 'Isnad-cum-matn analysis']
@@ -41,6 +47,7 @@ export const CATEGORIES: Category[] = [
     name: 'Theology & Epistemology',
     summary: 'Quranic authority, law, abrogation, and probability.',
     slug: 'theology-epistemology',
+    tone: 'theology',
     blurb:
       'What hadith literature can and cannot establish as knowledge. Studies on the epistemic status of solitary reports, the Quranic standard for verification, the relationship between scripture and tradition, and the theological consequences of accepting reports on authority.',
     about: ['Islamic theology', 'Epistemology', 'Quranic studies', 'Usul al-fiqh']
@@ -49,6 +56,7 @@ export const CATEGORIES: Category[] = [
     name: 'Prophecies & Eschatology',
     summary: 'Mahdi reports, apocalyptic claims, black banners, and dynastic memory.',
     slug: 'prophecies-eschatology',
+    tone: 'prophecies',
     blurb:
       'Examination of predictive traditions and end-times material: apocalyptic reports, Mahdi traditions, and prophecies whose transmission history places their formation after the events they claim to foretell.',
     about: ['Islamic eschatology', 'Mahdi', 'Apocalyptic literature', 'Prophecy']

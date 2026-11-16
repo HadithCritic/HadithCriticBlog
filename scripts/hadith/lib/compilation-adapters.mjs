@@ -147,6 +147,24 @@ function marasilNotes(source, metadata) {
   ];
 }
 
+function muntaqaNotes(source, metadata) {
+  const babs = babGroups(source);
+  const records = babs.flatMap(group => group.records);
+  const reviewed = records.filter(record => record.review?.unresolved?.length && !record.added_from_source).length;
+  const kinds = type => babs.filter(bab => bab.heading?.type === type).length;
+  const added = records.filter(record => record.added_from_source).map(record => record.number).join(' and ');
+  const repeated = records.filter(record => record.display_number).map(record => record.display_number).join(', ');
+  const numbers = records.map(record => Number(record.source_number));
+  return [
+    { label: 'Edition', text: `${metadata.edition}. Text, headings, page numbers and report numbers follow this edition as given in the Shamela library (book ${metadata.source_book_id}).` },
+    { label: 'Headings', text: `The edition numbers ${babs.length} headings: ${kinds('bab')} open with bāb, ${kinds('kitab')} with kitāb, and ${kinds('untitled_topic_heading')} name their subject without either word. Each chapter here is one of these headings, in the edition's order and with its Arabic wording.` },
+    { label: 'Subject groups', text: `The ${source.navigation_groups.length} subject groups in the index (Purification, Prayer and so on) are an editorial aid for finding a chapter. They are not part of the work, and only where a group begins at one of the edition's kitāb headings does it follow the book's own division.` },
+    { label: 'Numbering', text: `Reports carry the edition's numbers, ${Math.min(...numbers)} to ${Math.max(...numbers)}, which skip some numbers. A number printed twice is marked as the edition marks it: ${repeated}.` },
+    { label: 'English translation', text: `${retranslationNote(reviewed, 'reports')} Reports ${added} were missing from the earlier source; they were added from the edition with a new translation, which divides isnad and matn.` },
+    { label: 'Transmitters', text: 'Names are shown as the source gives them.' },
+  ];
+}
+
 function mamarNotes(source, metadata) {
   const unassigned = source.structure.source_material_not_assigned_to_report ?? [];
   const continuations = source.books[0].records.filter(record => record.unnumbered_continuations?.length).length;
@@ -287,11 +305,22 @@ export const additionalConfigs = [
     compiler: 'Ibn al-Jārūd',
     death: 307,
     expectedGroups: 166,
-    expectedRecords: 1159,
+    expectedRecords: 1161,
     sourceId: 'al-muntaqa',
-    notesFor: (source, metadata) => marasilNotes(source, metadata).map(note => note.label === 'English translation'
-      ? { ...note, text: retranslationNote(babGroups(source).flatMap(group => group.records).filter(record => record.review?.unresolved?.length).length, 'reports') }
-      : note),
+    navigationGroupsFor: source => source.navigation_groups ?? [],
+    // The English is divided only where the source divides it (the two added reports and the chain-only ones).
+    partsFor: record => ({
+      en: splitParts(record.display_text_en || record.raw_text_en, record.display_isnad_en, record.display_matn_en),
+      ar: splitParts(record.display_text_ar || record.raw_text_ar, record.display_isnad_ar, record.display_matn_ar),
+    }),
+    numberFor: record => record.display_number ?? record.number ?? record.source_number ?? 'Unnumbered',
+    extraRefsFor: record => [
+      ...(record.page_reference_end ? [{ label: 'Runs to', value: `p. ${record.page_reference_end}` }] : []),
+      ...(record.source_serial_number ? [{ label: 'Shamela page record', value: record.source_serial_number }] : []),
+      ...(record.source_record_type === 'embedded' ? [{ label: 'Printed as', value: 'Within the text of the report before it' }] : []),
+      ...(record.page_reference_previous != null ? [{ label: 'Earlier page reading', value: `p. ${record.page_reference_previous}` }] : []),
+    ],
+    notesFor: muntaqaNotes,
   },
   {
     slug: 'al-athar-abu-yusuf',
@@ -407,8 +436,11 @@ function secondCenturyConfig({ slug, compiler, death, groups, records, noun, aut
   };
 }
 
-// 3rd century musnads, converted by scripts/hadith/convert-third-century-musnads.mjs. Both keep the compiler's Companion headings.
+// 3rd century musnads, converted by scripts/hadith/convert-third-century-musnads.mjs (al-Shāfiʿī's by
+// scripts/hadith/convert-musnad-al-shafii.mjs). Ḥumaydī and Ibn Abī Shayba keep the compiler's Companion
+// headings; al-Shāfiʿī's keeps the books of his that each report was taken from.
 export const thirdCenturyConfigs = [
+  { slug: 'musnad-al-shafii', compiler: 'Muḥammad ibn Idrīs al-Shāfiʿī', death: 204, groups: 68, records: 1678, noun: 'Book' },
   { slug: 'musnad-al-humaydi', compiler: 'ʿAbd Allāh ibn al-Zubayr al-Ḥumaydī', death: 219, groups: 186, records: 1334 },
   { slug: 'musnad-ibn-abi-shayba', compiler: 'Abū Bakr ibn Abī Shayba', death: 235, groups: 281, records: 998 },
 ].map(secondCenturyConfig);

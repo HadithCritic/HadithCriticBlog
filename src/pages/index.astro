@@ -1,48 +1,45 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { getCollection } from "astro:content";
-import { LIBRARY_NARRATIONS } from "../lib/hadith-library";
-import { blogArtwork } from "../data/blog/blog-artwork";
-import { openReaders } from "../data/history/history";
-import youtubeMeta from "../data/site/youtube-meta.json";
+import HomeSection from "../components/home/HomeSection.astro";
+import HomeButton from "../components/home/HomeButton.astro";
+import MedallionBand from "../components/home/MedallionBand.astro";
+import CompilerMap from "../components/home/CompilerMap.astro";
+import FacingText from "../components/home/FacingText.astro";
+import ChronologyRail from "../components/home/ChronologyRail.astro";
+import VerseLayers from "../components/home/VerseLayers.astro";
+import SurahCoverage from "../components/home/SurahCoverage.astro";
+import GenerationLadder from "../components/home/GenerationLadder.astro";
+import BiographyCard from "../components/home/BiographyCard.astro";
+import StudiesTabs from "../components/home/StudiesTabs.astro";
+import MethodPipeline, { type MethodStep } from "../components/home/MethodPipeline.astro";
+import ResourceShelf from "../components/home/ResourceShelf.astro";
+import ToolTiles from "../components/home/ToolTiles.astro";
+import GitBookBand from "../components/home/GitBookBand.astro";
+import ChannelLectures from "../components/home/ChannelLectures.astro";
+import SetupCard from "../components/home/SetupCard.astro";
+import DataTree from "../components/home/DataTree.astro";
+import { loadHomeData } from "../lib/home-data";
 import "../styles/home.css";
+import "../styles/yt-lite.css";
 import "../styles/home-hero.css";
-import "../styles/home-platform.css";
+import "../styles/home-sections.css";
 import "../styles/home-closing.css";
 
-const GENERIC_THUMB = "/images/blog/thumbnails/tn.generic.webp";
+/* Section order and the figure each will carry are set out in
+   docs/home/front-page-plan.md. Every figure comes from loadHomeData(). */
+const home = await loadHomeData();
 
-const posts = (
-  await getCollection("articles", ({ data }) => (import.meta.env.DEV || !data.draft) && !data.preview)
-).sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
-type Post = (typeof posts)[number];
+const YOUTUBE_CHANNEL = "https://www.youtube.com/@HadithCritic";
 
-/* The newest study leads; the next five follow as plain rows. */
-const [lead, ...rest] = posts;
-const recent = rest.slice(0, 5);
+/* How a study is built. Each step names the part of the site that does it. */
+const method: MethodStep[] = [
+  { title: "Collect the variants", text: "Gather every version of a report across the early compilations.", href: "/hadith/", link: "Hadith corpus" },
+  { title: "Identify the narrators", text: "Resolve each name in the chains to a person, with dates and grades from the Taqrīb.", href: "/projects/rijal/", link: "Narrators register" },
+  { title: "Map the chains", text: "Draw the transmission paths and find where they meet in a common link.", href: "/projects/academic-studies/", link: "ICMA register" },
+  { title: "Compare the wording", text: "Set the versions side by side and trace what each transmitter changed.", href: "/blogs/category/transmission-narrators/", link: "Transmission studies" },
+  { title: "Date the report", text: "Place the tradition in time and name who put it into circulation.", href: "/blogs/", link: "All studies" },
+];
 
-const formatDate = (date: Date) =>
-  date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
-const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-const readingMinutes = (post: Post) => {
-  const words = (post.body || "").replace(/<[^>]*>/g, "").trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
-};
-const leadArt = blogArtwork[lead.id];
-
-/* Every figure below is read from the data each project is built from. */
-const n = (value: number) => value.toLocaleString("en-US");
-const figures = {
-  studies: posts.length,
-  hadith: n(LIBRARY_NARRATIONS),
-};
-
-const lectureIds = ["HWHjCfaPn_0", "6bpJBji3E0M", "3B0rnPGWgKU"];
-const lectures = lectureIds.map((id) => ({
-  id,
-  title: youtubeMeta.videos.find((video) => video.id === id)?.title ?? "Watch the lecture",
-  thumb: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-}));
 ---
 
 <BaseLayout title="HadithCritic | Verification Over Reputation">
@@ -68,196 +65,140 @@ const lectures = lectureIds.map((id) => ({
           recovering early Islamic history through rigorous evidentiary research.
         </p>
         <div class="home-hero__actions">
-          <a href="/blogs/" class="home-btn home-btn--light">Explore the archive <span class="home-btn__arrow" aria-hidden="true">→</span></a>
-          <a href="/projects/" class="home-btn home-btn--glass">Research projects</a>
+          <HomeButton href="/blogs/" variant="light">Explore the archive</HomeButton>
+          <HomeButton href="#method" variant="glass">How a study is built</HomeButton>
         </div>
       </div>
-      <a class="home-hero__cue" href="#latest">Recent studies <span aria-hidden="true">↓</span></a>
+      <a class="home-hero__cue" href="#method">The method <span aria-hidden="true">↓</span></a>
     </section>
 
-    <section class="home-section home-latest" id="latest" aria-labelledby="latest-title">
-      <div class="hc-container">
-        <header class="home-latest__top reveal">
-          <div>
-            <p class="home-kicker">The latest from the archive</p>
-            <h2 id="latest-title" class="home-title">Recent studies</h2>
-          </div>
-          <a href="/blogs/" class="home-link">All {figures.studies} studies <span aria-hidden="true">→</span></a>
-        </header>
+    <MedallionBand medallions={home.hero.medallions} />
 
-        <article class="home-lead reveal">
-          <div class="home-lead__copy">
-            <p class="home-meta">
-              <span class="home-meta__category">{lead.data.category}</span>
-              <time datetime={isoDate(lead.data.date)}>{formatDate(lead.data.date)}</time>
-              <span>{readingMinutes(lead)} min read</span>
-            </p>
-            <h3 class="home-lead__title">
-              <a href={`/blogs/${lead.id}/`} class="home-cover-link">{lead.data.title}</a>
-            </h3>
-            {lead.data.description && <p class="home-lead__desc">{lead.data.description}</p>}
-            <span class="home-link" aria-hidden="true">Read the study <span>→</span></span>
-          </div>
-          <img
-            class="home-lead__image"
-            src={leadArt?.src ?? lead.data.thumbnail ?? GENERIC_THUMB}
-            srcset={leadArt?.srcset}
-            sizes="(max-width: 760px) 100vw, 640px"
-            width={leadArt?.width ?? 1536}
-            height={leadArt?.height ?? 1024}
-            alt=""
-            loading="lazy"
-            decoding="async"
-          />
-        </article>
+    <HomeSection
+      id="method"
+      tone="panel"
+      defer={false}
+      kicker="How a study is built"
+      title="From scattered reports to a dated tradition."
+      lede="Every study on this site follows the same path through the sources. Each step has its own part of the site."
+    >
+      <MethodPipeline steps={method} />
+    </HomeSection>
 
-        <ol class="home-rows reveal">
-          {recent.map((post) => (
-            <li class="home-row">
-              <time class="home-row__date" datetime={isoDate(post.data.date)}>{formatDate(post.data.date)}</time>
-              <div class="home-row__main">
-                <h3 class="home-row__title">
-                  <a href={`/blogs/${post.id}/`} class="home-cover-link">{post.data.title}</a>
-                </h3>
-                {post.data.description && <p class="home-row__desc">{post.data.description}</p>}
-              </div>
-              <span class="home-row__category">{post.data.category}</span>
-              <span class="home-row__read" aria-hidden="true">{readingMinutes(post)} min <span>→</span></span>
-            </li>
-          ))}
-        </ol>
+    <HomeSection id="latest" align="split" kicker="The latest from the archive" title="Recent studies">
+      <a slot="aside" href="/blogs/" class="home-link">All {home.studies.all.length} studies <span aria-hidden="true">→</span></a>
+
+      <StudiesTabs tabs={home.studies.tabs} />
+    </HomeSection>
+
+    <HomeSection
+      id="corpus"
+      tone="parchment"
+      kicker="Hadith corpus"
+      title="Read the early compilations in their own order."
+      lede="Narrations in facing Arabic and English, laid out the way each printed edition arranges them."
+    >
+      <div class="corpus-figures">
+        <div class="reveal"><CompilerMap map={home.corpus.map} /></div>
+        <div class="reveal reveal--d1"><FacingText narration={home.corpus.narration} /></div>
       </div>
-    </section>
-
-    <section class="home-section home-platform" aria-labelledby="platform-title">
-      <div class="hc-container">
-        <header class="home-head reveal">
-          <p class="home-kicker">Research infrastructure</p>
-          <h2 id="platform-title" class="home-title">Examine every layer<br />of the historical record.</h2>
-          <p class="home-head__lede">
-            Purpose-built research tools make large bodies of source material easier to search, compare,
-            and interrogate without hiding the underlying evidence.
-          </p>
-        </header>
-
-        <div class="showcase">
-          <article class="showcase__row reveal">
-            <div class="showcase__copy">
-              <p class="showcase__kicker">01 / Hadith corpus</p>
-              <h3>Search the source material.</h3>
-              <p>Read narrations in facing Arabic and English across the early compilations, in the order of each printed edition.</p>
-              <ul class="showcase__points">
-                <li>Early source collections</li>
-                <li>Arabic and English presented together</li>
-                <li>Transmission paths and source references</li>
-              </ul>
-              <a href="/hadith/" class="showcase__link">Open the corpus <span aria-hidden="true">→</span></a>
-            </div>
-            <div class="showcase__visual" aria-hidden="true">
-              <div class="mock-window">
-                <div class="mock-window__head"><span>Hadith corpus / collections</span><span class="mock-window__status">Edition order</span></div>
-                <div class="mock-window__content">
-                  <div class="mock-search">Browse collections by the compiler's century</div>
-                  <div class="mock-table">
-                    <div class="mock-table__row mock-table__row--head"><span>Collection</span><span>Record</span><span>Text</span></div>
-                    <div class="mock-table__row"><strong>Jāmiʿ Maʿmar ibn Rāshid</strong><span>Source view</span><span class="mock-tag">AR / EN</span></div>
-                    <div class="mock-table__row"><strong>Musnad Abū Ḥanīfa</strong><span>Source view</span><span class="mock-tag">AR / EN</span></div>
-                    <div class="mock-table__row"><strong>Al-Shamāʾil al-Muḥammadiyya</strong><span>Source view</span><span class="mock-tag">AR / EN</span></div>
-                  </div>
-                  <div class="mock-metrics">
-                    <div><b>{figures.hadith}</b><small>Narrations</small></div>
-                    <div><b>Arabic</b><small>Original text</small></div>
-                    <div><b>English</b><small>Facing translation</small></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-        </div>
+      <div class="section-actions section-actions--center">
+        <HomeButton href="/hadith/" variant="dark">Open all {home.hadith.collections} collections</HomeButton>
       </div>
-    </section>
+    </HomeSection>
 
-    <section class="home-section home-library" aria-labelledby="library-title">
-      <div class="hc-container">
-        <header class="home-head reveal">
-          <p class="home-kicker">The research platforms</p>
-          <h2 id="library-title" class="home-title">A library built for investigation.</h2>
-          <p class="home-head__lede">
-            Move between primary texts and early historical works.
-          </p>
-        </header>
-        <ul class="library">
-          <li class="library__panel reveal">
-            <a href="/hadith/" class="library__link">
-              <span class="library__copy">
-                <span class="library__index">01 / Textual collection</span>
-                <span class="library__title">Hadith Corpus</span>
-                <span class="library__desc">Narrations in facing Arabic and English, across the early compilations.</span>
-                <span class="library__stat"><strong>{figures.hadith}</strong>narrations</span>
-              </span>
-              <span class="library__art" aria-hidden="true">
-                <span class="mock-paper">
-                  <span class="mock-paper__top"><span>Collection / record</span><span>HC-001</span></span>
-                  <span class="mock-paper__title">Source text &amp; translation</span>
-                  <span class="mock-paper__text">Original wording and parallel translation, arranged for direct reading.</span>
-                  <span class="mock-paper__lines"><i></i><i></i><i></i></span>
-                </span>
-              </span>
-            </a>
-          </li>
-          <li class="library__panel library__panel--dark reveal reveal--d1">
-            <a href="/projects/history/" class="library__link">
-              <span class="library__copy">
-                <span class="library__index">02 / Early historiography</span>
-                <span class="library__title">History (Tārīkh)</span>
-                <span class="library__desc">The earliest Arabic histories of Islam in English, each in its own reader with the chapters beside the text.</span>
-                <span class="library__stat"><strong>{openReaders.length}</strong>books open to read</span>
-              </span>
-              <span class="library__art" aria-hidden="true">
-                <span class="mock-paper">
-                  <span class="mock-paper__top"><span>Historical source</span><span>Archive</span></span>
-                  <span class="mock-paper__title">Chronicle &amp; context</span>
-                  <span class="mock-paper__text">Source editions, parallel accounts, and chronology.</span>
-                  <span class="mock-paper__lines"><i></i><i></i><i></i></span>
-                </span>
-              </span>
-            </a>
-          </li>
-        </ul>
+    <HomeSection
+      id="narrators"
+      tone="dark"
+      kicker="Narrators register"
+      title="Every name in the chains, from Ibn Ḥajar's Taqrīb."
+      lede="The biographies of the Taqrīb al-Tahdhīb in Arabic and English, with each narrator's generation, grade and death date read from the entry."
+    >
+      <div class="narrator-figures">
+        <GenerationLadder ladder={home.narrators.ladder} crossReferences={home.narrators.crossReferences} />
+        <BiographyCard biography={home.narrators.biography} />
       </div>
-    </section>
+      <div class="section-actions section-actions--center">
+        <HomeButton href="/projects/rijal/" variant="light">Open the register</HomeButton>
+      </div>
+    </HomeSection>
 
-    <section class="home-section home-lectures" aria-labelledby="lectures-title">
-      <div class="hc-container">
-        <header class="home-head reveal">
-          <p class="home-kicker">On YouTube</p>
-          <h2 id="lectures-title" class="home-title">Lectures &amp; discussions</h2>
-          <p class="home-head__lede">
-            Lectures from the HadithCritic YouTube channel on textual evidence, historical claims, and the methods used to examine them.
-          </p>
-        </header>
-        <ul class="home-lectures__grid">
-          {lectures.map((video, index) => (
-            <li class:list={["lecture reveal", index && `reveal--d${index}`]}>
-              <a href={`https://www.youtube.com/watch?v=${video.id}`} class="yt-lite" data-video-id={video.id} aria-label={`Play: ${video.title}`}>
-                <img src={video.thumb} alt="" width="800" height="450" loading="lazy" decoding="async" />
-                <span class="yt-play" aria-hidden="true">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>
-                </span>
-              </a>
-              <div class="lecture__caption">
-                <b>{video.title}</b>
-                <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">Open on YouTube <span aria-hidden="true">↗</span></a>
-              </div>
-            </li>
-          ))}
-        </ul>
-        <div class="home-lectures__more">
-          <a href="https://www.youtube.com/@HadithCritic" class="home-btn home-btn--dark" target="_blank" rel="noopener noreferrer">Visit the YouTube channel <span class="home-btn__arrow" aria-hidden="true">↗</span></a>
-        </div>
+    <HomeSection
+      id="tafsir"
+      tone="dark"
+      notch
+      kicker="Tafsir"
+      title="Four commentaries, one verse at a time."
+      lede="The early commentaries on the Qur'an, read verse by verse with the Arabic beside the English."
+    >
+      <div class="tafsir-figures">
+        <VerseLayers figure={home.tafsir.layers} />
+        <SurahCoverage coverage={home.tafsir.coverage} />
       </div>
-    </section>
+      <div class="section-actions section-actions--center">
+        <HomeButton href="/projects/tafsir/" variant="light">Open the tafsir library</HomeButton>
+      </div>
+    </HomeSection>
+
+    <HomeSection
+      id="tarikh"
+      tone="parchment"
+      kicker="Tārīkh"
+      title="The earliest histories, in the order they were written."
+      lede="Arabic histories of early Islam in English, each in its own reader with the chapters beside the text."
+    >
+      <ChronologyRail chronology={home.history.chronology} />
+      <div class="section-actions section-actions--center">
+        <HomeButton href="/projects/history/" variant="dark">Open the history library</HomeButton>
+      </div>
+    </HomeSection>
+
+    <HomeSection
+      id="resources"
+      tone="dark"
+      kicker="Resources"
+      title="Works, tools and archives worth keeping."
+      lede="Books, digital manuscripts, documentaries and tools from the wider Quran-centered research community."
+    >
+      <div class="resource-figures">
+        <ResourceShelf figure={home.resources} />
+        <ToolTiles tools={home.resources.tools} />
+      </div>
+      <GitBookBand items={home.resources.gitbooks} />
+      <div class="section-actions section-actions--center">
+        <HomeButton href="/resources/" variant="light">Browse all {home.resources.entries} resources</HomeButton>
+      </div>
+    </HomeSection>
+
+    <HomeSection
+      id="lectures"
+      tone="dark"
+      notch
+      kicker="On YouTube"
+      title="Lectures & discussions"
+      lede="Lectures from the HadithCritic YouTube channel on textual evidence, historical claims, and the methods used to examine them."
+    >
+      <ChannelLectures youtube={home.youtube} />
+      <div class="section-actions section-actions--center">
+        <HomeButton href={YOUTUBE_CHANNEL} variant="light" external>Visit the YouTube channel</HomeButton>
+      </div>
+    </HomeSection>
+
+    <HomeSection
+      id="open-source"
+      tone="parchment"
+      kicker="Open source"
+      title="The site and its data are open."
+      lede="The code behind every page is on GitHub, and each hadith collection is published as a bilingual JSON file you can use in your own work."
+    >
+      <div class="open-figures">
+        <SetupCard tabs={home.openSource.tabs} />
+        <DataTree tree={home.openSource.tree} files={home.openSource.files} />
+      </div>
+      <div class="section-actions section-actions--center">
+        <HomeButton href={home.openSource.repo} variant="dark" external>View the repository on GitHub</HomeButton>
+      </div>
+    </HomeSection>
 
     <section class="home-closing" id="subscribe" aria-labelledby="closing-title">
       <div class="hc-container home-closing__inner reveal" data-subscribe-form>
@@ -281,57 +222,32 @@ const lectures = lectureIds.map((id) => ({
 
 <script>
   import { bindSubscribeForms } from "../lib/subscribe-client";
+  import { initHomeMotion } from "../lib/home-motion";
+  import { initCompilerMap } from "../lib/home-compiler-map";
+  import { initDetailPanels } from "../lib/home-detail-panel";
+  import { initTafsirFigures } from "../lib/home-tafsir-figures";
+  import { initLectures } from "../lib/home-lectures";
+  import { initCopyButtons } from "../lib/home-copy";
 
-  /* Lite YouTube player. Each tile is a real link to the video; with script
-     it is swapped for the privacy-enhanced embed in place. */
-  function initLectures() {
-    for (const link of document.querySelectorAll<HTMLAnchorElement>("a.yt-lite")) {
-      if (link.dataset.ready) continue;
-      link.dataset.ready = "1";
-      link.addEventListener("click", (event) => {
-        const id = link.dataset.videoId;
-        if (!id || event.metaKey || event.ctrlKey || event.shiftKey) return;
-        event.preventDefault();
-        const frame = document.createElement("div");
-        frame.className = link.className;
-        frame.dataset.videoId = id;
-        const iframe = document.createElement("iframe");
-        iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
-        iframe.title = "YouTube video player";
-        iframe.allow =
-          "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
-        iframe.allowFullscreen = true;
-        frame.appendChild(iframe);
-        link.replaceWith(frame);
-        iframe.focus();
-      });
-    }
-  }
-
-  /* Sections rise into place as they enter the viewport. Content is only
-     hidden once this script is running, so it never depends on it. */
-  function initReveal() {
-    const items = [...document.querySelectorAll<HTMLElement>(".home .reveal:not(.is-visible)")];
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!items.length || reduced || !("IntersectionObserver" in window)) return;
-    document.documentElement.classList.add("home-reveal");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          entry.target.classList.add("is-visible");
-          observer.unobserve(entry.target);
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" },
-    );
-    for (const item of items) observer.observe(item);
-  }
+  let stopFigures: (() => void) | undefined;
+  document.addEventListener("astro:before-swap", () => {
+    stopFigures?.();
+    stopFigures = undefined;
+  });
 
   function initHome() {
+    if (!document.querySelector(".home")) return;
     bindSubscribeForms();
-    initLectures();
-    initReveal();
+    initHomeMotion(document);
+    stopFigures?.();
+    const stops = [
+      initCompilerMap(document),
+      initDetailPanels(document),
+      initTafsirFigures(document),
+      initLectures(document),
+      initCopyButtons(document),
+    ];
+    stopFigures = () => stops.forEach((stop) => stop());
   }
 
   if (document.readyState === "loading") {

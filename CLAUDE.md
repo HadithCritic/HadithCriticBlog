@@ -48,6 +48,59 @@ moves, add a redirect for its old address to `_redirects`.
   named collections; a bare run rewrites every collection, so name the slugs.
   Musnad al-Ḥumaydī and Musnad Ibn Abī Shayba come from
   `scripts/hadith/convert-third-century-musnads.mjs`.
+- **Musnad al-Shāfiʿī comes from `scripts/hadith/convert-musnad-al-shafii.mjs
+  "<bilingual 9344 json>"`.** It has 68 books (the books of al-Shāfiʿī each
+  report was taken from) and 1,678 reports, numbered in order. Its chains are
+  divided by `scripts/hadith/lib/shafii-split.mjs`, which reads the wording
+  of al-Rabīʿ's chains. Reports no rule divides well go in `OVERRIDES` in
+  the converter, keyed by report number. The translation's honorific
+  wording ("(RA)", "peace be upon him") becomes the site's symbols through
+  `scripts/hadith/lib/honorific-symbols.mjs`. Each symbol follows the
+  formula the Arabic prints, and a formula the Arabic lacks is dropped.
+  After converting, rebuild with `build-abu-hanifa-mubarak-pages.mjs
+  musnad-al-shafii` and then export its JSON.
+- **Al-Muntaqā of Ibn al-Jārūd follows the al-Bārūdī edition (Beirut 1988,
+  Shamela 13071).** `scripts/hadith/convert-muntaqa-reconciled.mjs "<reconciled
+  json>"` applies the source-reconciled file to its `publication-source.json`:
+  166 chapters, one per heading the edition prints (bāb, kitāb or a heading
+  with neither, kept in `heading`), 28 subject groups in `navigation_groups`,
+  and reports 29 and 516, which the earlier source lacked. The subject groups
+  are an editorial aid and are always labeled as such; chapter pages name
+  their group, heading type and report range, and the front page index is
+  grouped. The other reports keep their English and transmitter data; the
+  script stops if any text differs from the reconciled file. The builder
+  checks that the groups cover every chapter with the declared counts and
+  ranges, and `export-compilation-json.mjs` writes this collection's JSON as
+  groups of sections with the source references.
+- **Collection front pages render through `CollectionFront.astro`.** The
+  page reads the title, compiler, lede, actions, chapter index and edition
+  notes out of `collection.html` (`src/lib/collection-front.ts`); the HTML's
+  own hero, stats and feature sections are no longer shown. Each work's
+  design is in `src/data/hadith/collection-identities.ts`: one of four hero
+  layouts (portrait, plate, colophon, frontispiece), its palette, pattern,
+  era, an account of the work and its edition. A new collection needs an
+  entry there, or the build fails. `npm run test:collections` checks that
+  every page parses.
+- **Musnad Abū Ḥanīfa's front page is painted.** It renders through
+  `PaintedFront.astro` (styles `painted-front.css`, filter
+  `src/lib/painted-front-filter.ts`) with a painted hero and one painted
+  cover per book, listed in `src/data/hadith/musnad-abu-hanifa-covers.ts`.
+  The paintings are procedural, not generated: `scripts/hadith/paintings/`
+  draws a loose guide per scene (`scenes_a.py`, `scenes_b.py`) and repaints
+  it with bristle strokes (`painter.py`). `python
+  scripts/hadith/paintings/render.py [name ...]` repaints into
+  `public/images/hadith/musnad-abu-hanifa/`; keep `PAINT_JOBS` at 1-3, more
+  runs out of memory beside the dev server. Files stay under 400 KB, so
+  busy covers drop below JPEG quality 88. `npm run test:collections`
+  checks the files and the filter. The sections run full width without
+  boxes and borrow the front page's pieces (`HomeButton`, `home-motion.ts`,
+  `home-detail-panel.ts`). The book index is `PaintedBookIndex.astro`
+  (entries chart, subject chips from `musnad-abu-hanifa-groups.ts`, sort).
+  The page adds two figures through the `after-work` slot:
+  `NarrationSpread.astro`, one report from the JSON export by id (it fails
+  the build if the chain stops dividing in both languages), and
+  `MusnadTransmissionMap.astro`, the timeline of the recension from
+  `musnad-abu-hanifa-lineage.ts`.
 - **Nine collections are redesigned single-page readers.** Their page is
   `src/data/hadith/pages/<slug>/reader.html` (hero, index, text and notes in
   one document), served by `src/components/hadith/ReaderEdition.astro` at
@@ -84,7 +137,15 @@ moves, add a redirect for its old address to `_redirects`.
   until files named for the slug and a `medallion` key are added.
 - **`src/data/hadith/json/` holds one bilingual JSON per compilation**, written
   by `scripts/hadith/export-compilation-json.mjs` from the built pages. Rerun it after
-  rebuilding a collection. Nothing imports these files.
+  rebuilding a collection. Only the front page reads one: `src/lib/home-corpus.ts`
+  takes the narration on its facing-text card from `al-jami-ibn-wahb.json`, and
+  the build fails if that entry goes missing.
+- **The front page map** draws its coastline from `src/data/site/home-map.json`,
+  written by `node scripts/site/build-home-map.mjs "<land-110m.json>"` (Natural
+  Earth, world-atlas 2.0.2). Region points are in
+  `src/data/hadith/compiler-regions.ts`. The frame stops at Egypt; a collection
+  from the Maghrib or al-Andalus fails the build until the frame is widened and
+  the script rerun.
 - **Hadith artwork is found by file name.** Covers are
   `public/images/hadith/covers/<collection-slug>.webp`, medallions are
   `public/images/hadith/medallions/<compiler>.webp` (the `medallion` key in
@@ -92,6 +153,9 @@ moves, add a redirect for its old address to `_redirects`.
   itself is in `public/images/hadith/page/`. `src/lib/hadith-art.ts` resolves
   both and holds the focal points; nothing else builds these paths. Run
   `node scripts/hadith/verify-hadith-art.mjs` after adding or renaming art.
+  The front page band uses 128px copies in `medallions-128/`, written by
+  `node scripts/hadith/build-medallion-thumbs.mjs`; rerun it after adding or
+  replacing a medallion, or the build fails.
 - **The rijal register was removed on 2026-11-10** to be rebuilt from scratch.
   Transmitter names in the collection pages are plain text. Chain items keep a
   `data-narrator-id` attribute from the source data, but nothing reads it.
@@ -109,7 +173,11 @@ moves, add a redirect for its old address to `_redirects`.
   get one from the generation by the rule in Ibn Ḥajar's introduction, and
   `death.basis` says which happened. The parser is in `scripts/rijal/lib/`;
   `npm run test:rijal` tests it, and with `TAQRIB_SOURCE` set it also parses
-  the whole book. The site does not read this JSON.
+  the whole book. Only the home page reads this JSON, with `readFileSync` in
+  `src/lib/home-narrators.ts`: it counts entries by generation (an entry
+  graded a Companion is the first generation) and sets out one entry
+  (`FEATURED_ID`, Ibn Wahb). The build fails if that entry loses its grade,
+  generation or death year.
 - **The narrators register (`/projects/rijal/`) is prebuilt HTML.** The same
   build script writes `src/data/rijal/pages/taqrib/`: one fragment per page
   plus `pages.json`. A page is a letter of the men's names (cut into parts of
@@ -168,7 +236,9 @@ moves, add a redirect for its old address to `_redirects`.
   `build-tafsir-coverage.mjs`) read source folders outside the repo; their
   header comments say which. Rerun `build-tafsir-coverage.mjs` after any of
   the others so the front page's progress bars stay true. Ibn Wahb's Tafsīr
-  was removed on 2026-11-11.
+  was removed on 2026-11-11. The home page quotes all four commentaries on
+  one verse (`FEATURED` in `src/lib/home-tafsir.ts`, now Q 15:87), read from
+  these same pages and JSON; the build fails if any of them loses that verse.
 - Markdown/MDX GFM is declared once on `markdown.processor` in
   `astro.config.mjs`. Do not also pass `remarkPlugins` to the `mdx()`
   integration; that arrangement is deprecated and was already removed.

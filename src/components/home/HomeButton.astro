@@ -1,0 +1,209 @@
+---
+/* The front page button. A small tile at its start holds a chevron; on hover
+   or focus the tile grows to fill the button, the label changes color and the
+   chevron grows a shaft into an arrow. Without hover it is a plain link.
+
+   variant  light    parchment fill, for dark grounds and photos
+            glass    clear with a light rule, for photos
+            dark     ink fill, for parchment bands
+            outline  clear with a rule in the text color, for any ground */
+interface Props {
+  href: string;
+  variant?: 'light' | 'glass' | 'dark' | 'outline';
+  external?: boolean;
+  class?: string;
+}
+
+const { href, variant = 'outline', external = false, class: extra } = Astro.props;
+const link = external ? { target: '_blank', rel: 'noopener noreferrer' } : {};
+---
+
+<a href={href} class:list={['hbtn', `hbtn--${variant}`, extra]} {...link}>
+  <span class="hbtn__grow" aria-hidden="true">
+    <span class="hbtn__mark">
+      <svg class="hbtn__arrow" viewBox="0 0 16 16" width="16" height="16" fill="none">
+        <path class="hbtn__shaft" d="M3.5 8h8.5" />
+        <path class="hbtn__head" d="M8.5 4.5 12 8l-3.5 3.5" />
+      </svg>
+    </span>
+  </span>
+  <span class="hbtn__label"><slot /></span>
+  {external && <span class="sr-only"> (opens in a new tab)</span>}
+</a>
+
+<style>
+  .hbtn {
+    --hb-pad-y: 0.75rem;
+    --hb-tile: 2rem;
+    --hb-inset: 0.35rem;
+    --hb-radius: 10px;
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    min-height: calc(var(--hb-tile) + var(--hb-inset) * 2);
+    padding: var(--hb-pad-y) 1.15rem var(--hb-pad-y) calc(var(--hb-tile) + var(--hb-inset) + 0.75rem);
+    overflow: hidden;
+    border: 1px solid var(--hb-line);
+    border-radius: var(--hb-radius);
+    background: var(--hb-bg);
+    color: var(--hb-ink);
+    font: 600 var(--fs-sm)/1.25 var(--font-ui);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: scale var(--motion-fast) var(--ease-back);
+  }
+
+  .hbtn__grow {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding-left: var(--hb-inset);
+    border-radius: inherit;
+    background: var(--hb-tile-bg);
+    clip-path: inset(
+      var(--hb-inset) calc(100% - var(--hb-inset) - var(--hb-tile)) var(--hb-inset) var(--hb-inset)
+      round calc(var(--hb-radius) - 3px)
+    );
+    transition:
+      clip-path var(--motion-slow) var(--ease),
+      background-color var(--motion-slow) var(--ease);
+  }
+
+  .hbtn__mark {
+    display: grid;
+    place-items: center;
+    width: var(--hb-tile);
+    height: var(--hb-tile);
+    color: var(--hb-ink);
+    transition: color var(--motion-slow) var(--ease);
+  }
+
+  .hbtn__arrow path {
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hbtn__head {
+    translate: -2.5px 0;
+    transition: translate var(--motion-slow) var(--ease);
+  }
+
+  .hbtn__shaft {
+    transform-box: fill-box;
+    transform-origin: 100% 50%;
+    scale: 0 1;
+    transition: scale var(--motion-slow) var(--ease);
+  }
+
+  .hbtn__label {
+    transition:
+      translate var(--motion-slow) var(--ease),
+      color var(--motion-slow) var(--ease);
+  }
+
+  .hbtn:hover .hbtn__grow,
+  .hbtn:focus-visible .hbtn__grow {
+    clip-path: inset(0 round var(--hb-radius));
+    background-color: var(--hb-fill);
+    transition-duration: var(--motion-base);
+  }
+
+  .hbtn:hover .hbtn__label,
+  .hbtn:focus-visible .hbtn__label {
+    color: var(--hb-fill-ink);
+    translate: -0.25em 0;
+    transition-duration: var(--motion-base);
+  }
+
+  .hbtn:hover .hbtn__mark,
+  .hbtn:focus-visible .hbtn__mark {
+    color: var(--hb-fill-ink);
+    transition-duration: var(--motion-base);
+  }
+
+  .hbtn:hover .hbtn__head,
+  .hbtn:focus-visible .hbtn__head {
+    translate: 1.5px 0;
+    transition-duration: var(--motion-base);
+  }
+
+  .hbtn:hover .hbtn__shaft,
+  .hbtn:focus-visible .hbtn__shaft {
+    scale: 1 1;
+    transition-duration: var(--motion-base);
+  }
+
+  .hbtn:active {
+    scale: 0.98;
+  }
+
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .hbtn:hover,
+    .hbtn:focus-visible {
+      scale: 1.03;
+    }
+  }
+
+  /* Fills and inks. --hb-fill is what the tile grows into. */
+  .hbtn--light {
+    --hb-bg: var(--hc-fixed-parchment);
+    --hb-ink: var(--hc-fixed-parchment-ink);
+    --hb-line: transparent;
+    --hb-tile-bg: rgba(26, 23, 21, 0.1);
+    --hb-fill: var(--hc-fixed-gold);
+    --hb-fill-ink: var(--hc-fixed-parchment-ink);
+  }
+
+  .hbtn--glass {
+    --hb-bg: rgba(20, 19, 18, 0.35);
+    --hb-ink: var(--hc-fixed-parchment);
+    --hb-line: rgba(255, 255, 255, 0.28);
+    --hb-tile-bg: rgba(255, 255, 255, 0.12);
+    --hb-fill: var(--hc-fixed-parchment);
+    --hb-fill-ink: var(--hc-fixed-parchment-ink);
+    backdrop-filter: blur(6px);
+  }
+
+  .hbtn--dark {
+    --hb-bg: var(--hc-fixed-parchment-ink);
+    --hb-ink: var(--hc-fixed-parchment);
+    --hb-line: transparent;
+    --hb-tile-bg: rgba(242, 235, 220, 0.14);
+    --hb-fill: var(--hc-fixed-gold);
+    --hb-fill-ink: var(--hc-fixed-parchment-ink);
+  }
+
+  .hbtn--outline {
+    --hb-bg: transparent;
+    --hb-ink: var(--hc-text-primary);
+    --hb-line: color-mix(in srgb, var(--hc-text-primary) 28%, transparent);
+    --hb-tile-bg: color-mix(in srgb, var(--hc-text-primary) 10%, transparent);
+    --hb-fill: var(--hc-text-primary);
+    --hb-fill-ink: var(--hc-surface-0);
+  }
+
+  .hbtn:focus-visible {
+    --hc-focus-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hbtn,
+    .hbtn__grow,
+    .hbtn__mark,
+    .hbtn__head,
+    .hbtn__shaft,
+    .hbtn__label {
+      transition: none;
+    }
+
+    .hbtn:hover .hbtn__label,
+    .hbtn:focus-visible .hbtn__label {
+      translate: none;
+    }
+  }
+</style>

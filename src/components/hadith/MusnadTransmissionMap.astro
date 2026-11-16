@@ -1,0 +1,191 @@
+---
+/* Where al-Ḥaṣkafī's riwāya sits: three lanes on a hijri axis, each work at
+   its author's death. The gold lane is the line this page follows; above it
+   the other musnads that al-Khwārizmī later gathered, below it the works made
+   from al-Ḥaṣkafī's riwāya. The data and its claims are in
+   musnad-abu-hanifa-lineage.ts.
+
+   Hovering or focusing a name fills the card under the plot
+   (home-detail-panel.ts); the arrow keys move between names. On first view
+   the lanes draw left to right (data-reveal-once, home-motion.ts). Without
+   script every name and date is still on the plot, and the card shows how to
+   read it. On a phone the plot scrolls sideways inside the figure. */
+import {
+  LINEAGE_LANES,
+  LINEAGE_NODES,
+  LINEAGE_SOURCES,
+  type LineageLane,
+  type LineageNode
+} from '../../data/hadith/musnad-abu-hanifa-lineage';
+import '../../styles/musnad-transmission-map.css';
+
+const AH_START = 100;
+const AH_END = 1450;
+const PLOT_HEIGHT = 300;
+const LANE_Y: Record<LineageLane, number> = { parallel: 66, main: 162, built: 258 };
+const TICKS = [200, 400, 600, 800, 1000, 1200, 1400];
+
+/* Hijri year to CE, near enough for an axis label. */
+const toCe = (ah: number) => Math.floor(621.5643 + ah * 0.970229);
+const xOf = (ah: number) => ((ah - AH_START) / (AH_END - AH_START)) * 100;
+const byId = (id: string) => {
+  const node = LINEAGE_NODES.find((entry) => entry.id === id);
+  if (!node) throw new Error(`musnad lineage: no node "${id}"`);
+  return node;
+};
+
+const imam = byId('abu-hanifa');
+const haskafi = byId('haskafi');
+const khwarizmi = byId('khwarizmi');
+const lastBuilt = Math.max(...LINEAGE_NODES.filter((n) => n.lane === 'built').map((n) => n.ah ?? 0));
+
+/* Undated nodes: the edition sits at the end of the axis, the other musnads
+   midway along their lane, as a label on the line rather than a date. */
+const placeOf = (node: LineageNode) => {
+  if (node.id === 'edition') return 100;
+  if (node.ah === null) return (xOf(imam.ah!) + xOf(khwarizmi.ah!)) / 2;
+  return xOf(node.ah);
+};
+const dateOf = (node: LineageNode) =>
+  node.ah === null ? (node.id === 'edition' ? 'Today' : 'Several compilers') : `d. ${node.ah} AH / ${node.ce} CE`;
+const alignOf = (x: number) => (x < 8 ? 'start' : x > 92 ? 'end' : 'center');
+
+/* Keyboard order follows the reading of the figure, left to right. */
+const ORDER = ['abu-hanifa', 'other-musnads', 'harithi', 'haskafi', 'khwarizmi', 'qari', 'sindi', 'edition'];
+const nodes = ORDER.map(byId).map((node) => {
+  const x = placeOf(node);
+  return { ...node, x, y: LANE_Y[node.lane], align: alignOf(x), date: dateOf(node) };
+});
+
+/* Lines in a 1000-wide view box, stretched to the plot's width. */
+const vx = (ah: number) => xOf(ah) * 10;
+const yMain = LANE_Y.main;
+const paths = {
+  main: `M ${vx(imam.ah!)} ${yMain} L 1000 ${yMain}`,
+  parallel: `M ${vx(imam.ah!)} ${yMain} C ${vx(imam.ah!)} ${yMain - 70}, ${vx(imam.ah!) + 24} ${LANE_Y.parallel}, ${vx(imam.ah!) + 70} ${LANE_Y.parallel} L ${vx(khwarizmi.ah!)} ${LANE_Y.parallel}`,
+  built: `M ${vx(haskafi.ah!)} ${yMain} C ${vx(haskafi.ah!)} ${yMain + 70}, ${vx(haskafi.ah!) + 24} ${LANE_Y.built}, ${vx(haskafi.ah!) + 70} ${LANE_Y.built} L ${vx(lastBuilt)} ${LANE_Y.built}`
+};
+const lanes = (Object.keys(LINEAGE_LANES) as LineageLane[]).map((lane) => ({ lane, y: LANE_Y[lane], ...LINEAGE_LANES[lane] }));
+---
+
+<section class="pf-band pf-band--parchment pf-recension" aria-labelledby="pf-recension-title">
+  <div class="pf-wrap">
+    <header class="pf-head pf-head--center reveal">
+      <p class="pf-eyebrow">The transmission</p>
+      <h2 id="pf-recension-title" class="pf-h2">Where this <em>riwāya</em> sits.</h2>
+      <p class="pf-lede">
+        “Musnad Abū Ḥanīfa” names a family of later collections of reports attributed to the Imam. This page presents one recension within that larger history.
+      </p>
+    </header>
+
+    <figure
+      class="pf-stemma reveal reveal--d1"
+      style={`--plot-h: ${PLOT_HEIGHT}px`}
+      data-detail-panel
+      data-detail-roving
+      data-reveal-once
+      data-ambient-scene
+      aria-labelledby="pf-stemma-title"
+      aria-describedby="pf-stemma-note"
+    >
+      <div class="pf-stemma__top">
+        <p id="pf-stemma-title" class="pf-stemma__kicker">Each work at its author’s death</p>
+        <ul class="pf-stemma__legend" role="list">
+          <li><span class="pf-key pf-key--main" aria-hidden="true"></span>This recension</li>
+          <li><span class="pf-key pf-key--parallel" aria-hidden="true"></span>Parallel compilations</li>
+          <li><span class="pf-key pf-key--built" aria-hidden="true"></span>Built on al-Ḥaṣkafī</li>
+        </ul>
+      </div>
+
+      <p class="pf-stemma__hint" aria-hidden="true">Swipe sideways to follow the timeline <span>→</span></p>
+      <div class="pf-stemma__scroll">
+        <div class="pf-stemma__body">
+          <ul class="pf-stemma__lanes" role="list">
+            {lanes.map((lane) => (
+              <li class:list={['pf-stemma__lane', `pf-stemma__lane--${lane.lane}`]} style={`--y: ${lane.y}px`}>
+                <span class="pf-stemma__lane-name">{lane.label}</span>
+                <span class="pf-stemma__lane-note">{lane.note}</span>
+              </li>
+            ))}
+          </ul>
+
+          <div class="pf-stemma__plot" data-detail-area>
+            <svg class="pf-stemma__lines" viewBox={`0 0 1000 ${PLOT_HEIGHT}`} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              {TICKS.map((tick) => (
+                <line class="pf-stemma__grid" x1={vx(tick)} x2={vx(tick)} y1="0" y2={PLOT_HEIGHT} />
+              ))}
+              <path class="pf-line pf-line--parallel" d={paths.parallel} />
+              <path class="pf-line pf-line--built" d={paths.built} />
+              <path class="pf-line pf-line--main" d={paths.main} />
+            </svg>
+
+            <ol class="pf-stemma__nodes" role="list">
+              {nodes.map((node, i) => (
+                <li
+                  class:list={[
+                    'pf-node',
+                    `pf-node--${node.lane}`,
+                    `pf-node--${node.align}`,
+                    node.id === 'edition' && 'pf-node--current',
+                    node.id === 'other-musnads' && 'pf-node--tag',
+                    node.id === 'abu-hanifa' && 'pf-node--below'
+                  ]}
+                  style={`--x: ${node.x}%; --y: ${node.y}px; --i: ${i}`}
+                >
+                  <span class="pf-node__hit" tabindex="0" data-detail-key={node.id}>
+                    <span class="pf-node__dot" aria-hidden="true"></span>
+                    <span class="pf-node__label">
+                      <span class="pf-node__name">{node.name}</span>
+                      <span class="pf-node__date">{node.date}</span>
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          <ol class="pf-stemma__axis" role="list" aria-label="Hijri centuries">
+            {TICKS.map((tick) => (
+              <li style={`--x: ${xOf(tick)}%`}>
+                <span>{tick} AH</span>
+                <span>{toCe(tick)} CE</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+
+      <div class="pf-stemma__cards">
+        <div class="pf-stemma__card" data-detail="">
+          <p class="pf-stemma__card-meta">How to read it</p>
+          <p class="pf-stemma__card-title">One recension among many musnads</p>
+          <p class="pf-stemma__card-text">
+            The gold lane runs from the Imam through al-Ḥārithī’s compilation to al-Ḥaṣkafī’s abridgment and this edition. Point at a name, or move through them with the arrow keys, to read about it.
+          </p>
+        </div>
+        {nodes.map((node) => (
+          <div class="pf-stemma__card" data-detail={node.id} hidden>
+            <p class="pf-stemma__card-meta">{node.role} · {node.date}</p>
+            <p class="pf-stemma__card-title">
+              <span>{node.name}{node.work && <>, <em>{node.work}</em></>}</span>
+              <span class="pf-stemma__card-ar" lang="ar" dir="rtl">{node.nameAr}</span>
+            </p>
+            <p class="pf-stemma__card-text">{node.text}</p>
+          </div>
+        ))}
+      </div>
+
+      <figcaption id="pf-stemma-note" class="pf-stemma__foot">
+        <p>
+          The line from al-Ḥārithī to al-Ḥaṣkafī marks the reported abridgment. The other lanes show later compilation, arrangement or commentary. They do not claim that every report shares one chain, or that all the musnads are the same text.
+        </p>
+        <nav class="pf-stemma__sources" aria-label="Sources for the transmission figure">
+          <span class="pf-stemma__sources-label">Sources</span>
+          {LINEAGE_SOURCES.map((source) => (
+            <a href={source.href} target="_blank" rel="noopener noreferrer">{source.label}<span aria-hidden="true"> ↗</span><span class="sr-only"> (opens in a new tab)</span></a>
+          ))}
+        </nav>
+      </figcaption>
+    </figure>
+  </div>
+</section>

@@ -1,22 +1,56 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
+import { collectionFrontMatter } from "../../../lib/collection-units";
 import { SHAMAIL_COLLECTION as book } from "../../../lib/hadith-library";
 import collectionHtml from "../../../data/hadith/pages/al-shama-il-al-muhammadiyah/collection.html?raw";
+import chapters from "../../../data/hadith/pages/al-shama-il-al-muhammadiyah/chapter-index.json";
+import PaintedFront from "../../../components/hadith/PaintedFront.astro";
+import { parseCollectionHtml } from "../../../lib/collection-front";
+import { SHAMAIL_CHAPTER_COVERS } from "../../../data/hadith/shamail-chapter-covers";
+import { SHAMAIL_CHAPTER_GROUPS } from "../../../data/hadith/shamail-chapter-groups";
 
-const description = `Browse the chapters of ${book.title_en} in order: ${book.hadith_count.toLocaleString()} narrations in Arabic and English.`;
+const { title, description } = collectionFrontMatter(book.slug, book.title_en);
+const coverRoot = "/images/hadith/chapter-covers/al-shama-il-al-muhammadiyah";
+const covers = SHAMAIL_CHAPTER_COVERS.map((cover) => ({
+  stem: String(cover.n).padStart(2, "0"),
+  title: cover.shortTitle,
+  src: `${coverRoot}/${cover.src ?? `${String(cover.n).padStart(2, "0")}.webp`}`,
+  alt: cover.alt,
+  width: 880,
+  height: 1056,
+}));
+const heroSrc = "/images/hadith/covers/al-shama-il-al-muhammadiyah.webp";
 ---
 
 <BaseLayout
-  title={`${book.title_en} | HadithCritic`}
+  title={`${title} | HadithCritic`}
   description={description}
   image={OG.collection(book.slug)}
-  imageAlt={`${book.title_en} | HadithCritic`}
+  imageAlt={`${title} | HadithCritic`}
   crumbs={[
     { name: "Home", url: "/" },
     { name: "Hadith library", url: "/hadith/" },
     { name: book.title_en, url: `/hadith/collection/${book.slug}/` },
   ]}
 >
-  <Fragment set:html={collectionHtml} />
+  <Fragment slot="head">
+    <link rel="preload" as="image" href={heroSrc} fetchpriority="high" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  </Fragment>
+  <PaintedFront
+    slug="al-shama-il-al-muhammadiyah"
+    front={parseCollectionHtml("al-shama-il-al-muhammadiyah", collectionHtml)}
+    chapters={chapters}
+    covers={covers}
+    heroSrc={heroSrc}
+    heroSmall={heroSrc}
+    heroAlt="A quiet, unoccupied garden courtyard with water and an open arch, painted in oils."
+    placeAr="ترمذ"
+    viaAr="تصنيف الترمذي"
+    groups={SHAMAIL_CHAPTER_GROUPS}
+    itemSingular="chapter"
+    itemPlural="chapters"
+    arrangement="56 chapters arranged by subject"
+  />
 </BaseLayout>

@@ -4,8 +4,9 @@ import PageHero from "../components/PageHero.astro";
 import { OG } from "../lib/seo";
 import "../styles/contact.css";
 
-/* What people write about. `value` is what the form sends as its topic, and
-   a topic link (?topic=…) preselects it. */
+/* What people write about. `value` is what the form sends as its topic, a
+   link with ?topic=… chooses it, and `help` replaces the hint under the
+   message once the topic is chosen. */
 const topics = [
   {
     value: "Correction",
@@ -39,11 +40,37 @@ const topics = [
   },
 ];
 
+/* Where HadithCritic is public. `path` is the 24px line icon, the same
+   drawings the site footer uses. */
 const elsewhere = [
-  { name: "YouTube", handle: "@HadithCritic", href: "https://www.youtube.com/@HadithCritic", note: "Video investigations, lectures and debates." },
-  { name: "X", handle: "@HadithCritic", href: "https://x.com/HadithCritic", note: "Posts and updates from HadithCritic." },
-  { name: "Discord", handle: "Submission server", href: "https://discord.gg/SubmissionServer", note: "Community discussion." },
-  { name: "GitHub", handle: "HadithCritic/HadithCriticBlog", href: "https://github.com/HadithCritic/HadithCriticBlog", note: "The source code of this site." },
+  {
+    name: "Discord",
+    handle: "Submission server",
+    href: "https://discord.gg/SubmissionServer",
+    note: "Open discussion of the studies and the sources.",
+    path: "M8 5 5 6 2 17l5 2 1-2m8-12 3 1 3 11-5 2-1-2M8 5c3-1 5-1 8 0M7 17c3 2 7 2 10 0M8 11v2m8-2v2",
+  },
+  {
+    name: "X",
+    handle: "@HadithCritic",
+    href: "https://x.com/HadithCritic",
+    note: "New studies and short notes as they are published.",
+    path: "m4 3 16 18M20 3 4 21M4 3h5l11 18h-5L4 3Z",
+  },
+  {
+    name: "YouTube",
+    handle: "@HadithCritic",
+    href: "https://www.youtube.com/@HadithCritic",
+    note: "Video investigations, lectures and debates.",
+    path: "M21 7c0-2-2-3-9-3S3 5 3 7v10c0 2 2 3 9 3s9-1 9-3V7ZM10 8l6 4-6 4V8Z",
+  },
+  {
+    name: "GitHub",
+    handle: "HadithCritic/HadithCriticBlog",
+    href: "https://github.com/HadithCritic/HadithCriticBlog",
+    note: "The site's code and data. Issues are welcome there too.",
+    path: "M9 21v-4c-4 1-4-2-6-2m12 6v-4c0-1-1-2-1-2 4 0 6-2 6-5 0-2-1-3-2-4 0-1 0-2-1-3l-4 2H9L5 3c-1 1-1 2-1 3-1 1-2 2-2 4 0 3 2 5 6 5-1 1-1 2-1 2",
+  },
 ];
 ---
 
@@ -69,55 +96,42 @@ const elsewhere = [
       </p>
     </PageHero>
 
-    <section class="hc-band hc-band--soft ct-main" aria-labelledby="ct-form-title">
+    <section class="hc-band ct-main" aria-labelledby="ct-form-title">
       <div class="hc-container ct-grid">
-        <div class="ct-topics">
-          <h2 class="hc-head__title ct-topics__title">What are you <span>writing about?</span></h2>
-          <p class="hc-head__note">Choose one and the form will be set to it.</p>
-          <ol class="ct-topic-list">
-            {topics.map((topic, index) => (
-              <li>
-                <a class="ct-topic" href={`?topic=${encodeURIComponent(topic.value)}#contact-form`} data-topic={topic.value} data-help={topic.help}>
-                  <span class="ct-topic__no" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                  <span class="ct-topic__body">
-                    <span class="ct-topic__title">{topic.title}</span>
-                    <span class="ct-topic__text">{topic.text}</span>
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </div>
-
-        <form id="contact-form" class="ct-form hc-parchment" action="https://api.web3forms.com/submit" method="POST" aria-labelledby="ct-form-title">
+        <form id="contact-form" class="ct-form" action="https://api.web3forms.com/submit" method="POST" aria-labelledby="ct-form-title">
           <input type="hidden" name="access_key" value="bc77362d-17bc-4833-a036-cf11648e0053" />
           <input type="hidden" name="subject" value="New HadithCritic contact message" />
           <input type="hidden" name="from_name" value="HadithCritic Contact Form" />
 
           <h2 id="ct-form-title" class="ct-form__title">Send a message</h2>
 
+          <fieldset class="ct-topics">
+            <legend class="ct-label">What is it about?</legend>
+            <div class="ct-topics__grid">
+              {topics.map((topic) => (
+                <label class="ct-topic" data-help={topic.help}>
+                  <input type="radio" name="topic" value={topic.value} required />
+                  <span class="ct-topic__title">{topic.title}</span>
+                  <span class="ct-topic__text">{topic.text}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
           <div class="ct-form__pair">
             <label class="ct-field">
-              <span>Name</span>
+              <span class="ct-label">Name</span>
               <input type="text" name="name" autocomplete="name" required />
             </label>
             <label class="ct-field">
-              <span>Email</span>
+              <span class="ct-label">Email</span>
               <input type="email" name="email" autocomplete="email" required />
             </label>
           </div>
 
           <label class="ct-field">
-            <span>Topic</span>
-            <select name="topic" required>
-              <option value="">Choose a topic</option>
-              {topics.map((topic) => <option value={topic.value}>{topic.title}</option>)}
-            </select>
-          </label>
-
-          <label class="ct-field">
-            <span>Message</span>
-            <textarea name="message" rows="9" autocomplete="off" required aria-describedby="ct-help"></textarea>
+            <span class="ct-label">Message</span>
+            <textarea name="message" rows="8" autocomplete="off" required aria-describedby="ct-help"></textarea>
           </label>
           <p class="ct-help" id="ct-help" aria-live="polite">Links to the page concerned make a message easier to answer.</p>
 
@@ -132,76 +146,67 @@ const elsewhere = [
           </div>
           <p id="contact-form-status" class="ct-status" role="status" aria-live="polite"></p>
         </form>
-      </div>
-    </section>
 
-    <section class="hc-band ct-elsewhere" aria-labelledby="ct-elsewhere-title">
-      <div class="hc-container">
-        <p class="hc-rubric" id="ct-elsewhere-title">HadithCritic elsewhere <span>For public discussion and announcements</span></p>
-        <ul class="ct-elsewhere__list">
-          {elsewhere.map((place) => (
-            <li>
-              <a href={place.href} target="_blank" rel="noopener noreferrer" class="ct-place">
-                <span class="ct-place__name">{place.name} <span aria-hidden="true">↗</span></span>
-                <span class="ct-place__handle">{place.handle}</span>
-                <span class="ct-place__note">{place.note}</span>
-                <span class="sr-only"> (opens in a new tab)</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        <aside class="ct-aside" aria-labelledby="ct-elsewhere-title">
+          <h2 id="ct-elsewhere-title" class="ct-aside__title">HadithCritic elsewhere</h2>
+          <p class="ct-aside__lead">For public discussion and announcements. The form is for anything you would rather send privately.</p>
+          <ul class="ct-places">
+            {elsewhere.map((place) => (
+              <li>
+                <a href={place.href} target="_blank" rel="noopener noreferrer" class="ct-place">
+                  <span class="ct-place__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d={place.path} /></svg>
+                  </span>
+                  <span class="ct-place__body">
+                    <span class="ct-place__name">{place.name} <span class="ct-place__handle">{place.handle}</span></span>
+                    <span class="ct-place__note">{place.note}</span>
+                  </span>
+                  <span class="ct-place__arrow" aria-hidden="true">↗</span>
+                  <span class="sr-only"> (opens in a new tab)</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </aside>
       </div>
     </section>
   </div>
 </BaseLayout>
 
 <script>
-  /* Without script the form posts straight to Web3Forms, and each topic is a
-     plain link back to this page with ?topic= set. */
+  /* Without script the form posts straight to Web3Forms and the topic is an
+     ordinary radio group. With script a ?topic= link (the projects page
+     sends ?topic=Collaboration) chooses its topic, the hint under the
+     message follows the topic, and the form sends in place. */
   interface Web3FormsResult {
     success?: boolean;
     message?: string;
   }
 
+  const FAILED = "The message could not be sent. Please try again.";
+
   function initContact(): void {
     const form = document.querySelector<HTMLFormElement>("#contact-form");
     const status = document.querySelector<HTMLParagraphElement>("#contact-form-status");
-    const field = form?.elements.namedItem("topic");
-    const select = field instanceof HTMLSelectElement ? field : null;
     const help = document.querySelector<HTMLElement>("#ct-help");
-    if (!form || !status || !select || form.dataset.ready) return;
+    if (!form || !status || form.dataset.ready) return;
     form.dataset.ready = "1";
 
-    const links = new Map(
-      [...document.querySelectorAll<HTMLElement>("[data-topic]")].map((link) => [link.dataset.topic ?? "", link]),
-    );
+    const radios = [...form.querySelectorAll<HTMLInputElement>('input[name="topic"]')];
     const defaultHelp = help?.textContent ?? "";
 
-    const choose = (topic: string | null | undefined): boolean => {
-      const match = [...select.options].find((option) => option.value !== "" && option.value === topic);
-      if (!match) return false;
-      select.value = match.value;
-      sync();
-      return true;
-    };
-
     const sync = (): void => {
-      if (help) help.textContent = links.get(select.value)?.dataset.help || defaultHelp;
-      for (const [topic, link] of links) link.classList.toggle("is-chosen", topic === select.value);
+      const chosen = radios.find((radio) => radio.checked);
+      const hint = chosen?.closest<HTMLElement>("[data-help]")?.dataset.help;
+      if (help) help.textContent = hint || defaultHelp;
     };
 
-    select.addEventListener("change", sync);
-    choose(new URLSearchParams(location.search).get("topic"));
-
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    for (const link of links.values()) {
-      link.addEventListener("click", (event) => {
-        if (!choose(link.dataset.topic)) return;
-        event.preventDefault();
-        history.replaceState(null, "", link.getAttribute("href"));
-        form.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-        select.focus({ preventScroll: true });
-      });
+    radios.forEach((radio) => radio.addEventListener("change", sync));
+    const wanted = new URLSearchParams(location.search).get("topic");
+    const match = radios.find((radio) => radio.value === wanted);
+    if (match) {
+      match.checked = true;
+      sync();
     }
 
     form.addEventListener("submit", async (event) => {
@@ -217,16 +222,14 @@ const elsewhere = [
           headers: { Accept: "application/json" },
         });
         const result = (await response.json().catch(() => ({}))) as Web3FormsResult;
-        if (!response.ok || result.success === false) {
-          throw new Error(result.message ?? "The message could not be sent. Please try again.");
-        }
+        if (!response.ok || result.success === false) throw new Error(result.message ?? FAILED);
         form.reset();
         sync();
         status.classList.add("is-success");
         status.textContent = "Message sent. Thank you for writing.";
       } catch (error) {
         status.classList.add("is-error");
-        status.textContent = error instanceof Error ? error.message : "The message could not be sent. Please try again.";
+        status.textContent = error instanceof Error ? error.message : FAILED;
       } finally {
         if (submit) submit.disabled = false;
       }

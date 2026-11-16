@@ -71,6 +71,18 @@ export function medallionFor(compiler: Compiler | undefined): string | null {
   return src;
 }
 
+/**
+ * The 128px copy of a compiler's medallion, for places that show many at once.
+ * Written by scripts/hadith/build-medallion-thumbs.mjs; a missing copy fails the build.
+ */
+export function medallionThumbFor(compiler: Compiler | undefined): string | null {
+  const full = medallionFor(compiler);
+  if (!full) return null;
+  const src = full.replace('/medallions/', '/medallions-128/');
+  if (!exists(src)) throw new Error(`No small medallion for ${compiler?.name}: ${src}. Run scripts/hadith/build-medallion-thumbs.mjs.`);
+  return src;
+}
+
 /** Every collection slug the compiler registry knows, with the art it resolves to. Used by the verifier. */
 export function artManifest(): Array<{ slug: string; compiler: string; cover: string; medallion: string | null }> {
   return Object.entries(COMPILERS).map(([slug, compiler]) => ({

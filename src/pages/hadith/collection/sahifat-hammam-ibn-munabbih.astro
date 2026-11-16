@@ -1,4 +1,64 @@
 ---
-import Landing from '../../../components/hadith/LocalEditionLanding.astro';
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import CollectionFront from "../../../components/hadith/CollectionFront.astro";
+import { OG } from "../../../lib/seo";
+import type { CollectionFrontData } from "../../../lib/collection-front";
+import hammam from "../../../data/hadith/local-editions/hammam.json";
+
+/* The Ṣaḥīfa has no chapters and no collection.html: its text is one reader
+   at /read/. The front page sets out the same parts as the chapter
+   collections, with one report from the text in place of an index. */
+
+const slug = "sahifat-hammam-ibn-munabbih";
+const title = "Ṣaḥīfat Hammām ibn Munabbih";
+const reader = `/hadith/collection/${slug}/read/`;
+
+const sample = hammam.find((entry) => String(entry.hadith_number) === "2");
+if (!sample) throw new Error(`${slug}: the sample report is missing from hammam.json`);
+const sampleArabic = sample.text.replace(/^\s*\d+\s*-\s*/, "").trim();
+
+const front: CollectionFrontData = {
+  titleHtml: title,
+  authorLabel: "Written by",
+  compiler: "Hammām ibn Munabbih",
+  date: "d. 131 AH",
+  lede: "A collection of reports transmitted by Hammām ibn Munabbih from Abū Hurayra, presented in Arabic and English.",
+  beginHref: reader,
+  beginLabel: "Read the text",
+  exploreHref: "#sample",
+  exploreLabel: "Inside the text",
+  indexHtml: "",
+  notes: [
+    { label: "The reader", html: "The reader preserves the supplied edition’s numbering, opening transmission and source notes." },
+    { label: "Format", html: "Numbered reports. Read the reports in their supplied order, with the opening transmission." },
+    { label: "Extent", html: "137 numbered reports, with the opening material presented separately." },
+    { label: "Languages", html: "Arabic and English. Read the original text alongside its English translation." }
+  ],
+  scripts: []
+};
 ---
-<Landing slug="sahifat-hammam-ibn-munabbih" title="Ṣaḥīfat Hammām ibn Munabbih" arabic="صحيفة همام بن منبه" description="A collection of reports transmitted by Hammām ibn Munabbih from Abū Hurayra, presented in Arabic and English." seoDescription="Ṣaḥīfat Hammām ibn Munabbih: 137 narrations, presented in Arabic and English with source references." detail="The reader preserves the supplied edition’s numbering, opening transmission and source notes." />
+
+<BaseLayout
+  title={`${title} | HadithCritic`}
+  description="Ṣaḥīfat Hammām ibn Munabbih: 137 narrations, presented in Arabic and English with source references."
+  image={OG.collection(slug)}
+  imageAlt={`${title} | HadithCritic`}
+  crumbs={[
+    { name: "Home", url: "/" },
+    { name: "Hadith corpus", url: "/hadith/" },
+    { name: title, url: `/hadith/collection/${slug}/` }
+  ]}
+>
+  <CollectionFront slug={slug} front={front}>
+    <section class="cf-sample" id="sample" aria-labelledby="cf-sample-title">
+      <div class="hc-container">
+        <figure class="cf-sample__card">
+          <figcaption id="cf-sample-title" class="cf-sample__label">From the text</figcaption>
+          <blockquote class="cf-sample__ar" lang="ar" dir="rtl">{sampleArabic}</blockquote>
+          <blockquote class="cf-sample__en">{sample.english}</blockquote>
+          <a class="hc-link" href={reader}>Open the reader <span aria-hidden="true">→</span></a>
+        </figure>
+      </div>
+    </section>
+  </CollectionFront>
+</BaseLayout>

@@ -1,0 +1,529 @@
+/* The transmission figure on Musnad Abī Ḥanīfa's front page
+   (MusnadTransmissionMap.astro). It sits in a parchment band, so it reads
+   only the band's tokens (--pf-*), which painted-front.css re-maps there.
+   The pattern follows the front page's chronology rail: a framed card, a
+   small gold kicker, the plot, and one card under it that the names fill. */
+
+.pf-stemma {
+  --lane-w: 11.5rem;
+  --dot: 13px;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(18px, 3vw, 30px) clamp(18px, 3vw, 32px) clamp(18px, 2.6vw, 26px);
+  border: 1px solid var(--pf-line);
+  border-radius: 18px;
+  background: var(--pf-card);
+  box-shadow: var(--pf-shadow);
+  color: var(--pf-ink);
+}
+
+.pf-stemma__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+}
+
+.pf-stemma__kicker,
+.pf-stemma__card-meta,
+.pf-stemma__sources-label {
+  margin: 0;
+  color: var(--pf-gold);
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-stemma__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--pf-muted);
+  font: 500 13px/1.3 var(--pf-ui);
+}
+
+.pf-stemma__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-key {
+  width: 26px;
+  height: 0;
+  border-top: 2px solid var(--pf-stroke);
+}
+
+.pf-key--parallel {
+  border-top: 1.5px dashed var(--pf-stroke-soft);
+}
+
+.pf-key--built {
+  border-top: 1.5px dotted var(--pf-stroke-soft);
+}
+
+/* Only shown where the plot is wider than the figure. */
+.pf-stemma__hint {
+  display: none;
+  margin: 14px 0 0;
+  font: 500 13px/1.3 var(--pf-ui);
+  color: var(--pf-muted);
+}
+
+/* ── Plot ─────────────────────────────────────────────────────── */
+
+.pf-stemma__scroll {
+  margin: 18px calc(-1 * clamp(8px, 1.5vw, 12px)) 0;
+  padding: 0 clamp(8px, 1.5vw, 12px) 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+.pf-stemma__body {
+  display: grid;
+  grid-template-columns: var(--lane-w) minmax(0, 1fr);
+  min-width: 820px;
+}
+
+.pf-stemma__lanes {
+  position: relative;
+  height: var(--plot-h);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-stemma__lane {
+  position: absolute;
+  top: var(--y);
+  left: 0;
+  right: 18px;
+  display: grid;
+  gap: 2px;
+  translate: 0 -50%;
+}
+
+.pf-stemma__lane-name {
+  font: 600 15px/1.2 var(--pf-display);
+  color: var(--pf-ink);
+}
+
+.pf-stemma__lane-note {
+  font: 500 12px/1.3 var(--pf-ui);
+  color: var(--pf-muted);
+}
+
+.pf-stemma__lane--main .pf-stemma__lane-name {
+  color: var(--pf-gold);
+}
+
+.pf-stemma__plot {
+  position: relative;
+  height: var(--plot-h);
+  /* Room for the edition's pulse ring, so it never makes the figure scroll. */
+  margin-right: 34px;
+}
+
+.pf-stemma__lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pf-stemma__grid {
+  stroke: var(--pf-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.pf-line {
+  fill: none;
+  stroke: var(--pf-stroke-soft);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pf-line--main {
+  stroke: var(--pf-stroke);
+  stroke-width: 2.5;
+}
+
+.pf-line--parallel {
+  stroke-dasharray: 7 6;
+}
+
+.pf-line--built {
+  stroke-dasharray: 1.5 5;
+  stroke-width: 2;
+}
+
+/* ── Nodes ───────────────────────────────────────────────────── */
+
+.pf-stemma__nodes {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-node {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: 0;
+  height: 0;
+}
+
+.pf-node__hit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  cursor: default;
+}
+
+.pf-node__hit:focus-visible {
+  outline: 2px solid var(--pf-stroke);
+  outline-offset: 3px;
+}
+
+.pf-node__dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--dot);
+  height: var(--dot);
+  border: 2px solid var(--pf-stroke-soft);
+  border-radius: 50%;
+  background: var(--pf-card);
+  translate: -50% -50%;
+  transition: scale 0.3s var(--pf-ease), background-color 0.3s, box-shadow 0.3s;
+}
+
+.pf-node--main .pf-node__dot {
+  border-color: var(--pf-stroke);
+  background: var(--pf-stroke);
+}
+
+/* The label sits above its dot, centred, or flush to the dot near an end. */
+.pf-node__label {
+  position: absolute;
+  bottom: 14px;
+  left: 0;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  max-width: 13rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  translate: -50% 0;
+  text-align: center;
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.pf-node--start .pf-node__label {
+  translate: -12px 0;
+  text-align: left;
+}
+
+.pf-node--end .pf-node__label {
+  translate: calc(-100% + 12px) 0;
+  text-align: right;
+}
+
+/* The Imam's label hangs below the lane, clear of the branch that rises. */
+.pf-node--below .pf-node__label {
+  bottom: auto;
+  top: 14px;
+}
+
+.pf-node__name {
+  font: 600 16px/1.2 var(--pf-display);
+  color: var(--pf-ink);
+}
+
+.pf-node__date {
+  font: 500 12px/1.3 var(--pf-ui);
+  color: var(--pf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The other musnads have no single date: a tag laid on their lane. */
+.pf-node--tag .pf-node__dot {
+  display: none;
+}
+
+.pf-node--tag .pf-node__label {
+  bottom: auto;
+  top: 0;
+  translate: -50% -50%;
+  padding: 6px 12px;
+  border: 1px dashed var(--pf-stroke-soft);
+  border-radius: 999px;
+  background: var(--pf-card);
+}
+
+.pf-node--tag .pf-node__name {
+  font-size: 14px;
+}
+
+.pf-node--tag .pf-node__date {
+  display: none;
+}
+
+/* This edition: a ring with a slow pulse at the end of the gold lane. */
+.pf-node--current .pf-node__dot {
+  --dot: 17px;
+  background: var(--pf-gold);
+  border-color: var(--pf-gold);
+  box-shadow: 0 0 0 5px var(--pf-halo);
+}
+
+.pf-node--current .pf-node__dot::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border: 1px solid var(--pf-stroke);
+  border-radius: 50%;
+  animation: pf-pulse 2.8s var(--pf-ease) infinite;
+}
+
+.pf-node--current .pf-node__name {
+  color: var(--pf-gold);
+}
+
+@keyframes pf-pulse {
+  0% { opacity: 0.9; scale: 0.8; }
+  70%, 100% { opacity: 0; scale: 1.9; }
+}
+
+/* A chosen name: its dot grows, its label lifts, the rest fade back. */
+.pf-node.is-active .pf-node__dot {
+  scale: 1.3;
+  box-shadow: 0 0 0 6px var(--pf-halo);
+}
+
+.pf-node.is-active .pf-node__label,
+.pf-node__hit:focus-visible .pf-node__label {
+  background: var(--pf-card);
+  box-shadow: 0 0 0 1px var(--pf-line), 0 10px 24px -14px rgba(43, 40, 36, 0.45);
+}
+
+.pf-node__hit:focus-visible .pf-node__label {
+  outline: 2px solid var(--pf-gold);
+  outline-offset: 2px;
+}
+
+.pf-stemma[data-active] .pf-node:not(.is-active) {
+  opacity: 0.45;
+}
+
+.pf-stemma[data-active] .pf-stemma__lines {
+  opacity: 0.6;
+}
+
+.pf-node,
+.pf-stemma__lines {
+  transition: opacity 0.3s;
+}
+
+/* ── Axis ────────────────────────────────────────────────────── */
+
+.pf-stemma__axis {
+  grid-column: 2;
+  position: relative;
+  height: 44px;
+  margin: 6px 34px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--pf-stroke-soft);
+  list-style: none;
+}
+
+.pf-stemma__axis li {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  display: grid;
+  justify-items: center;
+  padding-top: 8px;
+  translate: -50% 0;
+  font: 500 12px/1.35 var(--pf-ui);
+  color: var(--pf-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pf-stemma__axis li::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  height: 6px;
+  border-left: 1px solid var(--pf-stroke-soft);
+}
+
+.pf-stemma__axis li span:first-child {
+  color: var(--pf-ink);
+  font-weight: 600;
+}
+
+/* ── The card the names fill ────────────────────────────────── */
+
+.pf-stemma__cards {
+  display: grid;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-stemma__card {
+  grid-area: 1 / 1;
+}
+
+.pf-stemma__card[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
+.pf-stemma__card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 20px;
+  margin: 6px 0 0;
+  font: 600 clamp(20px, 2vw, 24px)/1.25 var(--pf-display);
+  color: var(--pf-ink);
+}
+
+.pf-stemma__card-title em {
+  font-weight: 500;
+}
+
+.pf-stemma__card-ar {
+  font: 400 clamp(21px, 2vw, 25px)/1.7 var(--pf-arabic);
+  color: var(--pf-gold);
+}
+
+.pf-stemma__card-text {
+  max-width: 72ch;
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--pf-muted);
+}
+
+.pf-stemma__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 16px 40px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-stemma__foot > p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pf-muted);
+}
+
+.pf-stemma__sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 8px 18px;
+}
+
+.pf-stemma__sources-label {
+  flex-basis: 100%;
+}
+
+.pf-stemma__sources a {
+  color: var(--pf-ink);
+  font: 500 14px/1.4 var(--pf-ui);
+  text-decoration: underline;
+  text-decoration-color: var(--pf-stroke-soft);
+  text-underline-offset: 3px;
+}
+
+.pf-stemma__sources a:hover {
+  color: var(--pf-gold);
+  text-decoration-color: currentColor;
+}
+
+/* ── First view: the lanes draw left to right, then the names land ── */
+
+.pf-stemma.is-armed .pf-stemma__lines {
+  clip-path: inset(0 100% 0 0);
+}
+
+.pf-stemma.is-armed .pf-node {
+  opacity: 0;
+  translate: 0 6px;
+}
+
+.pf-stemma.is-playing .pf-stemma__lines {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 1.4s var(--pf-ease), opacity 0.3s;
+}
+
+.pf-stemma.is-playing .pf-node {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 0.5s, translate 0.5s var(--pf-ease);
+  transition-delay: calc(0.25s + var(--i) * 0.12s);
+}
+
+.pf-stemma[data-motion-paused] .pf-node__dot::after {
+  animation-play-state: paused;
+}
+
+@media (max-width: 900px) {
+  .pf-stemma__foot {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .pf-stemma {
+    --lane-w: 9rem;
+    border-radius: 16px;
+  }
+
+  .pf-stemma__body {
+    min-width: 760px;
+  }
+
+  .pf-stemma__lane-note {
+    display: none;
+  }
+
+  .pf-stemma__hint {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-node--current .pf-node__dot::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .pf-node__dot,
+  .pf-node__label,
+  .pf-node,
+  .pf-stemma__lines {
+    transition: none;
+  }
+}

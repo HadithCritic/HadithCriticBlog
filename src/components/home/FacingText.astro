@@ -1,0 +1,235 @@
+---
+/* One narration from the corpus as a collection page sets it out: the chain
+   of transmitters, then the text in Arabic and English. On first view the
+   chain draws link by link and the text fades in under it (data-reveal-once,
+   see home-motion.ts); without script or under reduced motion it is simply
+   there. Every word comes from the collection's JSON export. */
+import type { NarrationFigure } from "../../lib/home-corpus";
+import HomeButton from "./HomeButton.astro";
+
+interface Props {
+  narration: NarrationFigure;
+}
+
+const { narration } = Astro.props;
+const links = narration.chain.length;
+---
+
+<article class="ftext" aria-labelledby="ftext-title" data-reveal-once style={`--links: ${links}`}>
+  <p class="ftext__kicker">One narration in full</p>
+  <h3 id="ftext-title" class="ftext__title">{narration.collection} <span>no. {narration.number}</span></h3>
+
+  <p class="ftext__label">Chain of transmitters</p>
+  <ol class="ftext__chain">
+    <li class="ftext__link ftext__link--compiler" style="--i: 0">
+      <span class="ftext__en">{narration.compiler}</span>
+      <span class="ftext__role">compiler</span>
+    </li>
+    {narration.chain.map((link, index) => (
+      <li class="ftext__link" style={`--i: ${index + 1}`}>
+        <span class="ftext__en">{link.en}</span>
+        <span class="ftext__ar" lang="ar" dir="rtl">{link.ar}</span>
+      </li>
+    ))}
+  </ol>
+
+  <div class="ftext__matn">
+    <p class="ftext__label">Text</p>
+    <p class="ftext__matn-ar" lang="ar" dir="rtl">{narration.matnAr}</p>
+    <p class="ftext__matn-en">{narration.matnEn}</p>
+  </div>
+
+  <p class="ftext__cite">{narration.citation}</p>
+  <HomeButton href={narration.href} variant="dark">Read the collection</HomeButton>
+</article>
+
+<style>
+  .ftext {
+    --ftext-step: 140ms;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1.25rem, 3vw, 1.75rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .ftext__kicker,
+  .ftext__label {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ftext__label {
+    margin-top: 1.25rem;
+    color: var(--hc-text-tertiary);
+  }
+
+  .ftext__title {
+    margin: 0.55rem 0 0;
+    font: 600 1.5rem/1.15 var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  .ftext__title span {
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-sm)/1 var(--font-ui);
+    letter-spacing: 0;
+  }
+
+  /* ── Chain ──────────────────────────────────────────────────── */
+
+  .ftext__chain {
+    position: relative;
+    display: grid;
+    gap: 0.15rem;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The line the links hang on. */
+  .ftext__chain::before {
+    content: "";
+    position: absolute;
+    top: 0.85rem;
+    bottom: 0.85rem;
+    left: 5px;
+    width: 1px;
+    background: var(--home-line-strong);
+    transform-origin: top;
+  }
+
+  .ftext__link {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0 0.35rem 1.4rem;
+  }
+
+  .ftext__link::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 11px;
+    height: 11px;
+    border: 1px solid var(--hc-gold);
+    border-radius: 50%;
+    background: var(--home-card);
+    transform: translateY(-50%);
+  }
+
+  .ftext__link--compiler::before {
+    background: var(--hc-gold);
+  }
+
+  .ftext__en {
+    font: 500 var(--fs-sm)/1.35 var(--font-ui);
+  }
+
+  .ftext__role {
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .ftext__ar {
+    color: var(--hc-text-secondary);
+    font: 400 1rem/1.4 var(--font-arabic);
+  }
+
+  /* ── Text ───────────────────────────────────────────────────── */
+
+  .ftext__matn {
+    margin-top: 0.25rem;
+  }
+
+  .ftext__matn-ar {
+    margin: 0.6rem 0 0;
+    font: 400 1.3rem/1.9 var(--font-arabic);
+  }
+
+  .ftext__matn-en {
+    margin: 0.5rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-base)/1.6 var(--font-body);
+  }
+
+  .ftext__cite {
+    margin: 1rem 0 1.1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--home-line);
+    color: var(--hc-text-tertiary);
+    font: 400 var(--fs-xs)/1.4 var(--font-ui);
+  }
+
+  .ftext :global(.hbtn) {
+    align-self: flex-start;
+  }
+
+  /* ── First view: the chain draws, then the text arrives ─────── */
+
+  .ftext.is-armed .ftext__chain::before {
+    transform: scaleY(0);
+  }
+
+  .ftext.is-armed .ftext__link,
+  .ftext.is-armed .ftext__matn {
+    opacity: 0;
+    translate: 0 6px;
+  }
+
+  .ftext.is-playing .ftext__chain::before {
+    transform: scaleY(1);
+    transition: transform calc(var(--ftext-step) * (var(--links) + 1)) linear;
+  }
+
+  .ftext.is-playing .ftext__link,
+  .ftext.is-playing .ftext__matn {
+    opacity: 1;
+    translate: 0 0;
+    transition:
+      opacity var(--motion-base) var(--ease-standard),
+      translate var(--motion-base) var(--ease-standard);
+  }
+
+  .ftext.is-playing .ftext__link {
+    transition-delay: calc(var(--i) * var(--ftext-step));
+  }
+
+  .ftext.is-playing .ftext__matn {
+    transition-duration: var(--motion-slow);
+    transition-delay: calc((var(--links) + 1) * var(--ftext-step) + 120ms);
+  }
+
+  @media (max-width: 480px) {
+    .ftext__link {
+      flex-direction: column;
+      gap: 0.1rem;
+    }
+
+    .ftext__ar {
+      align-self: flex-start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ftext.is-armed .ftext__chain::before,
+    .ftext.is-armed .ftext__link,
+    .ftext.is-armed .ftext__matn {
+      opacity: 1;
+      translate: none;
+      transform: none;
+      transition: none;
+    }
+  }
+</style>

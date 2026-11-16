@@ -1,0 +1,361 @@
+---
+/* One verse with the four commentaries stacked over it, earliest at the
+   bottom. Each plate stands for a commentary; the plates pulse in turn on the
+   ambient clock (data-ambient-scene pauses them off screen). Hovering,
+   focusing or pressing a commentary lifts its plate and shows what it says
+   on the verse beside the stack (home-tafsir-figures.ts). Without script every
+   passage is listed in order; under reduced motion the plates hold still.
+   The plates are drawing only; the names beside them are HTML buttons. */
+import type { VerseLayersFigure } from "../../lib/home-tafsir";
+import { formatCount } from "../../lib/home-data-core";
+
+interface Props {
+  figure: VerseLayersFigure;
+}
+
+const { figure } = Astro.props;
+const ref = `Q ${figure.surah}:${figure.verse}`;
+const count = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? "" : "s"}`;
+const layerFacts = (words: number, reports: number) =>
+  reports ? `${count(words, "word")}, ${count(reports, "report")}` : count(words, "word");
+---
+
+<figure class="tlayers" data-verse-layers data-ambient-scene aria-labelledby="tlayers-title" style={`--n: ${figure.layers.length}`}>
+  <div class="tlayers__stage">
+    <p id="tlayers-title" class="tlayers__kicker">One verse, four commentaries</p>
+    <div class="tlayers__stack">
+      <span class="tlayers__plate tlayers__plate--base" aria-hidden="true" style="--i: -1">
+        <span class="tlayers__face"></span>
+      </span>
+      {figure.layers.map((layer, index) => (
+        <span class="tlayers__plate" data-plate={layer.id} aria-hidden="true" style={`--i: ${index}`}>
+          <span class="tlayers__face"></span>
+        </span>
+      ))}
+      <span class="tlayers__key tlayers__key--base" style="--i: -1" aria-hidden="true">
+        <b>{ref}</b><span>the verse</span>
+      </span>
+      {figure.layers.map((layer, index) => (
+        <button
+          type="button"
+          class="tlayers__key"
+          data-layer={layer.id}
+          aria-controls={`tlayers-${layer.id}`}
+          aria-pressed="false"
+          style={`--i: ${index}`}
+        >
+          <b>{layer.name}</b><span>d. {layer.died} AH</span>
+        </button>
+      ))}
+    </div>
+  </div>
+
+  <div class="tlayers__read">
+    <p class="tlayers__ref">{ref} <span>Sūrat {figure.surahName}</span></p>
+    <p class="tlayers__ar" lang="ar" dir="rtl">{figure.ar}</p>
+    <p class="tlayers__en">{figure.en}</p>
+
+    <div class="tlayers__passages" aria-live="polite">
+      {figure.layers.map((layer) => (
+        <section id={`tlayers-${layer.id}`} class="tlayers__passage" data-passage={layer.id} aria-label={layer.name}>
+          <p class="tlayers__who">
+            {layer.name} <span>d. {layer.died} AH · {layerFacts(layer.words, layer.reports)} on this verse</span>
+          </p>
+          <ul class="tlayers__quotes">
+            {layer.quotes.map((quote) => (
+              <li>
+                {quote.voice && <span class="tlayers__voice">{quote.voice}</span>}
+                <p>{quote.text}</p>
+              </li>
+            ))}
+          </ul>
+          <a class="tlayers__more" href={layer.href}>Read {layer.name} on {ref} <span aria-hidden="true">→</span></a>
+        </section>
+      ))}
+    </div>
+  </div>
+</figure>
+
+<style>
+  .tlayers {
+    --tl-plate: 150px;
+    --tl-gap: 50px;
+    --tl-base: 74px;
+    --tl-key-at: 1.65;
+    --tl-cycle: calc(var(--motion-ambient) * 2);
+    display: grid;
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+    gap: clamp(1.25rem, 3vw, 2.5rem);
+    align-items: start;
+    margin: 0;
+    padding: clamp(1.1rem, 3vw, 1.75rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .tlayers__kicker {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── Stack ──────────────────────────────────────────────────── */
+
+  .tlayers__stack {
+    --tl-height: calc(var(--tl-base) * 2 + var(--n) * var(--tl-gap));
+    position: relative;
+    height: var(--tl-height);
+    margin-top: 0.75rem;
+  }
+
+  /* Plate i sits var(--i) gaps above the verse; the verse is i = -1. */
+  .tlayers__plate,
+  .tlayers__key {
+    --y: calc(var(--tl-height) - var(--tl-base) - (var(--i) + 1) * var(--tl-gap));
+    position: absolute;
+    top: var(--y);
+  }
+
+  .tlayers__plate {
+    left: calc(var(--tl-plate) * 0.75);
+    width: 0;
+    height: 0;
+    transition: translate var(--motion-base) var(--ease-back);
+  }
+
+  .tlayers__face {
+    position: absolute;
+    left: calc(var(--tl-plate) / -2);
+    top: calc(var(--tl-plate) / -2);
+    width: var(--tl-plate);
+    height: var(--tl-plate);
+    border: 1px solid color-mix(in srgb, var(--hc-gold) 55%, transparent);
+    border-radius: 10px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--hc-gold) calc(16% + var(--i) * 9%), var(--home-card)),
+      color-mix(in srgb, var(--hc-gold) calc(6% + var(--i) * 6%), var(--home-card))
+    );
+    box-shadow:
+      5px 5px 0 color-mix(in srgb, var(--hc-gold) 22%, #0c0b0a),
+      12px 12px 22px rgba(0, 0, 0, 0.35);
+    transform: rotateX(58deg) rotateZ(45deg);
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      background var(--motion-fast) var(--ease-standard);
+  }
+
+  /* The ambient pulse: a light passes up the stack, one plate at a time. */
+  .tlayers__face::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 35% 35%, rgba(255, 244, 214, 0.5), transparent 70%);
+    opacity: 0;
+    animation: tl-pulse var(--tl-cycle) var(--ease-in-out-soft) infinite;
+    animation-delay: calc((var(--i) + 1) * var(--tl-cycle) / (var(--n) + 1));
+  }
+
+  @keyframes tl-pulse {
+    0%, 30%, 100% { opacity: 0; }
+    12% { opacity: 1; }
+  }
+
+  .tlayers__plate--base .tlayers__face {
+    border-color: rgba(239, 230, 210, 0.6);
+    background: linear-gradient(135deg, #efe6d2, #d9ccae);
+    box-shadow:
+      5px 5px 0 #8f8166,
+      12px 12px 22px rgba(0, 0, 0, 0.35);
+  }
+
+  .tlayers__plate.is-current {
+    translate: 0 -10px;
+  }
+
+  .tlayers__plate.is-current .tlayers__face {
+    border-color: var(--hc-gold);
+    background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--hc-gold) 70%, var(--home-card)),
+      color-mix(in srgb, var(--hc-gold) 40%, var(--home-card))
+    );
+  }
+
+  .tlayers__key {
+    left: calc(var(--tl-plate) * var(--tl-key-at));
+    display: grid;
+    gap: 0.1rem;
+    padding: 0.3rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: none;
+    color: var(--hc-text-secondary);
+    text-align: left;
+    translate: 0 -50%;
+    cursor: pointer;
+    transition:
+      color var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard);
+  }
+
+  .tlayers__key b {
+    font: 600 var(--fs-sm)/1.2 var(--font-ui);
+    white-space: nowrap;
+  }
+
+  .tlayers__key span {
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1.2 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .tlayers__key:hover,
+  .tlayers__key[aria-pressed="true"] {
+    border-color: var(--home-line-strong);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--hc-text-primary);
+  }
+
+  .tlayers__key:focus-visible {
+    --hc-focus-offset: 2px;
+  }
+
+  .tlayers__key--base {
+    cursor: default;
+  }
+
+  .tlayers__key--base b {
+    color: var(--hc-gold);
+  }
+
+  /* ── Reading side ───────────────────────────────────────────── */
+
+  .tlayers__ref {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.3 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tlayers__ref span {
+    color: var(--hc-text-tertiary);
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .tlayers__ar {
+    margin: 0.6rem 0 0;
+    font: 400 1.55rem/1.8 var(--font-arabic);
+  }
+
+  .tlayers__en {
+    margin: 0.2rem 0 0;
+    color: var(--hc-text-secondary);
+    font: italic 400 var(--fs-base)/1.5 var(--font-body);
+  }
+
+  .tlayers__passages {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1.1rem;
+  }
+
+  .tlayers__passage {
+    padding-top: 1rem;
+    border-top: 1px solid var(--home-line);
+  }
+
+  /* With script, one passage at a time, all in one cell so the panel keeps its height. */
+  .tlayers.is-ready .tlayers__passages {
+    gap: 0;
+  }
+
+  .tlayers.is-ready .tlayers__passage {
+    grid-area: 1 / 1;
+  }
+
+  .tlayers.is-ready .tlayers__passage:not(.is-current) {
+    visibility: hidden;
+  }
+
+  .tlayers__who {
+    margin: 0;
+    font: 600 1.25rem/1.25 var(--font-display);
+  }
+
+  .tlayers__who span {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .tlayers__quotes {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0.8rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tlayers__voice {
+    display: block;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.3 var(--font-ui);
+  }
+
+  .tlayers__quotes p {
+    display: block;
+    margin: 0.2rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-base)/1.55 var(--font-body);
+  }
+
+  .tlayers__more {
+    display: inline-block;
+    margin-top: 0.9rem;
+    padding-block: 0.2rem;
+    color: var(--hc-text-primary);
+    font: 600 var(--fs-sm)/1.3 var(--font-ui);
+    text-decoration: underline;
+    text-decoration-color: var(--hc-gold);
+    text-underline-offset: 0.25em;
+  }
+
+  @media (max-width: 900px) {
+    .tlayers {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .tlayers {
+      --tl-plate: 100px;
+      --tl-gap: 40px;
+      --tl-base: 54px;
+      --tl-key-at: 1.5;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tlayers__face::after {
+      animation: none;
+    }
+
+    .tlayers__plate,
+    .tlayers__face,
+    .tlayers__key {
+      transition: none;
+    }
+  }
+</style>

@@ -1,20 +1,21 @@
 import { expect, test } from '@playwright/test';
 
-test('homepage presents recent studies and links its research platforms', async ({ page }) => {
+test('homepage presents the research method, recent studies and platform links', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(page.locator('.home-lead')).toHaveCount(1);
+  await expect(page.locator('#method .mp__step')).toHaveCount(5);
+  await expect(page.locator('#latest')).toBeVisible();
+  await expect(page.locator('#latest .home-lead')).toHaveCount(5);
+  await expect(page.locator('#latest .home-lead').first()).toBeVisible();
   await expect(page.locator('.home-rows .home-row').first()).toBeVisible();
-
-  const platforms = page.locator('.home-library .library__panel');
-  await expect(platforms).toHaveCount(2);
-  const hrefs = await platforms.locator('a.library__link').evaluateAll(links => links.map(link => link.getAttribute('href')));
-  expect(hrefs).toEqual(['/hadith/', '/projects/history/']);
+  for (const [section, href] of [['corpus', '/hadith/'], ['narrators', '/projects/rijal/'], ['tafsir', '/projects/tafsir/'], ['tarikh', '/projects/history/']]) {
+    await expect(page.locator(`#${section} a[href="${href}"]`).first()).toBeVisible();
+  }
 });
 
 test('the Tafsīr library is linked from the projects page and reads verse by verse', async ({ page }) => {
   await page.goto('/projects/');
-  await expect(page.locator('.pj-row a[href="/projects/tafsir/"]').first()).toBeVisible();
+  await expect(page.locator('.pj-card a[href="/projects/tafsir/"]').first()).toBeVisible();
 
   await page.goto('/projects/tafsir/');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -50,11 +51,11 @@ test('homepage video activation uses the privacy-enhanced embed', async ({ page 
   await expect(video.locator('iframe')).toHaveAttribute('src', `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`);
 });
 
-test('homepage platform rows and closing section remain readable on desktop', async ({ page }) => {
+test('homepage method, latest studies and closing section remain readable on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
-  await expect(page.locator('.home-platform .showcase__row')).toHaveCount(1);
-  await expect(page.locator('.home-platform .showcase__link')).toHaveAttribute('href', '/hadith/');
-  await expect(page.locator('.home-library .library__panel')).toHaveCount(2);
+  await expect(page.locator('#method .mp__step')).toHaveCount(5);
+  await expect(page.locator('#latest .home-rows .home-row')).toHaveCount(25);
+  await expect(page.locator('#corpus')).toBeVisible();
   await expect(page.locator('.home-closing')).toBeVisible();
 });

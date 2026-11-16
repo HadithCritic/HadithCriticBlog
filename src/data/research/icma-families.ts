@@ -19,6 +19,19 @@ export const FAMILIES: Record<IcmaFamily, FamilyStyle> = {
   network: { label: 'Transmission Network', bg: '#e6dcc6', ink: '#1a1715', accent: '#6a3f12' }
 };
 
+const luminance = (hex: string): number => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/* A family's color as text on the page's own ground: the darker of its
+   ground and accent on the light theme, the lighter on the dark one. */
+export function familyText(id: IcmaFamily): { light: string; dark: string } {
+  const { bg, accent } = FAMILIES[id];
+  const [darker, lighter] = luminance(bg) < luminance(accent) ? [bg, accent] : [accent, bg];
+  return { light: darker, dark: lighter };
+}
+
 /* Research family of each ICMA study, keyed by slug. */
 export const studyFamily: Record<string, IcmaFamily> = {
   '2-white-minaret-hadith-jesus-damascus': 'geography',

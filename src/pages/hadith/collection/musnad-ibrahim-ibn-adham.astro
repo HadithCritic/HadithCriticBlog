@@ -3,10 +3,24 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { collectionFrontMatter } from "../../../lib/collection-units";
 import collectionHtml from "../../../data/hadith/pages/musnad-ibrahim-ibn-adham/collection.html?raw";
-import "../../../styles/hadith-library.css";
-import "../../../styles/hadith-collection-aligned.css";
+import chapters from "../../../data/hadith/pages/musnad-ibrahim-ibn-adham/chapter-index.json";
+import PaintedFront from "../../../components/hadith/PaintedFront.astro";
+import { parseCollectionHtml } from "../../../lib/collection-front";
+import { IBRAHIM_CHAPTER_COVERS } from "../../../data/hadith/musnad-ibrahim-chapter-covers";
+import { MUSNAD_IBRAHIM_REGIONS } from "../../../data/hadith/musnad-ibrahim-chapter-groups";
 
 const { title, description } = collectionFrontMatter("musnad-ibrahim-ibn-adham", "Musnad Ibrāhīm ibn Adham");
+const coverRoot = "/images/hadith/chapter-covers/musnad-ibrahim-ibn-adham";
+const covers = IBRAHIM_CHAPTER_COVERS.map((cover) => ({
+  stem: String(cover.n).padStart(2, "0"),
+  title: cover.title,
+  region: cover.region,
+  src: `${coverRoot}/${String(cover.n).padStart(2, "0")}.webp`,
+  alt: cover.alt,
+  width: 880,
+  height: 1320,
+}));
+const heroSrc = "/images/hadith/covers/musnad-ibrahim-ibn-adham.webp";
 ---
 
 <BaseLayout
@@ -20,5 +34,23 @@ const { title, description } = collectionFrontMatter("musnad-ibrahim-ibn-adham",
     { name: title, url: "/hadith/collection/musnad-ibrahim-ibn-adham/" },
   ]}
 >
-  <Fragment set:html={collectionHtml} />
+  <Fragment slot="head">
+    <link rel="preload" as="image" href={heroSrc} fetchpriority="high" />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+  </Fragment>
+  <PaintedFront
+    slug="musnad-ibrahim-ibn-adham"
+    front={parseCollectionHtml("musnad-ibrahim-ibn-adham", collectionHtml)}
+    chapters={chapters}
+    covers={covers}
+    heroSrc={heroSrc}
+    heroSmall={heroSrc}
+    heroAlt="An open manuscript and writing desk beneath a tiled arch, overlooking a garden and the mountains of Balkh at dawn."
+    placeAr="أصفهان"
+    viaAr="جمع حديث إبراهيم بن أدهم"
+    groups={MUSNAD_IBRAHIM_REGIONS}
+    itemSingular="section"
+    itemPlural="sections"
+    arrangement="23 sections arranged by teacher"
+  />
 </BaseLayout>

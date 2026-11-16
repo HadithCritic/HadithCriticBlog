@@ -1,8 +1,8 @@
 /* Blog archive and branch hubs. Built on house.css.
 
-   Under the centred hero: the latest study as one wide card, then the whole
-   archive as a toolbar of search and branch filters over a single column of
-   cards grouped by year. The branch hubs reuse the cards and year groups. */
+   Under the centered hero: the latest study as one wide card, then the whole
+   archive as a toolbar of branch filters and search over a grid of cards.
+   The branch hubs list their studies as wide rows grouped by year. */
 
 /* Shared parts from house.css and global.css, held to the type scale and to
    one text color per role on the archive pages. A branch keeps its color on
@@ -145,74 +145,79 @@
   padding-top: 0;
 }
 
-/* One column: the head and a toolbar of search, order and branch filters,
-   then the cards. */
-.bi-archive__grid {
-  display: block;
-}
-
-.bi-tools__sticky {
+/* The head, then one toolbar: branch filters on the left, search and order
+   on the right, and the count under them. */
+.bi-tools {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: var(--space-sm) var(--space-lg);
-  margin-bottom: var(--space-lg);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .bi-tools .hc-head__title {
-  grid-column: 1 / -1;
+  margin: 0;
   font: 500 var(--fs-heading)/1.1 var(--font-editorial);
 }
 
-.bi-tools .hc-head__note,
-.bi-search__note {
+.bi-archive__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+}
+
+.bi-toolbar {
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--hc-rule-soft);
+}
+
+.bi-toolbar__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.bi-toolbar__tools[hidden] {
   display: none;
 }
 
 .bi-search {
-  grid-column: 1;
-  grid-row: 2;
-  max-width: 32rem;
+  width: clamp(12rem, 22vw, 17rem);
 }
 
 .bi-search .hc-field {
+  min-height: 38px;
   border-radius: 8px;
 }
 
-.bi-tools__row {
-  grid-column: 2;
-  grid-row: 2;
+.bi-search .hc-field input {
+  min-height: 36px;
+  font-size: var(--fs-sm);
+}
+
+.bi-order .hc-select {
+  min-height: 38px;
+  border-radius: 8px;
+}
+
+.bi-status-row {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
-.bi-order {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2xs);
-  color: var(--hc-text-tertiary);
-  font: 500 var(--fs-sm)/1.3 var(--font-ui);
-}
-
-.bi-order .hc-select {
-  border-radius: 8px;
-}
-
 .bi-reset {
-  min-height: 40px;
+  min-height: 32px;
   padding: 0 var(--space-2xs);
   border: 0;
   background: transparent;
-  color: var(--hc-text-secondary);
+  color: var(--hc-gold);
   font: 500 var(--fs-sm)/1.3 var(--font-ui);
 }
 
-/* Branch filters as a row of rounded chips. */
-.bi-filter-nav {
-  grid-column: 1 / -1;
-}
-
+/* Branch filters: neutral chips with their branch's dot. The chosen one
+   takes its branch's color; All branches is the gold default. */
 .bi-tools .hc-filters {
   flex-direction: row;
   flex-wrap: wrap;
@@ -221,6 +226,9 @@
 }
 
 .bi-tools .hc-filter {
+  --chip-ink: var(--cat-color, var(--hc-gold));
+  --chip-wash: var(--cat-bg, color-mix(in srgb, var(--hc-gold) 12%, transparent));
+  --chip-edge: var(--cat-border, color-mix(in srgb, var(--hc-gold) 45%, transparent));
   width: auto;
   min-height: 36px;
   gap: var(--space-2xs);
@@ -228,22 +236,42 @@
   border: 1px solid var(--hc-rule-soft);
   border-radius: 999px;
   font-size: var(--fs-sm);
+  white-space: nowrap;
+  transition:
+    color var(--motion-fast) ease,
+    background var(--motion-fast) ease,
+    border-color var(--motion-fast) ease;
 }
 
 .bi-tools .hc-filter::before {
   position: static;
   transform: none;
+  border-color: var(--chip-ink);
+}
+
+.bi-tools .hc-filter:hover {
+  border-color: var(--chip-edge);
 }
 
 .bi-tools .hc-filter.is-active,
 .bi-tools .hc-filter[aria-current="true"],
 .bi-tools .hc-filter[aria-pressed="true"] {
-  border-color: var(--hc-rule-strong);
-  background: var(--hc-surface-2);
+  border-color: var(--chip-ink);
+  background: var(--chip-wash);
+  color: var(--chip-ink);
+}
+
+.bi-tools .hc-filter.is-active::before,
+.bi-tools .hc-filter[aria-current="true"]::before {
+  background: var(--chip-ink);
+}
+
+.bi-tools .hc-filter.is-active .hc-filter__n,
+.bi-tools .hc-filter[aria-current="true"] .hc-filter__n {
+  color: inherit;
 }
 
 .bi-status {
-  grid-column: 1 / -1;
   margin: 0;
   color: var(--hc-text-tertiary);
   font: 400 var(--fs-sm)/1.45 var(--font-ui);
@@ -252,6 +280,160 @@
 .bi-status strong {
   color: var(--hc-text-primary);
   font-weight: 600;
+}
+
+/* ── Card grid ───────────────────────────────────────────────── */
+
+.bi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bi-card__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--hc-rule-soft);
+  border-radius: 12px;
+  background: var(--hc-surface-1);
+  transition: border-color var(--motion-base) ease, background var(--motion-base) ease;
+}
+
+.bi-card__inner:hover {
+  border-color: var(--hc-rule-strong);
+  background: var(--hc-surface-2);
+}
+
+.bi-card__inner:has(.bi-row__link:focus-visible) {
+  border-color: var(--hc-gold);
+}
+
+.bi-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--hc-surface-0);
+  transition: scale var(--motion-settle, 400ms) var(--ease-standard);
+}
+
+.bi-card__inner:hover .bi-card__image {
+  scale: 1.03;
+}
+
+.bi-card__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: var(--space-sm) var(--space-sm) var(--space-md);
+  background: inherit;
+}
+
+/* Branch on the left, date on the right; the date drops under a long
+   branch name in a narrow card. */
+.bi-card__meta {
+  justify-content: space-between;
+  gap: 0 var(--space-xs);
+  margin-bottom: var(--space-2xs);
+}
+
+.bi-card__meta > :not(.sr-only) + :not(.sr-only)::before {
+  content: none;
+}
+
+.bi-card__meta .hc-cat,
+.bi-card__meta time {
+  white-space: nowrap;
+}
+
+.bi-card__minutes {
+  margin: auto 0 0;
+  padding-top: var(--space-sm);
+  color: var(--hc-text-tertiary);
+  font: 500 var(--fs-xs)/1.4 var(--font-ui);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.bi-card__title {
+  margin: 0;
+  color: var(--hc-text-primary);
+  font: 600 var(--fs-md)/1.3 var(--font-display);
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  transition: color var(--motion-fast) ease;
+}
+
+.bi-card__inner:hover .bi-card__title {
+  color: var(--hc-gold);
+}
+
+.bi-card .bi-row__desc {
+  max-width: none;
+  margin-top: var(--space-2xs);
+  font-size: var(--fs-sm);
+  -webkit-line-clamp: 3;
+}
+
+.bi-card .bi-row__link::after {
+  border-radius: 12px;
+}
+
+.bi-card .bi-match__text {
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 1000px) {
+  .bi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .bi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The filters become one row that scrolls sideways. */
+  .bi-filter-nav {
+    width: calc(100% + 2 * var(--pad));
+    margin-inline: calc(-1 * var(--pad));
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .bi-tools .hc-filters {
+    flex-wrap: nowrap;
+    width: max-content;
+    padding-inline: var(--pad);
+  }
+
+  .bi-toolbar__tools {
+    width: 100%;
+  }
+
+  .bi-search {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bi-card__image {
+    transition: none;
+  }
+
+  .bi-card__inner:hover .bi-card__image {
+    scale: none;
+  }
 }
 
 /* Year groups. */
@@ -488,16 +670,6 @@
 
   .bi-lead__copy {
     padding: var(--space-md) var(--space-xs) var(--space-xs);
-  }
-
-  .bi-tools__sticky {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .bi-search,
-  .bi-tools__row {
-    grid-column: 1;
-    max-width: none;
   }
 }
 

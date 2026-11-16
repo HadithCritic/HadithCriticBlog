@@ -1,0 +1,245 @@
+---
+/* The four books of the resources catalogue standing on a shelf, each turned
+   a little away as books on a shelf are. Hovering or focusing a cover pulls
+   it forward to face the reader and the panel under the shelf gives its page
+   count (home-detail-panel.ts). Each cover is the link to its PDF. On first
+   view the books drop onto the shelf one after another (data-reveal-once). */
+import type { ResourcesFigure } from "../../lib/home-resources";
+import { formatCount } from "../../lib/home-data-core";
+
+interface Props {
+  figure: ResourcesFigure;
+}
+
+const { figure } = Astro.props;
+const { books } = figure;
+---
+
+<figure class="rshelf" data-detail-panel data-reveal-once aria-labelledby="rshelf-title">
+  <p id="rshelf-title" class="rshelf__kicker">Publications</p>
+
+  <ul class="rshelf__row" data-detail-area>
+    {books.map((book, index) => (
+      <li class="rshelf__slot" style={`--i: ${index}; --b-bg: ${book.brand.bg}; --b-accent: ${book.brand.accent}`}>
+        <a class="rshelf__book" href={book.href} target="_blank" rel="noopener noreferrer" data-detail-key={book.id}>
+          <span class="rshelf__spine" aria-hidden="true"></span>
+          <img class="rshelf__cover" src={book.cover} alt="" width="360" height="540" loading="lazy" decoding="async" />
+          <span class="sr-only">{book.title}, {book.pages} pages, PDF (opens in a new tab)</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+  <div class="rshelf__ledge" aria-hidden="true"></div>
+
+  <div class="rshelf__detail" aria-hidden="true">
+    <div class="rshelf__card" data-detail="">
+      <p class="rshelf__card-meta">{books.length} books · {formatCount(figure.pages)} pages</p>
+      <p class="rshelf__card-title">Rashad Khalifa's books, free to read</p>
+      <p class="rshelf__card-facts">Each cover opens the book as a PDF in the WikiSubmission library.</p>
+    </div>
+    {books.map((book) => (
+      <div class="rshelf__card" data-detail={book.id} hidden>
+        <p class="rshelf__card-meta">PDF · {formatCount(book.pages)} pages</p>
+        <p class="rshelf__card-title">{book.title}</p>
+        <p class="rshelf__card-facts">{book.description}</p>
+      </div>
+    ))}
+  </div>
+</figure>
+
+<style>
+  .rshelf {
+    --rshelf-step: 110ms;
+    --rshelf-tilt: 26deg;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .rshelf__kicker {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── The books ──────────────────────────────────────────────── */
+
+  .rshelf__row {
+    display: grid;
+    flex: 1;
+    grid-template-columns: repeat(var(--books, 4), minmax(0, 1fr));
+    align-items: end;
+    gap: clamp(0.75rem, 2.5vw, 1.4rem);
+    margin: 0;
+    padding: clamp(1.75rem, 4vw, 2.5rem) clamp(0.4rem, 1.5vw, 0.9rem) 0;
+    list-style: none;
+    perspective: 1100px;
+    perspective-origin: 50% 20%;
+  }
+
+  .rshelf__slot {
+    position: relative;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+
+  /* The shadow each book casts on the shelf. */
+  .rshelf__slot::after {
+    content: "";
+    position: absolute;
+    right: 4%;
+    bottom: -6px;
+    left: 4%;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    filter: blur(6px);
+    transition:
+      transform var(--motion-settle) var(--ease-back),
+      opacity var(--motion-settle) var(--ease-standard);
+  }
+
+  .rshelf__book {
+    position: relative;
+    display: block;
+    transform: rotateY(var(--rshelf-tilt));
+    transform-origin: 50% 100%;
+    transform-style: preserve-3d;
+    transition: transform var(--motion-settle) var(--ease-back);
+  }
+
+  .rshelf__book:focus-visible {
+    --hc-focus-offset: 4px;
+  }
+
+  .rshelf__cover {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 2px 4px 4px 2px;
+    box-shadow:
+      inset 3px 0 0 rgba(255, 255, 255, 0.12),
+      0 10px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  /* The book's thickness: its spine turned back from the left edge. */
+  .rshelf__spine {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: clamp(8px, 1.6vw, 16px);
+    border-radius: 2px 0 0 2px;
+    background: linear-gradient(to right, color-mix(in srgb, var(--b-bg) 70%, #000), var(--b-bg));
+    transform: rotateY(90deg);
+    transform-origin: left;
+  }
+
+  .rshelf__slot.is-active .rshelf__book,
+  .rshelf__book:focus-visible {
+    transform: translate3d(0, -14px, 48px) rotateY(0deg);
+  }
+
+  .rshelf__slot.is-active::after {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+
+  .rshelf[data-active] .rshelf__slot:not(.is-active) {
+    opacity: 0.55;
+  }
+
+  /* The shelf the books stand on. */
+  .rshelf__ledge {
+    height: 14px;
+    margin: 0 -0.4rem;
+    border-top: 1px solid color-mix(in srgb, var(--hc-gold) 45%, transparent);
+    border-radius: 2px 2px 6px 6px;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--hc-gold) 22%, var(--home-card)),
+      color-mix(in srgb, var(--hc-gold) 6%, var(--home-card))
+    );
+    box-shadow: 0 12px 22px -10px rgba(0, 0, 0, 0.55);
+  }
+
+  /* ── Panel ──────────────────────────────────────────────────── */
+
+  .rshelf__detail {
+    display: grid;
+    margin-top: 1.1rem;
+  }
+
+  .rshelf__card {
+    grid-area: 1 / 1;
+  }
+
+  .rshelf__card[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+
+  .rshelf__card-meta {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .rshelf__card-title {
+    margin: 0.3rem 0 0;
+    font: 600 1.2rem/1.25 var(--font-display);
+  }
+
+  .rshelf__card-facts {
+    margin: 0.3rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.5 var(--font-body);
+  }
+
+  /* ── First view: the books drop onto the shelf ──────────────── */
+
+  .rshelf.is-armed:not(.is-playing) .rshelf__slot {
+    opacity: 0;
+  }
+
+  /* Filled backwards only, so once it ends the dimming rule above applies again. */
+  .rshelf.is-playing .rshelf__slot {
+    animation: rshelf-drop var(--motion-settle) var(--ease-back) backwards;
+    animation-delay: calc(var(--i) * var(--rshelf-step));
+  }
+
+  @keyframes rshelf-drop {
+    from {
+      opacity: 0;
+      translate: 0 -28px;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .rshelf {
+      --rshelf-tilt: 18deg;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rshelf__book,
+    .rshelf__slot,
+    .rshelf__slot::after {
+      transition: none;
+    }
+
+    .rshelf.is-armed:not(.is-playing) .rshelf__slot,
+    .rshelf.is-playing .rshelf__slot {
+      opacity: 1;
+      animation: none;
+    }
+  }
+</style>

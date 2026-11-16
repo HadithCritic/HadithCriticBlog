@@ -1,0 +1,233 @@
+---
+/**
+ * A collection front page built around painted covers: a painted hero, an
+ * account of the work, every book as a painted card with a live filter, the
+ * edition notes and a closing subscribe band. Musnad Abī Ḥanīfa uses it.
+ *
+ * The sections run edge to edge rather than sitting in boxes. A page adds its
+ * own figures under the account of the work through the "after-work" slot.
+ *
+ * Words come from the same places as CollectionFront.astro: the collection's
+ * HTML (title, compiler, edition notes), collection-identities.ts (lede,
+ * account, era) and hadith-compilers.ts (place, recension). Book titles and
+ * entry counts come from the collection's chapter-index.json. The covers are
+ * passed in, one per book, in book order; a count mismatch fails the build.
+ */
+import { identityFor } from '../../data/hadith/collection-identities';
+import { compilerFor } from '../../lib/hadith-compilers';
+import { medallionFor } from '../../lib/hadith-art';
+import { LIBRARY_COLLECTIONS } from '../../lib/hadith-library';
+import type { CollectionFrontData } from '../../lib/collection-front';
+import HomeButton from '../home/HomeButton.astro';
+import PaintedBookIndex from './PaintedBookIndex.astro';
+import type { BookGroup } from '../../data/hadith/musnad-abu-hanifa-groups';
+import '../../styles/painted-front.css';
+
+interface Chapter {
+  n: number;
+  title_en: string;
+  title_ar: string;
+  count: number;
+}
+
+interface Cover {
+  stem: string;
+  alt: string;
+  title?: string;
+  region?: string;
+  src?: string;
+  srcFull?: string;
+  width?: number;
+  height?: number;
+}
+
+interface Props {
+  slug: string;
+  front: CollectionFrontData;
+  chapters: Chapter[];
+  covers: readonly Cover[];
+  coverRoot?: string;
+  heroSrc?: string;
+  heroSmall?: string;
+  heroAlt: string;
+  /** Arabic name of the place and the recension, shown on the fact cards. */
+  placeAr: string;
+  viaAr: string;
+  /** Subjects for the index chips and chart; every book in exactly one. */
+  groups: readonly BookGroup[];
+  itemSingular?: string;
+  itemPlural?: string;
+  arrangement?: string;
+}
+
+const { slug, front, chapters, covers, heroAlt, placeAr, viaAr, groups } = Astro.props;
+const itemSingular = Astro.props.itemSingular ?? 'book';
+const itemPlural = Astro.props.itemPlural ?? 'books';
+const arrangement = Astro.props.arrangement ?? `${chapters.length} books by topic`;
+const coverRoot = Astro.props.coverRoot ?? '';
+if (covers.length !== chapters.length) {
+  throw new Error(`${slug}: ${chapters.length} books but ${covers.length} painted covers`);
+}
+
+const identity = identityFor(slug);
+const compiler = compilerFor(slug);
+if (!compiler) throw new Error(`${slug}: no compiler in hadith-compilers.ts`);
+const medallion = medallionFor(compiler);
+const arabicTitle = LIBRARY_COLLECTIONS.find((book) => book.slug === slug)?.title_ar ?? '';
+const total = chapters.reduce((sum, chapter) => sum + chapter.count, 0);
+const deathYear = front.date.replace(/^d\.\s*/, '');
+const pad = (n: number) => String(n).padStart(2, '0');
+const chapterHref = (n: number) => `/hadith/collection/${slug}/chapter/${n}/`;
+
+/* "Musnad Abī Ḥanīfa, riwāyat al-Ḥaṣkafī": the headline keeps the work's
+   name and sets its last word in italic; the recension goes on its own line. */
+const plainTitle = front.titleHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const [workName] = plainTitle.split(/,\s*/);
+const lastSpace = workName.lastIndexOf(' ');
+const headLead = workName.slice(0, lastSpace + 1);
+const headAccent = workName.slice(lastSpace + 1);
+const recension = compiler.via ? compiler.via[0].toUpperCase() + compiler.via.slice(1) : '';
+
+const books = chapters.map((chapter, i) => ({
+  ...chapter,
+  shortTitle: covers[i].title,
+  src: covers[i].src ?? `${coverRoot}/${pad(chapter.n)}-${covers[i].stem}-880.jpg`,
+  srcFull: covers[i].srcFull ?? (covers[i].src ? undefined : `${coverRoot}/${pad(chapter.n)}-${covers[i].stem}.jpg`),
+  alt: covers[i].alt,
+  region: covers[i].region,
+  width: covers[i].width,
+  height: covers[i].height
+}));
+
+/* "Faith to Paradise": the first and last book in a few words. */
+const shortTitle = (title: string) =>
+  title.replace(/^(The )?Book of (the )?/i, '').replace(/\s*\(.*$/, '').split(/,| and /)[0].trim();
+const lastWord = (title: string) => title.trim().split(/\s+/).pop() ?? title;
+const span = `From ${shortTitle(chapters[0].title_en)} to ${lastWord(chapters[chapters.length - 1].title_en)}`;
+
+const heroSrc = Astro.props.heroSrc ?? `${coverRoot}/hero.jpg`;
+const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
+---
+
+<div class="pf-page" data-collection={slug}>
+  <section class="pf-hero" aria-labelledby="pf-title">
+    <img
+      class="pf-hero__art"
+      src={heroSrc}
+      srcset={heroSmall !== heroSrc ? `${heroSmall} 1200w, ${heroSrc} 2400w` : undefined}
+      sizes="(min-width: 1500px) 1452px, calc(100vw - 32px)"
+      width="2400"
+      height="1300"
+      alt={heroAlt}
+      fetchpriority="high"
+      decoding="async"
+    />
+    <div class="pf-hero__scrim" aria-hidden="true"></div>
+    <div class="pf-hero__content">
+      <p class="pf-kicker pf-kicker--hero">Hadith corpus · {compiler.origin} · {identity.era}</p>
+      {medallion && <img class="pf-medallion" src={medallion} width="92" height="92" alt={`Medallion portrait of ${compiler.name}`} />}
+      <h1 id="pf-title" class="pf-hero__title">{headLead}<em>{headAccent}</em></h1>
+      {arabicTitle && <p class="pf-hero__arabic" lang="ar" dir="rtl">{arabicTitle}</p>}
+      <p class="pf-hero__byline">
+        {recension && <span>{recension}</span>}
+        {recension && <span class="pf-dot" aria-hidden="true">·</span>}
+        <span>{slug === 'musnad-abu-hanifa' ? 'Reports attributed to' : 'Compiled by'} {front.compiler}{front.date && `, ${front.date}`}</span>
+      </p>
+      <p class="pf-hero__lede">{identity.lede}</p>
+      <div class="pf-hero__actions">
+        <HomeButton href={chapterHref(1)} variant="light">Begin reading</HomeButton>
+        <HomeButton href="#pf-index" variant="glass">Explore {chapters.length}{' '}{itemPlural}</HomeButton>
+      </div>
+    </div>
+    <dl class="pf-stats">
+      <div><dt>{itemPlural}</dt><dd>{chapters.length}</dd></div>
+      <div><dt>Entries in Arabic and English</dt><dd>{total}</dd></div>
+      {deathYear && <div><dt>Death of {compiler.name.split(' ').slice(0, 2).join(' ')}</dt><dd>{deathYear}</dd></div>}
+    </dl>
+  </section>
+
+  <section class="pf-section pf-work" aria-labelledby="pf-work-title">
+    <div class="pf-work__text reveal">
+      <p class="pf-eyebrow">The work</p>
+      <h2 id="pf-work-title" class="pf-h2">About this <em>compilation.</em></h2>
+      <p class="pf-body">{identity.about}</p>
+    </div>
+    <dl class="pf-facts reveal reveal--d1">
+      <div class="pf-fact">
+        <dt class="pf-fact__label">Place</dt>
+        <dd>
+          <span class="pf-fact__value">{compiler.origin}</span>
+          <span class="pf-fact__arabic" lang="ar" dir="rtl">{placeAr}</span>
+        </dd>
+      </div>
+      <div class="pf-fact">
+        <dt class="pf-fact__label">Transmission</dt>
+        <dd>
+          <span class="pf-fact__value">{recension}</span>
+          <span class="pf-fact__arabic" lang="ar" dir="rtl">{viaAr}</span>
+        </dd>
+      </div>
+      <div class="pf-fact">
+        <dt class="pf-fact__label">Arrangement</dt>
+        <dd>
+          <span class="pf-fact__value">{arrangement}</span>
+          <span class="pf-fact__note">{span}</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <slot name="after-work" />
+
+  <PaintedBookIndex books={books} groups={groups} chapterHref={chapterHref} itemSingular={itemSingular} itemPlural={itemPlural} />
+
+  <section class="pf-band pf-band--indigo pf-edition" aria-labelledby="pf-edition-title">
+    <div class="pf-wrap pf-edition__layout">
+      <header class="pf-edition__head reveal">
+        <p class="pf-eyebrow">The edition</p>
+        <h2 id="pf-edition-title" class="pf-h2">About the <em>edition.</em></h2>
+        <p class="pf-lede">How the Arabic and English were prepared, and what to keep in mind while reading them.</p>
+      </header>
+      <ol class="pf-notes reveal reveal--d1" role="list">
+        {front.notes.map((note, i) => (
+          <li class="pf-note">
+            <span class="pf-note__num" aria-hidden="true">{pad(i + 1)}</span>
+            <h3 class="pf-note__label">{note.label}</h3>
+            <p class="pf-note__text" set:html={note.html} />
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <section class="pf-band pf-cta" aria-labelledby="pf-cta-title" style={`--pf-cta-art: url('${heroSmall}')`}>
+    <div class="pf-cta__inner reveal">
+      <p class="pf-eyebrow">The HadithCritic Dispatch</p>
+      <h2 id="pf-cta-title" class="pf-h2">New studies, <em>by email.</em></h2>
+      <p class="pf-body">One short email when a study is published, with a link to read it. Nothing else.</p>
+      <div class="pf-cta__form" data-subscribe-form>
+        <form class="pf-subscribe" data-subscribe-form-el hidden>
+          <label for="pf-email" class="sr-only">Email address</label>
+          <input id="pf-email" type="email" name="email" placeholder="Your email address" required autocomplete="email" inputmode="email" />
+          <input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" hidden />
+          <button type="submit" class="pf-btn pf-btn--gold">Subscribe</button>
+        </form>
+        <p class="pf-cta__status" data-subscribe-form-status role="status" aria-live="polite"></p>
+        <noscript><p class="pf-cta__small">Email signup needs JavaScript. <a href="/rss.xml">Follow the RSS feed</a> instead.</p></noscript>
+      </div>
+      <p class="pf-cta__small">Unsubscribe anytime. Prefer a feed? <a href="/rss.xml">RSS</a></p>
+    </div>
+  </section>
+</div>
+
+<script>
+  import { bindSubscribeForms } from '../../lib/subscribe-client';
+  import { bindBookFilter } from '../../lib/painted-front-filter';
+  import { initHomeMotion } from '../../lib/home-motion';
+  import { initDetailPanels } from '../../lib/home-detail-panel';
+
+  bindSubscribeForms(document.querySelector('.pf-cta') ?? document);
+  bindBookFilter(document);
+  initHomeMotion(document);
+  initDetailPanels(document);
+</script>

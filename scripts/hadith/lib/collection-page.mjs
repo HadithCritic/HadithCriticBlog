@@ -8,6 +8,9 @@ const pageRoot = path.resolve('src/pages/hadith/collection');
  * pattern, derived from its chapter index by src/lib/collection-units.ts.
  */
 export function writeCollectionPage(slug, title) {
+  const file = path.join(pageRoot, `${slug}.astro`);
+  // A page set in the work's own design (CollectionFront.astro) reads the same collection.html; keep it.
+  if (fs.existsSync(file) && fs.readFileSync(file, 'utf8').includes('CollectionFront')) return;
   const page = [
     '---',
     'import BaseLayout from "../../../layouts/BaseLayout.astro";',
@@ -35,5 +38,5 @@ export function writeCollectionPage(slug, title) {
     '</BaseLayout>',
     '',
   ].join('\n');
-  fs.writeFileSync(path.join(pageRoot, `${slug}.astro`), page, 'utf8');
+  fs.writeFileSync(file, page, 'utf8');
 }

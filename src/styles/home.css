@@ -1,19 +1,16 @@
-/* Homepage. A painted landscape hero with one centered statement,
-   then alternating paper and dark bands:
+/* Homepage. A painted landscape hero, then one band per part of the site,
+   each a HomeSection (src/components/home/HomeSection.astro) in one of four
+   tones: page, dark, panel or parchment. The order and the figure each band
+   will carry are in docs/home/front-page-plan.md.
 
-   hero        landscape, centered title, two actions, a cue to the studies
-   latest      the newest study as a wide card, the next five as rows
-   platform    dark band: three research tools with mock interfaces
-   library     four platform panels, paper and dark alternating
-   lectures    three videos with captions
-   closing     dark band: the house line and the email signup
+   The page tone follows the reader's theme. The hero, the dark and panel
+   bands and the closing band are fixed dark in both themes, and the
+   parchment bands fixed light; HomeSection re-maps the color tokens inside
+   each one.
 
-   The paper bands follow the reader's theme. The hero, the platform band,
-   the closing band and the dark panels are fixed dark in both themes, so
-   they read from the --hc-fixed-* palette, never the adaptive tokens.
-
-   Companion sheets: home-hero.css (hero),
-   home-platform.css (platform band and library) and home-closing.css. */
+   This sheet holds the page tokens, the shared pieces and the studies.
+   Companion sheets: home-hero.css (hero), home-sections.css (the other
+   bands' content), home-closing.css and yt-lite.css (the YouTube player). */
 
 .home {
   --home-wrap: 1240px;
@@ -109,6 +106,8 @@ body:has(.home-hero) .site-header.is-at-top {
   text-wrap: balance;
 }
 
+/* Shared with /projects and /hadith, which still use the older section
+   head and button. The front page uses HomeSection and HomeButton. */
 .home-section {
   padding-block: clamp(4.25rem, 8vw, 7rem);
 }
@@ -124,25 +123,6 @@ body:has(.home-hero) .site-header.is-at-top {
   margin: 1rem auto 0;
   color: var(--hc-text-secondary);
   font: 400 var(--fs-base)/1.65 var(--font-body);
-}
-
-.home-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--hc-gold);
-  font: 600 var(--fs-sm)/1.3 var(--font-ui);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.home-link span {
-  transition: transform var(--motion-fast) var(--ease-standard);
-}
-
-a.home-link:hover span,
-.home-lead:hover .home-link span {
-  transform: translateX(3px);
 }
 
 .home-btn {
@@ -199,6 +179,26 @@ a.home-link:hover span,
   background: var(--home-card);
 }
 
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 24px;
+  color: var(--hc-gold);
+  font: 600 var(--fs-sm)/1.3 var(--font-ui);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-link span {
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+a.home-link:hover span,
+.home-lead:hover .home-link span {
+  transform: translateX(3px);
+}
+
 .home-meta {
   display: flex;
   flex-wrap: wrap;
@@ -237,23 +237,6 @@ a.home-link:hover span,
 }
 
 /* ── Latest studies ──────────────────────────────────────────── */
-
-.home-latest {
-  padding-top: clamp(2.5rem, 5vw, 4rem);
-}
-
-.home-latest__top {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.home-latest__top .home-title {
-  margin-top: 0.5rem;
-  font-size: clamp(2.125rem, 4.2vw, 3rem);
-}
 
 .home-lead {
   position: relative;
@@ -379,112 +362,6 @@ a.home-link:hover span,
   transform: translateX(3px);
 }
 
-/* ── Lectures ────────────────────────────────────────────────── */
-
-/* Lectures sit on the page color, not the library band, with a rule on
-   top so the two sections read as separate. */
-.home-lectures {
-  border-top: 1px solid var(--home-line-strong);
-  background: var(--home-page);
-}
-
-.home-lectures__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.lecture {
-  overflow: hidden;
-  border: 1px solid var(--home-line);
-  border-radius: 13px;
-  background: var(--home-card);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
-  transition: transform 300ms var(--home-ease), box-shadow 300ms ease;
-}
-
-.lecture:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--home-shadow);
-}
-
-.yt-lite {
-  position: relative;
-  display: block;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: #252522;
-}
-
-.yt-lite img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 500ms var(--ease-standard);
-}
-
-.lecture:hover .yt-lite img {
-  transform: scale(1.035);
-}
-
-.yt-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(23, 23, 21, 0.85);
-  color: var(--hc-fixed-parchment);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-.yt-play svg {
-  transform: translateX(1px);
-}
-
-.yt-lite iframe {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-}
-
-.lecture__caption {
-  padding: 0.9rem 1rem 1rem;
-}
-
-.lecture__caption b {
-  display: block;
-  color: var(--hc-text-primary);
-  font: 600 var(--fs-sm)/1.35 var(--font-ui);
-}
-
-.lecture__caption a {
-  display: inline-block;
-  margin-top: 0.35rem;
-  color: var(--hc-text-tertiary);
-  font: 400 var(--fs-xs)/1.4 var(--font-ui);
-  text-decoration: none;
-}
-
-.lecture__caption a:hover {
-  color: var(--hc-gold);
-}
-
-.home-lectures__more {
-  margin-top: 1.75rem;
-  text-align: center;
-}
-
 /* ── Reveal ──────────────────────────────────────────────────── */
 
 .home-reveal .home .reveal {
@@ -523,10 +400,6 @@ a.home-link:hover span,
     padding: 1rem 0.75rem 1.25rem;
   }
 
-  .home-lectures__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .home-row {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
@@ -543,11 +416,6 @@ a.home-link:hover span,
 }
 
 @media (max-width: 640px) {
-  .home-latest__top {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .home-row__read,
   .home-row__desc {
     display: none;
@@ -557,9 +425,7 @@ a.home-link:hover span,
 @media (prefers-reduced-motion: reduce) {
   .home-btn,
   .home-row,
-  .home-row__read span,
-  .lecture,
-  .yt-lite img {
+  .home-row__read span {
     transition: none;
   }
 }

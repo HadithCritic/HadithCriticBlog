@@ -1,0 +1,219 @@
+---
+/* The src/data folders of the repository as a tree, each with how many files
+   it holds. Hovering or focusing a folder shows what it holds in the panel
+   under the tree (home-detail-panel.ts). Counts are read from disk at build
+   time (home-open-source.ts). */
+import type { TreeNode } from "../../lib/home-open-source";
+import { formatCount } from "../../lib/home-data-core";
+
+interface Props {
+  tree: TreeNode[];
+  files: number;
+}
+
+const { tree, files } = Astro.props;
+const all = tree.flatMap((folder) => [folder, ...folder.children]);
+const fileWord = (n: number) => `${formatCount(n)} ${n === 1 ? "file" : "files"}`;
+---
+
+<figure class="dtree" data-detail-panel data-detail-roving aria-labelledby="dtree-title">
+  <p id="dtree-title" class="dtree__kicker">The data, folder by folder</p>
+  <p class="dtree__root"><span aria-hidden="true">▾</span> src/data <span class="dtree__count">{fileWord(files)}</span></p>
+
+  <ul class="dtree__list" data-detail-area>
+    {tree.map((folder) => (
+      <li class="dtree__node">
+        <span class="dtree__row" tabindex="0" data-detail-key={folder.path}>
+          <span class="dtree__name">{folder.name}/</span>
+          <span class="dtree__count">{fileWord(folder.files)}</span>
+          {folder.note && <span class="sr-only">: {folder.note}</span>}
+        </span>
+        {folder.children.length > 0 && (
+          <ul class="dtree__list">
+            {folder.children.map((child) => (
+              <li class="dtree__node">
+                <span class="dtree__row" tabindex="0" data-detail-key={child.path}>
+                  <span class="dtree__name">{child.name}/</span>
+                  <span class="dtree__count">{fileWord(child.files)}</span>
+                  {child.note && <span class="sr-only">: {child.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    ))}
+  </ul>
+
+  <div class="dtree__detail" aria-hidden="true">
+    <div class="dtree__card" data-detail="">
+      <p class="dtree__card-meta">{tree.length} areas · {fileWord(files)}</p>
+      <p class="dtree__card-facts">Each part of the site keeps its data in its own folder. Point at one to see what it holds.</p>
+    </div>
+    {all.map((node) => (
+      <div class="dtree__card" data-detail={node.path} hidden>
+        <p class="dtree__card-meta">src/data/{node.path}/ · {fileWord(node.files)}</p>
+        <p class="dtree__card-facts">{node.note ?? "Part of the folder above."}</p>
+      </div>
+    ))}
+  </div>
+</figure>
+
+<style>
+  .dtree {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .dtree__kicker {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .dtree__root {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    margin: 0.9rem 0 0.2rem;
+    font: 600 var(--fs-sm)/1.4 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  .dtree__root span:first-child {
+    color: var(--hc-gold);
+  }
+
+  .dtree__root .dtree__count {
+    margin-left: auto;
+  }
+
+  /* ── The tree ───────────────────────────────────────────────── */
+
+  .dtree__list {
+    margin: 0;
+    padding: 0 0 0 0.9rem;
+    list-style: none;
+  }
+
+  .dtree__node {
+    position: relative;
+    padding-left: 0.9rem;
+  }
+
+  /* The branch lines: a vertical rule down the list and a tick to each folder. */
+  .dtree__node::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    border-left: 1px solid var(--home-line-strong);
+  }
+
+  .dtree__node:last-child::before {
+    bottom: auto;
+    height: 0.95rem;
+  }
+
+  .dtree__node::after {
+    content: "";
+    position: absolute;
+    top: 0.95rem;
+    left: 0;
+    width: 0.65rem;
+    border-top: 1px solid var(--home-line-strong);
+  }
+
+  .dtree__row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.22rem 0.45rem;
+    border-radius: 6px;
+    cursor: default;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard);
+  }
+
+  .dtree__row:focus-visible {
+    --hc-focus-offset: 1px;
+  }
+
+  .dtree__name {
+    font: 500 var(--fs-sm)/1.5 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  .dtree__count {
+    margin-left: auto;
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+    white-space: nowrap;
+  }
+
+  .dtree[data-active] .dtree__row {
+    opacity: 0.45;
+  }
+
+  .dtree .dtree__node.is-active > .dtree__row {
+    opacity: 1;
+    background: color-mix(in srgb, var(--hc-gold) 14%, transparent);
+  }
+
+  .dtree__node.is-active > .dtree__row .dtree__name {
+    color: var(--hc-text-primary);
+  }
+
+  /* ── Panel ──────────────────────────────────────────────────── */
+
+  .dtree__detail {
+    display: grid;
+    margin-top: auto;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--home-line);
+  }
+
+  .dtree__list + .dtree__detail {
+    margin-top: 1rem;
+  }
+
+  .dtree__card {
+    grid-area: 1 / 1;
+  }
+
+  .dtree__card[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+
+  .dtree__card-meta {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums;
+    overflow-wrap: anywhere;
+  }
+
+  .dtree__card-facts {
+    margin: 0.3rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.5 var(--font-body);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dtree__row {
+      transition: none;
+    }
+  }
+</style>

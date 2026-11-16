@@ -1,0 +1,299 @@
+---
+/* The latest studies, with a tab for each category. The tabs are radio
+   buttons and the panels follow the checked one by CSS alone (:has), so they
+   work without script and the arrow keys move between them as in any radio
+   group. Each panel is the newest study in its tab as the lead and the next
+   ones as rows, drawn in the category's color. A browser without :has shows
+   the "All" panel and hides the tabs.
+
+   The panel rules below are written out for five tabs ("All" and the four
+   categories in src/lib/categories.ts). A fifth category needs a sixth rule. */
+import type { StudyTab } from "../../lib/home-studies";
+
+interface Props {
+  tabs: StudyTab[];
+}
+
+const { tabs } = Astro.props;
+const tone = (value: string | null) => (value ? `--tab-text: var(--cat-${value}-text); --tab-rule: var(--cat-${value})` : "");
+---
+
+<div class="stabs">
+  <fieldset class="stabs__bar">
+    <legend class="sr-only">Show studies from</legend>
+    {tabs.map((tab, index) => (
+      <label class="stabs__tab" style={tone(tab.tone)}>
+        <input type="radio" name="studies-tab" value={tab.id} checked={index === 0} />
+        <span>{tab.label}</span>
+        <b>{tab.count}</b>
+      </label>
+    ))}
+  </fieldset>
+
+  <div class="stabs__panels">
+    {tabs.map((tab) => {
+      const [lead, ...rows] = tab.studies;
+      return (
+        <section class="stabs__panel" aria-label={tab.id === "all" ? "Latest studies" : `Latest in ${tab.label}`}>
+          <article class="home-lead" style={tone(lead.tone)}>
+            <div class="home-lead__copy">
+              <p class="home-meta">
+                <span class="home-meta__category stabs__category">{lead.category}</span>
+                <time datetime={lead.iso}>{lead.date}</time>
+                <span>{lead.minutes} min read</span>
+              </p>
+              <h3 class="home-lead__title">
+                <a href={lead.href} class="home-cover-link">{lead.title}</a>
+              </h3>
+              {lead.description && <p class="home-lead__desc">{lead.description}</p>}
+              <span class="home-link" aria-hidden="true">Read the study <span class="stabs__arrow"></span></span>
+            </div>
+            <img
+              class="home-lead__image"
+              src={lead.image.src}
+              srcset={lead.image.srcset ?? undefined}
+              sizes="(max-width: 760px) 100vw, 640px"
+              width={lead.image.width}
+              height={lead.image.height}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
+          </article>
+
+          {rows.length > 0 && (
+            <ol class="home-rows">
+              {rows.map((study) => (
+                <li class="home-row stabs__row" style={tone(study.tone)}>
+                  <time class="home-row__date" datetime={study.iso}>{study.date}</time>
+                  <div class="home-row__main">
+                    <h3 class="home-row__title">
+                      <a href={study.href} class="home-cover-link">{study.title}</a>
+                    </h3>
+                    {study.description && <p class="home-row__desc">{study.description}</p>}
+                  </div>
+                  <span class="home-row__category stabs__category">{study.category}</span>
+                  <span class="home-row__read" aria-hidden="true">{study.minutes} min <span class="stabs__arrow"></span></span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {tab.id !== "all" && (
+            <p class="stabs__more">
+              <a href={tab.href} class="home-link">All {tab.count} studies in {tab.label} <span aria-hidden="true">→</span></a>
+            </p>
+          )}
+        </section>
+      );
+    })}
+  </div>
+</div>
+
+<style>
+  /* ── Tabs ───────────────────────────────────────────────────── */
+
+  .stabs__bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+  }
+
+  .stabs__tab {
+    --tab-text: var(--hc-gold);
+    --tab-rule: var(--hc-gold);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    padding: 0.45rem 0.95rem;
+    border: 1px solid var(--home-line-strong);
+    border-radius: var(--radius-pill);
+    color: var(--hc-text-secondary);
+    font: 500 var(--fs-sm)/1.2 var(--font-ui);
+    cursor: pointer;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      background-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .stabs__tab input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .stabs__tab b {
+    color: var(--hc-text-tertiary);
+    font-weight: 500;
+    font-size: var(--fs-xs);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .stabs__tab:hover {
+    border-color: var(--tab-rule);
+    color: var(--hc-text-primary);
+  }
+
+  .stabs__tab:has(:checked) {
+    border-color: var(--tab-rule);
+    background: color-mix(in srgb, var(--tab-rule) 16%, transparent);
+    color: var(--hc-text-primary);
+  }
+
+  .stabs__tab:has(:checked) b {
+    color: var(--tab-text);
+  }
+
+  .stabs__tab:has(:focus-visible) {
+    outline: 2px solid var(--tab-text);
+    outline-offset: 2px;
+  }
+
+  /* ── Panels: the checked tab's, by position ─────────────────── */
+
+  .stabs__panel + .stabs__panel {
+    display: none;
+  }
+
+  @supports selector(:has(*)) {
+    .stabs__panel {
+      display: none;
+      animation: stabs-in var(--motion-base) var(--ease-standard);
+    }
+
+    .stabs:has(.stabs__tab:nth-of-type(1) :checked) .stabs__panel:nth-child(1),
+    .stabs:has(.stabs__tab:nth-of-type(2) :checked) .stabs__panel:nth-child(2),
+    .stabs:has(.stabs__tab:nth-of-type(3) :checked) .stabs__panel:nth-child(3),
+    .stabs:has(.stabs__tab:nth-of-type(4) :checked) .stabs__panel:nth-child(4),
+    .stabs:has(.stabs__tab:nth-of-type(5) :checked) .stabs__panel:nth-child(5) {
+      display: block;
+    }
+  }
+
+  @supports not selector(:has(*)) {
+    .stabs__bar {
+      display: none;
+    }
+  }
+
+  @keyframes stabs-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
+  /* ── Category color on the lead and rows ────────────────────── */
+
+  .stabs .home-lead,
+  .stabs__row {
+    --tab-text: var(--hc-gold);
+    --tab-rule: var(--hc-gold);
+  }
+
+  .stabs .stabs__category {
+    color: var(--tab-text);
+  }
+
+  /* A thin rule in the category's color slides in on the left of a row. */
+  .stabs__row::before {
+    content: "";
+    position: absolute;
+    top: 0.9rem;
+    bottom: 0.9rem;
+    left: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--tab-rule);
+    transform: scaleY(0);
+    transition: transform var(--motion-base) var(--ease-back);
+  }
+
+  .stabs__row:hover::before,
+  .stabs__row:focus-within::before {
+    transform: scaleY(1);
+  }
+
+  /* The arrow: a chevron that grows a shaft on hover. */
+  .stabs .stabs__arrow {
+    position: relative;
+    display: inline-block;
+    width: 16px;
+    height: 10px;
+    margin-left: 0.3rem;
+    vertical-align: -0.05em;
+    color: var(--tab-text, var(--hc-gold));
+    transform: none;
+  }
+
+  .stabs__arrow::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 1px;
+    width: 4px;
+    height: 1.5px;
+    background: currentColor;
+    translate: 0 -50%;
+    transition: width var(--motion-fast) var(--ease-standard);
+  }
+
+  .stabs__arrow::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 1px;
+    width: 6px;
+    height: 6px;
+    border-top: 1.5px solid currentColor;
+    border-right: 1.5px solid currentColor;
+    translate: 0 -50%;
+    rotate: 45deg;
+  }
+
+  .stabs__row:hover .stabs__arrow::before,
+  .stabs__row:focus-within .stabs__arrow::before,
+  .stabs .home-lead:hover .stabs__arrow::before,
+  .stabs .home-lead:focus-within .stabs__arrow::before {
+    width: 14px;
+  }
+
+  .stabs__more {
+    margin: 1rem 0 0;
+    text-align: right;
+  }
+
+  /* On a phone the tabs are one strip that scrolls sideways. */
+  @media (max-width: 640px) {
+    .stabs__bar {
+      flex-wrap: nowrap;
+      margin-inline: -1rem;
+      padding: 2px 1rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .stabs__tab {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stabs__panel {
+      animation: none;
+    }
+
+    .stabs__tab,
+    .stabs__row::before,
+    .stabs__arrow::before {
+      transition: none;
+    }
+  }
+</style>

@@ -1,0 +1,325 @@
+---
+/* How to use the site's code and data, in three tabs: read the data, run the
+   site, cite a source. The tabs are radio buttons and the panels follow the
+   checked one by CSS alone (:has), as the studies tabs do; a browser without
+   :has shows the first panel. Each command has a copy button, shown only once
+   script can make it work (home-copy.ts). The panel rules are written out for
+   three tabs. */
+import type { SetupTab } from "../../lib/home-open-source";
+
+interface Props {
+  tabs: SetupTab[];
+}
+
+const { tabs } = Astro.props;
+---
+
+<div class="setup" data-copy-root>
+  <fieldset class="setup__bar">
+    <legend class="sr-only">Show the steps to</legend>
+    {tabs.map((tab, index) => (
+      <label class="setup__tab">
+        <input type="radio" name="setup-tab" value={tab.id} checked={index === 0} />
+        <span>{tab.label}</span>
+      </label>
+    ))}
+  </fieldset>
+
+  <div class="setup__panels">
+    {tabs.map((tab) => (
+      <section class="setup__panel" aria-label={tab.label}>
+        <ol class="setup__steps">
+          {tab.steps.map((step) => (
+            <li class="setup__step">
+              <p class="setup__text">{step.text}</p>
+              {step.code && (
+                <div class="setup__code" data-copy-scope>
+                  <code>{step.code}</code>
+                  <button type="button" class="setup__copy" data-copy aria-label="Copy the command" hidden><svg class="setup__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg><svg class="setup__icon setup__icon--done" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ol>
+        {tab.result && (
+          <div class="setup__result" data-copy-scope>
+            <div class="setup__result-head">
+              <span>{tab.result.label}</span>
+              <button type="button" class="setup__copy" data-copy aria-label={`Copy the ${tab.result.label.toLowerCase()}`} hidden><svg class="setup__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V6a2 2 0 0 1 2-2h9" /></svg><svg class="setup__icon setup__icon--done" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></button>
+            </div>
+            <pre><code>{tab.result.text}</code></pre>
+          </div>
+        )}
+      </section>
+    ))}
+  </div>
+  <p class="sr-only" role="status" aria-live="polite" data-copy-status></p>
+</div>
+
+<style>
+  .setup {
+    --setup-code-bg: #171614;
+    --setup-code-ink: #e9e3d4;
+    --setup-code-dim: #a9a294;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+  }
+
+  /* ── Tabs ───────────────────────────────────────────────────── */
+
+  .setup__bar {
+    display: flex;
+    gap: 0.25rem;
+    margin: 0 0 1.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--home-line);
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--hc-text-primary) 4%, transparent);
+  }
+
+  .setup__tab {
+    position: relative;
+    flex: 1;
+    min-height: 38px;
+    display: grid;
+    place-items: center;
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius-pill);
+    color: var(--hc-text-secondary);
+    font: 500 var(--fs-sm)/1.2 var(--font-ui);
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .setup__tab input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .setup__tab:hover {
+    color: var(--hc-text-primary);
+  }
+
+  .setup__tab:has(:checked) {
+    background: var(--hc-text-primary);
+    color: var(--home-card);
+  }
+
+  .setup__tab:has(:focus-visible) {
+    outline: 2px solid var(--hc-gold);
+    outline-offset: 2px;
+  }
+
+  /* ── Panels: the checked tab's, by position ─────────────────── */
+
+  .setup__panel + .setup__panel {
+    display: none;
+  }
+
+  @supports selector(:has(*)) {
+    .setup__panel {
+      display: none;
+      animation: setup-in var(--motion-base) var(--ease-standard);
+    }
+
+    .setup:has(.setup__tab:nth-of-type(1) :checked) .setup__panel:nth-child(1),
+    .setup:has(.setup__tab:nth-of-type(2) :checked) .setup__panel:nth-child(2),
+    .setup:has(.setup__tab:nth-of-type(3) :checked) .setup__panel:nth-child(3) {
+      display: block;
+    }
+  }
+
+  @supports not selector(:has(*)) {
+    .setup__bar {
+      display: none;
+    }
+  }
+
+  @keyframes setup-in {
+    from {
+      opacity: 0;
+      translate: 0 6px;
+    }
+  }
+
+  /* ── Steps ──────────────────────────────────────────────────── */
+
+  .setup__steps {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: setup;
+  }
+
+  .setup__step {
+    position: relative;
+    padding-left: 2.4rem;
+    counter-increment: setup;
+  }
+
+  .setup__step::before {
+    content: counter(setup);
+    position: absolute;
+    top: -0.1rem;
+    left: 0;
+    display: grid;
+    place-items: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    border: 1px solid var(--hc-gold);
+    border-radius: 50%;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .setup__text {
+    margin: 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.55 var(--font-body);
+  }
+
+  .setup__code {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.55rem 0.55rem 0.55rem 0.9rem;
+    border-radius: 10px;
+    background: var(--setup-code-bg);
+  }
+
+  /* The code panels are dark in both themes; the site's light-theme tint for
+     code and pre would wash them out. */
+  .setup code,
+  .setup pre {
+    border: 0;
+    background: none;
+  }
+
+  .setup code {
+    padding: 0;
+    color: var(--setup-code-ink);
+    font: 400 var(--fs-sm)/1.6 ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+
+  .setup__code code {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .setup__copy {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--setup-code-ink);
+    cursor: pointer;
+    transition:
+      border-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard);
+  }
+
+  .setup__icon {
+    grid-area: 1 / 1;
+  }
+
+  .setup__icon--done,
+  .setup__copy[data-copied] .setup__icon {
+    visibility: hidden;
+  }
+
+  .setup__copy[data-copied] .setup__icon--done {
+    visibility: visible;
+  }
+
+  .setup__copy:hover,
+  .setup__copy:focus-visible {
+    border-color: #dfc17d;
+    color: #dfc17d;
+  }
+
+  .setup__copy:focus-visible {
+    --hc-focus-color: #dfc17d;
+    --hc-focus-offset: 2px;
+  }
+
+  .setup__copy[data-copied] {
+    border-color: #9fc79a;
+    color: #9fc79a;
+  }
+
+  /* ── What the steps give ────────────────────────────────────── */
+
+  .setup__result {
+    margin-top: 1.1rem;
+    overflow: hidden;
+    border-radius: 12px;
+    background: var(--setup-code-bg);
+  }
+
+  .setup__result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.45rem 0.55rem 0.45rem 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--setup-code-dim);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .setup__result pre {
+    max-height: 17rem;
+    margin: 0;
+    padding: 0.9rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .setup__result pre,
+  .setup__result code {
+    display: block;
+    font-size: var(--fs-xs);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 480px) {
+    .setup__tab {
+      padding-inline: 0.3rem;
+      font-size: var(--fs-xs);
+      white-space: nowrap;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .setup__panel {
+      animation: none;
+    }
+
+    .setup__tab,
+    .setup__copy {
+      transition: none;
+    }
+  }
+</style>

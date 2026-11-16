@@ -1,0 +1,69 @@
+---
+/* One report from a collection, set across the page rather than in a card:
+   the chain of transmitters as a rail, then the Arabic and English facing
+   each other. Every name and word comes from the collection's JSON export
+   (narrationFigure in home-corpus.ts), which fails the build if the entry
+   goes missing or its chain stops dividing the same way in both languages.
+
+   On first view the rail draws link by link and the text fades in
+   (data-reveal-once, home-motion.ts); without script, or under reduced
+   motion, it is simply there. Styles are in narration-spread.css. */
+import type { NarrationFigure } from '../../lib/home-corpus';
+import HomeButton from '../home/HomeButton.astro';
+import '../../styles/narration-spread.css';
+
+interface Props {
+  narration: NarrationFigure;
+  /** The name the chain starts from, and what to call that person. */
+  head: { en: string; ar: string; role: string };
+  /** Words the English text needs before the quotation, from the isnad. */
+  leadEn?: string;
+  bookTitle: string;
+  bookHref: string;
+  bookNumber: number;
+}
+
+const { narration, head, leadEn, bookTitle, bookHref, bookNumber } = Astro.props;
+const links = [
+  head,
+  ...narration.chain.map((link, i) => ({
+    ...link,
+    role: i === narration.chain.length - 1 ? 'Companion' : 'Transmitter'
+  }))
+];
+---
+
+<section class="pf-section pf-spread" aria-labelledby="pf-spread-title" data-reveal-once style={`--links: ${links.length}`}>
+  <header class="pf-spread__head reveal">
+    <div>
+      <p class="pf-eyebrow">One report in full</p>
+      <h2 id="pf-spread-title" class="pf-h2">From the <em>{bookTitle}.</em></h2>
+    </div>
+    <div class="pf-spread__aside">
+      <p class="pf-spread__cite">{narration.citation}, no. {narration.number}</p>
+      <HomeButton href={bookHref} variant="outline">Read book {bookNumber}</HomeButton>
+    </div>
+  </header>
+
+  <p class="pf-spread__label" id="pf-spread-chain">Chain of transmitters, from the Imam to the Companion</p>
+  <ol class="pf-chain" aria-labelledby="pf-spread-chain">
+    {links.map((link, i) => (
+      <li class:list={['pf-chain__link', i === 0 && 'pf-chain__link--head']} style={`--i: ${i}`}>
+        <span class="pf-chain__dot" aria-hidden="true"></span>
+        <span class="pf-chain__role">{link.role}</span>
+        <span class="pf-chain__en">{link.en}</span>
+        <span class="pf-chain__ar" lang="ar" dir="rtl">{link.ar}</span>
+      </li>
+    ))}
+  </ol>
+
+  <div class="pf-spread__text">
+    <blockquote class="pf-spread__en">
+      {leadEn && <span class="pf-spread__lead">{leadEn}</span>}
+      <p>{narration.matnEn}</p>
+    </blockquote>
+    <blockquote class="pf-spread__ar" lang="ar" dir="rtl">
+      <p>{narration.matnAr}</p>
+    </blockquote>
+  </div>
+</section>

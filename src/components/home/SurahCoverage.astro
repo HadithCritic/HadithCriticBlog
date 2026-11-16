@@ -1,0 +1,260 @@
+---
+/* Which surahs each commentary has in English: one row per commentary, one
+   cell per surah, darker where the commentary says more. A surah still being
+   translated is a lighter cell, one the edition has nothing on is empty.
+   Hovering or focusing a cell lights its row and column and shows, under the
+   grid, what every commentary has for that surah (home-tafsir-figures.ts).
+   With script the grid is one tab stop and the arrow keys move between
+   cells; without it every cell is an ordinary link. */
+import type { CoverageFigure } from "../../lib/home-tafsir";
+
+interface Props {
+  coverage: CoverageFigure;
+}
+
+const { coverage } = Astro.props;
+const surahName = new Map(coverage.surahs.map((surah) => [surah.n, surah.latin]));
+const summary = (available: number, pending: number) =>
+  pending ? `${available} of 114, ${pending} in progress` : `${available} of 114`;
+---
+
+<figure class="tcov" data-surah-coverage aria-labelledby="tcov-title">
+  <div class="tcov__head">
+    <p id="tcov-title" class="tcov__kicker">Surahs each commentary has in English</p>
+    <ul class="tcov__legend" aria-label="Key">
+      <li><i class="tcov__swatch tcov__swatch--full"></i>Has commentary</li>
+      <li><i class="tcov__swatch tcov__swatch--pending"></i>In progress</li>
+      <li><i class="tcov__swatch"></i>None in the edition</li>
+    </ul>
+  </div>
+
+  <div class="tcov__rows">
+    {coverage.rows.map((row, rowIndex) => (
+      <div class="tcov__row" data-row={row.id}>
+        <p class="tcov__name">{row.name} <span>{summary(row.available, row.pending)}</span></p>
+        <ol class="tcov__cells" aria-label={`${row.name}, surahs 1 to 114`}>
+          {row.cells.map((cell) => {
+            const label = `${cell.n}. ${surahName.get(cell.n)}: ${cell.note}`;
+            const attrs = {
+              class: `tcov__cell tcov__cell--${cell.state}`,
+              style: cell.level ? `--level: ${cell.level}` : undefined,
+              "data-n": cell.n,
+              "data-row-index": rowIndex,
+              "data-note": cell.note,
+              "aria-label": label,
+            };
+            return <li>{cell.href ? <a href={cell.href} {...attrs}></a> : <span {...attrs}></span>}</li>;
+          })}
+        </ol>
+      </div>
+    ))}
+  </div>
+
+  <div class="tcov__readout" aria-hidden="true">
+    <p class="tcov__surah" data-readout-title>Point at a surah to compare the four commentaries.</p>
+    <dl class="tcov__notes">
+      {coverage.rows.map((row) => (
+        <div>
+          <dt>{row.name}</dt>
+          <dd data-readout={row.id}>{summary(row.available, row.pending)}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</figure>
+
+<style>
+  .tcov {
+    --tcov-cols: 114;
+    margin: 0;
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .tcov__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem 1.25rem;
+  }
+
+  .tcov__kicker {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .tcov__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--hc-text-tertiary);
+    font: 500 var(--fs-xs)/1.2 var(--font-ui);
+  }
+
+  .tcov__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .tcov__swatch {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--home-line-strong);
+    border-radius: 2px;
+  }
+
+  .tcov__swatch--full {
+    border-color: transparent;
+    background: var(--hc-gold);
+  }
+
+  .tcov__swatch--pending {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--hc-gold) 30%, transparent);
+  }
+
+  /* ── Rows ───────────────────────────────────────────────────── */
+
+  .tcov__rows {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 1.1rem;
+  }
+
+  .tcov__row {
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+
+  .tcov[data-row-active] .tcov__row:not(.is-active) {
+    opacity: 0.45;
+  }
+
+  .tcov__name {
+    margin: 0 0 0.35rem;
+    font: 600 var(--fs-sm)/1.2 var(--font-ui);
+  }
+
+  .tcov__name span {
+    margin-left: 0.4rem;
+    color: var(--hc-text-tertiary);
+    font-weight: 500;
+    font-size: var(--fs-xs);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .tcov__cells {
+    display: grid;
+    grid-template-columns: repeat(var(--tcov-cols), minmax(0, 1fr));
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tcov__cells li {
+    display: flex;
+  }
+
+  .tcov__cell {
+    flex: 1;
+    height: 18px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.05);
+    transition:
+      outline-color var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard);
+  }
+
+  .tcov__cell--available {
+    background: color-mix(in srgb, var(--hc-gold) calc(30% + var(--level) * 17%), transparent);
+  }
+
+  .tcov__cell--pending {
+    background: color-mix(in srgb, var(--hc-gold) 20%, transparent);
+  }
+
+  .tcov__cell.is-col {
+    outline: 1px solid var(--hc-text-secondary);
+    outline-offset: 1px;
+  }
+
+  .tcov__cell.is-cell {
+    outline: 2px solid var(--hc-text-primary);
+    outline-offset: 1px;
+    transform: scaleY(1.25);
+  }
+
+  .tcov__cell:focus-visible {
+    --hc-focus-offset: 2px;
+  }
+
+  /* ── Readout ────────────────────────────────────────────────── */
+
+  .tcov__readout {
+    margin-top: 1.1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--home-line);
+  }
+
+  .tcov__surah {
+    margin: 0;
+    font: 600 1.125rem/1.3 var(--font-display);
+  }
+
+  .tcov__notes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.6rem 1.25rem;
+    margin: 0.6rem 0 0;
+  }
+
+  .tcov__notes dt {
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.3 var(--font-ui);
+  }
+
+  .tcov__notes dd {
+    margin: 0.15rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-xs)/1.45 var(--font-ui);
+  }
+
+  @media (max-width: 900px) {
+    .tcov {
+      --tcov-cols: 57;
+    }
+
+    .tcov__notes {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .tcov {
+      --tcov-cols: 38;
+    }
+
+    .tcov__cell {
+      height: 14px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tcov__row,
+    .tcov__cell {
+      transition: none;
+    }
+  }
+</style>

@@ -7,6 +7,7 @@
  * Sources are listed in order of their authors' deaths, which is the order the
  * page's chronology draws them in. `died` is the conventional death date in
  * hijrī and common-era years; `circa` marks a date the biographers disagree on.
+ * `authorShort` is the name the front page chronology prints on the book.
  * `arrangement` says in a few words how the author ordered the book, which is
  * also how its reader is laid out (src/lib/history-book.ts).
  */
@@ -15,6 +16,7 @@ export const historySources = [
     id: 'al-waqidi-ridda',
     reader: { slug: 'book-of-apostasy', entries: 13, words: 51740 },
     author: 'Muḥammad ibn ʿUmar al-Wāqidī',
+    authorShort: 'al-Wāqidī',
     title: 'The Book of Apostasy (Kitāb al-Ridda)',
     arabic: 'كتاب الردة',
     form: 'Early caliphate history',
@@ -29,6 +31,7 @@ export const historySources = [
     id: 'khalifa-ibn-khayyat',
     reader: { slug: 'khalifa', entries: 42, words: 127451 },
     author: 'Khalīfa ibn Khayyāṭ',
+    authorShort: 'Khalīfa',
     title: 'Chronicle of Khalīfa ibn Khayyāṭ (Tārīkh Khalīfa ibn Khayyāṭ)',
     arabic: 'تاريخ خليفة بن خياط',
     form: 'Chronicle',
@@ -43,6 +46,7 @@ export const historySources = [
     id: 'ibn-habib-munammaq',
     reader: { slug: 'genealogies-of-quraysh', entries: 32, words: 106527 },
     author: 'Muḥammad ibn Ḥabīb al-Baghdādī',
+    authorShort: 'Ibn Ḥabīb',
     title: 'Genealogies of Quraysh (al-Munammaq fī akhbār Quraysh)',
     arabic: 'المنمق في أخبار قريش',
     form: 'Genealogical history',
@@ -57,6 +61,7 @@ export const historySources = [
     id: 'ibn-habib-muhabbar',
     reader: { slug: 'well-informed', entries: 34, words: 108756 },
     author: 'Muḥammad ibn Ḥabīb al-Baghdādī',
+    authorShort: 'Ibn Ḥabīb',
     title: 'The Well-Informed (al-Muḥabbar)',
     arabic: 'المحبّر',
     form: 'Social and genealogical compendium',
@@ -71,6 +76,7 @@ export const historySources = [
     id: 'ibn-abd-al-hakam',
     reader: { slug: 'conquests-of-egypt-and-the-maghrib', entries: 46, words: 140670 },
     author: 'ʿAbd al-Raḥmān ibn ʿAbd Allāh ibn ʿAbd al-Ḥakam',
+    authorShort: 'Ibn ʿAbd al-Ḥakam',
     title: 'Conquests of Egypt and the Maghrib (Futūḥ Miṣr wa-l-Maghrib)',
     arabic: 'فتوح مصر والمغرب',
     form: 'Regional conquest history',
@@ -85,6 +91,7 @@ export const historySources = [
     id: 'ibn-qutayba-maarif',
     reader: { slug: 'book-of-knowledge', entries: 47, words: 142158 },
     author: 'ʿAbd Allāh ibn Muslim ibn Qutayba al-Dīnawarī',
+    authorShort: 'Ibn Qutayba',
     title: 'Knowledge (al-Maʿārif)',
     arabic: 'المعارف',
     form: 'Historical and genealogical compendium',
@@ -99,6 +106,7 @@ export const historySources = [
     id: 'al-fasawi-marifa-tarikh',
     reader: { slug: 'knowledge-and-history', entries: 128, words: 468179 },
     author: 'Yaʿqūb ibn Sufyān al-Fasawī',
+    authorShort: 'al-Fasawī',
     title: 'Knowledge and History (al-Maʿrifa wa-l-tārīkh)',
     arabic: 'المعرفة والتاريخ',
     form: 'History and transmission',
@@ -113,6 +121,7 @@ export const historySources = [
     id: 'al-baladhuri',
     reader: { slug: 'futuh-al-buldan', entries: 78, words: 176846 },
     author: 'Al-Balādhurī',
+    authorShort: 'al-Balādhurī',
     title: 'The Conquests of the Lands (Futūḥ al-buldān)',
     arabic: 'فتوح البلدان',
     form: 'Conquest history',
@@ -127,6 +136,7 @@ export const historySources = [
     id: 'al-tabari',
     reader: null,
     author: 'Al-Ṭabarī',
+    authorShort: 'al-Ṭabarī',
     title: 'The History of al-Ṭabarī (Tārīkh al-Ṭabarī)',
     arabic: 'تاريخ الطبري',
     form: 'Universal history',

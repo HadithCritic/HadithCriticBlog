@@ -1,0 +1,61 @@
+---
+import type { ArticleEntry } from '../lib/article-index';
+import { searchText } from '../lib/article-index';
+
+/**
+ * One study in the blog archive grid: its artwork on top, then branch and
+ * date, the title, the abstract and the reading time.
+ *
+ * The title link is stretched over the card, so the whole card opens the
+ * study while only the title is its accessible name. The row hooks
+ * (`.bi-row`, `.bi-row__link`, `.bi-row__desc`, `.bi-row__match`) are the
+ * ones the archive script filters, searches and sorts.
+ */
+interface Props {
+  entry: ArticleEntry;
+  /** The first row of cards is in view on load, so it is not lazy. */
+  eager?: boolean;
+}
+
+const FALLBACK_IMAGE = '/images/blog/thumbnails/tn.generic.webp';
+
+const { entry, eager = false } = Astro.props;
+const { post, folio, dateLabel, dateISO, minutes, artwork } = entry;
+const image = artwork?.src ?? post.data.thumbnail ?? FALLBACK_IMAGE;
+---
+
+<li
+  class="bi-row bi-card"
+  data-id={post.id}
+  data-category={post.data.category}
+  data-timestamp={post.data.date.valueOf()}
+  data-folio={folio}
+  data-search={searchText(post)}
+>
+  <article class="bi-card__inner">
+    <img
+      class="bi-card__image"
+      src={image}
+      srcset={artwork?.srcset}
+      sizes="(max-width: 640px) 100vw, (max-width: 1000px) 50vw, 400px"
+      width={artwork?.width ?? 1672}
+      height={artwork?.height ?? 941}
+      alt=""
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+    />
+    <div class="bi-card__body">
+      <p class="hc-meta bi-card__meta">
+        <span class="hc-cat" data-category={post.data.category}>{post.data.category}</span>
+        <time datetime={dateISO}>{dateLabel}</time>
+        <span class="sr-only">Folio {folio}</span>
+      </p>
+      <h3 class="bi-card__title">
+        <a href={`/blogs/${post.id}/`} class="bi-row__link">{post.data.title}</a>
+      </h3>
+      {post.data.description && <p class="bi-row__desc">{post.data.description}</p>}
+      <div class="bi-row__match" hidden></div>
+      <p class="bi-card__minutes">{minutes} min read</p>
+    </div>
+  </article>
+</li>

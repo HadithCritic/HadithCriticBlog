@@ -1,0 +1,633 @@
+/* The book index of a painted collection front (PaintedBookIndex.astro):
+   the heading and filter, the entries chart, the subject chips and sort, and
+   the painted books as open cards. It reads the --pf-* tokens that
+   painted-front.css sets on .pf-page. */
+
+/* ── Heading and filter ──────────────────────────────────────── */
+
+.pf-index__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px 48px;
+  margin-bottom: clamp(32px, 4vw, 44px);
+}
+
+.pf-index__head .pf-lede {
+  max-width: 46ch;
+}
+
+.pf-filter {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 400px);
+}
+
+.pf-filter__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 10px 0 20px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-line);
+  background: var(--pf-raised);
+  color: var(--pf-muted);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pf-filter__field:focus-within {
+  border-color: var(--pf-gold);
+  box-shadow: 0 0 0 3px rgba(210, 171, 98, 0.25);
+}
+
+.pf-filter__field svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.pf-filter__field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--pf-ink);
+  font: 400 16px var(--pf-ui);
+}
+
+.pf-filter__field input::placeholder {
+  color: var(--pf-muted);
+}
+
+.pf-filter__field input:focus {
+  outline: 2px solid var(--pf-gold);
+  outline-offset: 2px;
+}
+
+.pf-kbd {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--pf-line);
+  font: 600 12px/1 var(--pf-ui);
+  color: var(--pf-muted);
+}
+
+.pf-filter__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.pf-count {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--pf-muted);
+}
+
+/* ── The entries chart ───────────────────────────────────────── */
+
+.pf-dist {
+  margin: 0 0 clamp(28px, 3.5vw, 40px);
+  padding: 0 0 20px;
+  border-bottom: 1px solid var(--pf-line);
+}
+
+.pf-dist__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--pf-line);
+}
+
+.pf-dist__kicker,
+.pf-dist__scale {
+  margin: 0;
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pf-dist__kicker {
+  color: var(--pf-gold);
+}
+
+.pf-dist__scale {
+  color: var(--pf-muted);
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.pf-dist__cols {
+  display: grid;
+  grid-template-columns: repeat(var(--books), minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(3px, 0.5vw, 8px);
+  height: 168px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-dist__col {
+  height: 100%;
+  transition: opacity 0.3s;
+}
+
+.pf-dist__col[data-dim] {
+  opacity: 0.22;
+}
+
+.pf-dist__col a {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 8px;
+  height: 100%;
+  text-decoration: none;
+}
+
+.pf-dist__bar {
+  display: block;
+  height: max(3px, calc((100% - 22px) * var(--h)));
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(180deg, var(--pf-gold-light), var(--pf-gold) 70%, #a4803f);
+  transform-origin: 50% 100%;
+  transition: background-color 0.3s, filter 0.3s, box-shadow 0.3s;
+}
+
+.pf-dist__num {
+  font: 500 12px/1 var(--pf-ui);
+  color: var(--pf-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-dist__col.is-active .pf-dist__bar,
+.pf-dist__col a:focus-visible .pf-dist__bar {
+  filter: brightness(1.15);
+  box-shadow: 0 0 0 2px var(--pf-bg), 0 0 0 3px var(--pf-gold-light);
+}
+
+.pf-dist__col.is-active .pf-dist__num,
+.pf-dist__col a:focus-visible .pf-dist__num {
+  color: var(--pf-ink);
+  font-weight: 700;
+}
+
+.pf-dist[data-active] .pf-dist__col:not(.is-active) .pf-dist__bar {
+  filter: saturate(0.5) brightness(0.7);
+}
+
+.pf-dist__cards {
+  display: grid;
+  margin-top: 16px;
+}
+
+.pf-dist__card {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 15px;
+  color: var(--pf-muted);
+}
+
+.pf-dist__card[hidden] {
+  display: flex;
+  visibility: hidden;
+}
+
+.pf-dist__card strong {
+  font: 600 19px/1.3 var(--pf-display);
+  color: var(--pf-ink);
+}
+
+/* First view: the columns rise from the axis, left to right. */
+.pf-dist.is-armed .pf-dist__bar {
+  transform: scaleY(0);
+}
+
+.pf-dist.is-playing .pf-dist__bar {
+  transform: none;
+  transition: transform 0.7s var(--pf-ease), filter 0.3s, box-shadow 0.3s;
+  transition-delay: calc(var(--i) * 22ms);
+}
+
+/* ── Subject chips and sort ──────────────────────────────────── */
+
+.pf-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 28px;
+  margin-bottom: clamp(28px, 3.5vw, 40px);
+}
+
+.pf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pf-chip,
+.pf-sort__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pf-ink);
+  font: 500 14px/1 var(--pf-ui);
+  cursor: pointer;
+  transition: background-color 0.25s, border-color 0.25s, color 0.25s;
+}
+
+.pf-chip span {
+  color: var(--pf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-chip:hover,
+.pf-sort__btn:hover {
+  border-color: rgba(210, 171, 98, 0.55);
+}
+
+.pf-chip[aria-pressed='true'] {
+  background: var(--pf-ink);
+  border-color: var(--pf-ink);
+  color: #17130f;
+}
+
+.pf-chip[aria-pressed='true'] span {
+  color: #5a524a;
+}
+
+.pf-sort {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--pf-line);
+  border-radius: 999px;
+}
+
+.pf-sort__btn {
+  min-height: 32px;
+  border: 0;
+  color: var(--pf-muted);
+}
+
+.pf-sort__btn[aria-pressed='true'] {
+  background: var(--pf-card);
+  color: var(--pf-ink);
+  box-shadow: inset 0 0 0 1px var(--pf-line);
+}
+
+/* ── The painted books: open cards, the painting and its caption ─── */
+
+.pf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(44px, 5vw, 64px) clamp(20px, 2.6vw, 36px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-card[hidden] {
+  display: none;
+}
+
+.pf-card__link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pf-card__link:focus-visible {
+}
+
+.pf-card__frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 5 / 6;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1a1612;
+  box-shadow: 0 1px 0 rgba(233, 228, 220, 0.06) inset, 0 22px 44px -28px rgba(0, 0, 0, 0.8);
+  transition: box-shadow 0.5s var(--pf-ease), translate 0.5s var(--pf-ease);
+}
+
+.pf-card__link:focus-visible .pf-card__frame {
+  outline: 2px solid var(--pf-gold);
+  outline-offset: 4px;
+}
+
+.pf-card__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.9s var(--pf-ease), filter 0.5s;
+}
+
+/* A soft vignette, so the number and arrow sit on calm ground. */
+.pf-card__frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(14, 11, 9, 0.35), rgba(14, 11, 9, 0) 22%),
+    linear-gradient(0deg, rgba(14, 11, 9, 0.45), rgba(14, 11, 9, 0) 28%);
+  pointer-events: none;
+}
+
+.pf-pill,
+.pf-card__go {
+  position: absolute;
+  z-index: 1;
+  border: 1px solid var(--pf-glass-line);
+  background: var(--pf-glass-strong);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--pf-ink);
+}
+
+.pf-pill {
+  top: 14px;
+  left: 14px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font: 600 13px/1 var(--pf-ui);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-card__go {
+  right: 14px;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  opacity: 0;
+  translate: 0 6px;
+  transition: opacity 0.35s, translate 0.45s var(--pf-ease), background-color 0.3s, color 0.3s;
+}
+
+.pf-card__link:hover .pf-card__frame,
+.pf-card__link:focus-visible .pf-card__frame {
+  translate: 0 -4px;
+  box-shadow: 0 1px 0 rgba(233, 228, 220, 0.08) inset, 0 34px 60px -30px rgba(0, 0, 0, 0.9);
+}
+
+.pf-card__link:hover .pf-card__art,
+.pf-card__link:focus-visible .pf-card__art {
+  transform: scale(1.045);
+}
+
+.pf-card__link:hover .pf-card__go,
+.pf-card__link:focus-visible .pf-card__go {
+  opacity: 1;
+  translate: 0 0;
+  background: var(--pf-ink);
+  color: #17130f;
+}
+
+/* The caption under the painting. */
+.pf-card__body {
+  display: grid;
+  gap: 8px;
+  padding: 20px 2px 0;
+}
+
+.pf-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--pf-line);
+  font: 600 12px/1.3 var(--pf-ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pf-gold);
+}
+
+.pf-card__subject {
+  color: var(--pf-muted);
+  letter-spacing: 0.08em;
+}
+
+.pf-card__title {
+  margin-top: 6px;
+  font: 600 24px/1.18 var(--pf-display);
+  letter-spacing: -0.015em;
+  color: var(--pf-ink);
+  text-wrap: pretty;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  justify-self: start;
+  transition: background-size 0.45s var(--pf-ease);
+}
+
+.pf-card__link:hover .pf-card__title,
+.pf-card__link:focus-visible .pf-card__title {
+  background-size: 100% 1px;
+}
+
+.pf-card__arabic {
+  font-size: 22px;
+  line-height: 1.7;
+  color: var(--pf-gold);
+  text-align: right;
+}
+
+.pf-card__share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 13px;
+  color: var(--pf-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-card__track {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(233, 228, 220, 0.1);
+  overflow: hidden;
+}
+
+.pf-card__fill {
+  display: block;
+  width: calc(var(--w) * 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pf-gold);
+}
+
+.pf-card__count {
+  color: var(--pf-ink);
+  font-weight: 500;
+}
+
+/* Musnad Ibrāhīm ibn Adham: the teacher cards carry the Silsilah regional
+   ground and accent beneath the same painted-gallery treatment. */
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='medina'] { --pf-region-ground: #0f3b2c; --pf-region-accent: #5fb38d; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='mecca'] { --pf-region-ground: #1b1e26; --pf-region-accent: #9aa3b5; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='basra'] { --pf-region-ground: #11263f; --pf-region-accent: #6aa3e0; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='kufa'] { --pf-region-ground: #3f1f1b; --pf-region-accent: #e0745f; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='wasit'] { --pf-region-ground: #2a1f3d; --pf-region-accent: #9b7fd1; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='baghdad'] { --pf-region-ground: #0f3a3f; --pf-region-accent: #4fb3b8; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='jibal'] { --pf-region-ground: #1c2150; --pf-region-accent: #7a86e0; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='merv'] { --pf-region-ground: #43230f; --pf-region-accent: #d9822b; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='nishapur'] { --pf-region-ground: #4a2c14; --pf-region-accent: #e8a05a; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='bukhara'] { --pf-region-ground: #3b1d12; --pf-region-accent: #c0713f; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='damascus'] { --pf-region-ground: #33351a; --pf-region-accent: #a3a847; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='unidentified'] { --pf-region-ground: #22211c; --pf-region-accent: #bfae86; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='mixed-kufa'] { --pf-region-ground: linear-gradient(125deg, #3f1f1b 0 64%, #22211c 64% 100%); --pf-region-accent: #c9846e; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='mixed-medina-basra'] { --pf-region-ground: linear-gradient(125deg, #0f3b2c 0 34%, #11263f 34% 68%, #22211c 68% 100%); --pf-region-accent: #78a68d; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='mixed-khurasan'] { --pf-region-ground: linear-gradient(125deg, #43230f 0 65%, #22211c 65% 100%); --pf-region-accent: #c68b56; }
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card[data-region='mixed-syria-kufa'] { --pf-region-ground: linear-gradient(125deg, #33351a 0 52%, #3f1f1b 52% 100%); --pf-region-accent: #b07b61; }
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__frame {
+  aspect-ratio: 2 / 3;
+  border: 1px solid color-mix(in srgb, var(--pf-region-accent, var(--pf-gold)) 48%, transparent);
+  background: var(--pf-region-ground, #1a1612);
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__body {
+  margin-top: -14px;
+  padding: 23px 16px 16px;
+  border: 1px solid color-mix(in srgb, var(--pf-region-accent, var(--pf-gold)) 32%, transparent);
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--pf-region-accent, var(--pf-gold)) 18%, var(--pf-card)), var(--pf-card));
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__meta,
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__arabic {
+  color: var(--pf-region-accent, var(--pf-gold));
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__meta {
+  border-color: color-mix(in srgb, var(--pf-region-accent, var(--pf-gold)) 34%, transparent);
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__subject {
+  color: color-mix(in srgb, var(--pf-region-accent, var(--pf-muted)) 70%, var(--pf-ink));
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__fill {
+  background: var(--pf-region-accent, var(--pf-gold));
+}
+
+.pf-page[data-collection='musnad-ibrahim-ibn-adham'] .pf-card__link:focus-visible .pf-card__frame {
+  outline-color: var(--pf-region-accent, var(--pf-gold));
+}
+
+.pf-empty {
+  margin: 24px 0 0;
+  padding: 40px 0;
+  border-top: 1px solid var(--pf-line);
+  border-bottom: 1px solid var(--pf-line);
+  text-align: center;
+  color: var(--pf-muted);
+  font-size: 17px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .pf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .pf-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pf-kbd {
+    display: none;
+  }
+
+  .pf-dist__cols {
+    height: 132px;
+    gap: 2px;
+  }
+
+  /* Every fourth number, and the last, keep the axis readable. */
+  .pf-dist__col:not(:nth-child(4n + 1)):not(:last-child) .pf-dist__num {
+    visibility: hidden;
+  }
+
+  .pf-dist__scale {
+    display: none;
+  }
+
+  .pf-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: calc(-1 * var(--pf-gutter));
+    padding: 2px var(--pf-gutter);
+    scrollbar-width: none;
+  }
+
+  .pf-chip {
+    flex: none;
+  }
+
+  .pf-card__go {
+    opacity: 1;
+    translate: none;
+  }
+}
+
+@media (hover: none) {
+  .pf-card__go {
+    opacity: 1;
+    translate: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-card__frame,
+  .pf-card__art,
+  .pf-card__go,
+  .pf-card__title,
+  .pf-dist__bar,
+  .pf-dist__col {
+    transition: none;
+  }
+
+  .pf-card__link:hover .pf-card__frame,
+  .pf-card__link:focus-visible .pf-card__frame {
+    translate: none;
+  }
+
+  .pf-card__link:hover .pf-card__art,
+  .pf-card__link:focus-visible .pf-card__art {
+    transform: none;
+  }
+}

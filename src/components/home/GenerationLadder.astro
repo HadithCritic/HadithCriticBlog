@@ -1,0 +1,244 @@
+---
+/* Ibn Ḥajar's twelve generations as a ladder, the Companions at the top, each
+   rung with a bar for how many entries of the Taqrīb fall in it. Hovering or
+   focusing a rung shows its count, a typical death year and one named
+   narrator in the panel under it (home-detail-panel.ts). On first view the
+   rail draws down and the bars grow rung by rung (data-reveal-once); without
+   script or under reduced motion the ladder is simply there. */
+import type { LadderFigure } from "../../lib/home-narrators";
+import { formatCount, ordinal } from "../../lib/home-data-core";
+
+interface Props {
+  ladder: LadderFigure;
+  crossReferences: number;
+}
+
+const { ladder, crossReferences } = Astro.props;
+const rungFacts = (count: number, typicalDeath: number | null) =>
+  `${formatCount(count)} narrators${typicalDeath ? `; half of those dated died by ${typicalDeath} AH` : ""}`;
+---
+
+<figure class="gladder" data-detail-panel data-detail-roving data-reveal-once aria-labelledby="gladder-title" style={`--rungs: ${ladder.rungs.length}`}>
+  <p id="gladder-title" class="gladder__kicker">The twelve generations</p>
+
+  <ol class="gladder__rungs" data-detail-area>
+    {ladder.rungs.map((rung, index) => (
+      <li class="gladder__rung" style={`--share: ${rung.share}; --i: ${index}`}>
+        <span class="gladder__hit" tabindex="0" data-detail-key={`g${rung.n}`}>
+          <span class="gladder__n">{ordinal(rung.n)}</span>
+          <span class="gladder__track"><span class="gladder__bar"></span></span>
+          <span class="gladder__count">{formatCount(rung.count)}</span>
+          <span class="sr-only">generation, {rung.label}: {rungFacts(rung.count, rung.typicalDeath)}. For example {rung.example}.</span>
+        </span>
+      </li>
+    ))}
+  </ol>
+
+  <div class="gladder__detail" aria-hidden="true">
+    <div class="gladder__card" data-detail="">
+      <p class="gladder__card-meta">{formatCount(ladder.placed)} of {formatCount(ladder.total)} entries placed</p>
+      <p class="gladder__card-title">Each rung is a generation of transmitters</p>
+      <p class="gladder__card-facts">
+        Ibn Ḥajar sets every narrator in one of twelve generations, from the Companions down to the
+        teachers of the six books' compilers. {formatCount(crossReferences)} cross-references lead from
+        other forms of a name to its entry.
+      </p>
+    </div>
+    {ladder.rungs.map((rung) => (
+      <div class="gladder__card" data-detail={`g${rung.n}`} hidden>
+        <p class="gladder__card-meta">{ordinal(rung.n)} generation · {rungFacts(rung.count, rung.typicalDeath)}</p>
+        <p class="gladder__card-title">{rung.label[0].toUpperCase() + rung.label.slice(1)}</p>
+        <p class="gladder__card-facts">For example {rung.example}.</p>
+      </div>
+    ))}
+  </div>
+</figure>
+
+<style>
+  .gladder {
+    --gladder-step: 70ms;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: clamp(1.1rem, 3vw, 1.6rem);
+    border: 1px solid var(--home-line);
+    border-radius: 18px;
+    background: var(--home-card);
+    box-shadow: var(--home-shadow);
+    color: var(--hc-text-primary);
+  }
+
+  .gladder__kicker {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.2 var(--font-ui);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ── Rungs ──────────────────────────────────────────────────── */
+
+  .gladder__rungs {
+    position: relative;
+    display: grid;
+    flex: 1;
+    grid-auto-rows: minmax(1.9rem, 1fr);
+    gap: 2px;
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* The rail the rungs hang from. */
+  .gladder__rungs::before {
+    content: "";
+    position: absolute;
+    top: 0.6rem;
+    bottom: 0.6rem;
+    left: 2.6rem;
+    width: 1px;
+    background: var(--home-line-strong);
+    transform-origin: top;
+  }
+
+  .gladder__rung {
+    display: flex;
+    transition: opacity var(--motion-base) var(--ease-standard);
+  }
+
+  .gladder__hit {
+    display: grid;
+    flex: 1;
+    align-self: stretch;
+    grid-template-columns: 2.2rem minmax(0, 1fr) 3.4rem;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.28rem 0.4rem 0.28rem 0;
+    border-radius: 6px;
+    cursor: default;
+  }
+
+  .gladder__hit:focus-visible {
+    --hc-focus-offset: 1px;
+  }
+
+  .gladder__n {
+    color: var(--hc-text-tertiary);
+    font: 600 var(--fs-xs)/1 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+    text-align: right;
+  }
+
+  .gladder__track {
+    position: relative;
+    display: block;
+    height: 12px;
+  }
+
+  /* The rung itself: a short tick from the rail. */
+  .gladder__track::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -0.45rem;
+    width: 7px;
+    height: 7px;
+    border: 1px solid var(--hc-gold);
+    border-radius: 50%;
+    background: var(--home-card);
+    translate: 0 -50%;
+  }
+
+  .gladder__bar {
+    position: absolute;
+    inset: 2px auto 2px 0.6rem;
+    width: calc((100% - 0.6rem) * max(var(--share), 0.012));
+    border-radius: 0 3px 3px 0;
+    background: linear-gradient(to right, color-mix(in srgb, var(--hc-gold) 55%, transparent), var(--hc-gold));
+    transform-origin: left;
+  }
+
+  .gladder__count {
+    color: var(--hc-text-secondary);
+    font: 500 var(--fs-xs)/1 var(--font-ui);
+    font-variant-numeric: lining-nums tabular-nums;
+    text-align: right;
+  }
+
+  .gladder[data-active] .gladder__rung:not(.is-active) {
+    opacity: 0.4;
+  }
+
+  .gladder__rung.is-active .gladder__n,
+  .gladder__rung.is-active .gladder__count {
+    color: var(--hc-text-primary);
+  }
+
+  /* ── Panel ──────────────────────────────────────────────────── */
+
+  .gladder__detail {
+    display: grid;
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--home-line);
+  }
+
+  .gladder__card {
+    grid-area: 1 / 1;
+  }
+
+  .gladder__card[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+
+  .gladder__card-meta {
+    margin: 0;
+    color: var(--hc-gold);
+    font: 600 var(--fs-xs)/1.4 var(--font-ui);
+    font-variant-numeric: lining-nums;
+  }
+
+  .gladder__card-title {
+    margin: 0.3rem 0 0;
+    font: 600 1.2rem/1.25 var(--font-display);
+  }
+
+  .gladder__card-facts {
+    margin: 0.3rem 0 0;
+    color: var(--hc-text-secondary);
+    font: 400 var(--fs-sm)/1.5 var(--font-body);
+  }
+
+  /* ── First view: the rail draws, then the rungs fill ────────── */
+
+  .gladder.is-armed .gladder__rungs::before {
+    transform: scaleY(0);
+  }
+
+  .gladder.is-armed .gladder__bar {
+    transform: scaleX(0);
+  }
+
+  .gladder.is-playing .gladder__rungs::before {
+    transform: scaleY(1);
+    transition: transform calc(var(--rungs) * var(--gladder-step)) linear;
+  }
+
+  .gladder.is-playing .gladder__bar {
+    transform: scaleX(1);
+    transition: transform var(--motion-settle) var(--ease-in-out-quart) calc(var(--i) * var(--gladder-step) + 120ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gladder.is-armed .gladder__rungs::before,
+    .gladder.is-armed .gladder__bar {
+      transform: none;
+      transition: none;
+    }
+
+    .gladder__rung {
+      transition: none;
+    }
+  }
+</style>
