@@ -17,7 +17,7 @@ import { identityFor } from '../../data/hadith/collection-identities';
 import { compilerFor } from '../../lib/hadith-compilers';
 import { medallionFor } from '../../lib/hadith-art';
 import { LIBRARY_COLLECTIONS } from '../../lib/hadith-library';
-import type { CollectionFrontData } from '../../lib/collection-front';
+import { GENERIC_LEDE, type CollectionFrontData } from '../../lib/collection-front';
 import HomeButton from '../home/HomeButton.astro';
 import PaintedBookIndex from './PaintedBookIndex.astro';
 import type { BookGroup } from '../../data/hadith/musnad-abu-hanifa-groups';
@@ -52,7 +52,11 @@ interface Props {
   heroAlt: string;
   /** Arabic name of the place and the recension, shown on the fact cards. */
   placeAr: string;
-  viaAr: string;
+  viaAr?: string;
+  /** How the compiler is named on the death-year stat, when the first two words of the name will not do. */
+  shortName?: string;
+  /** The line under the arrangement, such as "From Ablution to Wills". */
+  span?: string;
   /** Subjects for the index chips and chart; every book in exactly one. */
   groups: readonly BookGroup[];
   itemSingular?: string;
@@ -70,6 +74,9 @@ if (covers.length !== chapters.length) {
 }
 
 const identity = identityFor(slug);
+/* The work's own lede first, then the HTML's, unless that is the generic one. */
+const lede = identity.lede ?? (GENERIC_LEDE.test(front.lede) ? '' : front.lede);
+const edition = /^not recorded/i.test(identity.edition) ? '' : identity.edition;
 const compiler = compilerFor(slug);
 if (!compiler) throw new Error(`${slug}: no compiler in hadith-compilers.ts`);
 const medallion = medallionFor(compiler);
@@ -87,6 +94,7 @@ const lastSpace = workName.lastIndexOf(' ');
 const headLead = workName.slice(0, lastSpace + 1);
 const headAccent = workName.slice(lastSpace + 1);
 const recension = compiler.via ? compiler.via[0].toUpperCase() + compiler.via.slice(1) : '';
+const shortName = Astro.props.shortName ?? compiler.name.split(' ').slice(0, 2).join(' ');
 
 const books = chapters.map((chapter, i) => ({
   ...chapter,
@@ -103,7 +111,7 @@ const books = chapters.map((chapter, i) => ({
 const shortTitle = (title: string) =>
   title.replace(/^(The )?Book of (the )?/i, '').replace(/\s*\(.*$/, '').split(/,| and /)[0].trim();
 const lastWord = (title: string) => title.trim().split(/\s+/).pop() ?? title;
-const span = `From ${shortTitle(chapters[0].title_en)} to ${lastWord(chapters[chapters.length - 1].title_en)}`;
+const span = Astro.props.span ?? `From ${shortTitle(chapters[0].title_en)} to ${lastWord(chapters[chapters.length - 1].title_en)}`;
 
 const heroSrc = Astro.props.heroSrc ?? `${coverRoot}/hero.jpg`;
 const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
@@ -133,7 +141,7 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
         {recension && <span class="pf-dot" aria-hidden="true">·</span>}
         <span>{slug === 'musnad-abu-hanifa' ? 'Reports attributed to' : 'Compiled by'} {front.compiler}{front.date && `, ${front.date}`}</span>
       </p>
-      <p class="pf-hero__lede">{identity.lede}</p>
+      {lede && <p class="pf-hero__lede">{lede}</p>}
       <div class="pf-hero__actions">
         <HomeButton href={chapterHref(1)} variant="light">Begin reading</HomeButton>
         <HomeButton href="#pf-index" variant="glass">Explore {chapters.length}{' '}{itemPlural}</HomeButton>
@@ -142,7 +150,7 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
     <dl class="pf-stats">
       <div><dt>{itemPlural}</dt><dd>{chapters.length}</dd></div>
       <div><dt>Entries in Arabic and English</dt><dd>{total}</dd></div>
-      {deathYear && <div><dt>Death of {compiler.name.split(' ').slice(0, 2).join(' ')}</dt><dd>{deathYear}</dd></div>}
+      {deathYear && <div><dt>Death of {shortName}</dt><dd>{deathYear}</dd></div>}
     </dl>
   </section>
 
@@ -160,13 +168,20 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
           <span class="pf-fact__arabic" lang="ar" dir="rtl">{placeAr}</span>
         </dd>
       </div>
-      <div class="pf-fact">
-        <dt class="pf-fact__label">Transmission</dt>
-        <dd>
-          <span class="pf-fact__value">{recension}</span>
-          <span class="pf-fact__arabic" lang="ar" dir="rtl">{viaAr}</span>
-        </dd>
-      </div>
+      {recension ? (
+        <div class="pf-fact">
+          <dt class="pf-fact__label">Transmission</dt>
+          <dd>
+            <span class="pf-fact__value">{recension}</span>
+            {viaAr && <span class="pf-fact__arabic" lang="ar" dir="rtl">{viaAr}</span>}
+          </dd>
+        </div>
+      ) : edition && (
+        <div class="pf-fact">
+          <dt class="pf-fact__label">Edition</dt>
+          <dd><span class="pf-fact__value pf-fact__value--small">{edition}</span></dd>
+        </div>
+      )}
       <div class="pf-fact">
         <dt class="pf-fact__label">Arrangement</dt>
         <dd>

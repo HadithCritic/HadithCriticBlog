@@ -53,3 +53,27 @@ test('sorting by entries puts the largest book first and keeps book order on tie
   assert.deepEqual(ties, [...ties].sort((a, b) => a - b));
   assert.deepEqual(sortEntries(bySize, 'book').map((book) => book.n), chapters.map((chapter) => chapter.n));
 });
+
+test('every painted 3rd-century collection groups each chapter once and has a plate for it', async () => {
+  const { PAINTED_COLLECTIONS, groupsBySize } = await import('../../data/hadith/painted-collections.ts');
+  const meta = JSON.parse(readFileSync(new URL('../../data/hadith/chapter-cover-meta.json', import.meta.url), 'utf8'));
+  for (const [slug, config] of Object.entries(PAINTED_COLLECTIONS)) {
+    const index = JSON.parse(readFileSync(new URL(`../../data/hadith/pages/${slug}/chapter-index.json`, import.meta.url), 'utf8'));
+    const numbers = index.map((chapter) => chapter.n);
+    const groups = config.groups === 'by-size' ? groupsBySize(index) : config.groups;
+    assert.equal(groupByBook(groups, numbers).size, numbers.length, slug);
+    assert.deepEqual(meta[slug].map((plate) => plate.n), numbers, `${slug}: plates out of step with the chapters`);
+    for (const n of numbers) {
+      const plate = new URL(`../../../public/images/hadith/chapter-covers/${slug}/${String(n).padStart(2, '0')}.webp`, import.meta.url);
+      assert.ok(existsSync(plate), `${slug}: missing plate ${n}`);
+    }
+    assert.ok(existsSync(new URL(`../../../public/images/hadith/covers/${slug}.webp`, import.meta.url)), `${slug}: missing hero`);
+  }
+});
+
+test('a group list may skip book numbers the collection does not have', () => {
+  const groups = [{ id: 'a', label: 'A', books: [1, 3] }];
+  assert.equal(groupByBook(groups, [1, 3]).size, 2);
+  assert.throws(() => groupByBook(groups, [1, 2, 3]), /no subject/);
+  assert.throws(() => groupByBook(groups, [1]), /not in the collection/);
+});

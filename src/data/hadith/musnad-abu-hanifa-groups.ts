@@ -19,8 +19,14 @@ export const MUSNAD_ABU_HANIFA_GROUPS: readonly BookGroup[] = [
   { id: 'end', label: 'Trials and the end', books: [30, 33] }
 ];
 
-/** The subject of each book by its number; throws if the list has a gap or a repeat. */
-export function groupByBook(groups: readonly BookGroup[], bookCount: number): ReadonlyMap<number, BookGroup> {
+/**
+ * The subject of each book by its number; throws if the list has a gap or a repeat.
+ * Pass a count when the books run 1..n, or the book numbers when some are missing.
+ */
+export function groupByBook(
+  groups: readonly BookGroup[],
+  books: number | readonly number[]
+): ReadonlyMap<number, BookGroup> {
   const map = new Map<number, BookGroup>();
   for (const group of groups) {
     for (const book of group.books) {
@@ -28,8 +34,12 @@ export function groupByBook(groups: readonly BookGroup[], bookCount: number): Re
       map.set(book, group);
     }
   }
-  for (let n = 1; n <= bookCount; n += 1) {
+  const numbers = typeof books === 'number' ? Array.from({ length: books }, (_, i) => i + 1) : books;
+  for (const n of numbers) {
     if (!map.has(n)) throw new Error(`Book ${n} has no subject in the groups list`);
   }
+  const known = new Set(numbers);
+  const stray = [...map.keys()].find((n) => !known.has(n));
+  if (stray !== undefined) throw new Error(`Book ${stray} is in the groups list but not in the collection`);
   return map;
 }

@@ -1,0 +1,64 @@
+---
+/**
+ * A painted front page for a 3rd-century collection: PaintedFront with its
+ * plates read from chapter-cover-meta.json and its words and groups from
+ * painted-collections.ts. The hero is the collection's card cover.
+ */
+import PaintedFront from './PaintedFront.astro';
+import type { CollectionFrontData } from '../../lib/collection-front';
+import coverMeta from '../../data/hadith/chapter-cover-meta.json';
+import { groupsBySize, paintedCollection } from '../../data/hadith/painted-collections';
+
+interface Chapter {
+  n: number;
+  title_en: string;
+  title_ar: string;
+  count: number;
+}
+
+interface Props {
+  slug: string;
+  front: CollectionFrontData;
+  chapters: Chapter[];
+}
+
+interface PlateMeta {
+  n: number;
+  title: string;
+  alt: string;
+}
+
+const { slug, front, chapters } = Astro.props;
+const config = paintedCollection(slug);
+const plates = (coverMeta as Record<string, PlateMeta[] | undefined>)[slug];
+if (!plates) throw new Error(`${slug}: no plates in chapter-cover-meta.json; rerun build-chapter-cover-meta.mjs`);
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const coverRoot = `/images/hadith/chapter-covers/${slug}`;
+const covers = chapters.map((chapter) => {
+  const plate = plates.find((entry) => entry.n === chapter.n);
+  if (!plate) throw new Error(`${slug}: chapter ${chapter.n} has no plate in chapter-cover-meta.json`);
+  return { stem: pad(chapter.n), title: plate.title, alt: plate.alt, src: `${coverRoot}/${pad(chapter.n)}.webp`, width: 880, height: 1056 };
+});
+const groups = config.groups === 'by-size' ? groupsBySize(chapters) : config.groups;
+const heroSrc = `/images/hadith/covers/${slug}.webp`;
+const span = `From ${covers[0].title} to ${covers[covers.length - 1].title}`;
+---
+
+<PaintedFront
+  slug={slug}
+  front={front}
+  chapters={chapters}
+  covers={covers}
+  heroSrc={heroSrc}
+  heroSmall={heroSrc}
+  heroAlt={config.heroAlt}
+  placeAr={config.placeAr}
+  viaAr={config.viaAr}
+  shortName={config.shortName}
+  span={span}
+  groups={groups}
+  itemSingular={config.itemSingular}
+  itemPlural={config.itemPlural}
+  arrangement={`${chapters.length} ${config.arrangement}`}
+/>

@@ -40,7 +40,13 @@ const { books, groups, chapterHref } = Astro.props;
 const itemSingular = Astro.props.itemSingular ?? 'book';
 const itemPlural = Astro.props.itemPlural ?? 'books';
 const capitalizedSingular = itemSingular.charAt(0).toUpperCase() + itemSingular.slice(1);
-const subjectOf = groupByBook(groups, books.length);
+const subjectOf = groupByBook(groups, books.map((book) => book.n));
+/* Past 40 columns the chart closes its gaps and labels only every tenth
+   (or 25th) column, and the columns rise in the same time as a short book. */
+const dense = books.length > 40;
+const labelStep = books.length > 150 ? 25 : 10;
+const showNum = (n: number) => !dense || n === 1 || n % labelStep === 0;
+const riseStep = Math.min(1, 40 / books.length);
 const total = books.reduce((sum, book) => sum + book.count, 0);
 const largest = books.reduce((top, book) => (book.count > top.count ? book : top), books[0]);
 const smallBooks = books.filter((book) => book.count <= 3).length;
@@ -98,12 +104,12 @@ const groupCounts = groups.map((group) => ({ ...group, size: group.books.length 
       <p id="pf-dist-title" class="pf-dist__kicker">Entries in each {itemSingular}</p>
       <p class="pf-dist__scale" aria-hidden="true">Tallest column: {largest.count}</p>
     </figcaption>
-    <ol class="pf-dist__cols" data-detail-area style={`--books: ${books.length}`}>
+    <ol class:list={['pf-dist__cols', { 'pf-dist__cols--dense': dense }]} data-detail-area style={`--books: ${books.length}`}>
       {cards.map((book, i) => (
-        <li class="pf-dist__col" data-pf-bar={book.n} style={`--h: ${book.count / largest.count}; --i: ${i}`}>
+        <li class="pf-dist__col" data-pf-bar={book.n} style={`--h: ${book.count / largest.count}; --i: ${(i * riseStep).toFixed(2)}`}>
           <a href={book.href} data-detail-key={`b${book.n}`} aria-label={`${capitalizedSingular} ${book.n}: ${book.short}, ${entries(book.count)}`}>
             <span class="pf-dist__bar" aria-hidden="true"></span>
-            <span class="pf-dist__num" aria-hidden="true">{book.n}</span>
+            <span class="pf-dist__num" aria-hidden="true">{showNum(book.n) ? book.n : ''}</span>
           </a>
         </li>
       ))}
