@@ -371,20 +371,32 @@ function chapterMarkup(entry, entries, config, source, shell, preparedByRecord) 
     ? `Edition pages ${Math.min(...pages)}${Math.max(...pages) !== Math.min(...pages) ? `–${Math.max(...pages)}` : ''}`
     : edition;
   const nav = entry.navigation;
-  const groupCrumb = nav ? `<a href="${url}#group-${nav.group.number}" title="Subject group (editorial)">${esc(nav.group.title_en)}</a><span class="slash">/</span>` : '';
+  const groupCrumb = nav ? `<a href="${url}#group-${nav.group.number}" title="${nav.kind === 'book' ? 'Book division in the source edition' : 'Subject group (editorial)'}">${esc(nav.group.title_en)}</a><span class="slash">/</span>` : '';
   const navSpans = nav
-    ? `<span title="The subject groups are an editorial aid, not divisions of the work">Subject group ${pad(nav.group.number)}: ${esc(nav.group.title_en)}</span><span>${esc(HEADING_TYPES[nav.headingType])} in the edition</span><span>${esc(nav.range)}</span>`
+    ? `<span title="${nav.kind === 'book' ? 'Book division in the source edition' : 'Editorial subject group'}">${nav.kind === 'book' ? 'Book' : 'Subject group'} ${pad(nav.group.number)}: ${esc(nav.group.title_en)}</span><span>${esc(HEADING_TYPES[nav.headingType])} in the edition</span><span>${esc(nav.range)}</span>`
     : '';
-  const hero = `<section class="hero" aria-labelledby="chapter-title"><div class="hero-inner"><div class="breadcrumb"><a href="/hadith/">Corpus</a><span class="slash">/</span><a href="${url}">${esc(collection.short_name || collection.title_en)}</a><span class="slash">/</span>${groupCrumb}<span>${unitNoun} ${pad(entry.number)}</span></div><div class="hero-grid"><div><div class="eyebrow">${esc(collection.title_en)} · ${unitNoun} ${pad(entry.number)}</div><h1 id="chapter-title">${esc(entry.title_en)}</h1><p class="hero-desc">Read ${reportCount} in Arabic and English, with their transmission paths and source references.</p></div><div class="hero-right"><div class="hero-ar" lang="ar" dir="rtl">${esc(entry.title_ar)}</div><div class="hero-author">${esc(config.compiler)}</div></div></div><div class="hero-footer"><span>${pad(entry.number)} / ${entries.length} ${config.noun.toLowerCase()}s</span>${navSpans}<span>${reportCount}</span>${editionSpan ? `<span>${esc(editionSpan)}</span>` : ''}</div></div></section>`;
+  const sourceGroupHeading = entry.source_group_title_en
+    ? `<p class="chapter-parent-heading">${esc(entry.source_group_title_en)}${entry.source_group_title_ar ? ` <span lang="ar" dir="rtl">${esc(entry.source_group_title_ar)}</span>` : ''}</p>`
+    : '';
+  const hero = `<section class="hero" aria-labelledby="chapter-title"><div class="hero-inner"><div class="breadcrumb"><a href="/hadith/">Corpus</a><span class="slash">/</span><a href="${url}">${esc(collection.short_name || collection.title_en)}</a><span class="slash">/</span>${groupCrumb}<span>${unitNoun} ${pad(entry.number)}</span></div><div class="hero-grid"><div><div class="eyebrow">${esc(collection.title_en)} · ${unitNoun} ${pad(entry.number)}</div>${sourceGroupHeading}<h1 id="chapter-title">${esc(entry.title_en)}</h1><p class="hero-desc">Read ${reportCount} in Arabic and English, with their transmission paths and source references.</p></div><div class="hero-right"><div class="hero-ar" lang="ar" dir="rtl">${esc(entry.title_ar)}</div><div class="hero-author">${esc(config.compiler)}</div></div></div><div class="hero-footer"><span>${pad(entry.number)} / ${entries.length} ${config.noun.toLowerCase()}s</span>${navSpans}<span>${reportCount}</span>${editionSpan ? `<span>${esc(editionSpan)}</span>` : ''}</div></div></section>`;
   const toolbar = `<div class="toolbar-holder"><div class="toolbar"><span class="toolbar-title">${unitNoun} ${pad(entry.number)} · ${entry.sections ? 'Read the sections' : 'Read the entries'}</span><div class="toolbar-controls"><label for="jump" style="position:absolute;width:1px;height:1px;overflow:hidden">Jump to entry</label><select class="jump" id="jump"><option value="">Jump to an entry</option>${reportOptions}</select><div class="segmented" role="group" aria-label="Language display"><button type="button" data-mode-button="parallel" aria-pressed="true">Both</button><button type="button" data-mode-button="english" aria-pressed="false">English</button><button type="button" data-mode-button="arabic" aria-pressed="false">العربية</button></div></div></div></div>`;
   const before = (entry.frames_before ?? []).map(frameMarkup).join('');
   const after = (entry.frames_after ?? []).map(frameMarkup).join('');
   const sections = (entry.sections ?? []).map(sectionMarkup).join('');
+  let lastSubheading = '';
   const records = config.layout === 'prose'
     ? proseMarkup(entry.records, config)
-    : entry.records.map(record => leadMarkup(record) + (config.layout === 'compact'
-      ? compactMarkup(record, entry, config, entry.records.length, source)
-      : reportMarkup(record, entry, config, entry.records.length, source, preparedByRecord.get(String(record.id))))).join('\n');
+    : entry.records.map(record => {
+      const sectionId = record.source_subheading_id ?? '';
+      const sourceHeading = record.source_subheading_en
+        ? `<div class="inline-heading"><h3>${formatEn(record.source_subheading_en)}</h3>${record.source_subheading_ar ? `<p lang="ar" dir="rtl">${formatText(record.source_subheading_ar)}</p>` : ''}</div>\n`
+        : '';
+      const heading = sectionId && sectionId !== lastSubheading ? sourceHeading : '';
+      if (sectionId) lastSubheading = sectionId;
+      return heading + leadMarkup(record) + (config.layout === 'compact'
+        ? compactMarkup(record, entry, config, entry.records.length, source)
+        : reportMarkup(record, entry, config, entry.records.length, source, preparedByRecord.get(String(record.id))));
+    }).join('\n');
   const shared = entry.shared_chain ? sharedChainMarkup(entry.shared_chain) : '';
   const pager = `<nav class="chapter-intro" aria-label="${config.noun} navigation"><div>${previous ? `<a href="${url}chapter/${previous.number}/">Previous ${(previous.noun || config.noun).toLowerCase()}</a>` : '<span></span>'}</div><a href="${url}">All ${config.noun.toLowerCase()}s</a><div>${next ? `<a href="${url}chapter/${next.number}/">Next ${(next.noun || config.noun).toLowerCase()}</a>` : '<span></span>'}</div></nav>`;
   const main = `<main id="main-content" class="chapter"><div class="chapter-intro"><div><h2>${esc(entry.title_en)}</h2><p>${entry.sections ? `All ${entry.sections.length} sections of the editor's material, in the source order.` : `All ${entry.records.length} source entries, in the compilation's supplied order.`}</p>${arabicHeadingMarkup(entry.title_ar)}</div>${entry.records.length ? `<a href="#hadith-${esc(slugId(entry.records[0].id))}">Start reading ↓</a>` : ''}</div>${before}${shared}${sections}${records}${after}${pager}</main>`;
@@ -402,7 +414,7 @@ function chapterMarkup(entry, entries, config, source, shell, preparedByRecord) 
  * the kind of heading the edition prints for it and the report numbers it spans. The groups must cover
  * every chapter once, in order, with the counts and number ranges the groups declare.
  */
-const HEADING_TYPES = { bab: 'Bāb heading', kitab: 'Kitāb heading', untitled_topic_heading: 'Heading without bāb' };
+const HEADING_TYPES = { bab: 'Bāb heading', kitab: 'Kitāb heading', untitled_topic_heading: 'Heading without bāb', chapter: 'Chapter heading' };
 function attachNavigation(entries, sourceGroups, navigation, config) {
   let cursor = 0;
   for (const group of navigation) {
@@ -426,6 +438,7 @@ function attachNavigation(entries, sourceGroups, navigation, config) {
       entry.navigation = {
         group,
         headingType: type,
+        kind: config.navigationKind ?? 'subject',
         range: String(startLabel) === String(endLabel) ? `No. ${startLabel}` : `Nos. ${startLabel}–${endLabel}`,
       };
     });
@@ -490,6 +503,7 @@ function collectionMarkup(source, entries, config) {
     ...(entry.navigation ? {
       group: entry.navigation.group.number,
       groupTitle: entry.navigation.group.title_en,
+      groupKind: entry.navigation.kind,
       meta: `${entry.navigation.range} · ${countText(entry.records.length, 'entry').replace(/entrys$/, 'entries')}`,
       ...(entry.navigation.headingType === 'kitab' ? { tag: 'Kitāb heading in the edition' } : {}),
     } : {}),
@@ -499,11 +513,12 @@ function collectionMarkup(source, entries, config) {
     number: group.number,
     title_en: group.title_en,
     title_ar: group.title_ar,
+    kindLabel: `${config.navigationLabel ?? 'Subject group'} ${String(group.number).padStart(2, '0')} of ${navigation.length} · ${config.navigationQualifier ?? 'editorial'}`,
     meta: `${group.section_count === 1 ? `Chapter ${group.first_section}` : `Chapters ${group.first_section}–${group.last_section}`} · ${group.hadith_number_start === group.hadith_number_end ? `No. ${group.hadith_number_start}` : `Nos. ${group.hadith_number_start}–${group.hadith_number_end}`} · ${countText(group.entry_count, 'entry').replace(/entrys$/, 'entries')}`,
   }));
   const collectionConfig = {
     groups,
-    ...(groups.length ? { indexDescription: `${entries.length} chapters under the edition's own headings, gathered into ${groups.length} subject groups to help you find your way. The groups are an editorial aid and not divisions of the work.` } : {}),
+    ...(groups.length ? { indexDescription: config.indexDescription ?? `${entries.length} chapters under the edition's own headings, gathered into ${groups.length} subject groups to help you find your way. The groups are an editorial aid and not divisions of the work.` } : {}),
     slug: config.slug,
     itemNoun: listEntries ? unitNoun : config.noun,
     heroDescription: metadata.description_en || undefined,
@@ -523,8 +538,9 @@ const localTitles = new Map(JSON.parse(fs.readFileSync('src/data/hadith/reader-e
 const only = process.argv.slice(2);
 for (const config of configs.filter(item => !only.length || only.includes(item.slug))) {
   const root = path.join(sourceRoot, config.slug);
-  const sourcePath = path.join(root, 'publication-source.json');
-  const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+  const sourcePath = config.sourcePath ? path.resolve(config.sourcePath) : path.join(root, 'publication-source.json');
+  const sourceData = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+  const source = config.prepareSource ? config.prepareSource(sourceData) : sourceData;
   const metadata = metadataFor(source, config);
   if (!metadata || !Array.isArray(source.books)) throw new Error(`${config.slug}: publication source is incomplete.`);
   const groups = config.groupsFor(source);
@@ -532,6 +548,10 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
     number: Number(group.number ?? group.sequence ?? index + 1),
     title_en: group.title_en || `${config.noun} ${index + 1}`,
     title_ar: group.title_ar || '',
+    ...(group.group != null ? { group: group.group } : {}),
+    ...(group.heading ? { heading: group.heading } : {}),
+    ...(group.source_group_title_en ? { source_group_title_en: group.source_group_title_en } : {}),
+    ...(group.source_group_title_ar ? { source_group_title_ar: group.source_group_title_ar } : {}),
     records: (group.records ?? []).map(config.normalizeRecord ?? (record => record)),
     ...(group.kind === 'apparatus' ? { sections: group.sections, noun: 'Appendix' } : {}),
     frames_before: group.frames_before, frames_after: group.frames_after, shared_chain: group.shared_chain,
@@ -561,9 +581,12 @@ for (const config of configs.filter(item => !only.length || only.includes(item.s
     ...(entry.navigation ? {
       group: entry.navigation.group.number,
       group_title_en: entry.navigation.group.title_en,
+      group_kind: entry.navigation.kind,
       heading_type: entry.navigation.headingType,
       range: entry.navigation.range,
     } : {}),
+    ...(entry.source_group_title_en ? { source_group_title_en: entry.source_group_title_en } : {}),
+    ...(entry.source_group_title_ar ? { source_group_title_ar: entry.source_group_title_ar } : {}),
     file: `chapters/${pad(entry.number)}.html`,
   }));
   for (const entry of entries) {

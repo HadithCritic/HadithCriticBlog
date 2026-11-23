@@ -1,17 +1,15 @@
 ---
 /**
- * A collection front page built around painted covers: a painted hero, an
- * account of the work, every book as a painted card with a live filter, the
- * edition notes and a closing subscribe band. Musnad Abī Ḥanīfa uses it.
+ * A collection front page with a painted work-level hero, a text-led book or
+ * chapter index, the edition notes and a closing subscribe band.
  *
  * The sections run edge to edge rather than sitting in boxes. A page adds its
  * own figures under the account of the work through the "after-work" slot.
  *
  * Words come from the same places as CollectionFront.astro: the collection's
  * HTML (title, compiler, edition notes), collection-identities.ts (lede,
- * account, era) and hadith-compilers.ts (place, recension). Book titles and
- * entry counts come from the collection's chapter-index.json. The covers are
- * passed in, one per book, in book order; a count mismatch fails the build.
+ * account, era) and hadith-compilers.ts (place, recension). Section titles
+ * and entry counts come from the collection's chapter-index.json.
  */
 import { identityFor } from '../../data/hadith/collection-identities';
 import { compilerFor } from '../../lib/hadith-compilers';
@@ -30,23 +28,10 @@ interface Chapter {
   count: number;
 }
 
-interface Cover {
-  stem: string;
-  alt: string;
-  title?: string;
-  region?: string;
-  src?: string;
-  srcFull?: string;
-  width?: number;
-  height?: number;
-}
-
 interface Props {
   slug: string;
   front: CollectionFrontData;
   chapters: Chapter[];
-  covers: readonly Cover[];
-  coverRoot?: string;
   heroSrc?: string;
   heroSmall?: string;
   heroAlt: string;
@@ -62,16 +47,19 @@ interface Props {
   itemSingular?: string;
   itemPlural?: string;
   arrangement?: string;
+  /** Overrides the default chapter route when entries open in a continuous reader. */
+  chapterHref?: (n: number) => string;
+  /** The compiler credit when the work is a written notebook rather than a compilation by the named transmitter. */
+  compilerLabel?: string;
 }
 
-const { slug, front, chapters, covers, heroAlt, placeAr, viaAr, groups } = Astro.props;
+const { slug, front, chapters, heroAlt, placeAr, viaAr, groups } = Astro.props;
 const itemSingular = Astro.props.itemSingular ?? 'book';
 const itemPlural = Astro.props.itemPlural ?? 'books';
+const compositionLabel = itemPlural === 'narrations' ? 'Narration composition' : 'Chapter composition';
 const arrangement = Astro.props.arrangement ?? `${chapters.length} books by topic`;
-const coverRoot = Astro.props.coverRoot ?? '';
-if (covers.length !== chapters.length) {
-  throw new Error(`${slug}: ${chapters.length} books but ${covers.length} painted covers`);
-}
+const chapterHref = Astro.props.chapterHref ?? ((n: number) => `/hadith/collection/${slug}/chapter/${n}/`);
+const compilerLabel = Astro.props.compilerLabel ?? (slug === 'musnad-abu-hanifa' ? 'Reports attributed to' : 'Compiled by');
 
 const identity = identityFor(slug);
 /* The work's own lede first, then the HTML's, unless that is the generic one. */
@@ -82,9 +70,12 @@ if (!compiler) throw new Error(`${slug}: no compiler in hadith-compilers.ts`);
 const medallion = medallionFor(compiler);
 const arabicTitle = LIBRARY_COLLECTIONS.find((book) => book.slug === slug)?.title_ar ?? '';
 const total = chapters.reduce((sum, chapter) => sum + chapter.count, 0);
-const deathYear = front.date.replace(/^d\.\s*/, '');
+const composition = {
+  single: chapters.filter((chapter) => chapter.count === 1).length,
+  short: chapters.filter((chapter) => chapter.count >= 2 && chapter.count < 10).length,
+  extended: chapters.filter((chapter) => chapter.count >= 10).length
+};
 const pad = (n: number) => String(n).padStart(2, '0');
-const chapterHref = (n: number) => `/hadith/collection/${slug}/chapter/${n}/`;
 
 /* "Musnad Abī Ḥanīfa, riwāyat al-Ḥaṣkafī": the headline keeps the work's
    name and sets its last word in italic; the recension goes on its own line. */
@@ -94,18 +85,8 @@ const lastSpace = workName.lastIndexOf(' ');
 const headLead = workName.slice(0, lastSpace + 1);
 const headAccent = workName.slice(lastSpace + 1);
 const recension = compiler.via ? compiler.via[0].toUpperCase() + compiler.via.slice(1) : '';
-const shortName = Astro.props.shortName ?? compiler.name.split(' ').slice(0, 2).join(' ');
 
-const books = chapters.map((chapter, i) => ({
-  ...chapter,
-  shortTitle: covers[i].title,
-  src: covers[i].src ?? `${coverRoot}/${pad(chapter.n)}-${covers[i].stem}-880.jpg`,
-  srcFull: covers[i].srcFull ?? (covers[i].src ? undefined : `${coverRoot}/${pad(chapter.n)}-${covers[i].stem}.jpg`),
-  alt: covers[i].alt,
-  region: covers[i].region,
-  width: covers[i].width,
-  height: covers[i].height
-}));
+const books = chapters;
 
 /* "Faith to Paradise": the first and last book in a few words. */
 const shortTitle = (title: string) =>
@@ -113,8 +94,8 @@ const shortTitle = (title: string) =>
 const lastWord = (title: string) => title.trim().split(/\s+/).pop() ?? title;
 const span = Astro.props.span ?? `From ${shortTitle(chapters[0].title_en)} to ${lastWord(chapters[chapters.length - 1].title_en)}`;
 
-const heroSrc = Astro.props.heroSrc ?? `${coverRoot}/hero.jpg`;
-const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
+const heroSrc = Astro.props.heroSrc ?? `/images/hadith/covers/${slug}.webp`;
+const heroSmall = Astro.props.heroSmall ?? heroSrc;
 ---
 
 <div class="pf-page" data-collection={slug}>
@@ -133,13 +114,13 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
     <div class="pf-hero__scrim" aria-hidden="true"></div>
     <div class="pf-hero__content">
       <p class="pf-kicker pf-kicker--hero">Hadith corpus · {compiler.origin} · {identity.era}</p>
-      {medallion && <img class="pf-medallion" src={medallion} width="92" height="92" alt={`Medallion portrait of ${compiler.name}`} />}
       <h1 id="pf-title" class="pf-hero__title">{headLead}<em>{headAccent}</em></h1>
       {arabicTitle && <p class="pf-hero__arabic" lang="ar" dir="rtl">{arabicTitle}</p>}
       <p class="pf-hero__byline">
+        {medallion && <img class="pf-medallion" src={medallion} width="44" height="44" alt="" />}
         {recension && <span>{recension}</span>}
         {recension && <span class="pf-dot" aria-hidden="true">·</span>}
-        <span>{slug === 'musnad-abu-hanifa' ? 'Reports attributed to' : 'Compiled by'} {front.compiler}{front.date && `, ${front.date}`}</span>
+        <span>{compilerLabel && <>{compilerLabel} </>}{front.compiler}{front.date && `, ${front.date}`}</span>
       </p>
       {lede && <p class="pf-hero__lede">{lede}</p>}
       <div class="pf-hero__actions">
@@ -147,12 +128,24 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
         <HomeButton href="#pf-index" variant="glass">Explore {chapters.length}{' '}{itemPlural}</HomeButton>
       </div>
     </div>
-    <dl class="pf-stats">
-      <div><dt>{itemPlural}</dt><dd>{chapters.length}</dd></div>
-      <div><dt>Entries in Arabic and English</dt><dd>{total}</dd></div>
-      {deathYear && <div><dt>Death of {shortName}</dt><dd>{deathYear}</dd></div>}
+    <dl class="pf-stats" aria-label="Collection overview">
+      <div><dt>Reports</dt><dd>{total.toLocaleString('en-US')}</dd></div>
+      <div><dt>{itemPlural} in source order</dt><dd>{chapters.length.toLocaleString('en-US')}</dd></div>
+      <div class="pf-stats__composition">
+        <dt>{compositionLabel} <span>By number of reports</span></dt>
+        <dd>
+          <span class="pf-composition-bars" role="img" aria-label={`${composition.single} single-report chapters, ${composition.short} chapters with 2 to 9 reports, and ${composition.extended} chapters with 10 or more reports`}>
+            <i style={`--part:${composition.single}`} title={`${composition.single} single-report chapters`}></i>
+            <i style={`--part:${composition.short}`} title={`${composition.short} chapters with 2 to 9 reports`}></i>
+            <i style={`--part:${composition.extended}`} title={`${composition.extended} chapters with 10 or more reports`}></i>
+          </span>
+          <span class="pf-composition-legend">{composition.single} single <b>·</b> {composition.short} short <b>·</b> {composition.extended} extended</span>
+        </dd>
+      </div>
     </dl>
   </section>
+
+  <PaintedBookIndex books={books} groups={groups} chapterHref={chapterHref} itemSingular={itemSingular} itemPlural={itemPlural} />
 
   <section class="pf-section pf-work" aria-labelledby="pf-work-title">
     <div class="pf-work__text reveal">
@@ -193,8 +186,6 @@ const heroSmall = Astro.props.heroSmall ?? `${coverRoot}/hero-1200.jpg`;
   </section>
 
   <slot name="after-work" />
-
-  <PaintedBookIndex books={books} groups={groups} chapterHref={chapterHref} itemSingular={itemSingular} itemPlural={itemPlural} />
 
   <section class="pf-band pf-band--indigo pf-edition" aria-labelledby="pf-edition-title">
     <div class="pf-wrap pf-edition__layout">

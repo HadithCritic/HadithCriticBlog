@@ -1,19 +1,308 @@
 ---
-import BaseLayout from '../../../../layouts/BaseLayout.astro';
-import reader from '../../../../data/hadith/pages/sahifat-hammam-ibn-munabbih/reader.html?raw';
+import BaseLayout from "../../../../layouts/BaseLayout.astro";
+import { OG } from "../../../../lib/seo";
+import { coverFor } from "../../../../lib/hadith-art";
+import sourceChapter from "../../../../data/hadith/pages/ahadith-al-sari-an-al-thawri/chapters/01.html?raw";
+import readerHtml from "../../../../data/hadith/pages/sahifat-hammam-ibn-munabbih/reader.html?raw";
+import opening from "../../../../data/hadith/pages/sahifat-hammam-ibn-munabbih/reader-opening.json";
+import folioStyles from "../../../../styles/hadith-chapter-folio.css?raw";
 
-const title = 'Ṣaḥīfat Hammām ibn Munabbih';
+interface Report {
+  id: string;
+  number: number | null;
+  source_number: number | null;
+  en: string;
+  ar: string;
+}
+
+interface ReaderData {
+  reports: Report[];
+  introduction: string[];
+}
+
+const slug = "sahifat-hammam-ibn-munabbih";
+const title = "Ṣaḥīfat Hammām ibn Munabbih";
+const collectionUrl = `/hadith/collection/${slug}/`;
+const rawData = readerHtml.match(/<script type="application\/json" id="sf-data">([\s\S]*?)<\/script>/)?.[1];
+if (!rawData) throw new Error(`${slug}: the reader data block is missing`);
+const readerData = JSON.parse(rawData) as ReaderData;
+const reports = [
+  opening.firstReport,
+  ...readerData.reports
+    .filter((report): report is Report & { number: number } => report.number !== null)
+    .map((report) => ({ ...report, number: report.number + 1 }))
+];
+const reportCount = reports.length;
+if (reportCount !== 138) throw new Error(`${slug}: expected 138 numbered narrations, found ${reportCount}`);
+
+const sourceStyles = sourceChapter.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
+const fontImport = /@import\s+url\((['"])(https:\/\/fonts\.googleapis\.com\/[^'"]+)\1\)\s*;/i;
+const fontUrl = sourceStyles.match(fontImport)?.[2];
+const chapterStyles = `${sourceStyles.replace(fontImport, "")}\n${folioStyles}`;
+const cover = coverFor(slug);
+const arabicBody = (text: string) => text
+  .replace(/^\s*\d+\s*[-–]\s*/, "")
+  .replace(/صلى الله عليه وسلم|صَلَّى اللَّهُ عَلَيْهِ وَسَلَّمَ|صلّى الله عليه وسلم/g, "ﷺ")
+  .replace(/‌/g, "")
+  .trim();
+const openingTransmitterNames = [
+  "Abū ʿAbd Allāh Muḥammad ibn ʿAbd al-Raḥmān ibn Muḥammad ibn Masʿūd al-Bandahī",
+  "Abū al-Khayr Muḥammad ibn Aḥmad ibn Muḥammad ibn ʿUmar al-Muqaddar al-Aṣbahānī",
+  "Abū ʿAmr ʿAbd al-Wahhāb ibn Abī ʿAbd Allāh ibn Isḥāq ibn Muḥammad ibn Yaḥyā ibn Mandah al-Aṣbahānī",
+  "Abū ʿAbd Allāh Muḥammad ibn Isḥāq",
+  "Abū Bakr Muḥammad ibn al-Ḥusayn ibn al-Ḥasan ibn al-Khalīl al-Qaṭṭān",
+  "Abū al-Ḥasan Aḥmad ibn Yūsuf al-Sulamī",
+  "ʿAbd al-Razzāq ibn Hammām ibn Nāfiʿ al-Ḥimyarī",
+  "Hammām ibn Munabbih",
+  "Abū Hurayra",
+  "Maʿmar",
+  "Muḥammad, the Messenger of God",
+];
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const openingTransmissionParts = opening.openingTransmission.split(
+  new RegExp(`(${openingTransmitterNames.sort((a, b) => b.length - a.length).map(escapeRegExp).join("|")})`, "g"),
+);
 ---
+
 <BaseLayout
   title={`${title} · Reader | HadithCritic`}
-  description="Read Ṣaḥīfat Hammām ibn Munabbih in Arabic and English, with a searchable narration index and source notes."
+  description="Read the 138 numbered narrations of Ṣaḥīfat Hammām ibn Munabbih in Arabic and English."
+  image={OG.collection(slug)}
+  imageAlt={`${title} | HadithCritic`}
   crumbs={[
-    { name: 'Home', url: '/' },
-    { name: 'Hadith corpus', url: '/hadith/' },
-    { name: title, url: '/hadith/collection/sahifat-hammam-ibn-munabbih/' },
-    { name: 'Read', url: '/hadith/collection/sahifat-hammam-ibn-munabbih/read/' },
+    { name: "Home", url: "/" },
+    { name: "Hadith corpus", url: "/hadith/" },
+    { name: title, url: collectionUrl },
+    { name: "Narrations", url: `${collectionUrl}read/` }
   ]}
 >
-  <link slot="head" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;display=swap" />
-  <Fragment set:html={reader} />
+  {fontUrl && <link slot="head" rel="stylesheet" href={fontUrl} />}
+  <style is:inline set:html={chapterStyles}></style>
+  <style is:inline>
+    .source-frame.hc-prep { margin: 0 0 38px; padding: clamp(24px, 3vw, 36px); border-radius: 8px; background: var(--folio-paper); box-shadow: none; }
+    @media (min-width: 1200px) {
+      .source-frame.hc-prep { width: calc(100% + 2cm); margin-inline-start: -1cm; }
+    }
+    .hc-prep__header { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 22px; padding: 0 0 19px; }
+    .hc-prep__header h2 { margin: 0; color: var(--folio-ink); font: 400 clamp(27px, 2.6vw, 34px)/1.12 var(--display); letter-spacing: -.035em; }
+    .hc-prep__meta { color: var(--folio-dim); font: italic 400 15px/1.3 var(--reader); }
+    .hc-prep__entries { min-width: 0; border-top: 1px solid var(--folio-rule); }
+    .hc-prep__section { min-width: 0; padding: 17px 0 18px; border-bottom: 1px solid var(--folio-rule); }
+    .hc-prep__section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .hc-prep__section-heading h3 { margin: 0; color: var(--folio-ink); font: 400 clamp(20px, 1.8vw, 24px)/1.2 var(--display); letter-spacing: -.02em; }
+    .hc-prep__short { color: var(--folio-dim); font: italic 400 15px/1.25 var(--reader); text-align: right; }
+    .hc-prep__fields { display: grid; gap: 1px; margin: 12px 0 0; padding: 0; }
+    .hc-prep__field { display: grid; grid-template-columns: minmax(105px, 128px) minmax(0, 1fr); align-items: baseline; gap: 18px; min-width: 0; padding: 6px 0; }
+    .hc-prep__field dt { color: var(--folio-muted); font: italic 400 15px/1.4 var(--reader); }
+    .hc-prep__field dd { min-width: 0; margin: 0; color: var(--folio-ink); font: 400 clamp(16px, 1.2vw, 18px)/1.46 var(--reader); letter-spacing: -.008em; overflow-wrap: anywhere; }
+    .hc-prep__source-note { max-width: 78ch; margin: 10px 0 0; color: var(--folio-dim); font: italic 400 15px/1.5 var(--reader); }
+    .hc-prep__transmission { min-width: 0; padding: 22px 0 0; }
+    .hc-prep__transmission h3 { margin: 0 0 12px; color: var(--folio-ink); font: 400 clamp(20px, 1.8vw, 24px)/1.2 var(--display); letter-spacing: -.02em; }
+    .hc-prep__transmission-text { max-width: none; margin: 0; color: var(--folio-ink); font: 400 clamp(17px, 1.3vw, 19px)/1.69 var(--reader); letter-spacing: -.005em; text-align: justify; text-justify: inter-word; text-wrap: pretty; }
+    .hc-prep__transmitter { color: var(--folio-gold); font-weight: 600; }
+    @media (max-width: 700px) {
+      .source-frame.hc-prep { width: auto; margin-inline: 0; padding: 20px 18px 22px; }
+      .hc-prep__header { padding-bottom: 16px; }
+      .hc-prep__section { padding: 15px 0; }
+      .hc-prep__field { grid-template-columns: 1fr; gap: 0; padding: 7px 0; }
+      .hc-prep__field dt { font-size: 15px; }
+      .hc-prep__field dd { font-size: 17px; }
+      .hc-prep__short { font-size: 14px; }
+      .hc-prep__transmission-text { font-size: 18px; line-height: 1.67; }
+    }
+  </style>
+
+  <section
+    class="hero"
+    aria-labelledby="reader-title"
+    style={`--hc-cover: url('${cover.src}'); --hc-cover-position: ${cover.position}`}
+  >
+    <div class="hero-inner">
+      <div class="breadcrumb">
+        <a href="/hadith/">Corpus</a><span class="slash">/</span>
+        <a href={collectionUrl}>{title}</a><span class="slash">/</span><span>Narrations</span>
+      </div>
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Ṣaḥīfat Hammām ibn Munabbih · Continuous reader</div>
+          <h1 id="reader-title">The narrations</h1>
+          <p class="hero-desc">Read all 138 reports in source order, with the supplied English and Arabic text.</p>
+        </div>
+        <div class="hero-right">
+          <div class="hero-ar" lang="ar" dir="rtl">صحيفة همام بن منبه</div>
+          <div class="hero-author">Hammām ibn Munabbih · d. 131 AH</div>
+        </div>
+      </div>
+      <div class="hero-footer"><span>138 narrations</span><span>Arabic and English</span><span>Source order</span></div>
+    </div>
+  </section>
+
+  <div class="toolbar-holder">
+    <div class="toolbar">
+      <span class="toolbar-title">Ṣaḥīfa · Read the narrations</span>
+      <div class="toolbar-controls">
+        <label for="jump" class="sr-only">Jump to narration</label>
+        <select class="jump" id="jump">
+          <option value="">Jump to a narration</option>
+          {reports.map((report) => <option value={report.id}>Narration {report.number}</option>)}
+        </select>
+        <div class="segmented" role="group" aria-label="Language display">
+          <button type="button" data-reader-mode="parallel" aria-pressed="true">Both</button>
+          <button type="button" data-reader-mode="english" aria-pressed="false">English</button>
+          <button type="button" data-reader-mode="arabic" aria-pressed="false">العربية</button>
+        </div>
+        <a class="icon-btn" href={collectionUrl}>← Compilation</a>
+      </div>
+    </div>
+  </div>
+
+  <main id="main-content" class="chapter">
+    <div class="hc-chapter-layout">
+      <aside class="hc-chapter-index" aria-label="Narration index">
+        <div class="hc-index-sticky">
+          <p class="hc-index-kicker">IN THIS SECTION</p>
+          <div class="hc-index-progress">
+            <span><b data-index-current>01</b> / 138</span>
+            <i><b data-index-progress></b></i>
+          </div>
+          <nav>
+            {reports.map((report) => (
+              <a href={`#${report.id}`} data-index-link={report.id}>
+                <span>{String(report.number).padStart(2, "0")}</span><i></i>
+              </a>
+            ))}
+          </nav>
+          <a class="hc-index-back" href={collectionUrl}>← All narrations</a>
+        </div>
+      </aside>
+
+      <div class="hc-chapter-content">
+        <div class="chapter-intro">
+          <div>
+            <h2>Ṣaḥīfat Hammām ibn Munabbih</h2>
+            <p>All 138 numbered narrations, in the order preserved by the supplied edition.</p>
+          </div>
+          <a href={collectionUrl}>Compilation overview ↑</a>
+        </div>
+
+        <section class="panel source-frame hc-prep hc-prep--editorial" aria-labelledby="opening-title">
+          <header class="hc-prep__header">
+            <h2 id="opening-title">Edition &amp; transmission</h2>
+            <span class="hc-prep__meta">About this text</span>
+          </header>
+          <div class="hc-prep__entries">
+            <section class="hc-prep__section" aria-labelledby="published-edition-title">
+              <div class="hc-prep__section-heading">
+                <h3 id="published-edition-title">Published edition</h3>
+                <span class="hc-prep__short">1407 AH / 1987 CE</span>
+              </div>
+              <dl class="hc-prep__fields">
+                <div class="hc-prep__field"><dt>Book</dt><dd>Ṣaḥīfat Hammām ibn Munabbih</dd></div>
+                <div class="hc-prep__field"><dt>Author</dt><dd>Abū ʿUqba Hammām ibn Munabbih ibn Kāmil ibn Sayj al-Yamānī al-Ṣanʿānī al-Abnāwī (d. 131 AH)</dd></div>
+                <div class="hc-prep__field"><dt>Editor</dt><dd>ʿAlī Ḥasan ʿAlī ʿAbd al-Ḥamīd</dd></div>
+                <div class="hc-prep__field"><dt>Publisher</dt><dd>al-Maktab al-Islāmī and Dār ʿAmmār, Beirut and Amman</dd></div>
+                <div class="hc-prep__field"><dt>Edition</dt><dd>First · 1407 AH / 1987 CE</dd></div>
+                <div class="hc-prep__field"><dt>Length</dt><dd>64 pages</dd></div>
+              </dl>
+            </section>
+          </div>
+          <section class="hc-prep__transmission" aria-labelledby="opening-transmission-title">
+            <h3 id="opening-transmission-title">Opening transmission</h3>
+            <p class="hc-prep__transmission-text">{openingTransmissionParts.map((part) =>
+              openingTransmitterNames.includes(part)
+                ? <strong class="hc-prep__transmitter">{part}</strong>
+                : part
+            )}</p>
+            <p class="hc-prep__source-note">The Arabic catalogue repeats these bibliographic details in shortened forms. They are presented only once here.</p>
+          </section>
+        </section>
+
+        {reports.map((report) => (
+          <article class="hadith" id={report.id} aria-labelledby={`label-${report.id}`} data-hadith={report.id}>
+            <div class="hadith-label">
+              <div class="hadith-count" id={`label-${report.id}`}>
+                <span>Narration</span><strong>{report.number}</strong><span>/ 138</span>
+              </div>
+              <div class="hadith-cite">{title} · {report.source_number === null ? "Unnumbered in printed text" : `Printed text no. ${report.source_number}`}</div>
+            </div>
+            <div class="reading-sheet">
+              <div class="bilingual">
+                <div class="language-column column-en english" lang="en" dir="ltr">
+                  <div class="language-label">English</div>
+                  <div class="matn-label">Text</div>
+                  <p class="matn">{report.en}</p>
+                </div>
+                <div class="language-column column-ar arabic" lang="ar" dir="rtl">
+                  <div class="language-label">العربية</div>
+                  <div class="matn-label">النص</div>
+                  <p class="matn">{arabicBody(report.ar)}</p>
+                </div>
+              </div>
+            </div>
+            <div class="bottom-action">
+              <a class="permalink" href={`#${report.id}`}>Permalink ↗</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </main>
+
+  <script is:inline>
+    (() => {
+      const links = [...document.querySelectorAll(".hc-chapter-index [data-index-link]")];
+      const current = document.querySelector("[data-index-current]");
+      const progress = document.querySelector("[data-index-progress]");
+      const modeButtons = [...document.querySelectorAll("[data-reader-mode]")];
+      const jump = document.querySelector("#jump");
+      if (!links.length) return;
+
+      const setActive = (id) => {
+        const index = links.findIndex((link) => link.dataset.indexLink === id);
+        links.forEach((link, i) => link.classList.toggle("is-active", i === index));
+        if (current && index >= 0) current.textContent = String(index + 1).padStart(2, "0");
+        if (progress && index >= 0) progress.style.width = `${((index + 1) / links.length) * 100}%`;
+      };
+
+      const hashId = decodeURIComponent(location.hash.slice(1));
+      const hasHashTarget = links.some((link) => link.dataset.indexLink === hashId);
+      setActive(hasHashTarget ? hashId : links[0].dataset.indexLink);
+      const alignHashTarget = () => {
+        if (!hasHashTarget) return;
+        const target = document.getElementById(hashId);
+        if (target) {
+          target.scrollIntoView({ block: "start" });
+          setActive(hashId);
+        }
+      };
+      if (hasHashTarget) {
+        alignHashTarget();
+        requestAnimationFrame(() => requestAnimationFrame(alignHashTarget));
+        window.addEventListener("load", alignHashTarget, { once: true });
+        if (document.fonts?.ready) document.fonts.ready.then(() => requestAnimationFrame(alignHashTarget));
+      }
+      window.addEventListener("hashchange", () => {
+        const nextId = decodeURIComponent(location.hash.slice(1));
+        if (links.some((link) => link.dataset.indexLink === nextId)) setActive(nextId);
+      });
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver((entries) => {
+          const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible[0]) setActive(visible[0].target.id);
+        }, { rootMargin: "-18% 0px -68% 0px" });
+        links.forEach((link) => {
+          const target = document.getElementById(link.dataset.indexLink);
+          if (target) observer.observe(target);
+        });
+      }
+
+      modeButtons.forEach((button) => button.addEventListener("click", () => {
+        document.documentElement.dataset.mode = button.dataset.readerMode;
+        modeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+      }));
+      jump?.addEventListener("change", () => {
+        if (jump.value) location.hash = jump.value;
+      });
+    })();
+  </script>
 </BaseLayout>

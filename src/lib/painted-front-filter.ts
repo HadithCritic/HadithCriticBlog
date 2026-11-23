@@ -1,6 +1,7 @@
 /**
- * Filter, subject chips and sort for the book grid on a painted collection
- * front (PaintedBookIndex.astro). The text filter matches English and Arabic
+ * Search, section filters, sorting, view mode and progressive reveal for the
+ * compilation index on a painted collection front (PaintedBookIndex.astro).
+ * The text filter matches English and Arabic
  * titles, ignoring case,
  * Latin diacritics, the ʿayn and hamza marks, Arabic short vowels and the
  * variant forms of alif, yāʾ and tāʾ marbūṭa. A chip narrows the books to
@@ -38,7 +39,7 @@ interface Entry {
   size: number;
 }
 
-type SortKey = 'book' | 'size';
+type SortKey = 'book' | 'size' | 'alpha';
 
 /** The cards in the order a sort asks for; book order breaks ties. */
 export function sortEntries<T extends { n: number; size: number }>(entries: readonly T[], sort: SortKey): T[] {
@@ -53,6 +54,8 @@ export function bindBookFilter(root: Document): void {
   const grid = root.querySelector<HTMLElement>('[data-pf-grid]');
   const count = root.querySelector<HTMLElement>('[data-pf-count]');
   const empty = root.querySelector<HTMLElement>('[data-pf-empty]');
+  const more = root.querySelector<HTMLButtonElement>('[data-pf-more]');
+  const remaining = root.querySelector<HTMLElement>('[data-pf-remaining]');
   if (!input || !grid || !count || !empty || input.dataset.bound) return;
   input.dataset.bound = '1';
 
@@ -63,24 +66,34 @@ export function bindBookFilter(root: Document): void {
     n: Number(card.dataset.pfN),
     size: Number(card.dataset.pfSize)
   }));
-  const bars = new Map(
-    [...root.querySelectorAll<HTMLElement>('[data-pf-bar]')].map((bar) => [Number(bar.dataset.pfBar), bar])
-  );
   const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-pf-chip]')];
   const sorts = [...root.querySelectorAll<HTMLButtonElement>('[data-pf-sort]')];
-  const total = entries.length;
+  const plural = grid.closest<HTMLElement>('[data-pf-index]')?.dataset.pfPlural ?? 'entries';
   let group = 'all';
+  let limit = 24;
+  let sort: SortKey = 'book';
 
   const apply = () => {
     const terms = foldForSearch(input.value).split(' ').filter(Boolean);
-    const shown = entries.filter(({ card, haystack, group: own, n }) => {
-      const match = (group === 'all' || own === group) && terms.every((term) => haystack.includes(term));
-      card.hidden = !match;
-      bars.get(n)?.toggleAttribute('data-dim', !match);
-      return match;
-    }).length;
-    count.textContent = `${shown} shown · ${total} total`;
-    empty.hidden = shown > 0;
+    entries.forEach(({ card }) => { card.hidden = true; });
+    const matching = entries.filter(({ haystack, group: own }) =>
+      (group === 'all' || own === group) && terms.every((term) => haystack.includes(term))
+    );
+    const ordered = sort === 'alpha'
+      ? [...matching].sort((a, b) => foldForSearch(a.card.dataset.pfEn ?? '').localeCompare(foldForSearch(b.card.dataset.pfEn ?? '')) || a.n - b.n)
+      : sortEntries(matching, sort);
+    ordered.forEach((entry, i) => {
+      grid.appendChild(entry.card);
+      entry.card.hidden = i >= limit;
+    });
+    const shown = Math.min(ordered.length, limit);
+    count.textContent = `Showing ${shown.toLocaleString()} of ${ordered.length.toLocaleString()} ${plural}`;
+    empty.hidden = ordered.length > 0;
+    if (more) more.hidden = shown >= ordered.length;
+    if (remaining) {
+      remaining.hidden = shown >= ordered.length;
+      remaining.textContent = `${(ordered.length - shown).toLocaleString()} remaining`;
+    }
   };
 
   input.addEventListener('input', apply);
@@ -94,6 +107,7 @@ export function bindBookFilter(root: Document): void {
   for (const chip of chips) {
     chip.addEventListener('click', () => {
       group = chip.dataset.pfChip ?? 'all';
+      limit = 24;
       pressed(chips, chip);
       apply();
     });
@@ -102,11 +116,19 @@ export function bindBookFilter(root: Document): void {
   /* Reordering the DOM, not just the picture, keeps the tab order true. */
   for (const button of sorts) {
     button.addEventListener('click', () => {
+      sort = button.dataset.pfSort === 'size' ? 'size' : button.dataset.pfSort === 'alpha' ? 'alpha' : 'book';
       pressed(sorts, button);
-      const order = sortEntries(entries, button.dataset.pfSort === 'size' ? 'size' : 'book');
-      order.forEach((entry) => grid.appendChild(entry.card));
+      limit = 24;
+      apply();
     });
   }
+
+  // Index rows use one consistent text layout.
+
+  more?.addEventListener('click', () => {
+    limit += 24;
+    apply();
+  });
 
   window.addEventListener(
     'keydown',
@@ -121,4 +143,6 @@ export function bindBookFilter(root: Document): void {
     },
     { capture: true }
   );
+
+  apply();
 }

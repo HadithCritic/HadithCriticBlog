@@ -66,7 +66,7 @@ export const COLLECTION_IDENTITIES: Record<string, CollectionIdentity> = {
     era: '2nd century AH',
     lede: 'One of the oldest arranged books of ḥadīth, written by a Basran who settled in Yemen and taught it there to ʿAbd al-Razzāq.',
     about:
-      'Maʿmar ibn Rāshid studied with al-Zuhrī and Qatāda before making his home in Sanaa. His Jāmiʿ survives because his student ʿAbd al-Razzāq copied it whole at the end of his own Muṣannaf, where it fills the last two volumes. Its chapters reach past law into manners, the virtues of the Companions and the end of time.',
+      'Maʿmar ibn Rāshid studied with al-Zuhrī and Qatāda before settling in Sanaa. His student ʿAbd al-Razzāq preserved the Jāmiʿ at the end of his Muṣannaf, where the supplied edition prints it in volumes 10 and 11. Its 283 chapters range across law, manners, the virtues of the Companions and reports about the end of time.',
     edition: 'ed. Ḥabīb al-Raḥmān al-Aʿẓamī, al-Majlis al-ʿIlmī, 2nd ed., 1983 (vols. 10 and 11 of the Muṣannaf)'
   },
   'hadith-sufyan-al-thawri': {
@@ -304,13 +304,24 @@ export const COLLECTION_IDENTITIES: Record<string, CollectionIdentity> = {
     edition: 'ed. Majdī al-Sayyid Ibrāhīm, Maktabat al-Qurʾān, Cairo'
   },
   'sahifat-hammam-ibn-munabbih': {
-    layout: 'frontispiece',
-    motif: 'ledger',
+    mirror: true,
+    layout: 'portrait',
+    motif: 'star',
     palette: { ground: '#24161c', glow: '#c08a6a', accent: '#f0c8aa', deep: '#8a4f2c' },
     era: 'Written in the 1st century AH',
     about:
       'Hammām ibn Munabbih of Sanaa wrote these reports down from Abū Hurayra, which makes the Ṣaḥīfa one of the oldest written collections of ḥadīth known to survive. It came down whole through Maʿmar ibn Rāshid and ʿAbd al-Razzāq, and its wording can be compared report by report with the same texts in the later collections.',
     edition: 'ed. ʿAlī Ḥasan ʿAlī ʿAbd al-Ḥamīd, al-Maktab al-Islāmī and Dār ʿAmmār, 1987'
+  },
+  'sunan-ibn-majah': {
+    layout: 'colophon',
+    motif: 'ledger',
+    palette: { ground: '#1d1d24', glow: '#8b83ad', accent: '#d1c9ec', deep: '#514a76' },
+    era: '3rd century AH',
+    lede: 'Ibn Mājah’s Sunan, arranged by subject from its introduction on the Sunnah through the books of law and asceticism.',
+    about:
+      'The supplied edition presents the work in 38 books, with 1,516 chapter headings and 4,341 numbered reports. This reader keeps those divisions and the edition’s sequence visible as you move through the text.',
+    edition: 'ed. ʿIṣām Mūsā Hādī, Dār al-Ṣiddīq, 2nd ed., 1435 AH / 2014 CE'
   }
 };
 

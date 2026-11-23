@@ -6,6 +6,7 @@ import { narrationCount, unitSummary } from '../../lib/collection-units';
 import { LIBRARY_COLLECTIONS } from '../../lib/hadith-library';
 import { compilerFor, SIX_BOOKS } from '../../lib/hadith-compilers';
 import { coverFor, medallionFor, HADITH_PAGE_ART } from '../../lib/hadith-art';
+import { SHORT_TREATISES } from '../../data/hadith/short-treatises';
 import '../../styles/hadith-library.css';
 import '../../styles/home.css';
 import '../../styles/home-hero.css';
@@ -21,7 +22,6 @@ const books = chronologicalCollections(LIBRARY_COLLECTIONS);
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 const dateKey = (slug: string) => (slug === 'birr-al-walidayn' ? 'sahih-al-bukhari' : slug);
-
 /**
  * The chips under a card, in one order for every collection: its divisions (counted from the
  * collection's own chapter index, in the collection's own word), then its genre.
@@ -40,7 +40,14 @@ const centurySections = [...new Set(books.map((book) => centuryOfBook(book.slug)
   .sort((a, b) => a - b)
   .map((century) => {
     const members = books.filter((book) => centuryOfBook(book.slug) === century);
-    return { century, ...centuryHeading(century), members, narrations: members.reduce((sum, book) => sum + book.hadith_count, 0) };
+    const regularMembers = members.filter((book) => !SHORT_TREATISES.has(book.slug));
+    return {
+      century,
+      ...centuryHeading(century),
+      members,
+      regularMembers,
+      regularNarrations: regularMembers.reduce((sum, book) => sum + book.hadith_count, 0),
+    };
   });
 const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
 ---
@@ -77,29 +84,35 @@ const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
             <p class="hl-eyebrow">The library</p>
             <h2 id="collections-heading">Collections</h2>
           </div>
-          <p>Browse the growing source catalogue, grouped by the century of the compiler's death.</p>
+          <div class="hl-library__controls">
+            <p data-short-treatise-status aria-live="polite">Short treatises are hidden by default.</p>
+            <button class="hl-library__short-toggle" type="button" data-short-treatise-toggle aria-pressed="false">
+              <span>Short treatises</span><span class="hl-library__short-count">{SHORT_TREATISES.size}</span>
+            </button>
+          </div>
         </div>
 
         <nav class="hl-century-nav" aria-label="Centuries">
-          {centurySections.map((section) => <a href={`#century-${section.century}`}>{section.name} <small>{section.members.length}</small></a>)}
+          {centurySections.map((section) => <a href={`#century-${section.century}`} hidden={section.regularMembers.length === 0} data-century-link={section.century}>{section.name} <small data-century-link-count>{section.regularMembers.length}</small></a>)}
         </nav>
 
         {centurySections.map((section) => (
-          <section class="hl-century" id={`century-${section.century}`} aria-labelledby={`century-${section.century}-heading`} data-century={section.century}>
+          <section class="hl-century" id={`century-${section.century}`} aria-labelledby={`century-${section.century}-heading`} data-century={section.century} data-century-section hidden={section.regularMembers.length === 0}>
             <div class="hl-century__head">
               <h3 id={`century-${section.century}-heading`}>{section.name} <span>({section.range})</span></h3>
-              <p>{plural(section.members.length, 'collection')} · {section.narrations.toLocaleString()} narrations</p>
+              <p data-century-summary>{plural(section.regularMembers.length, 'collection')} · {section.regularNarrations.toLocaleString()} narrations</p>
             </div>
             <ol class="hl-cards catalog-ledger">
               {section.members.map((b) => {
                 const i = books.indexOf(b);
+                const isShortTreatise = SHORT_TREATISES.has(b.slug);
                 const compiler = compilerFor(dateKey(b.slug));
                 const canon = SIX_BOOKS.indexOf(b.slug as typeof SIX_BOOKS[number]);
                 const year = COMPILER_DATES[dateKey(b.slug)];
                 const cover = coverFor(b.slug);
                 const medallion = medallionFor(compiler);
                 return (
-                  <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i}>
+                  <li class="catalog-row" data-year={year} data-type={collectionType(b.slug)} data-title={`${b.title_en} ${b.title_ar} ${compiler?.name ?? ''}`} data-count={b.hadith_count} data-order={i} data-short-treatise={isShortTreatise ? 'true' : undefined} hidden={isShortTreatise}>
                     <a class:list={['hl-card', 'catalog-row__link']} href={`/hadith/collection/${b.slug}/`} data-region={compiler?.region} data-canon={canon >= 0 ? `The Six Books · ${ROMAN[canon]}` : undefined}>
                       <span class="hl-card__art" style={`--collection-art: url('${cover.src}'); --collection-art-position: ${cover.position}`} aria-hidden="true"></span>
                       {compiler && medallion
@@ -127,3 +140,34 @@ const totalNarrations = books.reduce((sum, book) => sum + book.hadith_count, 0);
   </div>
 
 </BaseLayout>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-short-treatise-toggle]');
+  if (toggle) {
+    const rows = [...document.querySelectorAll<HTMLLIElement>('[data-short-treatise="true"]')];
+    const sections = [...document.querySelectorAll<HTMLElement>('[data-century-section]')];
+    const status = document.querySelector<HTMLElement>('[data-short-treatise-status]');
+
+    toggle.addEventListener('click', () => {
+      const showShortTreatises = toggle.getAttribute('aria-pressed') !== 'true';
+      toggle.setAttribute('aria-pressed', String(showShortTreatises));
+
+      for (const row of rows) row.hidden = !showShortTreatises;
+
+      for (const section of sections) {
+        const visibleRows = [...section.querySelectorAll<HTMLLIElement>('.catalog-row')].filter((row) => !row.hidden);
+        const visibleNarrations = visibleRows.reduce((sum, row) => sum + Number(row.dataset.count ?? 0), 0);
+        section.hidden = visibleRows.length === 0;
+        section.querySelector<HTMLElement>('[data-century-summary]')!.textContent =
+          `${visibleRows.length.toLocaleString()} ${visibleRows.length === 1 ? 'collection' : 'collections'} · ${visibleNarrations.toLocaleString()} narrations`;
+        const centuryLink = document.querySelector<HTMLAnchorElement>(`[data-century-link="${section.dataset.century}"]`);
+        if (centuryLink) {
+          centuryLink.hidden = visibleRows.length === 0;
+          centuryLink.querySelector<HTMLElement>('[data-century-link-count]')!.textContent = String(visibleRows.length);
+        }
+      }
+
+      if (status) status.textContent = showShortTreatises ? 'Short treatises are shown.' : 'Short treatises are hidden.';
+    });
+  }
+</script>

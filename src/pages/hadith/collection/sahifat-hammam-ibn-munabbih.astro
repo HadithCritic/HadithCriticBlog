@@ -1,38 +1,56 @@
 ---
 import BaseLayout from "../../../layouts/BaseLayout.astro";
-import CollectionFront from "../../../components/hadith/CollectionFront.astro";
+import PaintedFront from "../../../components/hadith/PaintedFront.astro";
+import SahifatTransmissionMap from "../../../components/hadith/SahifatTransmissionMap.astro";
 import { OG } from "../../../lib/seo";
 import type { CollectionFrontData } from "../../../lib/collection-front";
-import hammam from "../../../data/hadith/local-editions/hammam.json";
+import compilation from "../../../data/hadith/json/sahifat-hammam-ibn-munabbih.json";
+import type { BookGroup } from "../../../data/hadith/musnad-abu-hanifa-groups";
 
-/* The Ṣaḥīfa has no chapters and no collection.html: its text is one reader
-   at /read/. The front page sets out the same parts as the chapter
-   collections, with one report from the text in place of an index. */
-
+/* The Ṣaḥīfa has no chapter divisions in its source. Its 138 numbered
+   narrations use the standard compilation index and open in the continuous
+   reader at the matching report. */
 const slug = "sahifat-hammam-ibn-munabbih";
 const title = "Ṣaḥīfat Hammām ibn Munabbih";
 const reader = `/hadith/collection/${slug}/read/`;
 
-const sample = hammam.find((entry) => String(entry.hadith_number) === "2");
-if (!sample) throw new Error(`${slug}: the sample report is missing from hammam.json`);
-const sampleArabic = sample.text.replace(/^\s*\d+\s*-\s*/, "").trim();
+const narrations = compilation.sections.find((section) => section.kind === "Text")?.entries.filter((entry) => entry.number) ?? [];
+if (narrations.length !== 137) throw new Error(`${slug}: expected 137 source entries after the opening report, found ${narrations.length}`);
+
+const chapters = Array.from({ length: 138 }, (_, index) => ({
+  n: index + 1,
+  title_en: `Narrator ${index + 1}`,
+  title_ar: "",
+  count: 1
+}));
+const groups: readonly BookGroup[] = [{
+  id: "narrations",
+  label: "Narrations",
+  books: chapters.map((chapter) => chapter.n)
+}];
+const chapterHref = (n: number) => {
+  if (n === 1) return `${reader}#entry-3`;
+  const entry = narrations[n - 2];
+  if (!entry || n < 1 || n > chapters.length) throw new Error(`${slug}: no narration ${n}`);
+  return `${reader}#${entry.id}`;
+};
 
 const front: CollectionFrontData = {
   titleHtml: title,
   authorLabel: "Written by",
-  compiler: "Hammām ibn Munabbih",
-  date: "d. 131 AH",
+  compiler: "Hammām ibn Munabbih (d. 131 AH)",
+  date: "",
   lede: "A collection of reports transmitted by Hammām ibn Munabbih from Abū Hurayra, presented in Arabic and English.",
-  beginHref: reader,
-  beginLabel: "Read the text",
-  exploreHref: "#sample",
-  exploreLabel: "Inside the text",
+  beginHref: chapterHref(1),
+  beginLabel: "Begin reading",
+  exploreHref: "#pf-index",
+  exploreLabel: "Explore 138 narrations",
   indexHtml: "",
   notes: [
-    { label: "The reader", html: "The reader preserves the supplied edition’s numbering, opening transmission and source notes." },
-    { label: "Format", html: "Numbered reports. Read the reports in their supplied order, with the opening transmission." },
-    { label: "Extent", html: "137 numbered reports, with the opening material presented separately." },
-    { label: "Languages", html: "Arabic and English. Read the original text alongside its English translation." }
+    { label: "Published edition", html: "Edited by ʿAlī Ḥasan ʿAlī ʿAbd al-Ḥamīd and published by al-Maktab al-Islāmī and Dār ʿAmmār, first edition, 1407 AH / 1987 CE." },
+    { label: "Text and translation", html: "The supplied Arabic text is presented alongside its English translation." },
+    { label: "Order and numbering", html: "The narrations follow the supplied edition’s source order and numbering." },
+    { label: "Opening transmission", html: "The opening chain is presented before the index. Its accompanying introductory report is retained as Narration 1." }
   ],
   scripts: []
 };
@@ -40,7 +58,7 @@ const front: CollectionFrontData = {
 
 <BaseLayout
   title={`${title} | HadithCritic`}
-  description="Ṣaḥīfat Hammām ibn Munabbih: 137 narrations, presented in Arabic and English with source references."
+  description="Ṣaḥīfat Hammām ibn Munabbih: 138 narrations, presented in Arabic and English with source references."
   image={OG.collection(slug)}
   imageAlt={`${title} | HadithCritic`}
   crumbs={[
@@ -49,16 +67,20 @@ const front: CollectionFrontData = {
     { name: title, url: `/hadith/collection/${slug}/` }
   ]}
 >
-  <CollectionFront slug={slug} front={front}>
-    <section class="cf-sample" id="sample" aria-labelledby="cf-sample-title">
-      <div class="hc-container">
-        <figure class="cf-sample__card">
-          <figcaption id="cf-sample-title" class="cf-sample__label">From the text</figcaption>
-          <blockquote class="cf-sample__ar" lang="ar" dir="rtl">{sampleArabic}</blockquote>
-          <blockquote class="cf-sample__en">{sample.english}</blockquote>
-          <a class="hc-link" href={reader}>Open the reader <span aria-hidden="true">→</span></a>
-        </figure>
-      </div>
-    </section>
-  </CollectionFront>
+  <PaintedFront
+    slug={slug}
+    front={front}
+    chapters={chapters}
+    heroAlt="Hammām ibn Munabbih recording reports in Sanaa."
+    placeAr="صنعاء"
+    groups={groups}
+    itemSingular="narration"
+    itemPlural="narrations"
+    arrangement="138 numbered narrations"
+    span="Narrations 1–138"
+    chapterHref={chapterHref}
+    compilerLabel=""
+  >
+    <SahifatTransmissionMap slot="after-work" />
+  </PaintedFront>
 </BaseLayout>

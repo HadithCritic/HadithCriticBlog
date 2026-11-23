@@ -23,7 +23,7 @@ const SHAMAIL = {
 };
 
 // Editions without a chapter index state their extent in their own reader.
-const FIXED_COUNTS: Record<string, number> = { 'sahifat-hammam-ibn-munabbih': 137, 'fada-il-makka': 7 };
+const FIXED_COUNTS: Record<string, number> = { 'sahifat-hammam-ibn-munabbih': 138, 'fada-il-makka': 7 };
 
 export const LIBRARY_COLLECTIONS: LibraryCollection[] = [SHAMAIL, ...editionList].map((edition, index) => {
   const count = narrationCount(edition.slug) ?? FIXED_COUNTS[edition.slug];

@@ -3,8 +3,21 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 import { OG } from "../../../lib/seo";
 import { collectionFrontMatter } from "../../../lib/collection-units";
 import collectionHtml from "../../../data/hadith/pages/al-muntaqa-ibn-al-jarud/collection.html?raw";
-import CollectionFront from "../../../components/hadith/CollectionFront.astro";
+import chapters from "../../../data/hadith/pages/al-muntaqa-ibn-al-jarud/chapter-index.json";
+import PaintedFront from "../../../components/hadith/PaintedFront.astro";
 import { parseCollectionHtml } from "../../../lib/collection-front";
+const groupMap = new Map<number, { id: string; label: string; books: number[] }>();
+for (const chapter of chapters) {
+  const groupNo = chapter.group;
+  const label = chapter.group_title_en;
+  const existing = groupMap.get(groupNo);
+  if (existing) {
+    existing.books.push(chapter.n);
+  } else {
+    groupMap.set(groupNo, { id: `subject-${groupNo}`, label, books: [chapter.n] });
+  }
+}
+const groups = [...groupMap.values()];
 
 const { title, description } = collectionFrontMatter("al-muntaqa-ibn-al-jarud", "Al-Muntaqā min al-Sunan al-Musnada");
 ---
@@ -20,5 +33,16 @@ const { title, description } = collectionFrontMatter("al-muntaqa-ibn-al-jarud", 
     { name: title, url: "/hadith/collection/al-muntaqa-ibn-al-jarud/" },
   ]}
 >
-  <CollectionFront slug="al-muntaqa-ibn-al-jarud" front={parseCollectionHtml("al-muntaqa-ibn-al-jarud", collectionHtml)} />
+  <PaintedFront
+    slug="al-muntaqa-ibn-al-jarud"
+    front={parseCollectionHtml("al-muntaqa-ibn-al-jarud", collectionHtml)}
+    chapters={chapters}
+    heroAlt="An illustrative scene accompanying Ibn al-Jārūd’s selection."
+    placeAr="نيسابور"
+    groups={groups}
+    itemSingular="chapter"
+    itemPlural="chapters"
+    arrangement="166 edition headings in source order"
+    span="28 editorial subject groups"
+  />
 </BaseLayout>

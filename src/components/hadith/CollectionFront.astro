@@ -17,7 +17,10 @@ import { GENERIC_LEDE, type CollectionFrontData } from '../../lib/collection-fro
 import { compilerFor } from '../../lib/hadith-compilers';
 import { coverFor, medallionFor } from '../../lib/hadith-art';
 import { LIBRARY_COLLECTIONS } from '../../lib/hadith-library';
+import SunanBookIndex from './SunanBookIndex.astro';
 import '../../styles/collection-front.css';
+import '../../styles/sunan-book.css';
+import { getSunanBooks } from '../../lib/sunan-ibn-majah-books';
 
 interface Props {
   slug: string;
@@ -30,7 +33,10 @@ const compiler = compilerFor(slug);
 const medallion = medallionFor(compiler);
 const cover = coverFor(slug);
 const arabic = LIBRARY_COLLECTIONS.find((book) => book.slug === slug)?.title_ar ?? '';
+const corpusEntry = LIBRARY_COLLECTIONS.find((book) => book.slug === slug);
+if (!corpusEntry) throw new Error(`${slug}: no matching entry in the hadith library`);
 const { layout, motif, palette } = identity;
+const isSunanIbnMajah = slug === 'sunan-ibn-majah';
 
 const lede = GENERIC_LEDE.test(front.lede) ? identity.lede : front.lede;
 if (!lede) throw new Error(`${slug}: the hero sentence is the template's, and collection-identities.ts gives none`);
@@ -43,7 +49,7 @@ const place = compiler?.origin ?? '';
 const editionInNotes = front.notes.some((note) => /^(edition|source)$/i.test(note.label));
 /* Keep "al-Shamāʾil", "Ibn-..." and the like on one line: a break after the
    article's hyphen leaves "al-" hanging at the end of a line. */
-const titleHtml = front.titleHtml.replace(
+const titleHtml = front.titleHtml.replace(/<br\s*\/?\s*>/gi, ' ').replace(
   /(^|[\s>(])((?:al|an|ad|ar|as|ash|at|az|bi|li|wa)-[^\s<]+)/gi,
   '$1<span class="cf-nobr">$2</span>'
 );
@@ -63,11 +69,34 @@ const TILES: Record<HeroMotif, { w: number; h: number; d: string; dots?: [number
 };
 const tile = TILES[motif];
 const patternId = `cf-pattern-${motif}`;
+const chapterRows = [...front.indexHtml.matchAll(/<a\b(?=[^>]*class="[^"]*\bchapter-row\b[^"]*")[^>]*>([\s\S]*?)<\/a>/gi)];
+const chapterCounts = chapterRows.map(([, html]) => {
+  const count = html.match(/class="chapter-count"[^>]*>[\s\S]*?·\s*([\d,]+)\s+entr(?:y|ies)/i)?.[1];
+  return count ? Number(count.replace(/,/g, '')) : null;
+}).filter((count): count is number => count !== null);
+const indexCount = chapterRows.length || (front.indexHtml.match(/\bdata-filter-row\b/g) ?? []).length;
+const composition = {
+  single: chapterCounts.filter((count) => count === 1).length,
+  short: chapterCounts.filter((count) => count >= 2 && count < 10).length,
+  extended: chapterCounts.filter((count) => count >= 10).length
+};
+const hasComposition = chapterCounts.length > 0;
+const sunanBooks = isSunanIbnMajah
+  ? getSunanBooks().map((book) => ({
+      number: book.number,
+      title: book.title,
+      titleAr: book.titleAr,
+      chapters: book.chapters.length,
+      reports: book.reportCount,
+      firstReport: book.firstReport,
+      lastReport: book.lastReport
+    }))
+  : [];
 ---
 
 <div class={`cf-page cf-page--${layout}`} style={style} data-collection={slug}>
   <header class:list={["cf-hero", `cf-hero--${layout}`, identity.mirror && "cf-hero--mirror"]} aria-labelledby="cf-title">
-    <svg class="cf-motif" aria-hidden="true" focusable="false">
+    {!isSunanIbnMajah && <svg class="cf-motif" aria-hidden="true" focusable="false">
       <defs>
         <pattern id={patternId} width={tile.w} height={tile.h} patternUnits="userSpaceOnUse">
           <path d={tile.d} fill="none" stroke="currentColor" stroke-width="1" />
@@ -75,56 +104,69 @@ const patternId = `cf-pattern-${motif}`;
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill={`url(#${patternId})`} />
-    </svg>
+    </svg>}
+    <img
+      class="cf-hero__backdrop"
+      src={cover.src}
+      alt=""
+      width="1400"
+      height="788"
+      style={`object-position:${cover.position}`}
+      decoding="async"
+      fetchpriority="high"
+    />
 
     <div class="hc-container cf-hero__inner">
       <div class="cf-hero__copy">
-        {layout === 'frontispiece' && medallion && (
-          <span class="cf-seal" aria-hidden="true"><img src={medallion} alt="" width="448" height="448" decoding="async" /></span>
-        )}
         <p class="cf-kicker">
           <a href="/hadith/">Hadith corpus</a>
           {place && <Fragment><span aria-hidden="true">·</span> <span>{place}</span></Fragment>}
           <span aria-hidden="true">·</span> <span>{identity.era}</span>
         </p>
         <h1 id="cf-title" class="cf-title" set:html={titleHtml} />
-        {arabic && layout !== 'colophon' && <p class="cf-arabic" lang="ar" dir="rtl">{arabic}</p>}
+        {arabic && (layout !== 'colophon' || isSunanIbnMajah) && <p class="cf-arabic" lang="ar" dir="rtl">{arabic}</p>}
         <span class="cf-rule" aria-hidden="true"></span>
         <p class="cf-author">
+          {medallion && <img class="cf-author__medallion" src={medallion} alt="" width="44" height="44" decoding="async" />}
           <span class="cf-author__label">{front.authorLabel}</span>
           <span class="cf-author__name">{front.compiler}</span>
           {front.date && <span class="cf-author__date">{front.date}</span>}
         </p>
         <p class="cf-lede">{lede}</p>
         <div class="cf-actions">
-          <a class="hc-btn cf-btn" href={front.beginHref}>{front.beginLabel} <span aria-hidden="true">→</span></a>
-          <a class="hc-btn hc-btn--ghost cf-btn cf-btn--ghost" href={front.exploreHref}>{front.exploreLabel} <span aria-hidden="true">↓</span></a>
+          <a class="hc-btn cf-btn" href={isSunanIbnMajah ? '/hadith/collection/sunan-ibn-majah/book/1/' : front.beginHref}>{isSunanIbnMajah ? 'Begin with Kitāb 1' : front.beginLabel} <span aria-hidden="true">→</span></a>
+          <a class="hc-btn hc-btn--ghost cf-btn cf-btn--ghost" href={front.exploreHref}>{isSunanIbnMajah ? 'Explore all 38 kitābs' : front.exploreLabel} <span aria-hidden="true">↓</span></a>
         </div>
       </div>
 
-      {layout === 'portrait' && medallion && (
-        <div class="cf-hero__art" aria-hidden="true">
-          <span class="cf-medal"><img src={medallion} alt="" width="448" height="448" decoding="async" fetchpriority="high" /></span>
-        </div>
-      )}
-
-      {layout === 'plate' && (
-        <div class="cf-hero__art" aria-hidden="true">
-          <span class="cf-plate">
-            <img class="cf-plate__cover" src={cover.src} alt="" width="1400" height="788" style={`object-position:${cover.position}`} decoding="async" fetchpriority="high" />
-            {medallion && <img class="cf-plate__medal" src={medallion} alt="" width="448" height="448" decoding="async" />}
-          </span>
-        </div>
-      )}
-
-      {layout === 'colophon' && (
-        <div class="cf-hero__art">
-          <p class="cf-colophon" lang="ar" dir="rtl">{arabic}</p>
-          {medallion && <span class="cf-colophon__medal" aria-hidden="true"><img src={medallion} alt="" width="448" height="448" decoding="async" /></span>}
+    </div>
+    <div class={`hc-container cf-measures${hasComposition ? '' : ' cf-measures--two'}`} aria-label="Collection overview">
+      <div class="cf-measure">
+        <strong>{corpusEntry.hadith_count.toLocaleString('en-US')}</strong>
+        <span>Reports <small>in this edition</small></span>
+      </div>
+      <div class="cf-measure">
+        <strong>{isSunanIbnMajah ? sunanBooks.length : indexCount.toLocaleString('en-US')}</strong>
+        <span>{isSunanIbnMajah ? 'Kitābs' : 'Index entries'} <small>{isSunanIbnMajah ? '1,516 bābs' : 'in source order'}</small></span>
+      </div>
+      {hasComposition && (
+        <div class="cf-measure cf-measure--composition">
+          <span class="cf-composition-label">Chapter composition <small>By number of reports</small></span>
+          <div class="cf-composition-bars" role="img" aria-label={`${composition.single} single-report chapters, ${composition.short} chapters with 2 to 9 reports, and ${composition.extended} chapters with 10 or more reports`}>
+            <i style={`--part:${composition.single}`} title={`${composition.single} single-report chapters`}></i>
+            <i style={`--part:${composition.short}`} title={`${composition.short} chapters with 2 to 9 reports`}></i>
+            <i style={`--part:${composition.extended}`} title={`${composition.extended} chapters with 10 or more reports`}></i>
+          </div>
+          <span class="cf-composition-legend">{composition.single} single <b>·</b> {composition.short} short <b>·</b> {composition.extended} extended</span>
         </div>
       )}
     </div>
   </header>
+
+  {isSunanIbnMajah
+    ? <SunanBookIndex books={sunanBooks} />
+    : front.indexHtml && <div class="cf-index" set:html={front.indexHtml
+    .replace('class="frame home-main"', 'class="hc-container home-main"')} />}
 
   <section class="cf-work" aria-labelledby="cf-work-title">
     <div class="hc-container cf-work__grid">
@@ -136,6 +178,7 @@ const patternId = `cf-pattern-${motif}`;
         <p class="cf-work__about">{identity.about}</p>
         <dl class="cf-facts">
           {place && <div><dt>Place</dt><dd>{place}</dd></div>}
+          {isSunanIbnMajah && <div><dt>Arrangement</dt><dd>{sunanBooks.length} kitābs · {indexCount.toLocaleString('en-US')} bābs</dd></div>}
           {via && <div><dt>Transmission</dt><dd>{via.charAt(0).toUpperCase() + via.slice(1)}</dd></div>}
           {!editionInNotes && <div><dt>Edition</dt><dd>{identity.edition}</dd></div>}
         </dl>
@@ -145,8 +188,6 @@ const patternId = `cf-pattern-${motif}`;
 
   <slot />
 
-  {front.indexHtml && <div class="cf-index" set:html={front.indexHtml.replace('class="frame home-main"', 'class="hc-container home-main"')} />}
-
   <section class="cf-notes" aria-labelledby="cf-notes-title">
     <div class="hc-container cf-notes__grid">
       <h2 id="cf-notes-title" class="cf-notes__title">About the edition</h2>
@@ -154,7 +195,7 @@ const patternId = `cf-pattern-${motif}`;
         {front.notes.map((note) => (
           <div class="cf-note">
             <h3 class="cf-note__label">{note.label}</h3>
-            <p class="cf-note__text" set:html={note.html} />
+          <p class="cf-note__text" dir="auto" set:html={note.html} />
           </div>
         ))}
       </div>

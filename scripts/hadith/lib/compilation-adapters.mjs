@@ -228,6 +228,123 @@ function noEnglish(record) {
 
 export const additionalConfigs = [
   {
+    slug: 'sunan-ibn-majah',
+    noun: 'Chapter',
+    compiler: 'Ibn Mājah al-Qazwīnī',
+    death: 273,
+    expectedGroups: 1516,
+    expectedRecords: 4341,
+    sourceMetaKey: 'compilation',
+    sourceId: 'sunan-ibn-majah',
+    sourcePath: 'src/data/hadith/json/sunan_ibn_majah_bilingual_compilation.json',
+    prepareSource: source => {
+      const edition = source.books[0].source_edition;
+      source.compilation = {
+        id: source.collection,
+        title_en: source.title_en,
+        title_ar: source.title_ar,
+        short_name: 'Sunan Ibn Mājah',
+        unit_noun: 'Chapter',
+        edition: `${edition.editor}, ${edition.publisher}, 2nd ed., 1435 AH / 2014 CE`,
+      };
+      let sectionNumber = 0;
+      let reportCount = 0;
+      source.navigation_groups = source.books.map((book, index) => {
+        const startSection = sectionNumber + 1;
+        const entries = book.chapter_groups.flatMap(group => group.chapters);
+        sectionNumber += entries.length;
+        reportCount += book.report_count;
+        return {
+          number: index + 1,
+          title_en: book.title_en,
+          title_ar: book.title_ar,
+          section_count: entries.length,
+          first_section: startSection,
+          last_section: sectionNumber,
+          hadith_number_start: book.hadith_range[0],
+          hadith_number_end: book.hadith_range[1],
+          entry_count: book.report_count,
+        };
+      });
+      if (sectionNumber !== 1516 || reportCount !== source.report_count) {
+        throw new Error(`sunan-ibn-majah: source declares ${sectionNumber} chapters and ${reportCount} reports after grouping.`);
+      }
+      return source;
+    },
+    groupsFor: source => {
+      const noteByPage = new Map(source.books.flatMap(book => (book.footnotes_by_printed_page ?? []).map(note => [String(note.printed_page), note])));
+      const notesAssigned = new Set();
+      let chapterNumber = 0;
+      return source.books.flatMap((book, bookIndex) => book.chapter_groups.flatMap(sourceGroup => sourceGroup.chapters.map(chapter => {
+        chapterNumber += 1;
+        const records = [
+          ...chapter.reports.map(record => ({ record, subsection: null })),
+          ...(chapter.subsections ?? []).flatMap((subsection, subsectionIndex) => subsection.reports.map(record => ({ record, subsection, subsectionIndex }))),
+        ].map(({ record, subsection, subsectionIndex }) => {
+          const slice = record.source_slices?.[0];
+          const pages = [...new Set((record.source_slices ?? []).map(item => String(item.page)))];
+          const footnotes = pages.flatMap(page => {
+            const note = noteByPage.get(page);
+            if (!note || notesAssigned.has(page)) return [];
+            notesAssigned.add(page);
+            return [{ marker: `Printed page ${page}`, en: note.footnote_text_en ?? '', ar: note.footnote_text ?? '' }];
+          });
+          return {
+            ...record,
+            id: String(record.hadith_number),
+            number: String(record.hadith_number),
+            source_number: String(record.hadith_number),
+            text_en: record.translation_en || record.narration_en || record.english_text || '',
+            text_ar: record.narration_ar || record.arabic_text || '',
+            source_page: { volume: null, page: slice?.page ?? null },
+            source_id: slice?.serial_number ?? String(record.hadith_number),
+            ...(subsection ? {
+              source_subheading_id: `${chapterNumber}-${subsectionIndex}`,
+              source_subheading_en: subsection.title_en,
+              source_subheading_ar: subsection.title_ar,
+            } : {}),
+            ...(footnotes.length ? { footnotes } : {}),
+          };
+        });
+        const rawHeading = chapter.original_heading_raw ?? chapter.original_heading ?? '';
+        return {
+          number: chapterNumber,
+          title_en: chapter.title_en,
+          title_ar: chapter.title_ar,
+          source_group_title_en: sourceGroup.heading_en ?? '',
+          source_group_title_ar: sourceGroup.heading_ar ?? '',
+          group: bookIndex + 1,
+          heading: { type: /باب/u.test(rawHeading) ? 'bab' : 'chapter' },
+          records,
+        };
+      })));
+    },
+    textFor: record => ({ en: record.text_en, ar: record.text_ar }),
+    partsFor: record => ({
+      en: { isnad: record.isnad_en, matn: record.matn_en },
+      ar: { isnad: record.isnad_ar, matn: record.matn_ar },
+    }),
+    numberFor: record => record.number_as_printed ?? record.hadith_number,
+    locatorFor: record => ({ volume: null, page: record.source_page?.page ?? null }),
+    editionFor: source => source.compilation.edition,
+    extraRefsFor: record => record.editorial_grade_en ? [{
+      label: 'Editorial grade',
+      value: `${record.editorial_grade_en}${record.editorial_grade ? ` · ${record.editorial_grade}` : ''}`,
+    }] : [],
+    navigationGroupsFor: source => source.navigation_groups,
+    navigationKind: 'book',
+    navigationLabel: 'Book',
+    navigationQualifier: 'source division',
+    indexDescription: 'The 38 books and 1,516 chapters follow the supplied edition’s order. Search by English or Arabic heading.',
+    notesFor: (source, metadata) => [
+      { label: 'Edition', text: `${metadata.edition}. The headings, report numbers and order follow the supplied Shamela text (book 1194).` },
+      { label: 'Structure', text: 'The index preserves the edition’s 38 books, its chapter groups, and the chapter headings beneath them. Subheadings printed within a chapter appear before their reports.' },
+      { label: 'Numbering', text: 'The reports retain their printed numbers, 1 to 4,341.' },
+      { label: 'English translation', text: 'The supplied bilingual source includes English for all 4,341 reports and its editorial notes. Some entries are marked for review in the source metadata; the English is presented as supplied.' },
+      { label: 'Footnotes', text: 'Notes from the edition are shown beside the first report from each printed page. Original Arabic and translated English are retained.' },
+    ],
+  },
+  {
     slug: 'jami-mamar-ibn-rashid',
     noun: 'Chapter',
     compiler: 'Maʿmar ibn Rāshid',

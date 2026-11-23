@@ -1,0 +1,125 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import BaseLayout from '../../../../../layouts/BaseLayout.astro';
+import { OG } from '../../../../../lib/seo';
+import { getSunanBooks, type SunanBook } from '../../../../../lib/sunan-ibn-majah-books';
+import '../../../../../styles/hadith-chapter-folio.css';
+import '../../../../../styles/sunan-book.css';
+
+export function getStaticPaths() {
+  return getSunanBooks().map((book) => ({ params: { book: String(book.number) }, props: { book } }));
+}
+
+const { book } = Astro.props as { book: SunanBook };
+const books = getSunanBooks();
+const root = path.resolve(process.cwd(), 'src/data/hadith/pages/sunan-ibn-majah');
+const firstSource = fs.readFileSync(path.join(root, book.chapters[0].file), 'utf8');
+const sourceStyles = firstSource.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? '';
+const fontImport = /@import\s+url\((['"])(https:\/\/fonts\.googleapis\.com\/[^'"]+)\1\)\s*;/i;
+const fontUrl = sourceStyles.match(fontImport)?.[2];
+const folioStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/hadith-chapter-folio.css'), 'utf8');
+const bookStyles = fs.readFileSync(path.resolve(process.cwd(), 'src/styles/sunan-book.css'), 'utf8');
+const pageStyles = `${sourceStyles.replace(fontImport, '')}\n${folioStyles}\n${bookStyles}`;
+
+const escapeHtml = (text: string) => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+function prefixIds(html: string, prefix: string): string {
+  const ids = [...html.matchAll(/\bid=["']([^"']+)["']/gi)].map((match) => match[1]);
+  let output = html;
+  for (const id of ids) output = output.replaceAll(`id="${id}"`, `id="${prefix}${id}"`).replaceAll(`id='${id}'`, `id='${prefix}${id}'`);
+  output = output.replace(/\bhref=(["'])#([^"']+)\1/gi, (_match, quote, id) => `href=${quote}#${prefix}${id}${quote}`);
+  output = output.replace(/\b(aria-labelledby|aria-describedby|aria-controls)=(["'])([^"']+)\2/gi, (_match, name, quote, value) =>
+    `${name}=${quote}${value.split(/\s+/).map((id: string) => `${prefix}${id}`).join(' ')}${quote}`
+  );
+  return output;
+}
+
+const babSections = book.chapters.map((chapter) => {
+  const source = fs.readFileSync(path.join(root, chapter.file), 'utf8');
+  const main = source.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+  if (!main) throw new Error(`Sunan Ibn Mājah: chapter ${chapter.n} has no main text`);
+  const reports = [...main.matchAll(/<article\b(?=[^>]*\bclass=["'][^"']*\bhadith\b[^"']*["'])[^>]*>[\s\S]*?<\/article>/gi)]
+    .map((match) => match[0]);
+  if (reports.length !== chapter.count) {
+    throw new Error(`Sunan Ibn Mājah: chapter ${chapter.n} contains ${reports.length} rendered reports, expected ${chapter.count}`);
+  }
+  const reportHtml = reports.map((html) => prefixIds(html, `sm-bab-${chapter.n}-`)
+    .replace(/(<div class="hadith-count"[^>]*>\s*)<span>Chapter<\/span>\s*(<strong>\d+<\/strong>)\s*<span>\/\s*\d+<\/span>/i, '$1<span>Report</span>$2')
+  ).join('\n');
+  return `<section class="sm-book-bab" id="bab-${chapter.n}" aria-labelledby="bab-heading-${chapter.n}">
+    <header class="sm-book-bab__heading">
+      <p class="sm-book-bab__eyebrow">Bāb ${String(chapter.n).padStart(3, '0')} <span>·</span> Nos. ${escapeHtml(chapter.first)}–${escapeHtml(chapter.last)}</p>
+      <h2 id="bab-heading-${chapter.n}">${escapeHtml(chapter.title_en)}</h2>
+      <p class="sm-book-bab__arabic" lang="ar" dir="rtl">${escapeHtml(chapter.title_ar)}</p>
+      <p class="sm-book-bab__count">${chapter.count.toLocaleString('en-US')} ${chapter.count === 1 ? 'report' : 'reports'}</p>
+    </header>
+    ${reportHtml}
+  </section>`;
+}).join('\n');
+
+const pageUrl = `/hadith/collection/sunan-ibn-majah/book/${book.number}/`;
+const bookPosition = books.findIndex((entry) => entry.number === book.number);
+const previous = books[bookPosition - 1];
+const next = books[bookPosition + 1];
+---
+
+<BaseLayout
+  title={`Kitāb ${book.number}: ${book.title} | Sunan Ibn Mājah | HadithCritic`}
+  description={`Read ${book.reportCount.toLocaleString('en-US')} reports in ${book.chapters.length.toLocaleString('en-US')} bābs of ${book.title}, in Sunan Ibn Mājah.`}
+  image={OG.collection('sunan-ibn-majah')}
+  imageAlt="Sunan Ibn Mājah | HadithCritic"
+  crumbs={[
+    { name: 'Home', url: '/' },
+    { name: 'Corpus', url: '/hadith/' },
+    { name: 'Sunan Ibn Mājah', url: '/hadith/collection/sunan-ibn-majah/' },
+    { name: `Kitāb ${book.number}: ${book.title}`, url: pageUrl }
+  ]}
+>
+  {fontUrl && <link slot="head" rel="stylesheet" href={fontUrl} />}
+  <style is:inline set:html={pageStyles}></style>
+
+  <header class="sm-reading-hero">
+    <div class="sm-reading-hero__inner">
+      <a class="sm-reading-hero__back" href="/hadith/collection/sunan-ibn-majah/#chapters">← All 38 kitābs</a>
+      <p class="sm-reading-hero__eyebrow">Sunan Ibn Mājah <span>·</span> Kitāb {String(book.number).padStart(2, '0')}</p>
+      <h1>{book.title}</h1>
+      <p class="sm-reading-hero__meta">{book.chapters.length.toLocaleString('en-US')} bābs <span>·</span> {book.reportCount.toLocaleString('en-US')} reports <span>·</span> Nos. {book.firstReport}–{book.lastReport}</p>
+    </div>
+  </header>
+
+  <section class="chapter hc-chapter-layout sm-book-layout" aria-label={`Kitāb ${book.number}: ${book.title}`}>
+    <aside class="hc-chapter-index sm-book-index" aria-label={`Bābs in ${book.title}`}>
+      <div class="hc-index-sticky">
+        <p class="hc-index-kicker">IN THIS KITĀB</p>
+        <p class="sm-book-index__count">{book.chapters.length} bābs · reports {book.firstReport}–{book.lastReport}</p>
+        <nav>
+          {book.chapters.map((chapter) => (
+            <a href={`#bab-${chapter.n}`}><span>{String(chapter.n).padStart(3, '0')}</span><i aria-hidden="true"></i></a>
+          ))}
+        </nav>
+        <a class="hc-index-back" href="/hadith/collection/sunan-ibn-majah/#chapters">← All kitābs</a>
+      </div>
+    </aside>
+
+    <div class="sm-book-content">
+      <div class="sm-book-content__intro">
+        <p>Book {book.number} <span>·</span> Reports {book.firstReport}–{book.lastReport}</p>
+        <h2>{book.title}</h2>
+        <p>Each bāb heading marks the reports that follow it.</p>
+      </div>
+      <Fragment set:html={babSections} />
+      <nav class="sm-book-pagination" aria-label="Move between books">
+        {previous
+          ? <a href={`/hadith/collection/sunan-ibn-majah/book/${previous.number}/`}><small>Previous kitāb</small><span>{previous.title}</span></a>
+          : <a href="/hadith/collection/sunan-ibn-majah/#chapters"><small>Back to contents</small><span>All 38 kitābs</span></a>}
+        {next && <a href={`/hadith/collection/sunan-ibn-majah/book/${next.number}/`}><small>Next kitāb</small><span>{next.title}</span></a>}
+      </nav>
+    </div>
+  </section>
+</BaseLayout>

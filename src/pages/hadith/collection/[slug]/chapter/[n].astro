@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import BaseLayout from "../../../../../layouts/BaseLayout.astro";
 import { OG } from "../../../../../lib/seo";
+import { coverFor } from "../../../../../lib/hadith-art";
 
 export function getStaticPaths() {
   const editions = [
@@ -31,6 +32,7 @@ export function getStaticPaths() {
     { slug: "kitab-al-kharaj-yahya-ibn-adam", title: "Kitāb al-Kharāj of Yaḥyā ibn Ādam", noun: "Chapter" },
     { slug: "kitab-al-salah-abu-nuaym", title: "Kitāb al-Ṣalāh of Abū Nuʿaym al-Faḍl ibn Dukayn", noun: "Chapter" },
     { slug: "sunan-al-athram", title: "Sunan al-Athram", noun: "Chapter" },
+    { slug: "sunan-ibn-majah", title: "Sunan Ibn Mājah", noun: "Chapter" },
   ];
   return editions.flatMap((edition) => {
     const root = path.resolve(process.cwd(), "src/data/hadith/pages", edition.slug);
@@ -47,19 +49,28 @@ const { edition, chapter } = Astro.props;
 const unitNoun: string = chapter.noun ?? edition.noun;
 const root = path.resolve(process.cwd(), "src/data/hadith/pages", edition.slug);
 const sourceHtml = fs.readFileSync(path.join(root, chapter.file), "utf8");
+const cover = coverFor(edition.slug);
 // Move the complete font import to the outer head, preserving the semicolons
 // within the Google Fonts URL and the chapter's own CSS variables.
 const sourceStyles = sourceHtml.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i)?.[1] ?? "";
 const fontImport = /@import\s+url\((['"])(https:\/\/fonts\.googleapis\.com\/[^'"]+)\1\)\s*;/i;
 const fontUrl = sourceStyles.match(fontImport)?.[2];
-const chapterStyles = sourceStyles.replace(fontImport, "");
-const pageHtml = sourceHtml
+const folioStyles = fs.readFileSync(path.resolve(process.cwd(), "src/styles/hadith-chapter-folio.css"), "utf8");
+const chapterStyles = `${sourceStyles.replace(fontImport, "")}\n${folioStyles}`;
+let pageHtml = sourceHtml
   .replace(/<!doctype\s+html[^>]*>/i, "")
   .replace(/<head\b[^>]*>[\s\S]*?<\/head>/i, "")
   .replace(/<\/?html\b[^>]*>/gi, "")
   .replace(/<\/?body\b[^>]*>/gi, "")
   .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, "")
   .replace(/<button\b[^>]*(?:id=["']print["']|data-print)[^>]*>[\s\S]*?<\/button>/gi, "");
+const hadithIds = [...pageHtml.matchAll(/<article\b(?=[^>]*\bclass=["'][^"']*\bhadith\b[^"']*["'])[^>]*\bid=["']([^"']+)["'][^>]*>/gi)]
+  .map((match, index) => ({ id: match[1], number: index + 1 }));
+const indexMarkup = `<aside class="hc-chapter-index" aria-label="Narration index"><div class="hc-index-sticky"><p class="hc-index-kicker">IN THIS SECTION</p><div class="hc-index-progress"><span><b data-index-current>01</b> / ${String(hadithIds.length).padStart(2, "0")}</span><i><b data-index-progress></b></i></div><nav>${hadithIds.map(({ id, number }) => `<a href="#${id}" data-index-link="${id}"><span>${String(number).padStart(2, "0")}</span><i></i></a>`).join("")}</nav><a class="hc-index-back" href="/hadith/collection/${edition.slug}/">← All sections</a></div></aside>`;
+pageHtml = pageHtml
+  .replace(/(<section\b[^>]*\bclass=["'][^"']*\bhero\b[^"']*["'][^>]*)(>)/i, `$1 style="--hc-cover: url('${cover.src}'); --hc-cover-position: ${cover.position}"$2`)
+  .replace(/(<main\b(?=[^>]*\bclass=["'][^"']*\bchapter\b[^"']*["'])[^>]*>)/i, `$1<div class="hc-chapter-layout">${indexMarkup}<div class="hc-chapter-content">`)
+  .replace(/<\/main>/i, "</div></div></main>");
 const pageUrl = `/hadith/collection/${edition.slug}/chapter/${chapter.n}/`;
 ---
 
@@ -83,4 +94,29 @@ const pageUrl = `/hadith/collection/${edition.slug}/chapter/${chapter.n}/`;
   {/* Apply chapter rules after the shared site stylesheet, before chapter markup is parsed. */}
   <style is:inline set:html={chapterStyles}></style>
   <Fragment set:html={pageHtml} />
+  <script is:inline>
+    (() => {
+      const links = [...document.querySelectorAll(".hc-chapter-index [data-index-link]")];
+      const current = document.querySelector("[data-index-current]");
+      const progress = document.querySelector("[data-index-progress]");
+      if (!links.length) return;
+      const setActive = (id) => {
+        const index = links.findIndex((link) => link.dataset.indexLink === id);
+        links.forEach((link, i) => link.classList.toggle("is-active", i === index));
+        if (current && index >= 0) current.textContent = String(index + 1).padStart(2, "0");
+        if (progress && index >= 0) progress.style.width = `${((index + 1) / links.length) * 100}%`;
+      };
+      setActive(links[0].dataset.indexLink);
+      if ("IntersectionObserver" in window) {
+        const observer = new IntersectionObserver((entries) => {
+          const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible[0]) setActive(visible[0].target.id);
+        }, { rootMargin: "-18% 0px -68% 0px" });
+        links.forEach((link) => {
+          const target = document.getElementById(link.dataset.indexLink);
+          if (target) observer.observe(target);
+        });
+      }
+    })();
+  </script>
 </BaseLayout>

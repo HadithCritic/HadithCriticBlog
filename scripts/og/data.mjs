@@ -65,7 +65,7 @@ function loadArticles() {
  */
 function loadLibrary() {
   const NARRATION_COUNTS = { 'birr-al-walidayn': 78 };
-  const FIXED_COUNTS = { 'sahifat-hammam-ibn-munabbih': 137, 'fada-il-makka': 7 };
+  const FIXED_COUNTS = { 'sahifat-hammam-ibn-munabbih': 138, 'fada-il-makka': 7 };
   const shamail = { slug: 'al-shama-il-al-muhammadiyah', title_en: "Al-Shama'il al-Muhammadiyah", title_ar: 'الشمائل المحمدية' };
   const count = (slug) => {
     if (NARRATION_COUNTS[slug]) return NARRATION_COUNTS[slug];

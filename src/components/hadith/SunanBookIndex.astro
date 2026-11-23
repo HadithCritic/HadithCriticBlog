@@ -1,0 +1,72 @@
+---
+interface Book {
+  number: number;
+  title: string;
+  titleAr: string;
+  chapters: number;
+  reports: number;
+  firstReport: string;
+  lastReport: string;
+}
+
+const { books } = Astro.props as { books: Book[] };
+const totalReports = books.reduce((total, book) => total + book.reports, 0);
+const pad = (number: number) => String(number).padStart(2, '0');
+---
+
+<section class="sm-index" id="chapters" aria-labelledby="sm-index-title" data-pf-index data-pf-plural="kitābs">
+  <div class="hc-container sm-index__inner">
+    <header class="sm-index__heading">
+      <div>
+        <p class="sm-index__eyebrow">Compiler’s order · {books.length} kitābs</p>
+        <h2 id="sm-index-title">The book <em>index.</em></h2>
+        <p class="sm-index__intro">Browse the edition in order. Each book opens with its bābs and reports together.</p>
+      </div>
+      <p class="sm-index__annotation"><strong>{books.length}</strong><span>kitābs · {totalReports.toLocaleString('en-US')} reports</span></p>
+    </header>
+
+    <div class="sm-index__tools">
+      <label class="sm-index__search">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        <span class="sm-visually-hidden">Search kitābs by English or Arabic title</span>
+        <input type="search" data-pf-filter placeholder="Find a kitāb in English or Arabic…" autocomplete="off" spellcheck="false" aria-describedby="pf-count" aria-keyshortcuts="Control+K Meta+K" />
+        <kbd aria-hidden="true">Ctrl K</kbd>
+      </label>
+      <div class="sm-index__sort" role="group" aria-label="Sort kitābs">
+        <button type="button" data-pf-sort="book" aria-pressed="true">Source order</button>
+        <button type="button" data-pf-sort="size" aria-pressed="false">Most reports</button>
+        <button type="button" data-pf-sort="alpha" aria-pressed="false">Name A–Z</button>
+      </div>
+    </div>
+
+    <div class="sm-index__status">
+      <p id="pf-count" aria-live="polite" data-pf-count>Showing {Math.min(24, books.length)} of {books.length} kitābs</p>
+      <span>Open a kitāb to read its source text</span>
+    </div>
+
+    <ul class="sm-book-grid" role="list" data-pf-grid>
+      {books.map((book) => (
+        <li class="sm-book-card pf-card" data-pf-en={book.title} data-pf-ar={book.titleAr} data-pf-group="source-order" data-pf-n={book.number} data-pf-size={book.reports}>
+          <a href={`/hadith/collection/sunan-ibn-majah/book/${book.number}/`} aria-label={`Kitāb ${book.number}: ${book.title}, ${book.chapters} bābs, ${book.reports} reports`}>
+            <span class="sm-book-card__number" aria-hidden="true">{pad(book.number)}</span>
+            <span class="sm-book-card__copy">
+              <span class="sm-book-card__meta">Kitāb {pad(book.number)}</span>
+              <strong>{book.title}</strong>
+              {book.titleAr && <span class="sm-book-card__arabic" lang="ar" dir="rtl">{book.titleAr}</span>}
+              <span class="sm-book-card__detail">{book.chapters.toLocaleString('en-US')} bābs <i aria-hidden="true">·</i> {book.reports.toLocaleString('en-US')} reports</span>
+              <small>Nos. {book.firstReport}–{book.lastReport}</small>
+            </span>
+            <svg class="sm-book-card__arrow" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5 11 11 5M6 5h5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+          </a>
+        </li>
+      ))}
+    </ul>
+    <div class="sm-index__more"><button type="button" data-pf-more hidden>Show more kitābs</button><span data-pf-remaining hidden></span></div>
+    <p class="sm-index__empty" data-pf-empty hidden>No kitābs match. Try another title.</p>
+  </div>
+</section>
+
+<script>
+  import { bindBookFilter } from '../../lib/painted-front-filter';
+  bindBookFilter(document);
+</script>
